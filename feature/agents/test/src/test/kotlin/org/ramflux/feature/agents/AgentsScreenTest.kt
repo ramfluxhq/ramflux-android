@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.text.intl.LocaleList
+import androidx.compose.ui.unit.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -39,6 +40,38 @@ class AgentsScreenTest {
         compose.onNodeWithText("Enter a responsibility.").performScrollTo().assertExists()
         compose.onAllNodesWithText("Create Agent").onLast().performClick()
         compose.runOnIdle { assertEquals(listOf(AgentsAction.Create), actions) }
+    }
+
+    @Test fun actualCreationScreenShowsInactiveFinalDefaultsInBothLocales() {
+        var locale by mutableStateOf("en")
+        val repo = FakeAgentConfiguration()
+        val vm = AgentsViewModel(repo, FakeAgentAccounts(), FakeAgentSession())
+        vm.onAction(AgentsAction.Visible(true))
+        compose.setContent {
+            AppLanguageProvider(locale) {
+                DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(900.dp, 1200.dp))) {
+                    val state by vm.state.collectAsState()
+                    RamfluxTheme { AgentsScreen(state, vm::onAction) }
+                }
+            }
+        }
+        compose.waitUntil(5_000) { vm.state.value.unavailable }
+        compose.runOnIdle { vm.onAction(AgentsAction.Mode(AgentCapability.CREATE)) }
+        compose.waitUntil(5_000) { vm.state.value.mode == AgentCapability.CREATE && !vm.state.value.loading }
+        compose.onNodeWithText("Not bound · Not running. No provider, model or runtime binding is configured.").assertExists()
+        compose.onNodeWithText("No tools are enabled. Full authorization is off.").assertExists()
+        compose.onNodeWithText("Owner private conversation only.").assertExists()
+        val checks = repo.modes.size
+        compose.runOnIdle { locale = "zh-CN" }
+        compose.onNodeWithText("未绑定 · 未运行。尚未配置提供方、模型或运行绑定。").assertExists()
+        compose.onNodeWithText("未启用任何工具。完全授权已关闭。").assertExists()
+        compose.onNodeWithText("仅限所有者的私人会话。").assertExists()
+        compose.runOnIdle {
+            assertEquals(checks, repo.modes.size)
+            assertTrue(repo.creates.isEmpty())
+            assertTrue(vm.state.value.unavailable)
+        }
+        vm.onAction(AgentsAction.Visible(false))
     }
 
     @Test fun chineseUnavailableDoesNotClaimAnEmptyOrCreatedAgent() {

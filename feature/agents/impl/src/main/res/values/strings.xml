@@ -30,9 +30,9 @@
     <string name="agents_waves">Waves</string>
     <string name="agents_star">Star</string>
     <string name="agents_defaults">Planned defaults · configuration unavailable</string>
-    <string name="agents_runtime">Local runtime; runtime credentials stay on this device.</string>
-    <string name="agents_tools">Conversation messages only; other tools are not enabled.</string>
-    <string name="agents_scope">Private conversation with you only.</string>
+    <string name="agents_runtime">Not bound · Not running. No provider, model or runtime binding is configured.</string>
+    <string name="agents_tools">No tools are enabled. Full authorization is off.</string>
+    <string name="agents_scope">Owner private conversation only.</string>
     <string name="agents_desktop">Full configuration belongs in the desktop flow when supported.</string>
     <string name="agents_name_required">Enter a name.</string>
     <string name="agents_name_limit">Use at most 40 Unicode characters and 256 UTF-8 bytes.</string>

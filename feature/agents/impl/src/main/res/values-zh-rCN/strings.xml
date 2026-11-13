@@ -30,9 +30,9 @@
     <string name="agents_waves">波纹</string>
     <string name="agents_star">星形</string>
     <string name="agents_defaults">计划的默认设置 · 配置暂不可用</string>
-    <string name="agents_runtime">本机运行时；运行凭据仅保存在本机。</string>
-    <string name="agents_tools">仅读取会话消息；其他工具未启用。</string>
-    <string name="agents_scope">仅与你的私人会话。</string>
+    <string name="agents_runtime">未绑定 · 未运行。尚未配置提供方、模型或运行绑定。</string>
+    <string name="agents_tools">未启用任何工具。完全授权已关闭。</string>
+    <string name="agents_scope">仅限所有者的私人会话。</string>
     <string name="agents_desktop">完整配置将在受支持时通过桌面端进行。</string>
     <string name="agents_name_required">请输入名称。</string>
     <string name="agents_name_limit">最多输入 40 个 Unicode 字符和 256 个 UTF-8 字节。</string>
