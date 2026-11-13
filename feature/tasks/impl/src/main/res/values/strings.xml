@@ -88,4 +88,5 @@
     <string name="tasks_intervention_closed">Intervention closed</string>
     <string name="tasks_invalid_decision">Invalid decision</string>
     <string name="tasks_submit_conflict">Submission conflict</string>
+    <string name="tasks_confirm_accessibility">Confirm: %1$s</string>
 </resources>

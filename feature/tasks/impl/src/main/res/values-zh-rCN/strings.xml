@@ -88,4 +88,5 @@
     <string name="tasks_intervention_closed">介入操作已关闭</string>
     <string name="tasks_invalid_decision">无效决定</string>
     <string name="tasks_submit_conflict">提交冲突</string>
+    <string name="tasks_confirm_accessibility">确认：%1$s</string>
 </resources>

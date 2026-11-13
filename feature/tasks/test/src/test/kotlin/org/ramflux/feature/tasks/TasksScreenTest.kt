@@ -63,9 +63,26 @@ class TasksScreenTest {
         compose.setContent { RamfluxTheme { TasksScreen(TasksState(fresh = true, confirmation = facts), actions::add) } }
         compose.onNodeWithText("account-A").assertExists()
         compose.onNodeWithText("task-A").assertExists()
-        compose.onNodeWithText("Confirm").performClick()
-        compose.onNodeWithText("Deny").performClick()
+        compose.onNodeWithTag("host-confirmation-confirm").performTouchInput { click() }
+        compose.onNodeWithTag("host-confirmation-deny").performTouchInput { click() }
         compose.runOnIdle { assertEquals(listOf(TasksAction.Confirm("operation-A"), TasksAction.Deny), actions) }
+    }
+
+    @Test fun chineseConfirmationKeepsNativeDenyFocusAndExactActionSummary() {
+        val facts = TaskConfirmation("op", uiText(R.string.tasks_cancel), persistentListOf(UiText.Data("task")))
+        compose.setContent {
+            AppLanguageProvider(
+                "zh-CN"
+            ) { RamfluxTheme { TasksScreen(TasksState(confirmation = facts, fresh = true), {}) } }
+        }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            val root = requireNotNull(org.robolectric.shadows.ShadowDialog.getLatestDialog()).window?.decorView
+            val deny = requireNotNull(root?.findViewWithTag<android.widget.Button>("host-confirmation-deny"))
+            val confirm = requireNotNull(root?.findViewWithTag<android.widget.Button>("host-confirmation-confirm"))
+            assertTrue(deny.isFocused)
+            assertEquals("确认：取消任务", confirm.contentDescription.toString())
+        }
     }
 
     @Test fun chineseReadFailureNeverClaimsEmptyTasks() {

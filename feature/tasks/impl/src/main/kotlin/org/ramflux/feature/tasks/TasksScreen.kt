@@ -11,7 +11,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import org.ramflux.data.TaskDecision
 import org.ramflux.designsystem.*
 import org.ramflux.feature.tasks.impl.R
@@ -209,16 +208,21 @@ fun TasksScreen(state: TasksState, onAction: (TasksAction) -> Unit) {
         }
     }
     state.confirmation?.let { facts ->
-        Dialog(onDismissRequest = { onAction(TasksAction.Deny) }) {
+        HostConfirmationDialog(onDismissRequest = { onAction(TasksAction.Deny) }) {
             RFDialogShell(stringResource(R.string.tasks_review), facts.operation.render(), theme, content = {
                 LazyColumn(Modifier.heightIn(max = (theme.gap * 20).dp)) {
                     items(facts.facts.indices.toList()) { index -> Text(facts.facts[index].render()) }
                 }
             }, actions = {
-                TextButton(onClick = { onAction(TasksAction.Deny) }) { Text(stringResource(R.string.tasks_deny)) }
-                Button(enabled = state.fresh && !state.busy && !state.loading, onClick = {
-                    onAction(TasksAction.Confirm(facts.id))
-                }) { Text(stringResource(R.string.tasks_confirm)) }
+                HostConfirmationActions(
+                    facts,
+                    stringResource(R.string.tasks_deny),
+                    stringResource(R.string.tasks_confirm),
+                    stringResource(R.string.tasks_confirm_accessibility, facts.operation.render()),
+                    enabled = state.fresh && !state.busy && !state.loading,
+                    onDeny = { onAction(TasksAction.Deny) },
+                    onConfirm = { onAction(TasksAction.Confirm(facts.id)) }
+                )
             })
         }
     }
