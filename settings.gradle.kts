@@ -19,3 +19,5 @@ include(":feature:app-shell:api", ":feature:app-shell:impl", ":feature:app-shell
 include(":feature:onboarding:api", ":feature:onboarding:impl", ":feature:onboarding:test")
 
 include(":feature:conversations:api", ":feature:conversations:impl", ":feature:conversations:test")
+
+include(":feature:chat:api", ":feature:chat:impl", ":feature:chat:test")

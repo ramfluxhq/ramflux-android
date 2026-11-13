@@ -12,5 +12,6 @@ class AndroidClientData(context: Context, expectedDescriptor: String) {
     val accounts: AccountAccessRepository = DefaultAccountAccessRepository(driver.transport)
     val nodes: NodeSetupRepository = DefaultNodeSetupRepository(driver.transport)
     val conversations: ConversationDirectoryRepository = DefaultConversationDirectoryRepository(driver.transport)
+    val history: MessageHistoryRepository = DefaultMessageHistoryRepository(driver.transport)
     val appearance: AppearanceRepository = AndroidAppearanceRepository(context.applicationContext)
 }
