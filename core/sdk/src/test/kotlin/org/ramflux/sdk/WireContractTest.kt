@@ -68,6 +68,15 @@ class WireContractTest {
         assertNull(CoreCapabilities.parse(changed, "a".repeat(64)))
     }
 
+    @Test fun generationTagsUseExactCanonicalUnsigned64BitIntegers() {
+        val maximum = """{"subscription_generation":"18446744073709551615"}""".toByteArray()
+        assertEquals(ULong.MAX_VALUE, ReplyCodec.eventGeneration(maximum))
+        for (invalid in listOf("18446744073709551616", "01", "+1", "-1", "1.0")) {
+            val frame = "{\"subscription_generation\":\"$invalid\"}".toByteArray()
+            assertNull(ReplyCodec.eventGeneration(frame))
+        }
+    }
+
     @Test fun requestLoggingRedactsSecretBody() {
         val request = CoreRequest("account.unlock", "account", "account", "key", buildJsonObject { put("passphrase", "private-secret") })
         assertFalse(request.toString().contains("private-secret"))

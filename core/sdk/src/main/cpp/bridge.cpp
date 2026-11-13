@@ -132,8 +132,8 @@ Java_org_ramflux_sdk_JniCore_eventPoll(JNIEnv* env, jobject, jlong core) {
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_org_ramflux_sdk_JniCore_eventReset(JNIEnv*, jobject, jlong core) {
-    return ramflux_v2_event_reset(static_cast<uint64_t>(core));
+Java_org_ramflux_sdk_JniCore_eventReset(JNIEnv*, jobject, jlong core, jlong generation) {
+    return ramflux_v2_event_reset(static_cast<uint64_t>(core), static_cast<uint64_t>(generation));
 }
 
 extern "C" JNIEXPORT jint JNICALL

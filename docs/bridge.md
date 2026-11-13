@@ -82,15 +82,17 @@ Ordinary `execute` rejects all subscription methods. Only `updates` creates and
 owns the native subscription. There is one active event collector per core queue. Collection holds the subscription
 operation token until `awaitClose` cancels the producer, then cancels/releases that
 same token. Recollection and reset join preceding cleanup; a fast restart cannot
-race a dying subscription. The queue is reset before opening, pre-open frames are
-discarded, and account-scoped collectors reject other accounts. Same-account
+race a dying subscription. The SDK clears the previous queue on successful
+reopen; the host does not reset an unobserved generation or drain queued
+current-generation frames before the open completion. Account-scoped collectors
+reject other accounts. Same-account
 generation filtering awaits the SDK contract extension and is not an accepted
 runtime boundary at this checkpoint. A host-visible subscription-close
 acknowledgement also awaits that SDK extension; the pinned internal close exposes
 no acknowledgement to the host. Idle polls back
 off to 100 ms. Backpressure has zero additional Flow buffering. Native overflow emits
 `resync_required`, never a continuous stream. Read snapshots, call
-`resetEventsAfterSnapshot()`, then subscribe from their journal cursor. A terminal
+`resetEventsAfterSnapshot(terminal.subscriptionGeneration)`, then subscribe from their journal cursor. A terminal
 completion has its own native credit and cannot be displaced by event overflow.
 
 ## Secret transport

@@ -26,6 +26,8 @@ class CoreClient internal constructor(
     private var freed = false
     private val operations = OperationHandles()
     private val pendingRelease = OperationHandles()
+    private val generationState = MutableStateFlow(0uL)
+    val subscriptionGeneration: StateFlow<ULong> = generationState.asStateFlow()
     private val cleanupState = MutableStateFlow<CoreError?>(null)
     /** A bounded cleanup failure stays visible, and its handle stays owned until retry or close. */
     val cleanupFailure: StateFlow<CoreError?> = cleanupState.asStateFlow()
@@ -160,8 +162,6 @@ class CoreClient internal constructor(
                         filter.body, System.currentTimeMillis() + REQUEST_TIMEOUT_MS)
                     val admission = guard.withLock {
                         if (closing) CoreError.Closed() else {
-                            val reset = native.eventReset(core)
-                            if (reset != 0) CoreError.Native(reset, Effect.NONE) else {
                                 require(BoundedJson.accepts(filter.body))
                                 val bytes = encodeRequest(request)
                                 val ownership = LongArray(1)
@@ -172,7 +172,6 @@ class CoreClient internal constructor(
                                 }
                                 if (reply.code != 0 || subscription == 0L) ReplyCodec.submitRefusal(reply).error
                                 else { reply.body.fill(0); null }
-                            }
                         }
                     }
                     if (admission != null) { send(CoreUpdate.Failure(admission)); return@launch }
@@ -182,20 +181,25 @@ class CoreClient internal constructor(
                         val completion = guard.withLock { if (closing) null else native.operationPoll(core, subscription) } ?: return@launch
                         if (completion.code == PENDING) {
                             completion.body.fill(0)
-                            // Old frames polled before the open barrier cannot enter the new stream.
-                            var drained = 0
-                            while (drained++ < 64) {
-                                val old = guard.withLock { native.eventPoll(core) }
-                                old.body.fill(0)
-                                if (old.code != 0) break
-                            }
+                            // The SDK clears prior buffered frames on successful reopen. Keep
+                            // current-generation frames queued until the open result is adopted.
                             if (System.currentTimeMillis() >= request.deadlineUnixMs) {
                                 send(CoreUpdate.Failure(CoreError.Native(10, Effect.UNKNOWN))); return@launch
                             }
                             delay(pause); pause = (pause * 2).coerceAtMost(100)
-                        } else when (val opened = ReplyCodec.decodeCompletion(completion, null)) {
-                            is CoreResult.Success -> ready = true
+                        } else {
+                            val expectedGeneration = ReplyCodec.eventGeneration(completion.body)
+                            when (val opened = ReplyCodec.decodeCompletion(completion, null)) {
+                            is CoreResult.Success -> {
+                                val tokenText = (opened.value["subscription_generation"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+                                if (expectedGeneration == null || expectedGeneration == 0uL || tokenText != expectedGeneration.toString()) {
+                                    send(CoreUpdate.Failure(CoreError.InvalidResponse())); return@launch
+                                }
+                                generationState.value = expectedGeneration
+                                ready = true
+                            }
                             is CoreResult.Failure -> { send(CoreUpdate.Failure(opened.error)); return@launch }
+                            }
                         }
                     }
                     pause = 10
@@ -203,13 +207,20 @@ class CoreClient internal constructor(
                         val reply = guard.withLock { if (closing) null else native.eventPoll(core) } ?: break
                         when (reply.code) {
                             PENDING -> { reply.body.fill(0); delay(pause); pause = (pause * 2).coerceAtMost(100) }
-                            RESYNC_REQUIRED -> { reply.body.fill(0); send(CoreUpdate.Terminal("resync_required", null)); break }
-                            else -> when (val row = ReplyCodec.decodeEvent(reply, filter.accountId)) {
+                            RESYNC_REQUIRED -> {
+                                val token = try { ReplyCodec.eventGeneration(reply.body) } finally { reply.body.fill(0) }
+                                if (token == generationState.value && token != 0uL) {
+                                    send(CoreUpdate.Terminal("resync_required", null, token)); break
+                                }
+                                if (token == null) { send(CoreUpdate.Failure(CoreError.InvalidResponse())); break }
+                                delay(pause); pause = (pause * 2).coerceAtMost(100)
+                            }
+                            else -> when (val row = ReplyCodec.decodeEvent(reply, filter.accountId, generationState.value)) {
                                 is CoreResult.Failure -> { send(CoreUpdate.Failure(row.error)); return@launch }
                                 is CoreResult.Success -> {
                                     pause = 10
                                     row.value?.let { owned ->
-                                        try { send(CoreUpdate.Events(owned)) }
+                                        try { send(CoreUpdate.Events(owned, generationState.value)) }
                                         catch (cancelled: CancellationException) { owned.close(); throw cancelled }
                                     }
                                 }
@@ -234,12 +245,12 @@ class CoreClient internal constructor(
         }
     }.buffer(0)
 
-    suspend fun resetEventsAfterSnapshot(): CoreResult<JsonObject> = withContext(io) {
+    suspend fun resetEventsAfterSnapshot(expectedGeneration: ULong): CoreResult<JsonObject> = withContext(io) {
         eventLane.withLock {
             reapCleanup()?.let { return@withLock CoreResult.Failure(it) }
             guard.withLock {
                 if (closing) CoreResult.Failure(CoreError.Closed())
-                else ReplyCodec.decode(NativeReply(native.eventReset(core), byteArrayOf()))
+                else ReplyCodec.decode(NativeReply(native.eventReset(core, expectedGeneration.toLong()), byteArrayOf()))
             }
         }
     }

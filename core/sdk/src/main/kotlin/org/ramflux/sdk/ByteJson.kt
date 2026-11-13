@@ -97,6 +97,20 @@ internal class ByteJson(private val bytes: ByteArray) {
         }
         return value
     }
+    fun unsignedDecimal(node: Node): ULong {
+        val chars = chars(node)
+        return try {
+            require(chars.isNotEmpty() && (chars.size == 1 || chars[0] != '0'))
+            var value = 0uL
+            for (char in chars) {
+                require(char in '0'..'9')
+                val digit = (char.code - 48).toULong()
+                require(value <= (ULong.MAX_VALUE - digit) / 10uL)
+                value = value * 10uL + digit
+            }
+            value
+        } finally { chars.fill('\u0000') }
+    }
     fun copy(node: Node): ByteArray = bytes.copyOfRange(node.start, node.end)
     fun chars(node: Node): CharArray {
         require(node.kind == 34)

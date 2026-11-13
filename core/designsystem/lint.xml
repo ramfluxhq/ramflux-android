@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<lint>
+    <!-- Frozen generated private style helper is composed with Modifier.then by its callers. -->
+    <issue id="ModifierFactoryExtensionFunction">
+        <ignore path="src/main/kotlin/org/ramflux/generated/RFComponents.kt" />
+    </issue>
+</lint>

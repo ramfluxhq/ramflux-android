@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2026 Span Brain
+
+package org.ramflux.feature.appshell
+
+sealed interface AppShellEvent {
+    data class Navigate(val featureId: String) : AppShellEvent
+}

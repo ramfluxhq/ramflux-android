@@ -7,6 +7,9 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import importlib.util
+import tempfile
+import sys
 
 p = argparse.ArgumentParser()
 p.add_argument('sdk')
@@ -18,6 +21,25 @@ policy = json.loads(payload)
 assert policy['abi_major'] == 2 and policy['policy_version'] == 1
 (root / 'sdk-contract/ramflux_sdk_methods.json').write_bytes(payload)
 (root / 'sdk-contract/pin.json').write_text(json.dumps({'revision': subprocess.check_output(['git', '-C', a.sdk, 'rev-parse', a.revision], text=True).strip(), 'policy_sha256': hashlib.sha256(payload).hexdigest()}, indent=2) + '\n')
+# Derive the expected descriptor from the same immutable revision, never negotiation echo.
+descriptor = subprocess.check_output(['git', '-C', a.sdk, 'show', a.revision + ':crates/ramflux-protocol/src/message/descriptor.bin'])
+helper = subprocess.check_output(['git', '-C', a.sdk, 'show', a.revision + ':scripts/reference/username_directory/pure_blake3.py'])
+assert len(descriptor) <= 1024 * 1024 and len(helper) <= 1024 * 1024
+with tempfile.TemporaryDirectory(prefix='rf-descriptor-pin-') as directory:
+    helper_path = Path(directory) / 'pinned_blake3.py'
+    helper_path.write_bytes(helper)
+    spec = importlib.util.spec_from_file_location('_rf_pinned_blake3', helper_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    hasher = module.Hasher()
+    hasher.update(descriptor)
+    fingerprint = hasher.finalize().hex()
+(root / 'sdk-contract/descriptor.json').write_text(json.dumps({
+    'revision': subprocess.check_output(['git', '-C', a.sdk, 'rev-parse', a.revision], text=True).strip(),
+    'blake3': fingerprint, 'sha256': hashlib.sha256(descriptor).hexdigest(),
+}, indent=2) + '\n')
 h = '// SPDX-License-Identifier: AGPL-3.0-or-later\n// Copyright (c) 2026 Span Brain\n// Generated from the pinned SDK method policy.\n\n'
 rows = '\n'.join('        "' + m['name'] + '" to MethodPolicy(' + ', '.join(str(m[k]).lower() for k in ['secret_input','secret_output','show_once']) + ', "' + m['capability'] + '"),' for m in policy['methods'])
 (root / 'core/sdk/src/main/kotlin/org/ramflux/sdk/MethodPolicy.kt').write_text(h + '''package org.ramflux.sdk

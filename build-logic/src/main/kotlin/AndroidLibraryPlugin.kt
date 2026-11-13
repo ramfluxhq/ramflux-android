@@ -16,7 +16,7 @@ class AndroidLibraryPlugin : Plugin<Project> {
         pluginManager.apply("org.jetbrains.kotlin.android")
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
         extensions.configure<LibraryExtension> {
-            namespace = "org.ramflux." + path.trim(':').replace(':', '.')
+            namespace = "org.ramflux." + path.trim(':').replace(':', '.').replace('-', '_')
             compileSdk = libs.findVersion("compileSdk").get().requiredVersion.toInt()
             ndkVersion = libs.findVersion("ndk").get().requiredVersion
             defaultConfig {
@@ -32,7 +32,7 @@ class AndroidLibraryPlugin : Plugin<Project> {
                 warningsAsErrors = true
                 abortOnError = true
                 // Keep upgrade advice visible without making pinned builds depend on release timing.
-                informational += setOf("AndroidGradlePluginVersion", "NewerVersionAvailable")
+                informational += setOf("AndroidGradlePluginVersion", "NewerVersionAvailable", "GradleDependency")
             }
             if (path in setOf(":core:sdk", ":core:data")) {
                 sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/kotlin"))

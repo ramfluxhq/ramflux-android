@@ -7,10 +7,11 @@ import kotlinx.serialization.json.*
 
 /** Stateful ABI oracle: ownership, bounded credit, cancellation, subscriptions and leases. */
 class FakeAbi : NativeCore {
-    data class Operation(val method: String, val account: String?, var completion: ByteArray?, var admitted: Boolean, var detached: Boolean = false)
+    data class Operation(val method: String, val account: String?, var completion: ByteArray?, var admitted: Boolean, var detached: Boolean = false, var generation: ULong? = null)
     data class Client(val root: String, val operations: MutableMap<Long, Operation> = mutableMapOf(),
-        var subscription: Long? = null, val events: ArrayDeque<ByteArray> = ArrayDeque(), var bytes: Int = 0, var resync: Boolean = false, var waitingClose: Boolean = false, var carrierClosed: Boolean = false)
+        var subscription: Long? = null, val events: ArrayDeque<ByteArray> = ArrayDeque(), var bytes: Int = 0, var resync: Boolean = false, var waitingClose: Boolean = false, var carrierClosed: Boolean = false, var generation: ULong = 0uL)
     private var next = 1L
+    private var nextGeneration = 1uL
     private val clients = mutableMapOf<Long, Client>()
     private val leases = mutableMapOf<String, Long>()
     val handles: List<Long> get() = clients.keys.toList()
@@ -35,19 +36,24 @@ class FakeAbi : NativeCore {
     fun client(core: Long) = clients.getValue(core)
     fun finish(core: Long, operation: Long, code: Int = 0) {
         val op = client(core).operations.getValue(operation)
-        op.completion = completion(op.method, op.account, code)
+        if (op.method in setOf("subscription.open", "bus.subscribe") && code == 0 && op.generation == null) activate(client(core), op)
+        op.completion = completion(op.method, op.account, code, op.generation)
         if (op.detached) client(core).operations.remove(operation)?.completion?.fill(0)
     }
     fun admit(core: Long, operation: Long) { client(core).operations.getValue(operation).admitted = true }
     fun releaseTimedOutOwner() { leases.clear(); closeTimeout = false }
-    fun event(core: Long, account: String, marker: String) = enqueue(core, buildJsonObject {
+    fun event(core: Long, account: String, marker: String, generation: ULong = client(core).generation) = enqueue(core, buildJsonObject {
+        put("subscription_generation", generation.toString())
         put("account_id", account); put("kind", "event"); put("marker", marker)
     }.toString().toByteArray())
     fun enqueue(core: Long, bytes: ByteArray) {
         val state = client(core)
         if (state.resync) { bytes.fill(0); return }
         if (state.events.size >= 64 || bytes.size > 4 * 1024 * 1024 - state.bytes) {
-            state.events.forEach { it.fill(0) }; state.events.clear(); state.bytes = 0; state.resync = true; bytes.fill(0)
+            if (runCatching { Json.parseToJsonElement(bytes.decodeToString()).jsonObject["subscription_generation"]?.jsonPrimitive?.content?.toULongOrNull() }.getOrNull() == state.generation) {
+                state.events.forEach { it.fill(0) }; state.events.clear(); state.bytes = 0; state.resync = true
+            }
+            bytes.fill(0)
         } else { state.events.add(bytes); state.bytes += bytes.size }
     }
     private fun out(code: Int, bytes: ByteArray = byteArrayOf(), handle: Long = 0) =
@@ -130,16 +136,28 @@ class FakeAbi : NativeCore {
             else if (pendingRequests) null else completion(method, account, 0), !pendingRequests)
         if (method in setOf("subscription.open", "bus.subscribe")) {
             state.subscription = id
+            if (!pendingRequests) {
+                val operation = state.operations.getValue(id)
+                activate(state, operation)
+                operation.completion = completion(method, account, 0, operation.generation)
+            }
             onSubscription?.invoke(core, id)
         }
         ownership[0] = id
         if (submitReplyOom) { submitReplyOom = false; throw OutOfMemoryError("injected JNI reply allocation failure") }
         return out(0, handle = id)
     }
-    private fun completion(method: String, account: String?, code: Int): ByteArray = buildJsonObject {
+    private fun activate(state: Client, operation: Operation) {
+        operation.generation = nextGeneration++
+        state.generation = operation.generation ?: 0uL
+        state.events.forEach { it.fill(0) }; state.events.clear(); state.bytes = 0; state.resync = false
+    }
+    private fun completion(method: String, account: String?, code: Int, generation: ULong? = null): ByteArray = buildJsonObject {
         put("code", code)
+        generation?.let { put("subscription_generation", it.toString()) }
         if (code != 0) put("effects", if (code == 10) "none" else "unknown")
         put("response", buildJsonObject {
+            generation?.let { put("subscription_generation", it.toString()) }
             put("ok", code == 0); put("method", method); account?.let { put("account_id", it) }
             put("body", completionBody)
         })
@@ -174,13 +192,14 @@ class FakeAbi : NativeCore {
     }
     override fun eventPoll(core: Long): NativeReply {
         val state = clients[core] ?: return out(1)
-        if (state.resync) return out(27)
+        if (state.resync) return out(27, buildJsonObject { put("kind", "stream.lagged"); put("subscription_generation", state.generation.toString()) }.toString().toByteArray())
         val bytes = state.events.removeFirstOrNull() ?: return out(if (state.carrierClosed) 26 else 24)
         state.bytes -= bytes.size
         return out(0, bytes)
     }
-    override fun eventReset(core: Long): Int {
+    override fun eventReset(core: Long, generation: Long): Int {
         val state = clients[core] ?: return 1
+        if (state.generation.toLong() != generation) return 1
         state.events.forEach { it.fill(0) }; state.events.clear(); state.bytes = 0; state.resync = false
         return 0
     }

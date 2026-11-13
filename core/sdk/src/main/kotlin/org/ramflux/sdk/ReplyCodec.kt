@@ -49,13 +49,15 @@ internal object ReplyCodec {
         CoreResult.Failure(CoreError.InvalidResponse(), operationId)
     } finally { reply.body.fill(0) }
 
-    fun decodeEvent(reply: NativeReply, accountId: String?): CoreResult<SecretReply?> = try {
+    fun decodeEvent(reply: NativeReply, accountId: String?, generation: ULong): CoreResult<SecretReply?> = try {
         if (reply.code != 0) CoreResult.Failure(error(reply.code, Effect.UNKNOWN))
         else {
             val parser = ByteJson(reply.body)
             val frame = parser.parse()
+            val token = parser.field(frame, "subscription_generation") ?: throw IllegalArgumentException("missing generation")
+            val current = parser.unsignedDecimal(token)
             val account = parser.field(frame, "account_id")
-            val matches = if (accountId == null) true else if (account?.kind != 34) false else {
+            val matches = if (current == 0uL || current != generation) false else if (accountId == null) true else if (account?.kind != 34) false else {
                 val chars = parser.chars(account)
                 try { chars.size == accountId.length && chars.indices.all { chars[it] == accountId[it] } }
                 finally { chars.fill('\u0000') }
@@ -65,6 +67,11 @@ internal object ReplyCodec {
         }
     } catch (_: Exception) { CoreResult.Failure(CoreError.InvalidResponse()) }
     finally { reply.body.fill(0) }
+
+    fun eventGeneration(bytes: ByteArray): ULong? = try {
+        val parser = ByteJson(bytes)
+        parser.field(parser.parse(), "subscription_generation")?.let { parser.unsignedDecimal(it) }
+    } catch (_: IllegalArgumentException) { null }
 
     private const val MAX_FRAME = 1 shl 20
     fun decodeCompletion(reply: NativeReply, operationId: String?): CoreResult<JsonObject> {

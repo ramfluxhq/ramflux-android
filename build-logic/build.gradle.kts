@@ -3,7 +3,12 @@
 
 plugins { `kotlin-dsl` }
 repositories { google(); mavenCentral(); gradlePluginPortal() }
-dependencies { implementation(libs.android.gradle); implementation(libs.kotlin.gradle) }
+dependencies { implementation(libs.android.gradle); implementation(libs.kotlin.gradle)
+    implementation(libs.compose.gradle)
+    implementation(libs.hilt.gradle)
+    runtimeOnly(libs.ksp.gradle)
+    implementation(libs.ktlint.gradle)
+    implementation(libs.roborazzi.gradle) }
 gradlePlugin {
     plugins { register("androidLibrary") {
         id = "ramflux.android.library"
@@ -16,5 +21,10 @@ gradlePlugin {
     register("androidPackaging") {
         id = "ramflux.android.packaging"
         implementationClass = "AndroidPackagingPlugin"
-    } }
+    }
+    register("androidCompose") { id = "ramflux.android.compose"; implementationClass = "AndroidComposePlugin" }
+    register("androidFeature") { id = "ramflux.android.feature"; implementationClass = "AndroidFeaturePlugin" }
+    register("androidTesting") { id = "ramflux.android.testing"; implementationClass = "AndroidTestingPlugin" }
+    register("androidApp") { id = "ramflux.android.app"; implementationClass = "AndroidAppPlugin" }
+    }
 }

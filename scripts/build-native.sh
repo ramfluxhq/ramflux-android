@@ -26,6 +26,13 @@ export CARGO_PROFILE_RELEASE_STRIP=none
 export CARGO_PROFILE_RELEASE_DEBUG=line-tables-only
 mkdir -p "$out/jniLibs/arm64-v8a" "$out/include" "$out/symbols/arm64-v8a" "$out/assets"
 out="$(cd "$out" && pwd)"
+python3 - "$core" "$repo" <<'PYDESC'
+import hashlib,json,sys
+from pathlib import Path
+sdk, repo = map(Path,sys.argv[1:])
+pin=json.loads((repo/'sdk-contract/descriptor.json').read_text())
+assert hashlib.sha256((sdk/'crates/ramflux-protocol/src/message/descriptor.bin').read_bytes()).hexdigest()==pin['sha256'], 'pinned descriptor mismatch'
+PYDESC
 # cargo-ndk forwards the 16 KB link flags to the one Rust shared library.
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS='-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384'
 # The pinned SDK packages its mobile SQLCipher/OpenSSL dependency.

@@ -28,7 +28,7 @@ class CoreClientTest {
         assertEquals(1, abi.client(id).operations.size)
         assertTrue(client.cleanupFailure.value is CoreError.CleanupPending)
         abi.releaseFailures = 0
-        assertTrue(client.resetEventsAfterSnapshot() is CoreResult.Success)
+        assertTrue(client.resetEventsAfterSnapshot(client.subscriptionGeneration.value) is CoreResult.Success)
         assertTrue(abi.client(id).operations.isEmpty())
         assertNull(client.cleanupFailure.value)
         assertTrue(client.execute(request()) is CoreResult.Success)
@@ -130,9 +130,9 @@ class CoreClientTest {
         val abi = FakeAbi(); val id = abi.newClient(); val client = CoreClient(abi, id, StandardTestDispatcher(testScheduler))
         abi.onSubscription = { core, _ -> repeat(65) { abi.event(core, "A", "overflow") } }
         val rows = client.updates(SubscriptionFilter("A", empty)).toList()
-        assertEquals(CoreUpdate.Terminal("resync_required", null), rows.single())
+        assertEquals(CoreUpdate.Terminal("resync_required", null, client.subscriptionGeneration.value), rows.single())
         assertEquals(27, abi.eventPoll(id).code)
-        assertTrue(client.resetEventsAfterSnapshot() is CoreResult.Success)
+        assertTrue(client.resetEventsAfterSnapshot(client.subscriptionGeneration.value) is CoreResult.Success)
         assertEquals(24, abi.eventPoll(id).code)
         abi.onSubscription = { core, _ -> abi.event(core, "A", "after-reset") }
         val resumed = client.updates(SubscriptionFilter("A", empty)).take(1).toList()
@@ -145,7 +145,7 @@ class CoreClientTest {
         abi.onSubscription = { core, _ -> repeat(65) { abi.event(core, "A", "overflow") } }
         var reset = false
         client.updates(SubscriptionFilter("A", empty)).collect { row ->
-            if (row is CoreUpdate.Terminal) reset = client.resetEventsAfterSnapshot() is CoreResult.Success
+            if (row is CoreUpdate.Terminal) reset = client.resetEventsAfterSnapshot(client.subscriptionGeneration.value) is CoreResult.Success
         }
         assertTrue(reset); assertEquals(24, abi.eventPoll(id).code)
         client.close()
@@ -159,6 +159,61 @@ class CoreClientTest {
         (rows.single() as CoreUpdate.Events).body.useOnce { raw ->
             assertTrue(raw.decodeToString().contains("new-account")); assertFalse(raw.decodeToString().contains("old-account"))
         }
+        client.close()
+    }
+
+    @Test fun lateSameAccountFramesAndStaleResetCannotCrossSubscriptionGeneration() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi(); val id = abi.newClient()
+        val client = CoreClient(abi, id, StandardTestDispatcher(testScheduler))
+        abi.onSubscription = { core, _ -> abi.event(core, "A", "first") }
+        val first = client.updates(SubscriptionFilter("A", empty)).take(1).toList().single() as CoreUpdate.Events
+        val old = first.subscriptionGeneration; first.body.close(); advanceUntilIdle()
+        abi.onSubscription = { core, _ ->
+            abi.event(core, "A", "late-old", generation = old)
+            abi.event(core, "A", "new-only")
+        }
+        val second = client.updates(SubscriptionFilter("A", empty)).take(1).toList().single() as CoreUpdate.Events
+        assertNotEquals(old, second.subscriptionGeneration)
+        second.body.useOnce { assertTrue(it.decodeToString().contains("new-only")); assertFalse(it.decodeToString().contains("late-old")) }
+        advanceUntilIdle()
+        abi.event(id, "A", "keep-new-queue")
+        val stale = client.resetEventsAfterSnapshot(old) as CoreResult.Failure
+        assertEquals(1, stale.error.code)
+        val queued = abi.eventPoll(id)
+        assertTrue(queued.body.decodeToString().contains("keep-new-queue")); queued.body.fill(0)
+        assertTrue(client.resetEventsAfterSnapshot(second.subscriptionGeneration) is CoreResult.Success)
+        client.close()
+    }
+
+    @Test fun cancelledOpenCanRecollectWithoutKnowingUndeliveredGeneration() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi().apply { pendingRequests = true }; val id = abi.newClient()
+        val client = CoreClient(abi, id, StandardTestDispatcher(testScheduler))
+        lateinit var first: Job
+        abi.onSubscription = { core, token -> abi.finish(core, token); first.cancel() }
+        first = launch { client.updates(SubscriptionFilter("A", empty)).collect() }
+        runCurrent(); first.join()
+        assertEquals(0uL, client.subscriptionGeneration.value)
+        assertTrue(abi.client(id).generation != 0uL)
+        abi.pendingRequests = false
+        abi.onSubscription = { core, _ -> abi.event(core, "A", "recollected") }
+        val row = client.updates(SubscriptionFilter("A", empty)).take(1).toList().single() as CoreUpdate.Events
+        row.body.useOnce { assertTrue(it.decodeToString().contains("recollected")) }
+        client.close()
+    }
+
+    @Test fun currentFramesQueuedBeforeOpenPollCompletesAreNotDrained() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi().apply { pendingRequests = true }; val id = abi.newClient()
+        var firstPoll = true
+        val seam = object : NativeCore by abi {
+            override fun operationPoll(core: Long, operation: Long): NativeReply {
+                if (firstPoll) { firstPoll = false; return NativeReply(24, byteArrayOf()) }
+                return abi.operationPoll(core, operation)
+            }
+        }
+        val client = CoreClient(seam, id, StandardTestDispatcher(testScheduler))
+        abi.onSubscription = { core, token -> abi.finish(core, token); abi.event(core, "A", "early-current") }
+        val row = client.updates(SubscriptionFilter("A", empty)).take(1).toList().single() as CoreUpdate.Events
+        row.body.useOnce { assertTrue(it.decodeToString().contains("early-current")) }
         client.close()
     }
 

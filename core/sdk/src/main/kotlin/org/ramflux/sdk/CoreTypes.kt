@@ -77,8 +77,8 @@ class NativeReply(val code: Int, val body: ByteArray, val handle: Long = 0) {
 data class SubscriptionFilter(val accountId: String?, val body: JsonObject)
 
 sealed interface CoreUpdate {
-    class Events(val body: SecretReply) : CoreUpdate
-    data class Terminal(val kind: String, val lastSequence: String?) : CoreUpdate
+    class Events(val body: SecretReply, val subscriptionGeneration: ULong) : CoreUpdate
+    data class Terminal(val kind: String, val lastSequence: String?, val subscriptionGeneration: ULong) : CoreUpdate
     data class Failure(val error: CoreError) : CoreUpdate
 }
 

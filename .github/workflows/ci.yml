@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-name: Android bridge
+name: Android client
 on:
   push:
     branches: [main, 'feat/**']
@@ -24,7 +24,10 @@ jobs:
           packages: platform-tools platforms;android-36 build-tools;36.0.0
       - uses: gradle/actions/setup-gradle@v4
       - run: python3 scripts/check-secret-boundary.py
-      - run: ./gradlew :core:sdk:compileDebugKotlin :core:data:compileDebugKotlin :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest --console=plain
+      - run: python3 scripts/check-client-architecture.py
+      - run: ./gradlew ktlintCheck :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest --console=plain
+      - name: Record shell screenshots
+        run: ./gradlew :feature:app-shell:test:recordRoborazziDebug --console=plain
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -32,9 +35,12 @@ jobs:
           path: |
             core/*/build/reports/
             core/*/build/test-results/
+            feature/**/build/reports/
+            feature/**/build/test-results/
+            feature/**/build/outputs/roborazzi/
   native-packaging:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: android
@@ -58,27 +64,39 @@ jobs:
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0 ndk;28.2.13676358 cmake;3.22.1
       - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-ndk
+          key: cargo-mobile-v1-${{ runner.os }}-${{ runner.arch }}-ndk4.1.2-${{ hashFiles('sdk/Cargo.lock') }}
+          restore-keys: cargo-mobile-v1-${{ runner.os }}-${{ runner.arch }}-ndk4.1.2-
       - name: Install the SDK Rust toolchain and cargo-ndk
         run: |
           rustup toolchain install 1.99.0 --profile minimal --target aarch64-linux-android
-          cargo install cargo-ndk --version 4.1.2 --locked
+          if [[ "$(cargo ndk --version 2>/dev/null || true)" != "cargo-ndk 4.1.2" ]]; then
+            cargo install cargo-ndk --version 4.1.2 --locked --force
+          fi
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
       - uses: actions/cache@v4
         with:
           path: native-target
           key: native-release-symbols-v1-${{ runner.os }}-${{ steps.sdk-pin.outputs.revision }}
+          restore-keys: native-release-symbols-v1-${{ runner.os }}-
       - name: Assemble shipping-profile AAR and consumer APK
         env:
           RAMFLUX_CORE_DIR: ${{ github.workspace }}/sdk
           CARGO_TARGET_DIR: ${{ github.workspace }}/native-target
-        run: ./gradlew :core:sdk:assembleRelease :fixtures:packaging:assembleRelease lint --console=plain
+        run: ./gradlew :app:assembleDebug :core:sdk:assembleRelease :fixtures:packaging:assembleRelease lint --console=plain
       - name: Check every packaged ELF and APK zip alignment
-        run: python3 scripts/check-packaged-alignment.py core/sdk/build/outputs/aar/sdk-release.aar fixtures/packaging/build/outputs/apk/release/packaging-release-unsigned.apk
+        run: python3 scripts/check-packaged-alignment.py core/sdk/build/outputs/aar/sdk-release.aar fixtures/packaging/build/outputs/apk/release/packaging-release-unsigned.apk app/build/outputs/apk/debug/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:
           name: native-packaging
           if-no-files-found: error
           path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
             android/core/sdk/build/outputs/aar/sdk-release.aar
             android/fixtures/packaging/build/outputs/apk/release/packaging-release-unsigned.apk
       - uses: actions/upload-artifact@v4

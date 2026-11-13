@@ -14,7 +14,7 @@ interface NativeCore {
     fun operationPoll(core: Long, operation: Long): NativeReply
     fun operationCancel(core: Long, operation: Long): Int
     fun operationRelease(core: Long, operation: Long): Int
-    fun eventReset(core: Long): Int
+    fun eventReset(core: Long, generation: Long): Int
     fun eventPoll(core: Long): NativeReply
 }
 
@@ -34,7 +34,7 @@ class JniCore : NativeCore {
     override external fun operationPoll(core: Long, operation: Long): NativeReply
     override external fun operationCancel(core: Long, operation: Long): Int
     override external fun operationRelease(core: Long, operation: Long): Int
-    override external fun eventReset(core: Long): Int
+    override external fun eventReset(core: Long, generation: Long): Int
     override external fun eventPoll(core: Long): NativeReply
 
     companion object {

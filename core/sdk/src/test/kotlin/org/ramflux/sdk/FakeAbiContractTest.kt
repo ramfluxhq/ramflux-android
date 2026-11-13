@@ -59,6 +59,6 @@ class FakeAbiContractTest {
         assertEquals(1, abi.operationPoll(id, operation).code)
         assertEquals(1, abi.operationCancel(id, operation))
         assertEquals(1, abi.operationRelease(id, operation))
-        assertEquals(1, abi.eventReset(id))
+        assertEquals(1, abi.eventReset(id, 0))
     }
 }
