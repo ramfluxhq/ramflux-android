@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cards_title">卡片</string>
+    <string name="cards_back">返回</string>
+    <string name="cards_retry">重新检查</string>
+    <string name="cards_checking">正在检查卡片是否可用…</string>
+    <string name="cards_unavailable">卡片暂不可用</string>
+    <string name="cards_missing">此设备尚不支持卡片。尚未加载任何卡片内容或操作。</string>
+    <string name="cards_unsupported">此版本不支持卡片。</string>
+    <string name="cards_access">查看卡片需要安全的账户访问权限。</string>
+    <string name="cards_failed">无法检查卡片是否可用</string>
+    <string name="cards_error_code">可用性检查失败（代码 %1$s）。</string>
+    <string name="cards_unverified">无法验证卡片的可用性。</string>
+    <string name="cards_closed">私密数据已关闭。</string>
+</resources>

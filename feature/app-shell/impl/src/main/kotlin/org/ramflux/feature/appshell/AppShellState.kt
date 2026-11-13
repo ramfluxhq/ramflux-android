@@ -38,7 +38,8 @@ data class AppShellState(
             ShellDestination(ClientFeature.GROUPS, uiText(R.string.ui_groups)),
             ShellDestination(ClientFeature.CALLS, uiText(R.string.ui_calls)),
             ShellDestination(ClientFeature.AGENTS, uiText(R.string.ui_agents)),
-            ShellDestination(ClientFeature.TASKS, uiText(R.string.ui_tasks))
+            ShellDestination(ClientFeature.TASKS, uiText(R.string.ui_tasks)),
+            ShellDestination(ClientFeature.CARDS, uiText(R.string.ui_cards))
         ),
     val settings: ShellDestination = ShellDestination(ClientFeature.SETTINGS, uiText(R.string.ui_settings))
 )

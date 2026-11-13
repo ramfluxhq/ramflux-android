@@ -37,4 +37,5 @@
     <string name="ui_calls">Calls</string>
     <string name="ui_agents">Agents</string>
     <string name="ui_tasks">Tasks</string>
+    <string name="ui_cards">Cards</string>
 </resources>
