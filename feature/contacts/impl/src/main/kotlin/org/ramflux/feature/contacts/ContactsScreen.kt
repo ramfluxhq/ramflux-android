@@ -289,14 +289,9 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
                 LazyColumn(Modifier.heightIn(max = (theme.gap * 20).dp)) {
                     items(approval.targets) { target -> Text(target) }
                 }
-                HoldConfirmation(
-                    stringResource(if (approval.held) R.string.contacts_release else R.string.contacts_hold),
-                    approval.held,
-                    onStart = { onAction(ContactsAction.HoldStart) },
-                    onEnd = { onAction(ContactsAction.HoldEnd(it)) }
-                )
             }, actions = {
                 TextButton(onClick = { onAction(ContactsAction.Deny) }) { Text(stringResource(R.string.contacts_deny)) }
+                TextButton(onClick = { onAction(ContactsAction.Confirm) }) { Text(stringResource(R.string.contacts_confirm_action)) }
             })
         }
     }

@@ -39,11 +39,10 @@ class ContactsViewModel @Inject constructor(
     private var ticket = 0L
     private var activeAccount: String? = null
     private var commands: List<ContactCommand> = emptyList()
-    private var hold: Job? = null
     private val lifecycle = viewModelScope.launch {
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect { (phase, _) ->
             request?.cancel()
-            hold?.cancel()
+
             commands = emptyList()
             ticket++
             activeAccount = null
@@ -52,30 +51,13 @@ class ContactsViewModel @Inject constructor(
         }
     }
     fun onAction(action: ContactsAction) {
-        if (local.value.approval != null && action !is ContactsAction.HoldEnd &&
-            action != ContactsAction.HoldStart && action != ContactsAction.Deny
+        if (local.value.approval != null && action != ContactsAction.Confirm && action != ContactsAction.Deny
         ) {
             return
         }
         when (action) {
-            ContactsAction.HoldStart -> if (local.value.approval != null && request?.isActive != true) {
-                if (hold?.isActive == true || local.value.approval?.held == true) return
-                local.update { it.copy(approval = it.approval?.copy(held = false)) }
-                hold = viewModelScope.launch {
-                    delay(1_200)
-                    local.update { it.copy(approval = it.approval?.copy(held = true)) }
-                }
-            }
-            is ContactsAction.HoldEnd -> {
-                hold?.cancel()
-                if (action.released && local.value.approval?.held == true) {
-                    executeApproved()
-                } else {
-                    local.update { it.copy(approval = it.approval?.copy(held = false)) }
-                }
-            }
+            ContactsAction.Confirm -> if (local.value.approval != null && request?.isActive != true) executeApproved()
             ContactsAction.Deny -> {
-                hold?.cancel()
                 request?.cancel()
                 ticket++
                 commands = emptyList()

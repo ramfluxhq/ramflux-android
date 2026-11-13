@@ -29,8 +29,7 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
 @Immutable data class ContactApproval(
     val account: String,
     val operation: UiText,
-    val targets: ImmutableList<String>,
-    val held: Boolean = false
+    val targets: ImmutableList<String>
 )
 
 @Immutable data class ContactsState(
