@@ -33,6 +33,11 @@ class OnboardingScreenTest {
                 )
             }
         }
+        compose.onNodeWithTag("operator-key").performScrollTo().performTextInput("trusted-operator-key")
+        compose.runOnIdle {
+            assertEquals(listOf(OnboardingAction.OperatorKey("trusted-operator-key")), actions)
+            actions.clear()
+        }
         compose.onNodeWithText("Verify node").performClick()
         compose.runOnIdle { assertEquals(listOf(OnboardingAction.ReviewAddress), actions) }
     }

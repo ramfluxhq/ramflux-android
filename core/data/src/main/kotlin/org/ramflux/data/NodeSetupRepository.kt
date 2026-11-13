@@ -9,6 +9,6 @@ data class DiscoveredNode(val node: SavedNode, val fingerprint: String)
 interface NodeSetupRepository {
     suspend fun list(): ClientResult<List<SavedNode>>
     suspend fun discover(address: String): ClientResult<DiscoveredNode>
-    suspend fun confirm(candidate: DiscoveredNode): ClientResult<Unit>
+    suspend fun confirm(candidate: DiscoveredNode, operatorKey: String): ClientResult<Unit>
     suspend fun select(id: String): ClientResult<Unit>
 }
