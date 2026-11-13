@@ -109,6 +109,18 @@ class ChatViewModel @Inject constructor(
                 val result = history.read(currentTarget.account, currentTarget.conversation)
                 current(expected, generation, currentTarget)
                 if (!validate(expected, generation, currentTarget)) return@launch
+                val header = history.header(currentTarget.account, currentTarget.conversation)
+                current(expected, generation, currentTarget)
+                if (!validate(expected, generation, currentTarget)) return@launch
+                local.update {
+                    it.copy(
+                        title = (header as? ClientResult.Ready)?.value?.title?.takeIf { it.isNotBlank() }?.let { UiText.Data(it) },
+                        headerProblem = when (header) {
+                            is ClientResult.Ready -> null
+                            is ClientResult.Failed, is ClientResult.Unavailable -> uiText(R.string.ui_conversation_details_unavailable)
+                        }
+                    )
+                }
                 val capability = history.sendAvailability()
                 current(expected, generation, currentTarget)
                 when (result) {
@@ -116,16 +128,19 @@ class ChatViewModel @Inject constructor(
                         it.copy(
                             loaded = true,
                             rows = result.value.map { row ->
-                                MessageItem(
-                                    row.id, if (row.deleted) "" else row.sender ?: "", row.own, row.deleted,
-                                    if (row.deleted) {
-                                        uiText(R.string.ui_message_deleted)
-                                    } else {
-                                        row.text?.let {
-                                            UiText.Data(it)
-                                        } ?: uiText(R.string.ui_message_content_is_unavailable)
-                                    }
-                                )
+                                val time = row.createdAt?.let { UiText.DateTime(it) } ?: uiText(R.string.ui_time_unavailable)
+                                when (row) {
+                                    is CallSummary -> CallItem(row.id, time)
+                                    is MessageSummary -> MessageItem(
+                                        row.id, if (row.deleted) "" else row.sender ?: "", row.own, row.deleted,
+                                        if (row.deleted) {
+                                            uiText(R.string.ui_message_deleted)
+                                        } else {
+                                            row.text?.let { UiText.Data(it) } ?: uiText(R.string.ui_message_content_is_unavailable)
+                                        },
+                                        time
+                                    )
+                                }
                             }.toPersistentList(),
                             canSend = capability is ClientResult.Ready,
                             unavailable = when (capability) {

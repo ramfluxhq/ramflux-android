@@ -7,7 +7,7 @@ import org.ramflux.sdk.*
 
 internal class DefaultMessageHistoryRepository(transport: RepositoryTransport) : MessageHistoryRepository {
     private val source = DefaultConversationsRepository(transport)
-    override suspend fun read(account: String, conversation: String): ClientResult<List<MessageSummary>> {
+    override suspend fun read(account: String, conversation: String): ClientResult<List<TimelineSummary>> {
         if (account.isBlank() || conversation.isBlank() || account.length > 4096 || conversation.length > 4096) {
             return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
         }
@@ -17,11 +17,36 @@ internal class DefaultMessageHistoryRepository(transport: RepositoryTransport) :
                 is CoreResult.Failure -> ClientResult.Failed(decoded.error.appProblem())
                 is CoreResult.Success -> {
                     if (decoded.value.any { it.conversationId != conversation }) ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.NONE))
-                    else ClientResult.Ready(decoded.value.map { MessageSummary(it.id, it.sender, it.own, it.deleted, it.text) })
+                    else ClientResult.Ready(decoded.value.map { when (it) {
+                        is MessageHistoryEntry -> MessageSummary(it.id, it.sender, it.own, it.deleted, it.text, it.createdAt)
+                        is CallHistoryEntry -> CallSummary(it.id, it.createdAt)
+                    } })
                 }
             }
         }
     }
+    override suspend fun header(account: String, conversation: String): ClientResult<ConversationHeader> {
+        if (account.isBlank() || conversation.isBlank() || account.length > 4096 || conversation.length > 4096) return invalidHeader()
+        var cursor: String? = null
+        val seen = mutableSetOf<String>()
+        repeat(10) {
+            val body = buildJsonObject { put("limit", 100); cursor?.let { put("cursor", it) } }
+            val reply = when (val result = source.conversationDirectory(RepositoryContext(account), body)) {
+                is CoreResult.Failure -> return ClientResult.Failed(result.error.appProblem())
+                is CoreResult.Success -> result.value
+            }
+            val page = when (val result = ConversationDirectoryMetadataReader.read(reply)) {
+                is CoreResult.Failure -> return ClientResult.Failed(result.error.appProblem())
+                is CoreResult.Success -> result.value
+            }
+            page.rows.firstOrNull { it.id == conversation && !it.hidden }?.let { return ClientResult.Ready(ConversationHeader(it.title)) }
+            val next = page.nextCursor ?: return ClientResult.Ready(ConversationHeader(null))
+            if (next.length > 8192 || !seen.add(next)) return invalidHeader()
+            cursor = next
+        }
+        return invalidHeader()
+    }
+    private fun invalidHeader() = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.NONE))
     override suspend fun sendAvailability(): ClientResult<Unit> = unavailable()
     override suspend fun send(account: String, conversation: String, text: String): ClientResult<Unit> = unavailable()
     /** Routing, encryption and recipient selection must come from the published high-level SDK send. */
