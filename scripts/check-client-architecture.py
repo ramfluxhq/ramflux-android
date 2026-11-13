@@ -8,6 +8,8 @@ root = Path(__file__).resolve().parent.parent
 for base in ('app', 'feature', 'core/designsystem', 'core/navigation'):
     for path in (root/base).glob('**/src/main/**/*.kt'):
         text = path.read_text()
+        for removed in ('HoldConfirmation', 'RFHoldPresentation', 'hold_presentation'):
+            assert removed not in text, f'Removed hold confirmation component: {path.relative_to(root)}'
         assert 'org.ramflux.sdk' not in text, f'SDK type above Data: {path.relative_to(root)}'
         if path.name.endswith('Screen.kt'):
             assert 'kotlinx.coroutines' not in text, f'Async work in Screen: {path.relative_to(root)}'

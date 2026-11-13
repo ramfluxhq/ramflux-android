@@ -286,6 +286,7 @@ class OnboardingViewModelTest {
         assertTrue(vm.state.value.nodesLoaded)
         assertFalse(vm.state.value.busy)
     }
+
     @Test fun operatorKeyMustPrecedeDiscoveryAndCannotBeReplacedAfterIdentityIsShown() = runTest(timeout = 5.seconds) {
         val nodes = FakeNodeSetup()
         val vm = OnboardingViewModel(FakeAccountAccess(), nodes, FakeOnboardingSession())
