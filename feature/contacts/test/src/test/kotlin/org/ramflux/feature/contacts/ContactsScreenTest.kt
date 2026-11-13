@@ -28,9 +28,9 @@ class ContactsScreenTest {
         compose.setContent { RamfluxTheme { ContactsScreen(ContactsState(approval = approval), actions::add) } }
         compose.onNodeWithText("Account: account-A").assertExists()
         compose.onNodeWithText("request-A").assertExists()
-        compose.onNodeWithText("Confirm").performClick()
+        compose.onNodeWithTag("host-confirmation-confirm").performTouchInput { click() }
         compose.runOnIdle { assertEquals(listOf(ContactsAction.Confirm), actions) }
-        compose.onNodeWithText("Deny").performClick()
+        compose.onNodeWithTag("host-confirmation-deny").performTouchInput { click() }
         compose.runOnIdle { assertEquals(ContactsAction.Deny, actions.last()) }
     }
 

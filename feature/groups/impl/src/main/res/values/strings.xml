@@ -67,4 +67,5 @@
     <string name="groups_capacity">The group has reached its capacity.</string>
     <string name="groups_invalid_request">The group request is invalid.</string>
     <string name="groups_confirm">Confirm</string>
+    <string name="groups_confirm_accessibility">Confirm: %1$s</string>
 </resources>
