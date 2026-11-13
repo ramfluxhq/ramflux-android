@@ -41,6 +41,9 @@ No placeholder library, skipped native build or emulator software vault is used.
 `AndroidCoreHost.create(context, expectedDescriptorFingerprint)` derives a path below credential-protected
 `noBackupFilesDir`. The fingerprint must come from the host binding built against the SDK descriptor,
 not from a runtime negotiation echo. A mismatch fails before opening a data root.
+Negotiation also compares the complete method policy (version, method names,
+capabilities and all secret flags) with the pinned generated table. A missing or
+changed policy returns typed `MethodPolicyMismatch` before opening a writer.
 The application must await `foreground()` and `background()`
 on its lifecycle transitions; background completes only after native close has
 returned. A failed or pending shutdown retains its native handle. Foreground retries it:
@@ -58,6 +61,11 @@ cannot. Reconcile the original operation ID and frozen arguments. Submit-time re
 Cancel/release backpressure is retried with bounded backoff; unresolved handles
 remain owned and `cleanupFailure` exposes the fault until repair or close. Message contents and secrets are redacted
 from wrapper `toString()` output; the bridge performs no content logging.
+JNI submit pins a preallocated output slot before native admission and returns
+only a primitive status. Kotlin retains the operation token even if allocating
+its reply fails. Registration uses fixed 64-slot storage; cleanup makes at most
+five attempts with backoff outside the native guard. Exhaustion retains the token
+and exposes cleanup pending; it never closes the client to recover a submit OOM.
 
 Ordinary `execute` rejects all subscription methods. Only `updates` creates and
 owns the native subscription. There is one active event collector per core queue. Collection holds the subscription
@@ -66,7 +74,9 @@ same token. Recollection and reset join preceding cleanup; a fast restart cannot
 race a dying subscription. The queue is reset before opening, pre-open frames are
 discarded, and account-scoped collectors reject other accounts. Same-account
 generation filtering awaits the SDK contract extension and is not an accepted
-runtime boundary at this checkpoint. Idle polls back
+runtime boundary at this checkpoint. A host-visible subscription-close
+acknowledgement also awaits that SDK extension; the pinned internal close exposes
+no acknowledgement to the host. Idle polls back
 off to 100 ms. Backpressure has zero additional Flow buffering. Native overflow emits
 `resync_required`, never a continuous stream. Read snapshots, call
 `resetEventsAfterSnapshot()`, then subscribe from their journal cursor. A terminal

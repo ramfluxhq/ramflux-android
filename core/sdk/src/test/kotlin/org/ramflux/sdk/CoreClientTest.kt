@@ -14,7 +14,43 @@ import kotlin.time.Duration.Companion.seconds
 @OptIn(ExperimentalCoroutinesApi::class)
 class CoreClientTest {
     private val empty = JsonObject(emptyMap())
-    private fun request(method: String = "node.list") = CoreRequest(method, "node", "A", "original", empty)
+    private fun request(method: String = "node.list") = CoreRequest(method, "node", "A", "original", empty, Long.MAX_VALUE)
+
+    @Test fun replyOomRetainsOperationAfterBoundedCleanupWithoutClosingClient() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi(); val id = abi.newClient()
+        val client = CoreClient(abi, id, StandardTestDispatcher(testScheduler))
+        abi.submitReplyOom = true; abi.releaseFailures = 99
+        var failed = false
+        try { client.execute(request()) } catch (_: OutOfMemoryError) { failed = true }
+        assertTrue("the original allocation failure reaches the caller", failed)
+        assertEquals("exactly five bounded cleanup attempts", 5, abi.cancelled.size)
+        assertEquals("client must remain open", 0, abi.closes)
+        assertEquals(1, abi.client(id).operations.size)
+        assertTrue(client.cleanupFailure.value is CoreError.CleanupPending)
+        abi.releaseFailures = 0
+        assertTrue(client.resetEventsAfterSnapshot() is CoreResult.Success)
+        assertTrue(abi.client(id).operations.isEmpty())
+        assertNull(client.cleanupFailure.value)
+        assertTrue(client.execute(request()) is CoreResult.Success)
+        client.close()
+    }
+
+    @Test fun replyOomCleanupBackoffAllowsAnotherRequestThroughGuard() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi(); val id = abi.newClient()
+        val client = CoreClient(abi, id, StandardTestDispatcher(testScheduler))
+        abi.submitReplyOom = true; abi.cancelFailures = 2
+        val failed = async { try { client.execute(request()); false } catch (_: OutOfMemoryError) { true } }
+        runCurrent()
+        assertFalse(failed.isCompleted)
+        val other = async { client.execute(request()) }
+        runCurrent()
+        assertEquals("another request is admitted while cleanup is backing off", 2, abi.submitted.size)
+        assertEquals(0, abi.closes)
+        advanceUntilIdle()
+        assertTrue(failed.await()); assertTrue(other.await() is CoreResult.Success)
+        assertTrue(abi.client(id).operations.isEmpty())
+        client.close()
+    }
 
     @Test fun publicExecuteRejectsAllSubscriptionMethodsAndSecretMethods() = runTest(timeout = 5.seconds) {
         val abi = FakeAbi(); val id = abi.newClient(); val client = CoreClient(abi, id, StandardTestDispatcher(testScheduler))
@@ -131,7 +167,7 @@ class CoreClientTest {
         val operation = abi.submit(id, CoreClient.encodeRequest(request()))
         abi.admit(id, operation.handle)
         assertEquals(0, abi.operationRelease(id, operation.handle))
-        assertEquals(1, abi.operationPoll(id, operation.handle).code)
+        assertEquals(24, abi.operationPoll(id, operation.handle).code)
         assertEquals(1, abi.client(id).operations.size)
         abi.finish(id, operation.handle)
         assertTrue(abi.client(id).operations.isEmpty())
@@ -147,6 +183,6 @@ class CoreClientTest {
         assertEquals(1, abi.operationRelease(id, a.handle))
         val b = abi.submit(id, CoreClient.encodeRequest(request("subscription.open")))
         assertNotEquals(a.handle, b.handle)
-        abi.close(id); assertEquals(26, abi.eventPoll(id).code)
+        abi.close(id); assertEquals(1, abi.eventPoll(id).code)
     }
 }

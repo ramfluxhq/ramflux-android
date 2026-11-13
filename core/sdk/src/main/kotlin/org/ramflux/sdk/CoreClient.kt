@@ -24,8 +24,8 @@ class CoreClient internal constructor(
     private var eventJob: Job? = null
     private var closing = false
     private var freed = false
-    private val operations = mutableSetOf<Long>()
-    private val pendingRelease = mutableSetOf<Long>()
+    private val operations = OperationHandles()
+    private val pendingRelease = OperationHandles()
     private val cleanupState = MutableStateFlow<CoreError?>(null)
     /** A bounded cleanup failure stays visible, and its handle stays owned until retry or close. */
     val cleanupFailure: StateFlow<CoreError?> = cleanupState.asStateFlow()
@@ -72,9 +72,14 @@ class CoreClient internal constructor(
                                 else -> {
                                     val bytes = encode(deadline)
                                     require(bytes.size <= MAX_FRAME)
-                                    val reply = try { native.submit(core, bytes) } finally { bytes.fill(0) }
-                                    if (reply.code != 0 || reply.handle == 0L) ReplyCodec.submitRefusal(reply, operationId)
-                                    else { reply.body.fill(0); operation = reply.handle; operations.add(operation); null }
+                                    val ownership = LongArray(1)
+                                    val reply = try { native.submit(core, bytes, ownership) } finally {
+                                        bytes.fill(0)
+                                        operation = ownership[0]
+                                        if (operation != 0L) operations.add(operation)
+                                    }
+                                    if (reply.code != 0 || operation == 0L) ReplyCodec.submitRefusal(reply, operationId)
+                                    else { reply.body.fill(0); null }
                                 }
                             }
                         }
@@ -159,9 +164,14 @@ class CoreClient internal constructor(
                             if (reset != 0) CoreError.Native(reset, Effect.NONE) else {
                                 require(BoundedJson.accepts(filter.body))
                                 val bytes = encodeRequest(request)
-                                val reply = try { native.submit(core, bytes) } finally { bytes.fill(0) }
-                                if (reply.code != 0 || reply.handle == 0L) ReplyCodec.submitRefusal(reply).error
-                                else { reply.body.fill(0); subscription = reply.handle; operations.add(subscription); null }
+                                val ownership = LongArray(1)
+                                val reply = try { native.submit(core, bytes, ownership) } finally {
+                                    bytes.fill(0)
+                                    subscription = ownership[0]
+                                    if (subscription != 0L) operations.add(subscription)
+                                }
+                                if (reply.code != 0 || subscription == 0L) ReplyCodec.submitRefusal(reply).error
+                                else { reply.body.fill(0); null }
                             }
                         }
                     }
@@ -307,6 +317,7 @@ class CoreClient internal constructor(
                     val negotiation = ReplyCodec.decode(native.negotiate())
                     if (negotiation is CoreResult.Failure) return@withContext negotiation
                     val version = (negotiation as CoreResult.Success).value
+                    if (!CoreCapabilities.matchesPolicy(version)) return@withContext CoreResult.Failure(CoreError.MethodPolicyMismatch)
                     val capabilities = CoreCapabilities.parse(version, expectedDescriptorFingerprint)
                         ?: return@withContext CoreResult.Failure(CoreError.UnsupportedVersion(Effect.NONE))
                     val bytes = buildJsonObject { put("data_root", dataRoot) }.toString().toByteArray()

@@ -9,7 +9,8 @@ interface NativeCore {
     fun open(config: ByteArray): NativeReply
     fun releaseClosed(core: Long): Int
     fun close(core: Long): NativeReply
-    fun submit(core: Long, request: ByteArray): NativeReply
+    /** Caller retains a zeroed one-slot array; an admitted token survives even reply-allocation OOM. */
+    fun submit(core: Long, request: ByteArray, ownership: LongArray = LongArray(1)): NativeReply
     fun operationPoll(core: Long, operation: Long): NativeReply
     fun operationCancel(core: Long, operation: Long): Int
     fun operationRelease(core: Long, operation: Long): Int
@@ -23,7 +24,13 @@ class JniCore : NativeCore {
     override external fun open(config: ByteArray): NativeReply
     override external fun releaseClosed(core: Long): Int
     override external fun close(core: Long): NativeReply
-    override external fun submit(core: Long, request: ByteArray): NativeReply
+    override fun submit(core: Long, request: ByteArray, ownership: LongArray): NativeReply {
+        require(ownership.size == 1 && ownership[0] == 0L)
+        val code = submitInto(core, request, ownership)
+        // Allocation may fail here; the caller already owns the token in ownership[0].
+        return NativeReply(code, byteArrayOf(), ownership[0])
+    }
+    private external fun submitInto(core: Long, request: ByteArray, ownership: LongArray): Int
     override external fun operationPoll(core: Long, operation: Long): NativeReply
     override external fun operationCancel(core: Long, operation: Long): Int
     override external fun operationRelease(core: Long, operation: Long): Int

@@ -19,10 +19,10 @@ assert policy['abi_major'] == 2 and policy['policy_version'] == 1
 (root / 'sdk-contract/ramflux_sdk_methods.json').write_bytes(payload)
 (root / 'sdk-contract/pin.json').write_text(json.dumps({'revision': subprocess.check_output(['git', '-C', a.sdk, 'rev-parse', a.revision], text=True).strip(), 'policy_sha256': hashlib.sha256(payload).hexdigest()}, indent=2) + '\n')
 h = '// SPDX-License-Identifier: AGPL-3.0-or-later\n// Copyright (c) 2026 Span Brain\n// Generated from the pinned SDK method policy.\n\n'
-rows = '\n'.join('        "' + m['name'] + '" to MethodPolicy(' + ', '.join(str(m[k]).lower() for k in ['secret_input','secret_output','show_once']) + '),' for m in policy['methods'])
+rows = '\n'.join('        "' + m['name'] + '" to MethodPolicy(' + ', '.join(str(m[k]).lower() for k in ['secret_input','secret_output','show_once']) + ', "' + m['capability'] + '"),' for m in policy['methods'])
 (root / 'core/sdk/src/main/kotlin/org/ramflux/sdk/MethodPolicy.kt').write_text(h + '''package org.ramflux.sdk
 
-data class MethodPolicy(val secretInput: Boolean, val secretOutput: Boolean, val showOnce: Boolean) {
+data class MethodPolicy(val secretInput: Boolean, val secretOutput: Boolean, val showOnce: Boolean, val capability: String) {
     val confidential: Boolean get() = secretInput || secretOutput
 }
 

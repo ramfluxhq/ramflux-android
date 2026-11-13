@@ -92,20 +92,19 @@ Java_org_ramflux_sdk_JniCore_close(JNIEnv* env, jobject, jlong core) {
     return reply(env, ramflux_v2_client_close(static_cast<uint64_t>(core)));
 }
 
-extern "C" JNIEXPORT jobject JNICALL
-Java_org_ramflux_sdk_JniCore_submit(JNIEnv* env, jobject, jlong core, jbyteArray request) {
+// Pin the caller-owned output slot before admission. No Java allocation follows execute.
+extern "C" JNIEXPORT jint JNICALL
+Java_org_ramflux_sdk_JniCore_submitInto(JNIEnv* env, jobject, jlong core, jbyteArray request, jlongArray ownership) {
+    if (ownership == nullptr || env->GetArrayLength(ownership) != 1) return 1;
     Input input(env, request);
-    if (!input.valid) return env->ExceptionCheck() ? nullptr : reply(env, 1);
+    if (!input.valid) return 1;
+    jlong* slot = env->GetLongArrayElements(ownership, nullptr);
+    if (slot == nullptr) return 16; // Pending OOM; no operation was admitted.
     uint64_t operation = 0;
-    const auto handle = static_cast<uint64_t>(core);
-    const int32_t code = ramflux_v2_execute(handle, input.bytes.data(), input.bytes.size(), &operation);
-    jobject result = reply(env, code, nullptr, operation);
-    if (result == nullptr && operation != 0) {
-        const int32_t cancelled = ramflux_v2_operation_cancel(handle, operation);
-        const int32_t released = cancelled == 0 ? ramflux_v2_operation_release(handle, operation) : cancelled;
-        if (released != 0) close_orphan_client(handle);
-    }
-    return result;
+    const int32_t code = ramflux_v2_execute(static_cast<uint64_t>(core), input.bytes.data(), input.bytes.size(), &operation);
+    slot[0] = static_cast<jlong>(operation);
+    env->ReleaseLongArrayElements(ownership, slot, 0);
+    return code;
 }
 
 extern "C" JNIEXPORT jobject JNICALL

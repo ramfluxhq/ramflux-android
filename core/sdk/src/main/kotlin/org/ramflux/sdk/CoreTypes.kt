@@ -35,6 +35,10 @@ sealed interface CoreError {
     data class Native(override val code: Int, override val effect: Effect) : CoreError {
         val status: SdkStatus? get() = SdkStatus.entries.firstOrNull { it.code == code }
     }
+    data object MethodPolicyMismatch : CoreError {
+        override val code = -4
+        override val effect = Effect.NONE
+    }
     data class CleanupPending(val nativeStatus: Int) : CoreError {
         override val code = -3
         override val effect = Effect.UNKNOWN
