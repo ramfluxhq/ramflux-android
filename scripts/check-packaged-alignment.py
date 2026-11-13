@@ -5,12 +5,12 @@
 import argparse
 import os
 from pathlib import Path
-import re
 import subprocess
 import tempfile
 import zipfile
 
 p = argparse.ArgumentParser()
+p.add_argument('--profile', choices=('release', 'dev'), default='release')
 p.add_argument('archives', nargs='+', type=Path)
 a = p.parse_args()
 ndk = Path(os.environ['ANDROID_NDK_HOME'])
@@ -20,17 +20,26 @@ if len(prebuilt) != 1:
 readelf = prebuilt[0] / 'bin/llvm-readelf'
 for archive in a.archives:
     with tempfile.TemporaryDirectory(prefix='rf-package-alignment-') as scratch, zipfile.ZipFile(archive) as z:
+        marker = z.getinfo('assets/ramflux-native-profile.txt')
+        if marker.file_size > 16 or z.read(marker) != (a.profile + '\n').encode():
+            raise SystemExit(f'Packaged native profile mismatch: {archive.name}; expected={a.profile}')
         entries = [i for i in z.infolist() if i.filename.endswith('.so')]
         if not entries or len(entries) > 16:
             raise SystemExit('Expected 1..16 packaged native libraries')
         for index, entry in enumerate(entries):
-            if not 0 < entry.file_size <= 256 * 1024 * 1024:
-                raise SystemExit('Packaged native library exceeds bounded size')
+            bound = 256 * 1024 * 1024
+            measurement = f'{archive.name}!{entry.filename}; profile={a.profile}; measured_bytes={entry.file_size}; bound_bytes={bound}'
+            print(f'PACKAGED_SIZE: {measurement}', flush=True)
+            if not 0 < entry.file_size <= bound:
+                raise SystemExit(f'Packaged native library exceeds bounded size: {measurement}')
             elf = Path(scratch) / f'{index}.so'
             with z.open(entry) as source, elf.open('wb') as destination:
                 while chunk := source.read(1024 * 1024):
                     destination.write(chunk)
             output = subprocess.run([str(readelf), '-l', '--wide', str(elf)], capture_output=True, text=True, check=True, timeout=30).stdout
+            sections = subprocess.run([str(readelf), '-S', '--wide', str(elf)], capture_output=True, text=True, check=True, timeout=30).stdout
+            if '.debug_' in sections or '.zdebug_' in sections:
+                raise SystemExit(f'Packaged native debug info was not split: {measurement}')
             alignments = [int(line.split()[-1], 16) for line in output.splitlines() if line.lstrip().startswith('LOAD ')]
             if not alignments or min(alignments) < 16384:
                 raise SystemExit(f'ELF alignment below 16 KB: {entry.filename}')

@@ -63,16 +63,26 @@ jobs:
           rustup toolchain install 1.99.0 --profile minimal --target aarch64-linux-android
           cargo install cargo-ndk --version 4.1.2 --locked
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
-      - name: Assemble real AAR and consumer APK
+      - uses: actions/cache@v4
+        with:
+          path: native-target
+          key: native-release-symbols-v1-${{ runner.os }}-${{ steps.sdk-pin.outputs.revision }}
+      - name: Assemble shipping-profile AAR and consumer APK
         env:
           RAMFLUX_CORE_DIR: ${{ github.workspace }}/sdk
           CARGO_TARGET_DIR: ${{ github.workspace }}/native-target
-        run: ./gradlew :core:sdk:assembleDebug :fixtures:packaging:assembleDebug lint --console=plain
+        run: ./gradlew :core:sdk:assembleRelease :fixtures:packaging:assembleRelease lint --console=plain
       - name: Check every packaged ELF and APK zip alignment
-        run: python3 scripts/check-packaged-alignment.py core/sdk/build/outputs/aar/sdk-debug.aar fixtures/packaging/build/outputs/apk/debug/packaging-debug.apk
+        run: python3 scripts/check-packaged-alignment.py core/sdk/build/outputs/aar/sdk-release.aar fixtures/packaging/build/outputs/apk/release/packaging-release-unsigned.apk
       - uses: actions/upload-artifact@v4
         with:
           name: native-packaging
+          if-no-files-found: error
           path: |
-            android/core/sdk/build/outputs/aar/sdk-debug.aar
-            android/fixtures/packaging/build/outputs/apk/debug/packaging-debug.apk
+            android/core/sdk/build/outputs/aar/sdk-release.aar
+            android/fixtures/packaging/build/outputs/apk/release/packaging-release-unsigned.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-debug-symbols
+          if-no-files-found: error
+          path: android/core/sdk/build/generated/native/symbols/

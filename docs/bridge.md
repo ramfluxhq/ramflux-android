@@ -23,10 +23,10 @@ ABI declaration. Only arm64-v8a is packaged; both ELF libraries are checked for
 
 ```sh
 ./scripts/build-native.sh core/sdk/build/generated/native check
-./gradlew :core:sdk:assembleDebug :core:data:compileDebugKotlin
+./gradlew :core:sdk:assembleRelease :core:data:compileReleaseKotlin
 ./gradlew :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest
-./gradlew :fixtures:packaging:assembleDebug lint
-python3 scripts/check-packaged-alignment.py core/sdk/build/outputs/aar/sdk-debug.aar fixtures/packaging/build/outputs/apk/debug/packaging-debug.apk
+./gradlew :fixtures:packaging:assembleRelease lint
+python3 scripts/check-packaged-alignment.py core/sdk/build/outputs/aar/sdk-release.aar fixtures/packaging/build/outputs/apk/release/packaging-release-unsigned.apk
 ```
 
 Kotlin compile/unit tests do not need native artifacts. Native assembly and lint
@@ -34,6 +34,17 @@ require the pinned SDK checkout and native toolchain. The native-packaging CI jo
 builds the real AAR and a build-only, non-UI APK consumer. It extracts and checks
 every packaged ELF and runs `zipalign -c -P 16` on the APK; the fast Kotlin job
 runs independently. A missing native dependency fails the native job.
+Native packaging defaults to the SDK's shipping release profile (its optimisation,
+LTO and codegen settings). Line tables and symbols are retained in separate `.dbg`
+artifacts under `core/sdk/build/generated/native/symbols`, then packaging copies
+are stripped with NDK tools and linked to their debug files. Cargo target outputs
+and the original JNI build remain unstripped. CI uploads symbols separately.
+The guard requires the packaged profile marker, rejects packaged DWARF sections,
+and prints each library's measured bytes and the unchanged 256 MiB extraction
+bound. The native CI gate assembles release AAR/APK artifacts; debug builds may
+also consume the stripped release native binaries. For explicit development-only
+native builds, set `RAMFLUX_NATIVE_PROFILE=dev` and check with `--profile dev`;
+that is not shipping-profile acceptance.
 No placeholder library, skipped native build or emulator software vault is used.
 
 ## Ownership and cancellation

@@ -19,8 +19,13 @@ class AndroidSdkPlugin : Plugin<Project> {
             // Product sources live outside this build. Always verify them when assembling.
             outputs.upToDateWhen { false }
         }
-        extensions.getByType<LibraryExtension>().sourceSets.getByName("main")
-            .jniLibs.srcDir(nativeOutput.map { it.dir("jniLibs") })
+        extensions.getByType<LibraryExtension>().sourceSets.getByName("main").apply {
+            jniLibs.srcDir(nativeOutput.map { it.dir("jniLibs") })
+            assets.srcDir(nativeOutput.map { it.dir("assets") })
+        }
+        tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
+            dependsOn(buildNative)
+        }
         tasks.matching { it.name.startsWith("merge") && it.name.endsWith("JniLibFolders") }.configureEach {
             dependsOn(buildNative)
         }
