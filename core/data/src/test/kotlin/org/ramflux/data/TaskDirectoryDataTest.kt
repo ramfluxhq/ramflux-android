@@ -19,6 +19,11 @@ class TaskDirectoryDataTest {
         var wrongAck = false
         var holdMutation = false
         var pendingResolution = false
+        var malformedDetail = false
+        var receiptMode = false
+        var loseAck = false
+        var transitions = 0
+        val receipts = mutableMapOf<String, JsonObject>()
         fun row() = Json.parseToJsonElement("""{"task_id":"task","conversation_id":"$conversation","version":$version,"title":"Actual task","state":"$state","requester":"human","assignee":"agent","steps":[{"id":"step","title":"Actual step","state":"running","needs_me":null}],"result_summary":null,"pending_resolution":${if(pendingResolution) "{}" else "null"},"stalled_by_assignee":false}""").jsonObject
         override fun submit(core: Long, request: ByteArray, ownership: LongArray): NativeReply {
             val frame = Json.parseToJsonElement(request.decodeToString()).jsonObject
@@ -26,9 +31,17 @@ class TaskDirectoryDataTest {
             abi.pendingRequests = holdMutation && method in setOf("task.accept", "task.decline", "task.cancel")
             abi.completionBody = when(method) {
                 "task.list" -> buildJsonObject { put("tasks", buildJsonArray { add(row()) }); put("next_cursor", "opaque") }
-                "task.get" -> row()
+                "task.get" -> if (malformedDetail) buildJsonObject { put("task_id", "task") } else row()
                 "grant.list" -> Json.parseToJsonElement("""{"grants":[],"approvals":[]}""").jsonObject
-                else -> buildJsonObject { put("task_id", if(wrongAck) "wrong" else "task"); put("accepted", !pending); put("pending", pending) }
+                else -> if (receiptMode) {
+                    val id = frame.getValue("body").jsonObject.getValue("message_id").jsonPrimitive.content
+                    val receipt = receipts.getOrPut(id) {
+                        transitions++; version++; state = if (method == "task.accept") "running" else "cancelled"
+                        buildJsonObject { put("task_id", "task"); put("accepted", true); put("pending", false) }
+                    }
+                    if (loseAck) { loseAck = false; buildJsonObject { put("task_id", "wrong"); put("accepted", true); put("pending", false) } }
+                    else receipt
+                } else buildJsonObject { put("task_id", if(wrongAck) "wrong" else "task"); put("accepted", !pending); put("pending", pending) }
             }
             return abi.submit(core, request, ownership)
         }
@@ -98,8 +111,45 @@ class TaskDirectoryDataTest {
             native.version = 8u
             val mutations = native.abi.submitted.count { it["method"]?.jsonPrimitive?.content == "task.accept" }
             assertEquals(ClientOutcome.UNKNOWN, (repo.mutate("account", attempt) as ClientResult.Failed).problem.outcome)
-            assertEquals(mutations, native.abi.submitted.count { it["method"]?.jsonPrimitive?.content == "task.accept" })
+            assertEquals(mutations + 1, native.abi.submitted.count { it["method"]?.jsonPrimitive?.content == "task.accept" })
+            assertEquals(original.getValue("body"), native.abi.submitted.last().getValue("body"))
             assertEquals(attempt, repo.pending("account"))
+        } finally { client.close() }
+    }
+    @Test fun newIntentReadFailureCannotAcquireReceiptReplayEligibility() = runTest(timeout = 5.seconds) {
+        val native = Oracle()
+        val client = (CoreClient.open(native, "/test/task-preflight-read", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
+        try {
+            val repo = DefaultTaskDirectoryRepository(SdkRepositoryTransport { client })
+            val expected = (repo.detail("account", "c", "task") as ClientResult.Ready).value
+            native.malformedDetail = true
+            val result = repo.mutate("account", TaskAttempt("unsubmitted", expected, TaskDecision.ACCEPT)) as ClientResult.Failed
+            assertEquals(ClientOutcome.NONE, result.problem.outcome); assertNull(repo.pending("account"))
+            assertFalse(native.abi.submitted.any { it["method"]?.jsonPrimitive?.content == "task.accept" })
+            native.malformedDetail = false
+            assertTrue(repo.mutate("account", TaskAttempt("after-read-recovery", expected, TaskDecision.ACCEPT)) is ClientResult.Ready)
+        } finally { client.close() }
+    }
+    @Test fun appliedButAckLostReplaysOriginalReceiptAfterSnapshotAdvancesWithoutDuplicateTransition() = runTest(timeout = 5.seconds) {
+        val native = Oracle().apply { receiptMode = true; loseAck = true }
+        val client = (CoreClient.open(native, "/test/task-receipt-replay", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
+        try {
+            val repo = DefaultTaskDirectoryRepository(SdkRepositoryTransport { client })
+            val expected = (repo.detail("account", "c", "task") as ClientResult.Ready).value
+            val original = TaskAttempt("original-receipt", expected, TaskDecision.ACCEPT)
+            assertEquals(ClientOutcome.UNKNOWN, (repo.mutate("account", original) as ClientResult.Failed).problem.outcome)
+            val first = native.abi.submitted.last()
+            val advanced = (repo.detail("account", "c", "task") as ClientResult.Ready).value
+            assertEquals(8uL, advanced.version); assertEquals("running", advanced.state); assertEquals(1, native.transitions)
+            assertTrue(repo.mutate("account", original) is ClientResult.Ready)
+            val replay = native.abi.submitted.last()
+            assertEquals(first.getValue("operation_id"), replay.getValue("operation_id"))
+            assertEquals(first.getValue("body"), replay.getValue("body"))
+            assertEquals(1, native.transitions); assertNull(repo.pending("account"))
+            val next = TaskAttempt("next-cancel", advanced, TaskDecision.CANCEL)
+            assertTrue(repo.mutate("account", next) is ClientResult.Ready)
+            assertEquals(2, native.transitions); assertEquals("cancelled", native.state)
+            assertNull(repo.pending("account"))
         } finally { client.close() }
     }
     @Test fun cancellationRetainsIntentAndUnavailableContextCannotAuthorizeAnyOperation() = runTest(timeout = 5.seconds) {

@@ -56,17 +56,23 @@ internal class DefaultTaskDirectoryRepository(transport: RepositoryTransport) : 
         var submitted = false
         try {
             val expected = attempt.expected
-            val fresh = detail(account, expected.conversation, expected.id)
-            val preflight = when {
-                fresh !is ClientResult.Ready -> fresh.failure()
-                fresh.value != expected -> invalid()
-                attempt.decision == TaskDecision.CANCEL && !expected.cancellable -> invalid()
-                attempt.decision != TaskDecision.CANCEL && !expected.decidable -> invalid()
-                else -> null
-            }
-            if (preflight != null) {
-                val result = if (reconciling) unknown() else preflight
-                synchronized(journal) { entry.result = result }; return result
+            // Only an exact retained attempt may reach the SDK's original-message receipt path.
+            // Rechecking the advanced task first would prevent an applied-but-unacknowledged intent from reconciling.
+            if (!reconciling) {
+                val fresh = detail(account, expected.conversation, expected.id)
+                val preflight = when {
+                    fresh !is ClientResult.Ready -> when (val failure = fresh.failure()) {
+                        is ClientResult.Failed -> failure.copy(problem = failure.problem.copy(outcome = ClientOutcome.NONE))
+                        else -> failure
+                    }
+                    fresh.value != expected -> invalid()
+                    attempt.decision == TaskDecision.CANCEL && !expected.cancellable -> invalid()
+                    attempt.decision != TaskDecision.CANCEL && !expected.decidable -> invalid()
+                    else -> null
+                }
+                if (preflight != null) {
+                    synchronized(journal) { entry.result = preflight }; return preflight
+                }
             }
             val body = SecretBody.fields {
                 publicText("conversation_id", expected.conversation); publicText("task_id", expected.id); publicText("message_id", attempt.operationId)

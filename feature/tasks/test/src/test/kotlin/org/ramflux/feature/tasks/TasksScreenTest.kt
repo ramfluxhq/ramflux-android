@@ -68,6 +68,62 @@ class TasksScreenTest {
         compose.runOnIdle { assertEquals(listOf(TasksAction.Confirm("operation-A"), TasksAction.Deny), actions) }
     }
 
+    @Test fun destructiveDialogEnterDismissesBeforeExplicitConfirmPreservesOriginalOperation() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = FakeTasks()
+        val session = FakeTaskSession()
+        val vm = TasksViewModel(repo, FakeTaskContexts(), FakeTaskAccounts(), session)
+        var rendered by mutableStateOf(TasksState())
+        try {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect { rendered = it } }
+            runCurrent()
+            vm.onAction(TasksAction.Visible(true))
+            runCurrent()
+            vm.onAction(TasksAction.Conversation("c"))
+            runCurrent()
+            vm.onAction(TasksAction.Select("task"))
+            runCurrent()
+            compose.setContent { RamfluxTheme { TasksScreen(rendered, vm::onAction) } }
+            for (decision in listOf(TaskDecision.DECLINE, TaskDecision.CANCEL)) {
+                val count = repo.mutations.size
+                vm.onAction(TasksAction.Prepare(decision))
+                runCurrent()
+                compose.waitForIdle()
+                compose.runOnIdle {
+                    val root = requireNotNull(org.robolectric.shadows.ShadowDialog.getLatestDialog()).window?.decorView
+                    val deny = requireNotNull(root?.findViewWithTag<android.widget.Button>("host-confirmation-deny"))
+                    assertTrue(deny.isFocused)
+                    val time = android.os.SystemClock.uptimeMillis() + 1
+                    deny.dispatchKeyEvent(
+                        android.view.KeyEvent(time, time, android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER, 0)
+                    )
+                    deny.dispatchKeyEvent(
+                        android.view.KeyEvent(time, time + 1, android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_ENTER, 0)
+                    )
+                }
+                runCurrent()
+                assertEquals(count, repo.mutations.size)
+                assertNull(rendered.confirmation)
+                vm.onAction(TasksAction.Prepare(decision))
+                runCurrent()
+                val id = requireNotNull(rendered.confirmation).id
+                compose.runOnIdle {
+                    val root = requireNotNull(org.robolectric.shadows.ShadowDialog.getLatestDialog()).window?.decorView
+                    requireNotNull(root?.findViewWithTag<android.widget.Button>("host-confirmation-confirm")).performClick()
+                }
+                runCurrent()
+                assertEquals(count + 1, repo.mutations.size)
+                assertEquals(id, repo.mutations.last().operationId)
+                assertEquals(decision, repo.mutations.last().decision)
+            }
+        } finally {
+            vm.onAction(TasksAction.Visible(false))
+            session.background()
+            runCurrent()
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test fun chineseConfirmationKeepsNativeDenyFocusAndExactActionSummary() {
         val facts = TaskConfirmation("op", uiText(R.string.tasks_cancel), persistentListOf(UiText.Data("task")))
         compose.setContent {
