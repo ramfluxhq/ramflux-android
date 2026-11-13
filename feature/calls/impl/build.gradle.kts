@@ -3,6 +3,7 @@
 
 plugins { id("ramflux.android.feature") }
 dependencies {
+    implementation(libs.compose.icons)
     api(project(":feature:calls:api"))
     implementation(project(":core:data"))
     implementation(project(":core:designsystem"))

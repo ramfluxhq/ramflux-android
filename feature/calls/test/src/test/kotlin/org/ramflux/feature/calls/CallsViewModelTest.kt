@@ -12,6 +12,8 @@ import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.ramflux.data.*
+import org.ramflux.designsystem.uiText
+import org.ramflux.feature.calls.impl.R
 @OptIn(ExperimentalCoroutinesApi::class)
 class CallsViewModelTest {
     @get:Rule val main = object : TestWatcher() {
@@ -48,6 +50,38 @@ class CallsViewModelTest {
         assertFalse(repo.signals.single().operationId.isBlank())
         assertFalse(vm.state.value.selected?.canHangup == true)
         assertEquals(8uL, vm.state.value.selected?.sequence)
+    }
+
+    @Test fun everyPublishedTerminalReasonHasResourceBackedHistoryAndSignalPresentation() = runTest(timeout = 5.seconds) {
+        val labels = mapOf(
+            "completed" to R.string.calls_completed, "cancelled" to R.string.calls_cancelled,
+            "answered_elsewhere" to R.string.calls_answered_elsewhere, "busy" to R.string.calls_busy,
+            "timeout" to R.string.calls_timeout, "failed" to R.string.calls_failed,
+            "missed" to R.string.calls_missed, "declined" to R.string.calls_declined,
+            "authority_unavailable" to R.string.calls_authority_unavailable, "authority_refused" to R.string.calls_authority_refused,
+            "relay_unavailable" to R.string.calls_relay_unavailable, "media_lease_expired" to R.string.calls_lease_expired,
+            "daemon_restarted" to R.string.calls_restarted, "signaling_unavailable" to R.string.calls_signaling_unavailable
+        )
+        val repo = FakeCalls()
+        val vm = load(repo)
+        for ((reason, resource) in labels) {
+            repo.reading = { ClientResult.Ready(listOf(callRecord(8u, CallPhase.ENDED).copy(endReason = reason))) }
+            vm.onAction(CallsAction.Refresh)
+            runCurrent()
+            assertEquals(reason, uiText(resource), vm.state.value.rows.single().reason)
+            repo.reading = { ClientResult.Ready(listOf(callRecord())) }
+            repo.signaling = { ClientResult.Ready(it.expected.copy(phase = CallPhase.ENDED, sequence = 8u, endReason = reason)) }
+            vm.onAction(CallsAction.Refresh)
+            runCurrent()
+            vm.onAction(CallsAction.Select("call"))
+            vm.onAction(CallsAction.End("call", 7u, true))
+            runCurrent()
+            assertEquals(reason, uiText(resource), vm.state.value.selected?.reason)
+        }
+        repo.reading = { ClientResult.Ready(listOf(callRecord(9u, CallPhase.ENDED).copy(endReason = "future"))) }
+        vm.onAction(CallsAction.Refresh)
+        runCurrent()
+        assertEquals(uiText(R.string.calls_unknown_reason), vm.state.value.rows.single().reason)
     }
 
     @Test fun failedOrUnknownSignalKeepsCurrentRowsAndNoAudioActionCanSignal() = runTest(timeout = 5.seconds) {

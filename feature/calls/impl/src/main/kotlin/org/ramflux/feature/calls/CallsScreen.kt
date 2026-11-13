@@ -2,14 +2,23 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.calls
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.*
 import org.ramflux.feature.calls.impl.R
@@ -92,7 +101,7 @@ fun CallsScreen(state: CallsState, onAction: (CallsAction) -> Unit) {
                             RFListRow(
                                 row.id,
                                 row.peer,
-                                row.phase.render(),
+                                row.reason?.render() ?: row.phase.render(),
                                 theme,
                                 leading = { RFAvatar(row.peer.take(1), RFAvatarKind.Person, theme) },
                                 trailing = { Text(row.time.render()) },
@@ -154,22 +163,50 @@ fun CallsScreen(state: CallsState, onAction: (CallsAction) -> Unit) {
                 state.selected?.let { row ->
                     FlowRow(Modifier.fillMaxWidth().padding(theme.gap.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                         if (row.incoming) {
-                            TextButton(
-                                enabled = state.fresh && !state.busy && state.pending == null && row.canDecline,
+                            CallControl(
+                                stringResource(R.string.calls_decline), Icons.Default.CallEnd, false,
+                                state.fresh && !state.busy && state.pending == null && row.canDecline,
                                 onClick = { onAction(CallsAction.End(row.id, row.sequence, true)) }
-                            ) { Text(stringResource(R.string.calls_decline)) }
-                            TextButton(enabled = !state.busy, onClick = { onAction(CallsAction.Audio) }) {
-                                Text(stringResource(R.string.calls_answer))
+                            )
+                            CallControl(stringResource(R.string.calls_answer), Icons.Default.Call, true, !state.busy) {
+                                onAction(CallsAction.Audio)
                             }
                         } else if (row.canHangup) {
-                            TextButton(
-                                enabled = state.fresh && !state.busy && state.pending == null,
+                            CallControl(
+                                stringResource(R.string.calls_hangup), Icons.Default.CallEnd, false,
+                                state.fresh && !state.busy && state.pending == null,
                                 onClick = { onAction(CallsAction.End(row.id, row.sequence, false)) }
-                            ) { Text(stringResource(R.string.calls_hangup)) }
+                            )
                         }
                     }
                 } ?: TextButton(onClick = { onAction(CallsAction.Audio) }) { Text(stringResource(R.string.calls_start)) }
             }
         }
+    }
+}
+
+/** Host-native call action: token-sized circle, semantic color pair and wrapping accessible label. */
+@Composable
+private fun CallControl(label: String, icon: ImageVector, answer: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    val theme = LocalRFTheme.current
+    Column(
+        Modifier.widthIn(min = (theme.gap * 4.5f).dp, max = (theme.gap * 8).dp)
+            .semantics(mergeDescendants = true) {}
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding((theme.gap / 2).dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy((theme.gap / 2).dp)
+    ) {
+        Surface(
+            Modifier.size((theme.gap * 4.5f).dp),
+            shape = CircleShape,
+            color = if (answer) theme.success else theme.danger,
+            contentColor = if (answer) theme.on_success else theme.on_danger
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size((theme.gap * 1.875f).dp))
+            }
+        }
+        Text(label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
     }
 }

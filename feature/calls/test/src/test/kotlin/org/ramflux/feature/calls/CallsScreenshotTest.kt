@@ -27,7 +27,7 @@ class CallsScreenshotTest(private val kind: String, private val dark: Boolean, p
             val kinds =
                 listOf(
                     "history", "incoming", "outgoing", "connecting", "active", "ended", "error",
-                    "loading", "account", "unavailable", "pending"
+                    "loading", "account", "unavailable", "pending", "incoming-large", "active-large"
                 )
             for (kind in kinds) for (dark in listOf(
                 false,
@@ -38,15 +38,15 @@ class CallsScreenshotTest(private val kind: String, private val dark: Boolean, p
 
     @Test fun screen() {
         val row = callItem().copy(
-            incoming = kind == "incoming",
-            hasAudioControls = kind in setOf("connecting", "active"),
-            canDecline = kind == "incoming",
+            incoming = kind.startsWith("incoming"),
+            hasAudioControls = kind == "connecting" || kind.startsWith("active"),
+            canDecline = kind.startsWith("incoming"),
             canHangup = kind != "ended",
             phase = uiText(
                 when (kind) {
                     "outgoing" -> R.string.calls_outgoing_ringing
                     "connecting" -> R.string.calls_connecting
-                    "active" -> R.string.calls_active
+                    "active", "active-large" -> R.string.calls_active
                     "ended" -> R.string.calls_ended
                     else -> R.string.calls_incoming_ringing
                 }
@@ -67,7 +67,9 @@ class CallsScreenshotTest(private val kind: String, private val dark: Boolean, p
                 DeviceConfigurationOverride(
                     DeviceConfigurationOverride.ForcedSize(DpSize(width.dp, if (width == 900) 1000.dp else 600.dp))
                 ) {
-                    RamfluxTheme(dark) { CallsScreen(state, {}) }
+                    DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(if (kind.endsWith("-large")) 2f else 1f)) {
+                        RamfluxTheme(dark) { CallsScreen(state, {}) }
+                    }
                 }
             }
         }

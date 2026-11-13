@@ -281,6 +281,12 @@ private fun String.reason() = uiText(
         "media_lease_expired" -> R.string.calls_lease_expired
         "daemon_restarted" -> R.string.calls_restarted
         "signaling_unavailable" -> R.string.calls_signaling_unavailable
+        "completed" -> R.string.calls_completed
+        "cancelled" -> R.string.calls_cancelled
+        "busy" -> R.string.calls_busy
+        "timeout" -> R.string.calls_timeout
+        "answered_elsewhere" -> R.string.calls_answered_elsewhere
+        "failed" -> R.string.calls_failed
         "missed" -> R.string.calls_missed
         "declined", "rejected" -> R.string.calls_declined
         "hangup", "ended" -> R.string.calls_ended

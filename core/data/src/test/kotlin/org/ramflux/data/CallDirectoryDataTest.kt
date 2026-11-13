@@ -15,9 +15,10 @@ class CallDirectoryDataTest {
         var sequence = 7uL
         var generation = 3uL
         var state = "incoming_ringing"
+        var reason = "missed"
         var wrongReply = false
         var hold = false
-        fun row(peer: String = "peer") = Json.parseToJsonElement("""{"call_id":"call","conversation_id":"conversation","peer_id":"$peer","direction":"incoming","state":"$state","seq":"$sequence","media_generation":"$generation","created_at":1700000000,"answered_at":null,"ended_at":null,"end_reason":"${if(state == "ended") "missed" else ""}"}""").jsonObject
+        fun row(peer: String = "peer") = Json.parseToJsonElement("""{"call_id":"call","conversation_id":"conversation","peer_id":"$peer","direction":"incoming","state":"$state","seq":"$sequence","media_generation":"$generation","created_at":1700000000,"answered_at":null,"ended_at":null,"end_reason":"${if(state == "ended") reason else ""}"}""").jsonObject
         override fun submit(core: Long, request: ByteArray, ownership: LongArray): NativeReply {
             val method = Json.parseToJsonElement(request.decodeToString()).jsonObject.getValue("method").jsonPrimitive.content
             abi.pendingRequests = hold && method != "call.list"
@@ -45,6 +46,20 @@ class CallDirectoryDataTest {
             val actual = (repo.signal("account", CallSignal("already-ended", expected, true)) as ClientResult.Ready).value
             assertEquals("missed", actual.endReason)
             assertEquals(CallPhase.ENDED, actual.phase)
+        } finally { client.close() }
+    }
+    @Test fun publishedTerminalReasonsSurviveHistorySignalAndReadbackThroughRealBridge() = runTest(timeout = 5.seconds) {
+        val native = Oracle()
+        val client = (CoreClient.open(native, "/test/call-reasons", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
+        try {
+            val repo = DefaultCallDirectoryRepository(SdkRepositoryTransport { client })
+            for (reason in listOf("completed", "cancelled", "answered_elsewhere", "busy", "timeout", "failed")) {
+                native.state = "incoming_ringing"; native.reason = reason
+                val expected = (repo.list("account") as ClientResult.Ready).value.single()
+                val result = repo.signal("account", CallSignal("end-${native.sequence}", expected, true)) as ClientResult.Ready
+                assertEquals(reason, result.value.endReason)
+                assertEquals(reason, (repo.list("account") as ClientResult.Ready).value.single().endReason)
+            }
         } finally { client.close() }
     }
     @Test fun endSignalHasExactScopeAndMalformedAcknowledgementStaysUnknownUntilReadback() = runTest(timeout = 5.seconds) {

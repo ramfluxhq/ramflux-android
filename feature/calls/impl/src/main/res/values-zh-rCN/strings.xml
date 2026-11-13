@@ -51,4 +51,10 @@
     <string name="calls_missed">未接来电</string>
     <string name="calls_declined">已拒绝</string>
     <string name="calls_unknown_reason">原因不可用</string>
+    <string name="calls_completed">通话已完成</string>
+    <string name="calls_cancelled">通话已取消</string>
+    <string name="calls_busy">对方忙线中</string>
+    <string name="calls_timeout">通话已超时</string>
+    <string name="calls_answered_elsewhere">已在其他设备接听</string>
+    <string name="calls_failed">通话失败</string>
 </resources>

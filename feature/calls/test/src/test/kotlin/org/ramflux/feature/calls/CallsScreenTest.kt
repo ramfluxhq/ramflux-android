@@ -7,10 +7,14 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.text.intl.LocaleList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.ramflux.data.*
 import org.ramflux.designsystem.*
 import org.ramflux.feature.calls.impl.R
 import org.robolectric.RobolectricTestRunner
@@ -20,7 +24,7 @@ fun callItem() = CallItem(
     ULong.MAX_VALUE, UiText.Unsigned(ULong.MAX_VALUE), null, null, null, true, true, true, false
 )
 
-@OptIn(ExperimentalTestApi::class)
+@OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class CallsScreenTest {
@@ -41,6 +45,48 @@ class CallsScreenTest {
         compose.onNodeWithText("Decline call").assertIsDisplayed().performClick()
         compose.onNodeWithText("Answer").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(listOf(CallsAction.End("call", ULong.MAX_VALUE, true), CallsAction.Audio), actions) }
+    }
+
+    @Test fun actualReducerHistoryAndSignalReasonsRenderInBothLocalesWithoutRefetch() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        var locale by mutableStateOf("en")
+        val repo = FakeCalls().apply {
+            reading = { ClientResult.Ready(listOf(callRecord(8u, CallPhase.ENDED).copy(endReason = "answered_elsewhere"))) }
+        }
+        val session = FakeCallSession()
+        val vm = CallsViewModel(repo, FakeCallAccounts(), session)
+        var rendered by mutableStateOf(CallsState())
+        try {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect { rendered = it } }
+            runCurrent()
+            vm.onAction(CallsAction.Visible(true))
+            runCurrent()
+            compose.setContent {
+                DeviceConfigurationOverride(DeviceConfigurationOverride.Locales(LocaleList(locale))) {
+                    RamfluxTheme { CallsScreen(rendered, vm::onAction) }
+                }
+            }
+            compose.onNodeWithText("Answered on another device").assertExists()
+            compose.runOnIdle { locale = "zh-CN" }
+            compose.onNodeWithText("已在其他设备接听").assertExists()
+            for ((reason, label) in listOf("completed" to "通话已完成", "cancelled" to "通话已取消")) {
+                repo.reading = { ClientResult.Ready(listOf(callRecord())) }
+                repo.signaling = { ClientResult.Ready(it.expected.copy(phase = CallPhase.ENDED, sequence = 8u, endReason = reason)) }
+                vm.onAction(CallsAction.Refresh)
+                runCurrent()
+                assertEquals(7uL, rendered.rows.single().sequence)
+                vm.onAction(CallsAction.Select("call"))
+                vm.onAction(CallsAction.End("call", 7u, true))
+                runCurrent()
+                assertEquals(8uL, rendered.selected?.sequence)
+                compose.onNodeWithText(label).assertExists()
+            }
+        } finally {
+            vm.onAction(CallsAction.Visible(false))
+            session.background()
+            runCurrent()
+            Dispatchers.resetMain()
+        }
     }
 
     @Test fun chineseReadFailureDoesNotClaimEmptyHistory() {

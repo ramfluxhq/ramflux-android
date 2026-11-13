@@ -51,4 +51,10 @@
     <string name="calls_missed">Missed call</string>
     <string name="calls_declined">Declined</string>
     <string name="calls_unknown_reason">Reason unavailable</string>
+    <string name="calls_completed">Call completed</string>
+    <string name="calls_cancelled">Call cancelled</string>
+    <string name="calls_busy">Peer is busy</string>
+    <string name="calls_timeout">Call timed out</string>
+    <string name="calls_answered_elsewhere">Answered on another device</string>
+    <string name="calls_failed">Call failed</string>
 </resources>
