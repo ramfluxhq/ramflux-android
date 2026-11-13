@@ -16,7 +16,7 @@ before the app reports its private data closed; a pending writer remains owned.
 The shell's ready state means the supervisor opened, not account authentication.
 Appearance preferences have their own repository and are not SDK account state.
 
-The app-shell and onboarding features are installed. Selecting a feature
+The app-shell, onboarding and conversations features are installed. Selecting a feature
 which is not installed returns typed `Unavailable(FEATURE_NOT_INSTALLED)` from
 Data. This is not a fake account, conversation, or service response. Onboarding reads real account metadata and saved nodes, performs SDK node discovery,
 confirms the reviewed public key and rechecks saved-node safety before selection.
@@ -44,3 +44,10 @@ assembly. The native job builds the actual SDK and app with the pinned source,
 runs Android lint and checks all packaged native libraries and APK alignment.
 Native symbols are uploaded separately. Native build caching is keyed by the
 SDK revision, with Cargo fingerprint validation after a cache restore.
+
+Conversations uses the account-scoped SDK directory with opaque pagination. Hidden
+rows stay hidden and reader-qualified unread counts retain their exact unsigned
+value. Pages recheck the active unlocked account before publication. Refresh on
+resume clears old state; failures never become successful empty lists. The current
+module reads snapshots on entry/refresh; it does not claim live event integration.
+Local search and an uninstalled chat feature return typed unavailable.

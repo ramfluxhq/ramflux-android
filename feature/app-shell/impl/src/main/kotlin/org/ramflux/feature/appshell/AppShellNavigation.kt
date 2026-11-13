@@ -22,7 +22,7 @@ import org.ramflux.feature.appshell.api.*
 fun AppShellNavigation(
     vm: AppShellViewModel = hiltViewModel(),
     routeForFeature: (String) -> NavKey = { FeatureRoute(it) },
-    featureEntries: EntryProviderScope<NavKey>.(onBack: () -> Unit) -> Unit = {}
+    featureEntries: EntryProviderScope<NavKey>.(onBack: () -> Unit, navigate: (NavKey) -> Unit) -> Unit = { _, _ -> }
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val stack = rememberNavBackStack(ShellHome)
@@ -54,9 +54,9 @@ fun AppShellNavigation(
             onBack = { if (stack.size > 1) stack.removeLastOrNull() },
             entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), rememberViewModelStoreNavEntryDecorator()),
             entryProvider = entryProvider {
-                featureEntries { if (stack.size > 1) stack.removeLastOrNull() }
+                featureEntries({ if (stack.size > 1) stack.removeLastOrNull() }, { stack.add(it) })
                 entry<ShellHome> { AppShellScreen(state, vm::onAction) }
-                // No other feature implementation is installed in this module. Data never emits a success for it.
+                // Uninstalled destinations are refused by Data; the app installs supported public routes.
                 entry<FeatureRoute> { AppShellScreen(state, vm::onAction) }
             }
         )

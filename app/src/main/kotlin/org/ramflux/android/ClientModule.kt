@@ -24,5 +24,7 @@ object ClientModule {
 
     @Provides fun nodes(data: AndroidClientData): NodeSetupRepository = data.nodes
 
+    @Provides fun conversations(data: AndroidClientData): ConversationDirectoryRepository = data.conversations
+
     @Provides fun appearance(data: AndroidClientData): AppearanceRepository = data.appearance
 }
