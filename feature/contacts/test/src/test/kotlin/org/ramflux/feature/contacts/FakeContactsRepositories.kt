@@ -5,6 +5,8 @@ package org.ramflux.feature.contacts
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.ramflux.data.*
 class FakeContactDirectory : ContactDirectoryRepository {
+    var safetyResult: ClientResult<ContactSafety> = ClientResult.Ready(ContactSafety("1234 5678", "abcdef"))
+    override suspend fun safety(account: String, root: String) = safetyResult
     val submitted = mutableListOf<ContactCommand>()
     var submitting: suspend (ContactCommand) -> ClientResult<Unit> = { ClientResult.Ready(Unit) }
     override suspend fun submit(command: ContactCommand, confirmed: Boolean): ClientResult<Unit> {

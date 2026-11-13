@@ -6,14 +6,14 @@ import org.junit.Assert.*
 import org.junit.Test
 class ContactDirectoryMetadataTest {
     @Test fun narrowContactFactsIgnoreRoutingAndIdentitySecretsAndWipeBytes() {
-        val raw = """{"contacts":[{"link_id":"link","principal_id":"peer","state":"accepted","blocked":false,"verified":false,"display_name":"Name","root_commitment":"must-not-copy","capabilities":{"credential":"must-not-copy"}}]}""".toByteArray()
+        val raw = """{"contacts":[{"link_id":"link","principal_id":"peer","state":"accepted","blocked":false,"verified":false,"display_name":"Name","root_commitment":"public-root","capabilities":{"credential":"must-not-copy"}}]}""".toByteArray()
         val rows = (ContactDirectoryMetadataReader.contacts(SecretReply(SecretBytes.take(raw))) as CoreResult.Success).value
-        assertEquals(ContactDisplayEntry("link", "peer", "Name", "accepted", false, false), rows.single())
+        assertEquals(ContactDisplayEntry("link", "peer", "Name", "accepted", false, false, "public-root"), rows.single())
         assertFalse(rows.toString().contains("must-not-copy"))
         assertTrue(raw.all { it == 0.toByte() })
     }
     @Test fun publishedRequestShapePreservesDirectionStateExactCountAndExpiry() {
-        val raw = """{"requests":[{"request_id":"request","principal_id":"peer","display_name":null,"direction":"inbound","state":"pending","note":"Peer note","message_count":18446744073709551615,"expires_at":1700000000,"preview":{"encrypted_body":"must-not-copy"},"root_commitment":"must-not-copy","safety_number":"must-not-copy"}],"authority_floors":{"token":"must-not-copy"}}""".toByteArray()
+        val raw = """{"requests":[{"request_id":"request","principal_id":"peer","display_name":null,"direction":"inbound","state":"pending","note":"Peer note","message_count":18446744073709551615,"expires_at":1700000000,"preview":{"encrypted_body":"must-not-copy"},"root_commitment":"public-root","safety_number":"must-not-copy"}],"authority_floors":{"token":"must-not-copy"}}""".toByteArray()
         val row = (ContactDirectoryMetadataReader.requests(SecretReply(SecretBytes.take(raw))) as CoreResult.Success).value.single()
         assertEquals(ULong.MAX_VALUE, row.count)
         assertEquals(1700000000L, row.expiresAt)

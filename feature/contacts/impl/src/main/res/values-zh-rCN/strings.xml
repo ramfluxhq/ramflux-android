@@ -24,7 +24,7 @@
     <string name="contacts_requests_empty">暂无请求</string>
     <string name="contacts_empty_explanation">刷新以读取最新账号记录。</string>
     <string name="contacts_expires">到期时间：%1$s</string>
-    <string name="contacts_safety_explanation">设备批准流程尚未安装，安全号码暂不可用。验证前请通过可信渠道核对实际号码。</string>
+    <string name="contacts_safety_explanation">请通过可信渠道核对实际安全号码。SDK 支持绑定本次核对前，验证暂不可用。</string>
     <string name="contacts_verify">核对号码</string>
     <string name="contacts_scan">扫描安全二维码</string>
     <string name="contacts_decline_explanation">经授权的操作完成前，不会移除任何请求。</string>
@@ -63,4 +63,5 @@
     <string name="contacts_confirmed_refresh">账号已确认此操作。请刷新以读取当前联系人关系。</string>
     <string name="contacts_unknown_operation">操作 %1$s 的结果未知。请刷新核对，勿重复提交。</string>
     <string name="contacts_safety_binding_unavailable">验证需要 SDK 绑定您实际核对的安全材料。未记录任何验证。</string>
+    <string name="contacts_fingerprint">指纹：%1$s</string>
 </resources>

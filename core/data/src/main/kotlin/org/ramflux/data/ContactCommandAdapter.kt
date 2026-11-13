@@ -22,20 +22,39 @@ internal class ContactCommandAdapter(transport: RepositoryTransport) {
             return ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
         }
         val key = command.account to command.operationId
+        val prior = synchronized(journal) { journal[key] }
+        if (prior != null) {
+            if (prior.first != command) return failed(1, ClientOutcome.NONE)
+            return when(prior.second) {
+                ContactAttemptPhase.CONFIRMED -> ClientResult.Ready(Unit)
+                ContactAttemptPhase.REFUSED -> failed(12, ClientOutcome.REFUSED)
+                ContactAttemptPhase.FAILED -> failed(16, ClientOutcome.NONE)
+                ContactAttemptPhase.UNKNOWN -> failed(18, ClientOutcome.UNKNOWN)
+            }
+        }
         val reserved = synchronized(journal) {
-            if (journal.size >= 64) journal.entries.firstOrNull { it.value.second != ContactAttemptPhase.UNKNOWN }?.key?.let { journal.remove(it) }
+            if (journal.size >= 64) {
+                journal.entries.firstOrNull { it.value.second != ContactAttemptPhase.UNKNOWN }?.key?.let { journal.remove(it) }
+            }
             val existing = journal[key]
             when {
                 existing != null -> false
-                journal.values.any { it.first.account == command.account && it.first.target == command.target && it.second == ContactAttemptPhase.UNKNOWN } -> false
+                journal.values.any {
+                    it.first.account == command.account && it.first.target == command.target && it.second == ContactAttemptPhase.UNKNOWN
+                } -> false
                 journal.size >= 64 -> false
                 else -> { journal[key] = command to ContactAttemptPhase.UNKNOWN; true }
             }
         }
-        if (!reserved) return failed(18, ClientOutcome.UNKNOWN)
+        if (!reserved) return failed(18, ClientOutcome.NONE)
         val context = RepositoryContext(command.account, command.operationId)
-        val card = command.operation == ContactOperation.ADD && (command.target.startsWith("ramflux-card:") || command.target.startsWith("ramflux://contact/"))
-        val body = SecretBody.fields { publicText(if (command.operation == ContactOperation.ADD) { if (card) "card" else "principal_id" } else "request_id", command.target) }
+        val card = command.operation == ContactOperation.ADD &&
+            (command.target.startsWith("ramflux-card:") || command.target.startsWith("ramflux://contact/"))
+        val field = if (command.operation == ContactOperation.ADD) { if (card) "card" else "principal_id" } else "request_id"
+        val body = try { SecretBody.fields { publicText(field, command.target) } } catch (_: Exception) {
+            synchronized(journal) { journal[key] = command to ContactAttemptPhase.FAILED }
+            return failed(1, ClientOutcome.NONE)
+        }
         try {
             val result = when (command.operation) {
                 ContactOperation.ADD -> source.add(context, body)
@@ -46,7 +65,9 @@ internal class ContactCommandAdapter(transport: RepositoryTransport) {
             }
             val decoded = when (result) {
                 is CoreResult.Failure -> result
-                is CoreResult.Success -> if (command.operation == ContactOperation.ADD) ContactCompletionMetadataReader.added(result.value, if (card) null else command.target)
+                is CoreResult.Success -> if (command.operation == ContactOperation.ADD) {
+                    ContactCompletionMetadataReader.added(result.value, if (card) null else command.target)
+                }
                 else ContactCompletionMetadataReader.decision(result.value, command.target, command.principal, when(command.operation) {
                     ContactOperation.ACCEPT -> "accepted"
                     ContactOperation.DECLINE -> "declined"

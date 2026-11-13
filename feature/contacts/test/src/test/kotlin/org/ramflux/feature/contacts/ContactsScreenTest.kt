@@ -22,6 +22,22 @@ import org.robolectric.annotation.Config
 class ContactsScreenTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun hostConfirmationDisplaysExactAccountAndTargetAndDenialOnlyEmitsIntent() {
+        val actions = mutableListOf<ContactsAction>()
+        val approval = ContactApproval("account-A", uiText(R.string.contacts_accept), persistentListOf("request-A"))
+        compose.setContent { RamfluxTheme { ContactsScreen(ContactsState(approval = approval), actions::add) } }
+        compose.onNodeWithText("Account: account-A").assertExists()
+        compose.onNodeWithText("request-A").assertExists()
+        compose.onNodeWithTag("hold-confirmation").performTouchInput {
+            down(center)
+            advanceEventTime(500)
+            up()
+        }
+        compose.runOnIdle { assertEquals(listOf(ContactsAction.HoldStart, ContactsAction.HoldEnd(true)), actions) }
+        compose.onNodeWithText("Deny").performClick()
+        compose.runOnIdle { assertEquals(ContactsAction.Deny, actions.last()) }
+    }
+
     @Test fun selectingRealRowEmitsOnlyTypedIdentityAction() {
         val actions = mutableListOf<ContactsAction>()
         val row = PersonItem("row", "peer-id", "Actual name", uiText(R.string.contacts_unverified), false)

@@ -59,7 +59,7 @@ class ContactsViewModel @Inject constructor(
         }
         when (action) {
             ContactsAction.HoldStart -> if (local.value.approval != null && request?.isActive != true) {
-                if (hold?.isActive == true) return
+                if (hold?.isActive == true || local.value.approval?.held == true) return
                 local.update { it.copy(approval = it.approval?.copy(held = false)) }
                 hold = viewModelScope.launch {
                     delay(1_200)
@@ -127,7 +127,8 @@ class ContactsViewModel @Inject constructor(
                 if (action.page == ContactsPage.BATCH && local.value.tab != ContactsTab.STRANGERS) return
                 request?.cancel()
                 ticket++
-                local.update { it.copy(page = action.page, unavailable = null, loading = false) }
+                local.update { it.copy(page = action.page, unavailable = null, loading = false, safety = null) }
+                if (action.page == ContactsPage.SAFETY) readSafety()
             }
             is ContactsAction.Operate -> preflight(action.operation)
         }
@@ -184,7 +185,8 @@ class ContactsViewModel @Inject constructor(
                             result.value.map {
                                 PersonItem(
                                     it.id, it.principal, it.name?.takeIf { name -> name.isNotBlank() } ?: it.principal,
-                                    uiText(if (it.verified) R.string.contacts_verified else R.string.contacts_unverified), false
+                                    uiText(if (it.verified) R.string.contacts_verified else R.string.contacts_unverified), false,
+                                    root = it.root
                                 )
                             }
                         )
@@ -206,7 +208,8 @@ class ContactsViewModel @Inject constructor(
                                     it.name?.takeIf { name -> name.isNotBlank() } ?: it.principal,
                                     it.status.message(), true,
                                     it.direction == RequestDirection.INBOUND, it.note,
-                                    UiText.Quantity(R.plurals.contacts_messages, it.messageCount), UiText.DateTime(it.expiresAt)
+                                    UiText.Quantity(R.plurals.contacts_messages, it.messageCount), UiText.DateTime(it.expiresAt),
+                                    root = it.root
                                 )
                             }
                         )
@@ -220,7 +223,9 @@ class ContactsViewModel @Inject constructor(
                 local.update {
                     it.copy(
                         uncertain = directory.attempts(selected.id).filter { attempt -> attempt.phase == ContactAttemptPhase.UNKNOWN }
-                            .map { attempt -> uiText(R.string.contacts_unknown_operation, UiText.Data(attempt.operationId)) }.toPersistentList()
+                            .map { attempt ->
+                                uiText(R.string.contacts_unknown_operation, UiText.Data(attempt.operationId))
+                            }.toPersistentList()
                     )
                 }
                 when (result) {
@@ -231,6 +236,33 @@ class ContactsViewModel @Inject constructor(
                         }
                         local.update { it.copy(loaded = true, accountLabel = selected.label, rows = result.value.toPersistentList()) }
                     }
+                    is ClientResult.Failed -> local.update { it.copy(problem = result.problem.message()) }
+                    is ClientResult.Unavailable -> local.update { it.copy(unavailable = result.reason.message()) }
+                }
+            } finally {
+                if (expected == ticket) local.update { it.copy(loading = false) }
+            }
+        }
+    }
+    private fun readSafety() {
+        val row = local.value.selected ?: return
+        val root = row.root
+        if (root == null) {
+            local.update { it.copy(unavailable = uiText(R.string.contacts_sdk_unavailable)) }
+            return
+        }
+        val owner = activeAccount ?: return
+        val expected = ++ticket
+        val generation = session.status.value.generation
+        local.update { it.copy(loading = true) }
+        request = viewModelScope.launch {
+            try {
+                if (account(expected, generation, owner) == null) return@launch
+                val result = directory.safety(owner, root)
+                current(expected, generation)
+                if (account(expected, generation, owner) == null) return@launch
+                when (result) {
+                    is ClientResult.Ready -> local.update { it.copy(safety = SafetyItem(result.value.number, result.value.fingerprint)) }
                     is ClientResult.Failed -> local.update { it.copy(problem = result.problem.message()) }
                     is ClientResult.Unavailable -> local.update { it.copy(unavailable = result.reason.message()) }
                 }
@@ -269,6 +301,17 @@ class ContactsViewModel @Inject constructor(
                             else -> listOfNotNull(selected?.id)
                         }
                         if (targets.isEmpty()) return@launch
+                        val uncertain = directory.attempts(active.id).find {
+                            it.phase == ContactAttemptPhase.UNKNOWN && it.target in targets
+                        }
+                        if (uncertain != null) {
+                            local.update {
+                                it.copy(
+                                    problem = uiText(R.string.contacts_unknown_operation, UiText.Data(uncertain.operationId))
+                                )
+                            }
+                            return@launch
+                        }
                         val actual = if (operation == ContactOperation.BATCH_DECLINE) ContactOperation.DECLINE else operation
                         commands = targets.map { target ->
                             ContactCommand(
@@ -276,7 +319,11 @@ class ContactsViewModel @Inject constructor(
                                 target, local.value.rows.find { it.id == target }?.principal ?: target
                             )
                         }
-                        local.update { it.copy(approval = ContactApproval(active.id, operation.label(), targets.toPersistentList()), unavailable = null) }
+                        local.update {
+                            it.copy(
+                                approval = ContactApproval(active.id, operation.label(), targets.toPersistentList()), unavailable = null
+                            )
+                        }
                     }
                     is ClientResult.Unavailable -> local.update { it.copy(unavailable = result.reason.message()) }
                     is ClientResult.Failed -> local.update { it.copy(problem = result.problem.message()) }

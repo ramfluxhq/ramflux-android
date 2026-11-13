@@ -18,12 +18,20 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
     val inbound: Boolean = false,
     val note: String? = null,
     val count: UiText? = null,
-    val expires: UiText? = null
+    val expires: UiText? = null,
+    val root: String? = null
 ) {
     override fun toString() = "PersonItem(<redacted>)"
 }
 
-@Immutable data class ContactApproval(val account: String, val operation: UiText, val targets: ImmutableList<String>, val held: Boolean = false)
+@Immutable data class SafetyItem(val number: String, val fingerprint: String)
+
+@Immutable data class ContactApproval(
+    val account: String,
+    val operation: UiText,
+    val targets: ImmutableList<String>,
+    val held: Boolean = false
+)
 
 @Immutable data class ContactsState(
     val page: ContactsPage = ContactsPage.LIST,
@@ -40,6 +48,7 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
     val problem: UiText? = null,
     val unavailable: UiText? = null,
     val approval: ContactApproval? = null,
+    val safety: SafetyItem? = null,
     val operationNotice: UiText? = null,
     val uncertain: ImmutableList<UiText> = persistentListOf()
 ) {

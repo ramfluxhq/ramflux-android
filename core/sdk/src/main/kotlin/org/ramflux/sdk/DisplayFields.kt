@@ -52,6 +52,14 @@ internal class DisplayFields(raw: ByteArray) {
             if (negative) number else -number
         } finally { raw.fill(0) }
     }
+    fun texts(row: ByteJson.Node, key: String, bound: Int): List<String> {
+        val array = requireNotNull(field(row, key))
+        require(array.kind == 91 && array.children.size in 1..bound)
+        return array.children.map { node ->
+            val chars = parser.chars(node)
+            try { require(chars.size in 1..128); chars.concatToString() } finally { chars.fill('\u0000') }
+        }
+    }
     fun boolean(row: ByteJson.Node, key: String): Boolean {
         val value = field(row, key) ?: throw IllegalArgumentException("missing flag")
         require(value.kind in listOf(116, 102))

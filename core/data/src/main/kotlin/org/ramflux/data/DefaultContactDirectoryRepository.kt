@@ -17,7 +17,7 @@ internal class DefaultContactDirectoryRepository(transport: RepositoryTransport)
             is CoreResult.Success -> when (val result = ContactDirectoryMetadataReader.contacts(reply.value)) {
                 is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
                 is CoreResult.Success -> ClientResult.Ready(result.value.filter { it.relation == "accepted" && !it.blocked }.map {
-                    ContactSummary(it.id, it.principal, it.name, it.verified)
+                    ContactSummary(it.id, it.principal, it.name, it.verified, it.root)
                 })
             }
         }
@@ -38,8 +38,18 @@ internal class DefaultContactDirectoryRepository(transport: RepositoryTransport)
                             "blocked" -> ContactRequestStatus.BLOCKED
                             "expired" -> ContactRequestStatus.EXPIRED
                             else -> ContactRequestStatus.UNKNOWN
-                        }, it.note, it.count, it.expiresAt)
+                        }, it.note, it.count, it.expiresAt, it.root)
                 })
+            }
+        }
+    }
+    override suspend fun safety(account: String, root: String): ClientResult<ContactSafety> {
+        if (account.isBlank() || root.isBlank() || account.length > 4096 || root.length > 4096) return invalid()
+        return when (val reply = source.safety_number(RepositoryContext(account), SecretBody.fields { publicText("contact_identity_commitment", root) })) {
+            is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
+            is CoreResult.Success -> when(val result = ContactSafetyMetadataReader.read(reply.value)) {
+                is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
+                is CoreResult.Success -> if (result.value.root == root) ClientResult.Ready(ContactSafety(result.value.number, result.value.fingerprint)) else invalid()
             }
         }
     }

@@ -27,7 +27,7 @@ class ContactsScreenshotTest(private val kind: String, private val dark: Boolean
             val kinds =
                 listOf(
                     "contacts", "strangers", "sent", "detail", "add", "safety", "decline", "batch",
-                    "empty", "loading", "error", "account"
+                    "empty", "loading", "error", "account", "confirmation", "unknown"
                 )
             for (kind in kinds) {
                 for (dark in listOf(false, true)) for (locale in listOf("en", "zh-CN", "en-XA")) for (width in listOf(400, 900)) {
@@ -57,6 +57,12 @@ class ContactsScreenshotTest(private val kind: String, private val dark: Boolean
             "safety" -> populated.copy(page = ContactsPage.SAFETY, unavailable = uiText(R.string.contacts_action_unavailable))
             "decline" -> populated.copy(page = ContactsPage.DECLINE)
             "batch" -> populated.copy(page = ContactsPage.BATCH, tab = ContactsTab.STRANGERS, selectedIds = persistentSetOf("request"))
+            "confirmation" -> populated.copy(
+                approval = ContactApproval("account-id", uiText(R.string.contacts_accept), persistentListOf("request-id"))
+            )
+            "unknown" -> populated.copy(
+                uncertain = persistentListOf(uiText(R.string.contacts_unknown_operation, UiText.Data("operation-id")))
+            )
             "loading" -> ContactsState(loading = true)
             "error" -> ContactsState(problem = uiText(R.string.contacts_read_failed, UiText.Number(8)))
             "account" -> ContactsState(accountRequired = true)

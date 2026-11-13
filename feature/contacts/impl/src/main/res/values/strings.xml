@@ -24,7 +24,7 @@
     <string name="contacts_requests_empty">No requests</string>
     <string name="contacts_empty_explanation">Refresh to read the latest account records.</string>
     <string name="contacts_expires">Expires: %1$s</string>
-    <string name="contacts_safety_explanation">Safety number access is unavailable until the device approval flow is installed. Compare actual numbers through a trusted channel before verification.</string>
+    <string name="contacts_safety_explanation">Compare the actual safety number through a trusted channel. Verification remains unavailable until the SDK can bind that comparison.</string>
     <string name="contacts_verify">Verify number</string>
     <string name="contacts_scan">Scan safety code</string>
     <string name="contacts_decline_explanation">No request will be removed until an authorized operation completes.</string>
@@ -63,4 +63,5 @@
     <string name="contacts_confirmed_refresh">The account confirmed this operation. Refresh to read the current relationship.</string>
     <string name="contacts_unknown_operation">Outcome unknown for operation %1$s. Refresh to reconcile; do not repeat it.</string>
     <string name="contacts_safety_binding_unavailable">Verification requires SDK support for the exact safety material you compared. No verification was recorded.</string>
+    <string name="contacts_fingerprint">Fingerprint: %1$s</string>
 </resources>

@@ -28,6 +28,108 @@ class ContactsViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
     }
 
+    private fun TestScope.requestVm(
+        repo: FakeContactDirectory,
+        accounts: FakeContactsAccounts = FakeContactsAccounts(),
+        session: FakeContactsSession = FakeContactsSession()
+    ): ContactsViewModel {
+        repo.capability = ClientResult.Ready(Unit)
+        repo.requestReading = { ClientResult.Ready(listOf(inbound())) }
+        val vm = ContactsViewModel(repo, accounts, session)
+        observe(vm)
+        runCurrent()
+        vm.onAction(ContactsAction.Tab(ContactsTab.STRANGERS))
+        runCurrent()
+        vm.onAction(ContactsAction.Select("request"))
+        return vm
+    }
+
+    @Test fun safetyPageReadsActualMaterialButDoesNotVerifyAnUnboundComparison() = runTest(timeout = 5.seconds) {
+        val repo = FakeContactDirectory().apply {
+            reading = { ClientResult.Ready(listOf(ContactSummary("link", "peer", "Name", false, "root"))) }
+        }
+        val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(ContactsAction.Select("link"))
+        vm.onAction(ContactsAction.Page(ContactsPage.SAFETY))
+        runCurrent()
+        assertEquals(SafetyItem("1234 5678", "abcdef"), vm.state.value.safety)
+        vm.onAction(ContactsAction.Operate(ContactOperation.VERIFY))
+        runCurrent()
+        assertEquals(uiText(R.string.contacts_safety_binding_unavailable), vm.state.value.unavailable)
+        assertTrue(repo.submitted.isEmpty())
+    }
+
+    @Test fun hostDenialAndShortHoldNeverSubmitButFullHoldBindsExactTarget() = runTest(timeout = 5.seconds) {
+        val repo = FakeContactDirectory()
+        val vm = requestVm(repo)
+        vm.onAction(ContactsAction.Operate(ContactOperation.ACCEPT))
+        runCurrent()
+        assertEquals(listOf("request"), vm.state.value.approval?.targets)
+        vm.onAction(ContactsAction.Deny)
+        runCurrent()
+        assertTrue(repo.submitted.isEmpty())
+        vm.onAction(ContactsAction.Operate(ContactOperation.ACCEPT))
+        runCurrent()
+        vm.onAction(ContactsAction.HoldStart)
+        advanceTimeBy(1199)
+        vm.onAction(ContactsAction.HoldEnd(true))
+        runCurrent()
+        assertTrue(repo.submitted.isEmpty())
+        vm.onAction(ContactsAction.HoldStart)
+        advanceTimeBy(1200)
+        runCurrent()
+        assertTrue(vm.state.value.approval?.held == true)
+        assertTrue(repo.submitted.isEmpty())
+        vm.onAction(ContactsAction.HoldEnd(true))
+        runCurrent()
+        val command = repo.submitted.single()
+        assertEquals("a", command.account)
+        assertEquals("request", command.target)
+        assertEquals("peer", command.principal)
+        assertFalse(command.operationId.isBlank())
+        assertNotNull(vm.state.value.operationNotice)
+        assertEquals(listOf("request"), vm.state.value.rows.map { it.id })
+    }
+
+    @Test fun unknownOutcomeDoesNotRemoveRequestOrGrantConversationAndShowsOriginalOperationIdentity() = runTest(timeout = 5.seconds) {
+        val repo = FakeContactDirectory().apply {
+            submitting = { ClientResult.Failed(ClientProblem(ClientFailureKind.SHUTDOWN_PENDING, 10, ClientOutcome.UNKNOWN)) }
+        }
+        val vm = requestVm(repo)
+        vm.onAction(ContactsAction.Operate(ContactOperation.DECLINE))
+        runCurrent()
+        vm.onAction(ContactsAction.HoldStart)
+        advanceTimeBy(1200)
+        runCurrent()
+        vm.onAction(ContactsAction.HoldEnd(true))
+        runCurrent()
+        assertEquals(listOf("request"), vm.state.value.rows.map { it.id })
+        assertNull(vm.state.value.operationNotice)
+        assertEquals(uiText(R.string.contacts_unknown_operation, UiText.Data(repo.submitted.single().operationId)), vm.state.value.problem)
+    }
+
+    @Test fun accountChangeOrSessionCloseInvalidatesPreparedApprovalBeforeAnyNativeSubmission() = runTest(timeout = 5.seconds) {
+        val repo = FakeContactDirectory()
+        val accounts = FakeContactsAccounts()
+        val session = FakeContactsSession()
+        val vm = requestVm(repo, accounts, session)
+        vm.onAction(ContactsAction.Operate(ContactOperation.BLOCK))
+        runCurrent()
+        vm.onAction(ContactsAction.HoldStart)
+        advanceTimeBy(1200)
+        runCurrent()
+        accounts.result = ClientResult.Ready(AccountCatalog(emptyList(), null))
+        vm.onAction(ContactsAction.HoldEnd(true))
+        runCurrent()
+        assertTrue(repo.submitted.isEmpty())
+        assertNull(vm.state.value.approval)
+        session.background()
+        runCurrent()
+        assertTrue(vm.state.value.rows.isEmpty())
+    }
+
     @Test fun filteringIsLocalAndClearingRestoresTheNativeSnapshot() = runTest(timeout = 5.seconds) {
         val repo = FakeContactDirectory().apply { reading = { ClientResult.Ready(listOf(ContactSummary("one", "peer", "Name", false))) } }
         val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
