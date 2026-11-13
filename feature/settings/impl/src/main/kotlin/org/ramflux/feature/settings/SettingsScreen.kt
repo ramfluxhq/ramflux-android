@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
+import org.ramflux.data.AppLanguage
 import org.ramflux.designsystem.*
 import org.ramflux.feature.settings.impl.R
 import org.ramflux.generated.*
@@ -25,6 +26,7 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
         when (state.page) {
             SettingsPage.GENERAL -> R.string.settings_settings
             SettingsPage.APPEARANCE -> R.string.settings_appearance
+            SettingsPage.LANGUAGE -> R.string.settings_language
             SettingsPage.DEVICES -> R.string.settings_devices
             SettingsPage.BACKUP -> R.string.settings_backup
         }
@@ -81,23 +83,23 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
                             )
                         }
                     }
+                    if (state.accountRequired && state.page in setOf(SettingsPage.GENERAL, SettingsPage.DEVICES)) {
+                        item("account-required") {
+                            RFStateBlock(
+                                stringResource(R.string.settings_account),
+                                stringResource(R.string.settings_account_needed),
+                                RFStateKind.Empty,
+                                theme,
+                                action = {
+                                    TextButton(
+                                        onClick = { onAction(SettingsAction.OpenAccount) }
+                                    ) { Text(stringResource(R.string.settings_open_account)) }
+                                }
+                            )
+                        }
+                    }
                     when (state.page) {
                         SettingsPage.GENERAL -> {
-                            if (state.accountRequired) {
-                                item("account-required") {
-                                    RFStateBlock(
-                                        stringResource(R.string.settings_account),
-                                        stringResource(R.string.settings_account_needed),
-                                        RFStateKind.Empty,
-                                        theme,
-                                        action = {
-                                            TextButton(
-                                                onClick = { onAction(SettingsAction.OpenAccount) }
-                                            ) { Text(stringResource(R.string.settings_open_account)) }
-                                        }
-                                    )
-                                }
-                            }
                             item("appearance") {
                                 RFSettingsRow(
                                     "appearance",
@@ -107,6 +109,17 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
                                     leading = {},
                                     trailing = {},
                                     onAction = { onAction(SettingsAction.Page(SettingsPage.APPEARANCE)) }
+                                )
+                            }
+                            item("language") {
+                                RFSettingsRow(
+                                    "language",
+                                    stringResource(R.string.settings_language),
+                                    "",
+                                    theme,
+                                    leading = {},
+                                    trailing = {},
+                                    onAction = { onAction(SettingsAction.Page(SettingsPage.LANGUAGE)) }
                                 )
                             }
                             item("devices") {
@@ -150,11 +163,34 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
                                 item("last-run") { StatusRow(stringResource(R.string.settings_last_run), status.lastRun) }
                             }
                         }
+                        SettingsPage.LANGUAGE -> {
+                            item("language-help") { Text(stringResource(R.string.settings_language_help)) }
+                            for (language in AppLanguage.entries) item("language:" + language.tag) {
+                                ThemeChoiceRow(
+                                    "language:" + language.tag,
+                                    stringResource(
+                                        when (language) {
+                                            AppLanguage.SYSTEM -> R.string.settings_system
+                                            AppLanguage.ENGLISH -> R.string.settings_english
+                                            AppLanguage.SIMPLIFIED_CHINESE -> R.string.settings_chinese
+                                        }
+                                    ),
+                                    state.selectedLanguage == language,
+                                    !state.savingLanguage
+                                ) { onAction(SettingsAction.Language(language)) }
+                            }
+                            item("apply-language") {
+                                TextButton(
+                                    enabled = !state.savingLanguage && state.selectedLanguage != state.savedLanguage,
+                                    onClick = { onAction(SettingsAction.ApplyLanguage) }
+                                ) { Text(stringResource(R.string.settings_apply_language)) }
+                            }
+                        }
                         SettingsPage.APPEARANCE -> {
                             item("appearance-help") { Text(stringResource(R.string.settings_appearance_help)) }
                             item("system") {
                                 ThemeChoiceRow(
-                                    "system",
+                                    "theme:system",
                                     stringResource(R.string.settings_system),
                                     state.selectedTheme == null,
                                     !state.savingTheme
@@ -162,7 +198,7 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
                             }
                             items(state.themes, key = { "theme:" + it.id }, contentType = { "theme" }) { choice ->
                                 ThemeChoiceRow(
-                                    choice.id,
+                                    "theme:" + choice.id,
                                     choice.label.render(),
                                     state.selectedTheme == choice.id,
                                     !state.savingTheme
@@ -214,7 +250,7 @@ private fun StatusRow(label: String, value: UiText) {
 private fun ThemeChoiceRow(id: String, label: String, selected: Boolean, enabled: Boolean, onSelect: () -> Unit) {
     val theme = LocalRFTheme.current
     Row(
-        Modifier.fillMaxWidth().heightIn(min = theme.composer_min.dp).testTag("theme:" + id)
+        Modifier.fillMaxWidth().heightIn(min = theme.composer_min.dp).testTag(id)
             .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onSelect)
             .semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically

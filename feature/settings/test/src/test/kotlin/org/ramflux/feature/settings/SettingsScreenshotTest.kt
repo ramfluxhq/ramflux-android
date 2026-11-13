@@ -37,6 +37,7 @@ class SettingsScreenshotTest(
             for (kind in listOf("loading", "error", "account")) for (dark in listOf(false, true))
                 for (locale in listOf("en", "zh-CN", "en-XA")) for (width in listOf(400, 900)) {
                     add(arrayOf(SettingsPage.GENERAL, dark, locale, width, kind))
+                    if (kind == "account") add(arrayOf(SettingsPage.DEVICES, dark, locale, width, kind))
                 }
         }
     }
@@ -59,7 +60,7 @@ class SettingsScreenshotTest(
         val state = when (kind) {
             "loading" -> SettingsState(loading = true)
             "error" -> SettingsState(problem = uiText(R.string.settings_read_failed, UiText.Number(8)))
-            "account" -> SettingsState(accountRequired = true)
+            "account" -> SettingsState(page = page, accountRequired = true)
             else -> populated
         }
         compose.setContent {

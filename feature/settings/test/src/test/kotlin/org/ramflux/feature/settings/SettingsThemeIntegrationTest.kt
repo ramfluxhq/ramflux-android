@@ -33,7 +33,7 @@ class SettingsThemeIntegrationTest {
         runBlocking { withTimeout(5_000) { preferences.appearance.first { !it.loading } } }
         val accounts = FakeSettingsAccounts().apply { result = ClientResult.Ready(AccountCatalog(emptyList(), null)) }
         val devices = FakeDeviceDirectory()
-        val vm = SettingsViewModel(accounts, devices, FakeAccountStatus(), preferences, FakeSettingsSession())
+        val vm = SettingsViewModel(accounts, devices, FakeAccountStatus(), preferences, FakeSettingsSession(), FakeSettingsLanguage())
         vm.onAction(SettingsAction.Page(SettingsPage.APPEARANCE))
         var background = Color.Unspecified
         var identity: Any? = null

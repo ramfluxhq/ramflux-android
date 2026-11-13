@@ -8,6 +8,15 @@ so a locale change does not repeat repository work. `UiText.Data` is only displa
 data, such as peer text; it is never interpreted as a resource key. Dates and exact
 unsigned counts use locale-aware platform formatters, and quantities use plurals.
 
+Settings offers English, Simplified Chinese and follow-system, with an explicit
+Apply action. The device-local language repository confirms an IO preference
+commit before publishing the active selection. The composition root observes
+that selection through `AppLanguageProvider`, supplying the resource context,
+configuration and layout direction to the existing navigation tree. Choosing a
+language does not call the SDK, change peer data or modify account permissions.
+Unknown stored locales fall back to the inherited configuration with a typed
+notice; failed commits leave the active selection unchanged.
+
 Debug builds enable Android pseudo-locales. Screenshot cases cover English,
 Simplified Chinese and expanded English in both shipped themes. The resource
 guard checks matching launch-locale keys/placeholders, direct host text and

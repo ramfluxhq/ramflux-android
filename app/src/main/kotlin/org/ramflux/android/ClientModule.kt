@@ -32,5 +32,7 @@ object ClientModule {
 
     @Provides fun accountStatus(data: AndroidClientData): AccountStatusRepository = data.accountStatus
 
+    @Provides fun language(data: AndroidClientData): LanguageRepository = data.language
+
     @Provides fun appearance(data: AndroidClientData): AppearanceRepository = data.appearance
 }
