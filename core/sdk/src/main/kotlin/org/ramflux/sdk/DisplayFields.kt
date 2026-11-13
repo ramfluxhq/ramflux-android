@@ -30,6 +30,28 @@ internal class DisplayFields(raw: ByteArray) {
             number
         } finally { raw.fill(0) }
     }
+
+    fun optionalSigned(row: ByteJson.Node, key: String): Long? {
+        val value = field(row, key) ?: return null
+        if (value.kind == 110) return null
+        require(value.kind == 45 || value.kind in 48..57)
+        val raw = parser.copy(value)
+        return try {
+            val negative = raw.firstOrNull()?.toInt() == 45
+            val start = if (negative) 1 else 0
+            require(raw.size > start)
+            val limit = if (negative) Long.MIN_VALUE else -Long.MAX_VALUE
+            var number = 0L
+            for (index in start until raw.size) {
+                val digit = raw[index].toInt() - 48
+                require(digit in 0..9 && number >= limit / 10)
+                number *= 10
+                require(number >= limit + digit)
+                number -= digit
+            }
+            if (negative) number else -number
+        } finally { raw.fill(0) }
+    }
     fun boolean(row: ByteJson.Node, key: String): Boolean {
         val value = field(row, key) ?: throw IllegalArgumentException("missing flag")
         require(value.kind in listOf(116, 102))
