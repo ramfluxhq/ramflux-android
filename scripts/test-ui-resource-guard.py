@@ -13,6 +13,20 @@ spec.loader.exec_module(guard)
 
 
 class ResourceGuardTest(unittest.TestCase):
+    def test_runtime_locale_provider_requires_bundled_languages(self):
+        with tempfile.TemporaryDirectory(prefix='rf-locale-bundle-') as scratch:
+            root = Path(scratch)
+            provider = root / 'core/designsystem/src/main/kotlin/org/ramflux/designsystem/AppLanguageProvider.kt'
+            provider.parent.mkdir(parents=True)
+            provider.touch()
+            app = root / 'app/build.gradle.kts'
+            app.parent.mkdir(parents=True)
+            app.write_text('android {}')
+            with self.assertRaisesRegex(ValueError, 'all locale resources'):
+                guard.validate(root)
+            app.write_text('android { bundle { language { enableSplit = false } } }')
+            guard.validate(root)
+
     def test_regressions_are_rejected(self):
         with tempfile.TemporaryDirectory(prefix='rf-locale-guard-') as scratch:
             root = Path(scratch)

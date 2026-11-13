@@ -43,4 +43,9 @@
     <string name="settings_node_unavailable">Unavailable</string>
     <string name="settings_last_run">Last run</string>
     <string name="settings_theme_missing">The selected theme is unavailable. Choose another theme.</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_help">Applies to host labels on this device. Peer names and message text stay unchanged.</string>
+    <string name="settings_english">English</string>
+    <string name="settings_chinese">Simplified Chinese</string>
+    <string name="settings_apply_language">Apply language</string>
 </resources>

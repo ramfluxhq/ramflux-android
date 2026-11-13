@@ -20,13 +20,20 @@ class SettingsViewModel @Inject constructor(
     private val devices: DeviceDirectoryRepository,
     private val accountStatus: AccountStatusRepository,
     private val preferences: AppearanceRepository,
-    private val session: ClientSessionRepository
+    private val session: ClientSessionRepository,
+    private val language: LanguageRepository
 ) : ViewModel() {
     private val local = MutableStateFlow(SettingsState())
     private val channel = Channel<SettingsEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
     private val saving = MutableStateFlow(false)
-    val state = combine(local, preferences.appearance, session.status, saving) { screen, appearance, status, savingTheme ->
+    val state = combine(
+        local,
+        preferences.appearance,
+        session.status,
+        saving,
+        language.language
+    ) { screen, appearance, status, savingTheme, locale ->
         val visible = if (status.phase == ClientPhase.OPEN) {
             screen
         } else {
@@ -47,16 +54,21 @@ class SettingsViewModel @Inject constructor(
                 Appearance.DARK -> "dark"
             },
             savingTheme = appearance.loading || savingTheme,
-            problem = appearance.problem?.message() ?: if (appearance.themeId != null && ThemeCatalog.find(appearance.themeId) == null) {
-                uiText(R.string.settings_theme_missing)
-            } else {
-                visible.problem
-            }
+            selectedLanguage = screen.languageDraft ?: locale.value,
+            savedLanguage = locale.value,
+            savingLanguage = locale.loading || screen.savingLanguage,
+            problem = locale.problem?.message() ?: appearance.problem?.message()
+                ?: if (appearance.themeId != null && ThemeCatalog.find(appearance.themeId) == null) {
+                    uiText(R.string.settings_theme_missing)
+                } else {
+                    visible.problem
+                }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), SettingsState())
     private var request: Job? = null
     private var preferenceJob: Job? = null
     private var capability: Job? = null
+    private var languageJob: Job? = null
     private var ticket = 0L
     private var activeAccount: String? = null
     private val lifecycle = viewModelScope.launch {
@@ -75,6 +87,22 @@ class SettingsViewModel @Inject constructor(
     }
     fun onAction(action: SettingsAction) {
         when (action) {
+            is SettingsAction.Language -> if (languageJob?.isActive != true) local.update { it.copy(languageDraft = action.language) }
+            SettingsAction.ApplyLanguage -> if (languageJob?.isActive != true) {
+                val choice = local.value.languageDraft ?: language.language.value.value
+                languageJob = viewModelScope.launch {
+                    local.update { it.copy(savingLanguage = true, problem = null) }
+                    try {
+                        when (val result = language.setLanguage(choice)) {
+                            is ClientResult.Ready -> local.update { it.copy(languageDraft = null) }
+                            is ClientResult.Failed -> local.update { it.copy(problem = result.problem.message()) }
+                            is ClientResult.Unavailable -> local.update { it.copy(unavailable = result.reason.message()) }
+                        }
+                    } finally {
+                        local.update { it.copy(savingLanguage = false) }
+                    }
+                }
+            }
             SettingsAction.Refresh -> if (request?.isActive != true) read()
             SettingsAction.Back -> {
                 request?.cancel()

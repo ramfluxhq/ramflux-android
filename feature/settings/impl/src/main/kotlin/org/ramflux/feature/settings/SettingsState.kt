@@ -4,9 +4,10 @@
 package org.ramflux.feature.settings
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
+import org.ramflux.data.AppLanguage
 import org.ramflux.designsystem.*
 
-enum class SettingsPage { GENERAL, APPEARANCE, DEVICES, BACKUP }
+enum class SettingsPage { GENERAL, APPEARANCE, LANGUAGE, DEVICES, BACKUP }
 
 @Immutable data class SettingsThemeChoice(val id: String, val label: UiText)
 
@@ -24,6 +25,10 @@ enum class SettingsPage { GENERAL, APPEARANCE, DEVICES, BACKUP }
         SettingsThemeChoice(it.id, uiText(it.nameRes))
     }.toPersistentList(),
     val savingTheme: Boolean = false,
+    val selectedLanguage: AppLanguage = AppLanguage.SYSTEM,
+    val savedLanguage: AppLanguage = AppLanguage.SYSTEM,
+    val languageDraft: AppLanguage? = null,
+    val savingLanguage: Boolean = false,
     val devices: ImmutableList<SettingsDevice> = persistentListOf(),
     val devicesLoaded: Boolean = false,
     val deviceProblem: UiText? = null,

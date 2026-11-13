@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Span Brain
 
 plugins { id("ramflux.android.app") }
+android { bundle { language { enableSplit = false } } }
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":feature:settings:impl"))

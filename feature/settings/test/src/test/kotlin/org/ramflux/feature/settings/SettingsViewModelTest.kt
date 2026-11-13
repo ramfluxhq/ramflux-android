@@ -29,12 +29,37 @@ class SettingsViewModelTest {
     }
     private fun failure() = ClientResult.Failed(ClientProblem(ClientFailureKind.STORAGE, 8, ClientOutcome.NONE))
 
+    @Test fun failedLanguageWriteKeepsStoredSelectionAndNeverClaimsApplied() = runTest(timeout = 5.seconds) {
+        val language = FakeSettingsLanguage().apply {
+            result = ClientResult.Failed(ClientProblem(ClientFailureKind.STORAGE, 8, ClientOutcome.NONE))
+        }
+        val vm = SettingsViewModel(
+            FakeSettingsAccounts(),
+            FakeDeviceDirectory(),
+            FakeAccountStatus(),
+            FakeSettingsAppearance(),
+            FakeSettingsSession(),
+            language
+        )
+        observe(vm)
+        runCurrent()
+        vm.onAction(SettingsAction.Language(AppLanguage.SIMPLIFIED_CHINESE))
+        runCurrent()
+        assertEquals(AppLanguage.SYSTEM, vm.state.value.savedLanguage)
+        assertEquals(AppLanguage.SIMPLIFIED_CHINESE, vm.state.value.selectedLanguage)
+        vm.onAction(SettingsAction.ApplyLanguage)
+        runCurrent()
+        assertEquals(AppLanguage.SYSTEM, vm.state.value.savedLanguage)
+        assertNotNull(vm.state.value.problem)
+        assertFalse(vm.state.value.savingLanguage)
+    }
+
     @Test fun appearanceCanChangeWithoutAccountAndDoesNotRepeatPrivateReads() = runTest(timeout = 5.seconds) {
         val accounts = FakeSettingsAccounts().apply { result = ClientResult.Ready(AccountCatalog(emptyList(), null)) }
         val devices = FakeDeviceDirectory()
         val status = FakeAccountStatus()
         val preferences = FakeSettingsAppearance()
-        val vm = SettingsViewModel(accounts, devices, status, preferences, FakeSettingsSession())
+        val vm = SettingsViewModel(accounts, devices, status, preferences, FakeSettingsSession(), FakeSettingsLanguage())
         observe(vm)
         runCurrent()
         assertTrue(vm.state.value.accountRequired)
@@ -52,7 +77,15 @@ class SettingsViewModelTest {
 
     @Test fun failedPreferenceCommitKeepsPreviousSelectionAndVisibleError() = runTest(timeout = 5.seconds) {
         val preferences = FakeSettingsAppearance().apply { result = failure() }
-        val vm = SettingsViewModel(FakeSettingsAccounts(), FakeDeviceDirectory(), FakeAccountStatus(), preferences, FakeSettingsSession())
+        val vm =
+            SettingsViewModel(
+                FakeSettingsAccounts(),
+                FakeDeviceDirectory(),
+                FakeAccountStatus(),
+                preferences,
+                FakeSettingsSession(),
+                FakeSettingsLanguage()
+            )
         observe(vm)
         runCurrent()
         vm.onAction(SettingsAction.Theme("dark"))
@@ -67,7 +100,15 @@ class SettingsViewModelTest {
 
     @Test fun failedDeviceReadNeverClaimsLoadedEmptyAndAbsentSamplesAreNotHealthy() = runTest(timeout = 5.seconds) {
         val devices = FakeDeviceDirectory().apply { listing = { failure() } }
-        val vm = SettingsViewModel(FakeSettingsAccounts(), devices, FakeAccountStatus(), FakeSettingsAppearance(), FakeSettingsSession())
+        val vm =
+            SettingsViewModel(
+                FakeSettingsAccounts(),
+                devices,
+                FakeAccountStatus(),
+                FakeSettingsAppearance(),
+                FakeSettingsSession(),
+                FakeSettingsLanguage()
+            )
         observe(vm)
         runCurrent()
         assertFalse(vm.state.value.devicesLoaded)
@@ -79,7 +120,15 @@ class SettingsViewModelTest {
     @Test fun failedAccountDoesNotClaimAbsentAccountOrExposeOldDevices() = runTest(timeout = 5.seconds) {
         val accounts = FakeSettingsAccounts().apply { result = failure() }
         val devices = FakeDeviceDirectory()
-        val vm = SettingsViewModel(accounts, devices, FakeAccountStatus(), FakeSettingsAppearance(), FakeSettingsSession())
+        val vm =
+            SettingsViewModel(
+                accounts,
+                devices,
+                FakeAccountStatus(),
+                FakeSettingsAppearance(),
+                FakeSettingsSession(),
+                FakeSettingsLanguage()
+            )
         observe(vm)
         runCurrent()
         assertFalse(vm.state.value.accountRequired)
@@ -98,7 +147,7 @@ class SettingsViewModelTest {
                 ClientResult.Ready(listOf(DeviceSummary("private", true, 1u)))
             }
         }
-        val vm = SettingsViewModel(accounts, devices, FakeAccountStatus(), FakeSettingsAppearance(), session)
+        val vm = SettingsViewModel(accounts, devices, FakeAccountStatus(), FakeSettingsAppearance(), session, FakeSettingsLanguage())
         observe(vm)
         runCurrent()
         accounts.result = ClientResult.Ready(AccountCatalog(listOf(AccountSummary("b", "Other", true, "unlocked")), "b"))
@@ -120,7 +169,15 @@ class SettingsViewModelTest {
         val devices = FakeDeviceDirectory().apply {
             listing = { ClientResult.Ready(listOf(DeviceSummary("local", true, 1u), DeviceSummary("other", false, 2u))) }
         }
-        val vm = SettingsViewModel(FakeSettingsAccounts(), devices, FakeAccountStatus(), FakeSettingsAppearance(), FakeSettingsSession())
+        val vm =
+            SettingsViewModel(
+                FakeSettingsAccounts(),
+                devices,
+                FakeAccountStatus(),
+                FakeSettingsAppearance(),
+                FakeSettingsSession(),
+                FakeSettingsLanguage()
+            )
         observe(vm)
         runCurrent()
         vm.onAction(SettingsAction.Revoke("local"))
@@ -143,7 +200,8 @@ class SettingsViewModelTest {
                 FakeDeviceDirectory(),
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
-                FakeSettingsSession()
+                FakeSettingsSession(),
+                FakeSettingsLanguage()
             )
         observe(vm)
         runCurrent()
@@ -166,7 +224,15 @@ class SettingsViewModelTest {
     @Test fun immediateMainStartupRetainsAccountForSubsequentDeviceAction() = runTest(timeout = 5.seconds) {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         val devices = FakeDeviceDirectory().apply { listing = { ClientResult.Ready(listOf(DeviceSummary("other", false, 1u))) } }
-        val vm = SettingsViewModel(FakeSettingsAccounts(), devices, FakeAccountStatus(), FakeSettingsAppearance(), FakeSettingsSession())
+        val vm =
+            SettingsViewModel(
+                FakeSettingsAccounts(),
+                devices,
+                FakeAccountStatus(),
+                FakeSettingsAppearance(),
+                FakeSettingsSession(),
+                FakeSettingsLanguage()
+            )
         observe(vm)
         runCurrent()
         vm.onAction(SettingsAction.Revoke("other"))

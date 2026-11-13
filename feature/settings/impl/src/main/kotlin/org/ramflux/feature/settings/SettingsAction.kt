@@ -3,6 +3,8 @@
 
 package org.ramflux.feature.settings
 sealed interface SettingsAction {
+    data class Language(val language: org.ramflux.data.AppLanguage) : SettingsAction
+    data object ApplyLanguage : SettingsAction
     data object Refresh : SettingsAction
     data object Back : SettingsAction
     data object OpenAccount : SettingsAction

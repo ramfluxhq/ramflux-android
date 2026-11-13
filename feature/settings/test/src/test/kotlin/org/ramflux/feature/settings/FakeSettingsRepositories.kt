@@ -66,3 +66,12 @@ class FakeSettingsSession : ClientSessionRepository {
     }
     override suspend fun availability(feature: ClientFeature): ClientResult<Unit> = ClientResult.Ready(Unit)
 }
+
+class FakeSettingsLanguage : LanguageRepository {
+    override val language = MutableStateFlow(LanguageSnapshot(loading = false))
+    var result: ClientResult<Unit> = ClientResult.Ready(Unit)
+    override suspend fun setLanguage(value: AppLanguage): ClientResult<Unit> {
+        if (result is ClientResult.Ready) language.value = LanguageSnapshot(value, loading = false)
+        return result
+    }
+}
