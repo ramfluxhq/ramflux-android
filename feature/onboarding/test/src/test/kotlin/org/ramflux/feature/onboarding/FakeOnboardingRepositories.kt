@@ -53,7 +53,7 @@ class FakeNodeSetup : NodeSetupRepository {
         lastAddress = address
         return discoverResult()
     }
-    override suspend fun confirm(candidate: DiscoveredNode): ClientResult<Unit> {
+    override suspend fun confirm(candidate: DiscoveredNode, operatorKey: String): ClientResult<Unit> {
         confirmations++
         lastConfirmed = candidate
         return if (candidate.node.keyChanged) {

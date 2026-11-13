@@ -27,11 +27,13 @@ class OnboardingDataTest {
         val transport = PublicTransport().apply { answer = { reply(node()) } }
         val repo = DefaultNodeSetupRepository(transport)
         val candidate = DiscoveredNode(SavedNode("node", "https://node.example", "reviewed-key", false, false, true), "a".repeat(64))
-        assertTrue(repo.confirm(candidate) is ClientResult.Ready)
+        assertTrue(repo.confirm(candidate, "reviewed-key") is ClientResult.Ready)
+        assertTrue(repo.confirm(candidate, "different-operator-key") is ClientResult.Failed)
         val request = transport.calls.single()
+        assertEquals("operator", request.body["pin_source"]?.jsonPrimitive?.content)
         assertEquals("node.confirm", request.method); assertEquals("reviewed-key", request.body["expected_public_key"]?.jsonPrimitive?.content)
         assertFalse(request.operationId.isNullOrBlank())
-        assertTrue(repo.confirm(candidate.copy(node = candidate.node.copy(keyChanged = true))) is ClientResult.Unavailable)
+        assertTrue(repo.confirm(candidate.copy(node = candidate.node.copy(keyChanged = true)), "reviewed-key") is ClientResult.Unavailable)
         assertEquals(1, transport.calls.size)
     }
     @Test fun selectingNodeRechecksSafetyAndNeverWritesChangedKey() = runTest(timeout = 5.seconds) {
@@ -48,7 +50,7 @@ class OnboardingDataTest {
     @Test fun unknownMutationOutcomeIsPreservedWithoutAutomaticRetry() = runTest(timeout = 5.seconds) {
         val transport = PublicTransport().apply { answer = { CoreResult.Failure(CoreError.Native(10, Effect.UNKNOWN)) } }
         val candidate = DiscoveredNode(SavedNode("node", "https://node.example", "key", false, false, true), "a".repeat(64))
-        val failure = DefaultNodeSetupRepository(transport).confirm(candidate) as ClientResult.Failed
+        val failure = DefaultNodeSetupRepository(transport).confirm(candidate, "key") as ClientResult.Failed
         assertEquals(ClientOutcome.UNKNOWN, failure.problem.outcome); assertEquals(1, transport.calls.size)
     }
     @Test fun accountListMapsRealBridgeReplyAndCustodyOperationsNeverCallNative() = runTest(timeout = 5.seconds) {
