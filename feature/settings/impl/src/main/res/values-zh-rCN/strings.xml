@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="settings_settings">设置</string>
+    <string name="settings_appearance">外观</string>
+    <string name="settings_devices">设备</string>
+    <string name="settings_backup">备份</string>
+    <string name="settings_back">返回</string>
+    <string name="settings_refresh">刷新</string>
+    <string name="settings_system">跟随系统</string>
+    <string name="settings_appearance_help">为此设备选择主题，更改会立即生效。</string>
+    <string name="settings_account">账户</string>
+    <string name="settings_account_needed">请打开已解锁的账户以查看状态和设备。</string>
+    <string name="settings_open_account">打开账户</string>
+    <string name="settings_connections">连接</string>
+    <string name="settings_manage_connections">管理已保存的节点</string>
+    <string name="settings_loading">正在读取账户状态…</string>
+    <string name="settings_unavailable">暂不可用</string>
+    <string name="settings_action_missing">此版本尚未包含此操作。</string>
+    <string name="settings_sdk_missing">此版本暂不支持此操作。</string>
+    <string name="settings_custody_missing">需要此设备上的安全账户访问支持。</string>
+    <string name="settings_error">无法继续</string>
+    <string name="settings_read_failed">请求未完成（代码 %1$s）。</string>
+    <string name="settings_unknown_outcome">操作结果未知，请先刷新当前状态再发起新请求。</string>
+    <string name="settings_account_changed">当前账户已变更，请刷新以读取当前状态。</string>
+    <string name="settings_closed">私有数据已关闭，账户详情已隐藏。</string>
+    <string name="settings_empty_devices">账户组件未返回任何设备。</string>
+    <string name="settings_current_device">此设备</string>
+    <string name="settings_other_device">其他设备</string>
+    <string name="settings_revoke">撤销</string>
+    <string name="settings_backup_help">备份操作需要安全账户访问支持，尚未创建或导出备份。</string>
+    <string name="settings_sessions">安全会话</string>
+    <string name="settings_session_ready">就绪</string>
+    <string name="settings_session_reestablishing">正在重新建立</string>
+    <string name="settings_status_unknown">状态不可用</string>
+    <string name="settings_sync">同步</string>
+    <string name="settings_sync_running">正在运行</string>
+    <string name="settings_sync_idle">空闲</string>
+    <string name="settings_sync_error">错误</string>
+    <string name="settings_not_recorded">尚无记录</string>
+    <string name="settings_node">节点状态</string>
+    <string name="settings_node_connected">已连接</string>
+    <string name="settings_node_unavailable">不可用</string>
+    <string name="settings_last_run">上次运行</string>
+    <string name="settings_theme_missing">所选主题不可用，请选择其他主题。</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_help">仅更改此设备上的宿主界面语言。对方姓名和消息文本保持不变。</string>
+    <string name="settings_english">英语</string>
+    <string name="settings_chinese">简体中文</string>
+    <string name="settings_apply_language">应用语言</string>
+</resources>

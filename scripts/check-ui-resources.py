@@ -23,6 +23,9 @@ def resource_keys(directory):
 
 
 def validate(root):
+    provider = root / 'core/designsystem/src/main/kotlin/org/ramflux/designsystem/AppLanguageProvider.kt'
+    if provider.exists() and not re.search(r'enableSplit\s*=\s*false', (root / 'app/build.gradle.kts').read_text()):
+        raise ValueError('Runtime language switching requires all locale resources in the application bundle')
     modules = [root / 'app', root / 'core/designsystem', *[p for p in sorted((root / 'feature').glob('*/impl')) if (p / 'build.gradle.kts').exists()]]
     total = 0
     for module in modules:
@@ -58,7 +61,7 @@ def validate(root):
                 if not value or re.fullmatch(r'[a-z0-9_:/.$-]+|S\d+', value):
                     continue  # Stable ids, token/schema names and empty text, never human labels.
                 prefix = text[max(0, match.start() - 80):match.start()]
-                if re.search(r'CancellationException\(\s*$', prefix) or value.endswith('(<redacted>)'):
+                if re.search(r'(?:CancellationException|@SuppressLint)\(\s*$', prefix) or value.endswith('(<redacted>)'):
                     continue  # Non-user diagnostics have no UI rendering path.
                 raise ValueError(f'Hard-coded host text: {source.relative_to(root)}:{text.count(chr(10), 0, match.start()) + 1}: {quoted}')
             if re.search(r'\bColor\(0x|#[0-9a-fA-F]{6}\b|(?<![\w.])\d+(?:\.\d+)?\.(?:dp|sp)\b', text):

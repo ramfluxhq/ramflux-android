@@ -268,6 +268,25 @@ class OnboardingViewModelTest {
         assertNotNull(vm.state.value.notice)
     }
 
+    @Test fun immediateMainStartupDoesNotResetGenerationWhileFirstReadIsSuspended() = runTest(timeout = 5.seconds) {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val barrier = CompletableDeferred<Unit>()
+        val accounts = FakeAccountAccess().apply {
+            listing = {
+                barrier.await()
+                ClientResult.Ready(AccountCatalog(emptyList(), null))
+            }
+        }
+        val vm = OnboardingViewModel(accounts, FakeNodeSetup(), FakeOnboardingSession())
+        observe(vm)
+        runCurrent()
+        barrier.complete(Unit)
+        runCurrent()
+        assertTrue(vm.state.value.accountsLoaded)
+        assertTrue(vm.state.value.nodesLoaded)
+        assertFalse(vm.state.value.busy)
+    }
+
     @Test fun operatorKeyMustPrecedeDiscoveryAndCannotBeReplacedAfterIdentityIsShown() = runTest(timeout = 5.seconds) {
         val nodes = FakeNodeSetup()
         val vm = OnboardingViewModel(FakeAccountAccess(), nodes, FakeOnboardingSession())

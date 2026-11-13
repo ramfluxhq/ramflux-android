@@ -28,5 +28,11 @@ object ClientModule {
 
     @Provides fun history(data: AndroidClientData): MessageHistoryRepository = data.history
 
+    @Provides fun devices(data: AndroidClientData): DeviceDirectoryRepository = data.devices
+
+    @Provides fun accountStatus(data: AndroidClientData): AccountStatusRepository = data.accountStatus
+
+    @Provides fun language(data: AndroidClientData): LanguageRepository = data.language
+
     @Provides fun appearance(data: AndroidClientData): AppearanceRepository = data.appearance
 }

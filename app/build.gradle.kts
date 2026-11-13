@@ -2,8 +2,19 @@
 // Copyright (c) 2026 Span Brain
 
 plugins { id("ramflux.android.app") }
+android {
+    bundle { language { enableSplit = false } }
+    testOptions.unitTests.isIncludeAndroidResources = true
+}
 dependencies {
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.compose.test)
+    testImplementation(libs.coroutines.test)
+    debugImplementation(libs.compose.test.manifest)
     implementation(project(":core:data"))
+    implementation(project(":feature:settings:impl"))
     implementation(project(":feature:chat:impl"))
     implementation(project(":feature:conversations:impl"))
     implementation(project(":feature:onboarding:impl"))

@@ -21,3 +21,5 @@ include(":feature:onboarding:api", ":feature:onboarding:impl", ":feature:onboard
 include(":feature:conversations:api", ":feature:conversations:impl", ":feature:conversations:test")
 
 include(":feature:chat:api", ":feature:chat:impl", ":feature:chat:test")
+
+include(":feature:settings:api", ":feature:settings:impl", ":feature:settings:test")
