@@ -101,6 +101,51 @@ class GroupDirectoryDataTest {
             assertNull(repo.pending("account"))
         } finally { client.close() }
     }
+    @Test fun terminalReceiptsResolveOnlyMatchingOriginalIntentThroughRealBridge() = runTest(timeout = 5.seconds) {
+        val oracle = Oracle().apply { malformed = true }
+        val client = (CoreClient.open(oracle, "/test/group-receipts", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
+        try {
+            val repo = DefaultGroupDirectoryRepository(SdkRepositoryTransport { client })
+            val change = GroupChange(GroupOperation.RENAME, "g", 7u, name = "Original")
+            val statuses = listOf("applied", "already_applied", "expired", "permission_denied", "rejected", "refused", "capacity", "invalid")
+            for ((index, status) in statuses.withIndex()) {
+                val id = "receipt-$index"
+                assertEquals(ClientOutcome.UNKNOWN, (repo.mutate("account", change, id) as ClientResult.Failed).problem.outcome)
+                oracle.requestStatus = status; oracle.requestId = "unrelated"
+                repo.requests("account", "g")
+                assertEquals(PendingGroupOperation(id, change), repo.pending("account"))
+                oracle.requestId = id; oracle.requestStatus = "future_status"
+                repo.requests("account", "g")
+                assertEquals(PendingGroupOperation(id, change), repo.pending("account"))
+                oracle.requestStatus = status
+                repo.requests("account", "g")
+                assertNull("terminal $status", repo.pending("account"))
+                val count = oracle.abi.submitted.size
+                val resolved = repo.mutate("account", change, id)
+                assertEquals(count, oracle.abi.submitted.size)
+                when (status) {
+                    "applied", "already_applied" -> assertFalse((resolved as ClientResult.Ready).value.expired)
+                    "expired" -> assertTrue((resolved as ClientResult.Ready).value.expired)
+                    "capacity" -> assertEquals(ClientFailureReason.GROUP_CAPACITY, (resolved as ClientResult.Failed).problem.reason)
+                    "invalid" -> assertEquals(ClientFailureReason.GROUP_INVALID, (resolved as ClientResult.Failed).problem.reason)
+                    else -> assertEquals(ClientOutcome.REFUSED, (resolved as ClientResult.Failed).problem.outcome)
+                }
+            }
+        } finally { client.close() }
+    }
+    @Test fun groupChatHeaderRequiresCanonicalBindingThroughRealBridge() = runTest(timeout = 5.seconds) {
+        val oracle = Oracle()
+        val client = (CoreClient.open(oracle, "/test/group-header", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
+        try {
+            val repo = DefaultMessageHistoryRepository(SdkRepositoryTransport { client })
+            assertEquals(ConversationHeader("Actual name", "g"), (repo.groupHeader("account", "g", "canonical-conversation") as ClientResult.Ready).value)
+            val count = oracle.abi.submitted.size
+            assertTrue(repo.groupHeader("account", "g", "other-conversation") is ClientResult.Failed)
+            assertEquals(1, oracle.abi.submitted.size - count)
+            assertEquals("group.history", oracle.abi.submitted.last()["method"]?.jsonPrimitive?.content)
+            assertTrue(repo.groupHeader("account", "wrong-group", "canonical-conversation") is ClientResult.Failed)
+        } finally { client.close() }
+    }
     @Test fun memberChangesAreRootQualifiedAndCancellationPreservesOriginalIntent() = runTest(timeout = 5.seconds) {
         val oracle = Oracle()
         val client = (CoreClient.open(oracle, "/test/group-roster", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value

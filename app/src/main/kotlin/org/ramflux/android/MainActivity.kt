@@ -57,12 +57,12 @@ class MainActivity : ComponentActivity() {
                         GroupsNavigation(
                             onBack,
                             { navigate(OnboardingRoute) },
-                            { account, conversation -> navigate(ChatRoute(account, conversation)) }
+                            { account, conversation, group -> navigate(ChatRoute(account, conversation, group)) }
                         )
                     }
                     entry<ContactsRoute> { ContactsNavigation(onBack, { navigate(OnboardingRoute) }) }
                     entry<SettingsRoute> { SettingsNavigation(onBack, { navigate(OnboardingRoute) }, { navigate(OnboardingRoute) }) }
-                    entry<ChatRoute> { route -> ChatNavigation(route.accountId, route.conversationId, onBack) }
+                    entry<ChatRoute> { route -> ChatNavigation(route.accountId, route.conversationId, onBack, groupId = route.groupId) }
                     entry<ConversationsRoute> {
                         ConversationsNavigation(
                             onBack = onBack,

@@ -7,6 +7,21 @@ import org.ramflux.sdk.*
 
 internal class DefaultMessageHistoryRepository(transport: RepositoryTransport) : MessageHistoryRepository {
     private val source = DefaultConversationsRepository(transport)
+    private val groups = DefaultGroupDirectoryRepository(transport)
+    override suspend fun groupHeader(account: String, group: String, conversation: String): ClientResult<ConversationHeader> {
+        if (account.isBlank() || group.isBlank() || conversation.isBlank() ||
+            account.length > 4096 || group.length > 4096 || conversation.length > 4096) return invalidHeader()
+        when (val canonical = groups.conversation(account, group)) {
+            is ClientResult.Ready -> if (canonical.value != conversation) return invalidHeader()
+            is ClientResult.Failed -> return canonical
+            is ClientResult.Unavailable -> return canonical
+        }
+        return when (val detail = groups.detail(account, group)) {
+            is ClientResult.Ready -> ClientResult.Ready(ConversationHeader(detail.value.group.name, detail.value.group.id))
+            is ClientResult.Failed -> detail
+            is ClientResult.Unavailable -> detail
+        }
+    }
     override suspend fun read(account: String, conversation: String): ClientResult<List<TimelineSummary>> {
         if (account.isBlank() || conversation.isBlank() || account.length > 4096 || conversation.length > 4096) {
             return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))

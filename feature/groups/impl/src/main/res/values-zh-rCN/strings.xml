@@ -38,8 +38,6 @@
     <string name="groups_creator">创建者：%1$s</string>
     <string name="groups_inviter">邀请者：%1$s</string>
     <string name="groups_review">核对群组操作</string>
-    <string name="groups_hold">按住 1.2 秒以允许</string>
-    <string name="groups_release">松开以允许</string>
     <string name="groups_deny">拒绝</string>
     <string name="groups_fact_account">账号：%1$s</string>
     <string name="groups_fact_group">群组：%1$s</string>
@@ -65,4 +63,8 @@
     <string name="groups_no_requests">暂无群组请求</string>
     <plurals name="groups_member_count"><item quantity="other">%1$s 位成员</item></plurals>
     <string name="groups_access_changed">群组访问权限已更改；继续前请刷新。</string>
+    <string name="groups_already_applied">已应用</string>
+    <string name="groups_capacity">群组已达到容量上限。</string>
+    <string name="groups_invalid_request">群组请求无效。</string>
+    <string name="groups_confirm">确认</string>
 </resources>

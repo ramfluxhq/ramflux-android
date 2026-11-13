@@ -236,13 +236,10 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit) {
                 LazyColumn(Modifier.heightIn(max = (theme.gap * 20).dp)) {
                     items(facts.values.indices.toList()) { index -> Text(facts.values[index].render()) }
                 }
-                HoldConfirmation(
-                    stringResource(if (facts.held) R.string.groups_release else R.string.groups_hold),
-                    facts.held,
-                    onStart = { onAction(GroupsAction.HoldStart) },
-                    onEnd = { onAction(GroupsAction.HoldEnd(it)) }
-                )
-            }, actions = { TextButton(onClick = { onAction(GroupsAction.Deny) }) { Text(stringResource(R.string.groups_deny)) } })
+            }, actions = {
+                TextButton(onClick = { onAction(GroupsAction.Deny) }) { Text(stringResource(R.string.groups_deny)) }
+                TextButton(onClick = { onAction(GroupsAction.Confirm) }) { Text(stringResource(R.string.groups_confirm)) }
+            })
         }
     }
 }

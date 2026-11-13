@@ -55,7 +55,9 @@ internal class DefaultGroupDirectoryRepository(transport: RepositoryTransport) :
             result.value.find { it.id == attempt.id }?.let { request ->
                 val resolved = when {
                     request.waiting -> ClientResult.Ready(GroupOutcome(group, true, false, request.id))
-                    request.status == "applied" -> ClientResult.Ready(GroupOutcome(group, false, false, request.id))
+                    request.status in setOf("applied", "already_applied") -> ClientResult.Ready(GroupOutcome(group, false, false, request.id))
+                    request.status == "capacity" -> ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.REFUSED, ClientFailureReason.GROUP_CAPACITY))
+                    request.status == "invalid" -> ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.REFUSED, ClientFailureReason.GROUP_INVALID))
                     request.status == "expired" -> ClientResult.Ready(GroupOutcome(group, false, true, request.id))
                     request.status in setOf("permission_denied", "rejected", "refused") -> denied()
                     else -> null

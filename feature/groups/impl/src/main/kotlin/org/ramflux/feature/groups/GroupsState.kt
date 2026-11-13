@@ -24,7 +24,7 @@ enum class GroupsPage { LIST, CREATE, DETAIL, MEMBERS, REQUESTS, INVITATION }
 
 @Immutable data class RequestRow(val id: String, val status: UiText, val expiry: UiText)
 
-@Immutable data class GroupFacts(val operation: UiText, val values: ImmutableList<UiText>, val held: Boolean = false)
+@Immutable data class GroupFacts(val operation: UiText, val values: ImmutableList<UiText>)
 
 @Immutable data class GroupsState(
     val page: GroupsPage = GroupsPage.LIST,

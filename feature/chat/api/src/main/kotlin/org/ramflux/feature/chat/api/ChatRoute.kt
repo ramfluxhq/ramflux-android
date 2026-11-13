@@ -4,4 +4,4 @@
 package org.ramflux.feature.chat.api
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
-@Serializable data class ChatRoute(val accountId: String, val conversationId: String) : NavKey
+@Serializable data class ChatRoute(val accountId: String, val conversationId: String, val groupId: String? = null) : NavKey

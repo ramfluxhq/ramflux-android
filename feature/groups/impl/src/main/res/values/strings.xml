@@ -38,8 +38,6 @@
     <string name="groups_creator">Creator: %1$s</string>
     <string name="groups_inviter">Inviter: %1$s</string>
     <string name="groups_review">Confirm group operation</string>
-    <string name="groups_hold">Hold for 1.2 seconds to allow</string>
-    <string name="groups_release">Release to allow</string>
     <string name="groups_deny">Deny</string>
     <string name="groups_fact_account">Account: %1$s</string>
     <string name="groups_fact_group">Group: %1$s</string>
@@ -65,4 +63,8 @@
     <string name="groups_no_requests">No group requests</string>
     <plurals name="groups_member_count"><item quantity="one">%1$s member</item><item quantity="other">%1$s members</item></plurals>
     <string name="groups_access_changed">Group access changed; refresh before continuing.</string>
+    <string name="groups_already_applied">Already applied</string>
+    <string name="groups_capacity">The group has reached its capacity.</string>
+    <string name="groups_invalid_request">The group request is invalid.</string>
+    <string name="groups_confirm">Confirm</string>
 </resources>

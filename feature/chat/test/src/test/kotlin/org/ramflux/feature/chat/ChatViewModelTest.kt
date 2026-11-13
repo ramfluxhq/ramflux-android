@@ -32,6 +32,19 @@ class ChatViewModelTest {
         runCurrent()
     }
 
+    @Test fun unverifiedGroupContextCannotReadHistoryOrEnableGroupPresentation() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(ChatAction.Load("a", "canonical", "unverified-group"))
+        runCurrent()
+        assertEquals(0, history.reads)
+        assertFalse(vm.state.value.loaded)
+        assertNull(vm.state.value.groupId)
+        assertNotNull(vm.state.value.problem)
+    }
+
     @Test fun mixedRowsKeepAdjacentMessagesAndActualTitleTimeInState() = runTest(timeout = 5.seconds) {
         val history = FakeChatHistory().apply {
             heading = ClientResult.Ready(ConversationHeader("Actual title"))
