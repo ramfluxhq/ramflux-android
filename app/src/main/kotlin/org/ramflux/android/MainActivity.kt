@@ -16,6 +16,8 @@ import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
 import org.ramflux.feature.appshell.AppShellNavigation
 import org.ramflux.feature.appshell.api.FeatureRoute
+import org.ramflux.feature.calls.CallsNavigation
+import org.ramflux.feature.calls.api.CallsRoute
 import org.ramflux.feature.chat.ChatNavigation
 import org.ramflux.feature.chat.api.ChatRoute
 import org.ramflux.feature.contacts.ContactsNavigation
@@ -46,9 +48,11 @@ class MainActivity : ComponentActivity() {
                         "settings" -> SettingsRoute
                         "contacts" -> ContactsRoute
                         "groups" -> GroupsRoute
+                        "calls" -> CallsRoute
                         else -> FeatureRoute(it)
                     }
                 }) { onBack, navigate ->
+                    entry<CallsRoute> { CallsNavigation(onBack, { navigate(OnboardingRoute) }) }
                     entry<GroupsRoute> {
                         GroupsNavigation(
                             onBack,

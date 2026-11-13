@@ -34,4 +34,5 @@
     <string name="ui_use_device_setting">跟随系统</string>
     <string name="ui_selected_theme_is_unavailable_choose_another_theme">所选主题不可用，请选择其他主题。</string>
     <string name="ui_groups">群组</string>
+    <string name="ui_calls">通话</string>
 </resources>
