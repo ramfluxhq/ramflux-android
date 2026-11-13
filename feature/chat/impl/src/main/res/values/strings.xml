@@ -27,4 +27,7 @@
     <string name="ui_the_sdk_operation_is_not_available_in_this">the SDK operation is not available in this version.</string>
     <string name="ui_this_conversation_has_no_messages">This conversation has no messages.</string>
     <string name="ui_unable_to_continue">Unable to continue</string>
+    <string name="ui_conversation_details_unavailable">Conversation details unavailable</string>
+    <string name="ui_time_unavailable">Time unavailable</string>
+    <string name="ui_call_record_unavailable">Call record · details unavailable</string>
 </resources>

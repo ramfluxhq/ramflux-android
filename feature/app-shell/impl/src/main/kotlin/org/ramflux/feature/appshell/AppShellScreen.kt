@@ -4,12 +4,16 @@
 package org.ramflux.feature.appshell
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.ramflux.data.Appearance
 import org.ramflux.designsystem.LocalRFTheme
@@ -72,37 +76,45 @@ fun AppShellScreen(state: AppShellState, onAction: (AppShellAction) -> Unit) {
                     )
                 }
                 RFSectionHeader(stringResource(R.string.ui_appearance), theme, trailing = {})
-                Row {
-                    RadioButton(
-                        selected = state.appearance == Appearance.SYSTEM && state.namedTheme == null,
-                        enabled = !state.savingAppearance,
-                        onClick = { onAction(AppShellAction.ChangeAppearance(Appearance.SYSTEM)) }
-                    )
-                    TextButton(
-                        enabled = !state.savingAppearance,
-                        onClick = { onAction(AppShellAction.ChangeAppearance(Appearance.SYSTEM)) }
+                Column(Modifier.selectableGroup()) {
+                    ThemeOption(
+                        stringResource(R.string.ui_use_device_setting),
+                        state.appearance == Appearance.SYSTEM && state.namedTheme == null,
+                        !state.savingAppearance
                     ) {
-                        Text(stringResource(R.string.ui_use_device_setting))
+                        onAction(AppShellAction.ChangeAppearance(Appearance.SYSTEM))
                     }
-                }
-                for (themeChoice in state.themes) Row {
-                    val selected = state.namedTheme == themeChoice.id || (
-                        state.namedTheme == null &&
-                            (
-                                (state.appearance == Appearance.LIGHT && themeChoice.id == "light") ||
-                                    (state.appearance == Appearance.DARK && themeChoice.id == "dark")
-                                )
-                        )
-                    RadioButton(
-                        selected = selected,
-                        enabled = !state.savingAppearance,
-                        onClick = { onAction(AppShellAction.ChangeTheme(themeChoice.id)) }
-                    )
-                    TextButton(enabled = !state.savingAppearance, onClick = { onAction(AppShellAction.ChangeTheme(themeChoice.id)) }) {
-                        Text(themeChoice.label.render())
+                    for (choice in state.themes) {
+                        val selected = state.namedTheme == choice.id || (
+                            state.namedTheme == null &&
+                                (
+                                    (state.appearance == Appearance.LIGHT && choice.id == "light") ||
+                                        (state.appearance == Appearance.DARK && choice.id == "dark")
+                                    )
+                            )
+                        ThemeOption(
+                            choice.label.render(),
+                            selected,
+                            !state.savingAppearance
+                        ) { onAction(AppShellAction.ChangeTheme(choice.id)) }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ThemeOption(label: String, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    val theme = LocalRFTheme.current
+    Row(
+        Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}
+            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
+            .padding(theme.gap.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, enabled = enabled, onClick = null)
+        Spacer(Modifier.width(theme.gap.dp))
+        Text(label)
     }
 }

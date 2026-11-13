@@ -5,13 +5,29 @@ package org.ramflux.feature.chat
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
 import org.ramflux.designsystem.UiText
-@Immutable data class MessageItem(val id: String, val sender: String, val own: Boolean, val deleted: Boolean, val content: UiText) {
+@Immutable sealed interface TimelineItem {
+    val id: String
+    val time: UiText
+}
+
+@Immutable data class CallItem(override val id: String, override val time: UiText) : TimelineItem
+
+@Immutable data class MessageItem(
+    override val id: String,
+    val sender: String,
+    val own: Boolean,
+    val deleted: Boolean,
+    val content: UiText,
+    override val time: UiText = UiText.Empty
+) : TimelineItem {
     override fun toString() = "MessageItem(<redacted>)"
 }
 
 @Immutable data class ChatState(
     val conversationId: String = "",
-    val rows: ImmutableList<MessageItem> = persistentListOf(),
+    val title: UiText? = null,
+    val headerProblem: UiText? = null,
+    val rows: ImmutableList<TimelineItem> = persistentListOf(),
     val loading: Boolean = false,
     val loaded: Boolean = false,
     val sending: Boolean = false,
