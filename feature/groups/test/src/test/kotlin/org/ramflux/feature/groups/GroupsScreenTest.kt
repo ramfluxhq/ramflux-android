@@ -27,9 +27,22 @@ class GroupsScreenTest {
         compose.setContent { RamfluxTheme { GroupsScreen(GroupsState(confirmation = facts), actions::add) } }
         compose.onNodeWithText("account-A").assertExists()
         compose.onNodeWithText("group-A").assertExists()
-        compose.onNodeWithText("Confirm").performClick()
-        compose.onNodeWithText("Deny").performClick()
+        compose.onNodeWithTag("host-confirmation-confirm").performTouchInput { click() }
+        compose.onNodeWithTag("host-confirmation-deny").performTouchInput { click() }
         compose.runOnIdle { assertEquals(listOf(GroupsAction.Confirm, GroupsAction.Deny), actions) }
+    }
+
+    @Test fun chineseHostConfirmationStartsOnDenyWithLocalizedActionSummary() {
+        val facts = GroupFacts(uiText(R.string.groups_create), persistentListOf(UiText.Data("account"), UiText.Data("group")))
+        compose.setContent { AppLanguageProvider("zh-CN") { RamfluxTheme { GroupsScreen(GroupsState(confirmation = facts), {}) } } }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            val root = requireNotNull(org.robolectric.shadows.ShadowDialog.getLatestDialog()).window?.decorView
+            val deny = requireNotNull(root?.findViewWithTag<android.widget.Button>("host-confirmation-deny"))
+            val confirm = requireNotNull(root?.findViewWithTag<android.widget.Button>("host-confirmation-confirm"))
+            assertTrue(deny.isFocused)
+            assertEquals("确认：创建群组", confirm.contentDescription.toString())
+        }
     }
 
     @Test fun chineseFailureIsNotAnEmptyGroupSuccess() {
