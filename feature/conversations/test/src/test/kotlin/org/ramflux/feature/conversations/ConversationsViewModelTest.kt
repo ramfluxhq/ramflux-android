@@ -63,7 +63,7 @@ class ConversationsViewModelTest {
             response = { cursor ->
                 val id = if (cursor == null) "one" else "two"
                 val next = if (cursor == null) "opaque" else null
-                ClientResult.Ready(ConversationPage(listOf(ConversationSummary(id, "Title", ULong.MAX_VALUE, false)), next))
+                ClientResult.Ready(ConversationPage(listOf(ConversationSummary(id, "Title", ULong.MAX_VALUE, false, true)), next))
             }
         }
         val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession())
@@ -82,7 +82,7 @@ class ConversationsViewModelTest {
         val directory = FakeConversationDirectory().apply {
             response = {
                 barrier.await()
-                ClientResult.Ready(ConversationPage(listOf(ConversationSummary("one", "Title", 1u, false)), "same"))
+                ClientResult.Ready(ConversationPage(listOf(ConversationSummary("one", "Title", 1u, false, true)), "same"))
             }
         }
         val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession())
@@ -107,7 +107,7 @@ class ConversationsViewModelTest {
         val directory = FakeConversationDirectory().apply {
             response = {
                 barrier.await()
-                ClientResult.Ready(ConversationPage(listOf(ConversationSummary("private", "Old account", 1u, false)), null))
+                ClientResult.Ready(ConversationPage(listOf(ConversationSummary("private", "Old account", 1u, false, true)), null))
             }
         }
         val vm = ConversationsViewModel(directory, accounts, FakeConversationSession())
@@ -117,7 +117,8 @@ class ConversationsViewModelTest {
         barrier.complete(Unit)
         runCurrent()
         assertTrue(vm.state.value.rows.isEmpty())
-        assertTrue(vm.state.value.accountRequired)
+        assertFalse(vm.state.value.accountRequired)
+        assertNotNull(vm.state.value.problem)
     }
 
     @Test fun sessionCloseDiscardsLateDirectoryEvenWhenRepositoryIgnoresCancellation() = runTest(timeout = 5.seconds) {
@@ -126,7 +127,7 @@ class ConversationsViewModelTest {
         val directory = FakeConversationDirectory().apply {
             response = {
                 withContext(NonCancellable) { barrier.await() }
-                ClientResult.Ready(ConversationPage(listOf(ConversationSummary("private", "Private", 1u, false)), null))
+                ClientResult.Ready(ConversationPage(listOf(ConversationSummary("private", "Private", 1u, false, true)), null))
             }
         }
         val vm = ConversationsViewModel(directory, FakeConversationAccounts(), session)
@@ -143,7 +144,7 @@ class ConversationsViewModelTest {
 
     @Test fun unavailableChatDoesNotNavigateAndInstalledChatUsesOneShotEvent() = runTest(timeout = 5.seconds) {
         val directory = FakeConversationDirectory().apply {
-            response = { ClientResult.Ready(ConversationPage(listOf(ConversationSummary("one", "Title", 1u, false)), null)) }
+            response = { ClientResult.Ready(ConversationPage(listOf(ConversationSummary("one", "Title", 1u, false, true)), null)) }
         }
         val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession())
         observe(vm)
@@ -162,5 +163,81 @@ class ConversationsViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
         runCurrent()
         assertEquals(1, events.size)
+    }
+
+    @Test fun manualUnreadActivityAndAccountLabelComeFromAuthoritativeFacts() = runTest(timeout = 5.seconds) {
+        val directory = FakeConversationDirectory().apply {
+            response = {
+                val row = ConversationSummary("manual", "Team", 0u, false, true, 1700000000)
+                ClientResult.Ready(ConversationPage(listOf(row), null))
+            }
+        }
+        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession())
+        observe(vm)
+        runCurrent()
+        assertEquals("Work", vm.state.value.accountLabel)
+        assertTrue(vm.state.value.rows.single().hasUnread)
+        assertEquals("0", vm.state.value.rows.single().unread)
+        assertTrue(vm.state.value.rows.single().timestamp.isNotBlank())
+    }
+
+    @Test fun failedOrUnavailableRevalidationNeverClaimsMissingAccountOrKeepsRows() = runTest(timeout = 5.seconds) {
+        for (failure in listOf(failed(), ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED))) {
+            val accounts = FakeConversationAccounts().apply { listing = { if (reads == 1) catalog else failure } }
+            val directory = FakeConversationDirectory().apply {
+                response = { ClientResult.Ready(ConversationPage(listOf(ConversationSummary("c", "Private", 0u, false, true)), null)) }
+            }
+            val vm = ConversationsViewModel(directory, accounts, FakeConversationSession())
+            observe(vm)
+            runCurrent()
+            assertFalse(vm.state.value.accountRequired)
+            assertFalse(vm.state.value.loaded)
+            assertTrue(vm.state.value.rows.isEmpty())
+            assertTrue(vm.state.value.problem != null || vm.state.value.unavailable != null)
+            if (failure is ClientResult.Unavailable) assertEquals(failure.reason, vm.state.value.unavailableReason)
+        }
+    }
+
+    @Test fun unavailableInitialAccountAndSearchFailureHaveVisibleTypedReasons() = runTest(timeout = 5.seconds) {
+        val accounts = FakeConversationAccounts().apply {
+            catalog = ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
+        }
+        val directory = FakeConversationDirectory()
+        val vm = ConversationsViewModel(directory, accounts, FakeConversationSession())
+        observe(vm)
+        runCurrent()
+        assertFalse(vm.state.value.accountRequired)
+        assertNotNull(vm.state.value.unavailable)
+        assertTrue(directory.requests.isEmpty())
+        accounts.catalog = ClientResult.Ready(AccountCatalog(listOf(AccountSummary("a", "Work", true, "unlocked")), "a"))
+        directory.search = failed()
+        vm.onAction(ConversationsAction.Refresh)
+        runCurrent()
+        assertNotNull(vm.state.value.problem)
+        assertEquals(ClientFailureKind.STORAGE, vm.state.value.problemKind)
+        assertFalse(vm.state.value.searchAvailable)
+        assertFalse(vm.state.value.accountRequired)
+    }
+
+    @Test fun failedOrUnavailableOpenRevalidationClearsRowsWithoutNavigation() = runTest(timeout = 5.seconds) {
+        for (failure in listOf(failed(), ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED))) {
+            val accounts = FakeConversationAccounts()
+            val directory = FakeConversationDirectory().apply {
+                canOpen = ClientResult.Ready(Unit)
+                response = { ClientResult.Ready(ConversationPage(listOf(ConversationSummary("c", "Private", 0u, false, true)), null)) }
+            }
+            val vm = ConversationsViewModel(directory, accounts, FakeConversationSession())
+            observe(vm)
+            runCurrent()
+            val events = mutableListOf<ConversationsEvent>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+            accounts.catalog = failure
+            vm.onAction(ConversationsAction.Open("c"))
+            runCurrent()
+            assertTrue(events.isEmpty())
+            assertTrue(vm.state.value.rows.isEmpty())
+            assertFalse(vm.state.value.accountRequired)
+            assertTrue(vm.state.value.problem != null || vm.state.value.unavailable != null)
+        }
     }
 }

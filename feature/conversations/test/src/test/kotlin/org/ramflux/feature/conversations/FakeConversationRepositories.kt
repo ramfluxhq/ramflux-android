@@ -8,7 +8,12 @@ class FakeConversationAccounts : AccountAccessRepository {
     var catalog: ClientResult<AccountCatalog> = ClientResult.Ready(
         AccountCatalog(listOf(AccountSummary("a", "Work", true, "unlocked")), "a")
     )
-    override suspend fun list() = catalog
+    var reads = 0
+    var listing: suspend () -> ClientResult<AccountCatalog> = { catalog }
+    override suspend fun list(): ClientResult<AccountCatalog> {
+        reads++
+        return listing()
+    }
     override suspend fun select(id: String): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.ONBOARDING)
     override suspend fun setup(action: AccountSetupAction): ClientResult<Unit> =
         ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
@@ -21,10 +26,8 @@ class FakeConversationDirectory : ConversationDirectoryRepository {
         requests.add(account to cursor)
         return response(cursor)
     }
-    override suspend fun searchAvailability(): ClientResult<Unit> = ClientResult.Unavailable(
-        ClientFeature.CONVERSATIONS,
-        UnavailableReason.UNSUPPORTED_BY_CORE
-    )
+    var search: ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CONVERSATIONS, UnavailableReason.UNSUPPORTED_BY_CORE)
+    override suspend fun searchAvailability() = search
     override suspend fun openAvailability(account: String, conversation: String) = canOpen
 }
 class FakeConversationSession : ClientSessionRepository {
