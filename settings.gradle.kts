@@ -17,3 +17,5 @@ include(":app", ":core:designsystem", ":core:navigation")
 include(":feature:app-shell:api", ":feature:app-shell:impl", ":feature:app-shell:test")
 
 include(":feature:onboarding:api", ":feature:onboarding:impl", ":feature:onboarding:test")
+
+include(":feature:conversations:api", ":feature:conversations:impl", ":feature:conversations:test")

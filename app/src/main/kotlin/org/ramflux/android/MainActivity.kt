@@ -11,6 +11,8 @@ import androidx.activity.enableEdgeToEdge
 import dagger.hilt.android.AndroidEntryPoint
 import org.ramflux.feature.appshell.AppShellNavigation
 import org.ramflux.feature.appshell.api.FeatureRoute
+import org.ramflux.feature.conversations.ConversationsNavigation
+import org.ramflux.feature.conversations.api.ConversationsRoute
 import org.ramflux.feature.onboarding.OnboardingNavigation
 import org.ramflux.feature.onboarding.api.OnboardingRoute
 
@@ -21,7 +23,20 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         setContent {
-            AppShellNavigation(routeForFeature = { if (it == "onboarding") OnboardingRoute else FeatureRoute(it) }) { onBack ->
+            AppShellNavigation(routeForFeature = {
+                when (it) {
+                    "onboarding" -> OnboardingRoute
+                    "conversations" -> ConversationsRoute
+                    else -> FeatureRoute(it)
+                }
+            }) { onBack, navigate ->
+                entry<ConversationsRoute> {
+                    ConversationsNavigation(
+                        onBack = onBack,
+                        onSetupAccount = { navigate(OnboardingRoute) },
+                        onOpenChat = { _, _ -> onBack() }
+                    )
+                }
                 entry<OnboardingRoute> { OnboardingNavigation(onBack = onBack, onAccountSelected = { onBack() }) }
             }
         }
