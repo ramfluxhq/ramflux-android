@@ -6,6 +6,7 @@ sealed interface OnboardingAction {
     data object Refresh : OnboardingAction
     data class Page(val page: OnboardingPage) : OnboardingAction
     data class Address(val value: String) : OnboardingAction
+    data object ReviewAddress : OnboardingAction
     data object Discover : OnboardingAction
     data class ChooseNode(val id: String) : OnboardingAction
     data object UseNode : OnboardingAction

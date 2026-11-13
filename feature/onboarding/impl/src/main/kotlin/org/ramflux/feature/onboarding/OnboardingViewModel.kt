@@ -54,7 +54,15 @@ class OnboardingViewModel @Inject constructor(
             if (local.value.page == OnboardingPage.START) {
                 viewModelScope.launch { channel.send(OnboardingEvent.Back) }
             } else {
-                local.update { it.copy(page = OnboardingPage.START, busy = false, identity = null, notice = null) }
+                local.update {
+                    it.copy(
+                        page = if (it.page == OnboardingPage.CONFIRM) OnboardingPage.ADDRESS else OnboardingPage.START,
+                        busy = false,
+                        identity = null,
+                        normalizedOrigin = null,
+                        notice = null
+                    )
+                }
             }
             return
         }
@@ -63,9 +71,10 @@ class OnboardingViewModel @Inject constructor(
             OnboardingAction.Refresh -> read()
             is OnboardingAction.Address -> {
                 candidate = null
-                local.update { it.copy(address = action.value.take(2048), identity = null, notice = null) }
+                local.update { it.copy(address = action.value.take(2048), identity = null, normalizedOrigin = null, notice = null) }
             }
             is OnboardingAction.Page -> page(action.page)
+            OnboardingAction.ReviewAddress -> reviewAddress()
             OnboardingAction.Discover -> discover()
             OnboardingAction.Confirm -> confirm()
             is OnboardingAction.ChooseNode -> savedNodes.find { it.id == action.id }?.let { node ->
@@ -115,12 +124,18 @@ class OnboardingViewModel @Inject constructor(
             )
         }
     }
-    private fun discover() {
-        val address = local.value.address.trim()
-        if (NodeAddress.parse(address) !is NodeAddress.Valid) {
-            local.update { it.copy(notice = OnboardingNotice("Enter an HTTPS node address without credentials, a query or a fragment.")) }
+    private fun reviewAddress() {
+        val preview = DiscoveryOriginParser.preview(local.value.address)
+        if (preview == null) {
+            local.update { it.copy(notice = OnboardingNotice("Enter an HTTPS address without a username or password.")) }
             return
         }
+        candidate = null
+        local.update { it.copy(page = OnboardingPage.CONFIRM, normalizedOrigin = preview.origin, identity = null, notice = null) }
+    }
+    private fun discover() {
+        if (local.value.page != OnboardingPage.CONFIRM) return
+        val address = local.value.normalizedOrigin ?: return
         candidate = null
         local.update { it.copy(page = OnboardingPage.CHECKING, identity = null) }
         launch {
@@ -197,7 +212,7 @@ class OnboardingViewModel @Inject constructor(
         )
         if (setup == null && page !in selectable) return
         candidate = null
-        local.update { it.copy(page = page, identity = null, notice = null) }
+        local.update { it.copy(page = page, identity = null, normalizedOrigin = null, notice = null) }
         if (setup != null) {
             launch { failure(accounts.setup(setup)) }
         } else if (page in setOf(OnboardingPage.CONNECTION, OnboardingPage.WELCOME, OnboardingPage.RESUME)) read()
