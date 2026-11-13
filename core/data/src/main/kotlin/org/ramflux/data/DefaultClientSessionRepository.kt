@@ -44,6 +44,6 @@ internal class DefaultClientSessionRepository(
     }
     override suspend fun availability(feature: ClientFeature): ClientResult<Unit> =
         if (status.value.phase != ClientPhase.OPEN) ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 9, ClientOutcome.NONE))
-        else if (feature in setOf(ClientFeature.ONBOARDING, ClientFeature.CONVERSATIONS, ClientFeature.SETTINGS, ClientFeature.CONTACTS)) ClientResult.Ready(Unit)
+        else if (feature in setOf(ClientFeature.ONBOARDING, ClientFeature.CONVERSATIONS, ClientFeature.SETTINGS, ClientFeature.CONTACTS, ClientFeature.GROUPS)) ClientResult.Ready(Unit)
         else ClientResult.Unavailable(feature)
 }
