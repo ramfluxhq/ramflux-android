@@ -41,11 +41,13 @@ class ChatScreenshotTest(private val width: Int, private val dark: Boolean, priv
             "error" -> ChatState(problem = uiText(R.string.ui_unable_to_continue))
             "empty" -> ChatState(loaded = true)
             else -> ChatState(
-                conversationId = "Project",
+                conversationId = "conversation-id",
+                title = UiText.Data("Project"),
                 loaded = true,
                 rows = persistentListOf(
-                    MessageItem("one", "Peer", false, false, UiText.Data("Approved message content.")),
-                    MessageItem("two", "", true, true, uiText(R.string.ui_message_deleted))
+                    MessageItem("one", "Peer", false, false, UiText.Data("Approved message content."), UiText.DateTime(1700000000)),
+                    CallItem("call", UiText.DateTime(1700000001)),
+                    MessageItem("two", "", true, true, uiText(R.string.ui_message_deleted), UiText.DateTime(1700000002))
                 ),
                 unavailable = uiText(R.string.ui_sending_unavailable_value, uiText(R.string.ui_the_sdk_operation_is_not_available_in_this))
             )

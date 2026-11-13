@@ -24,8 +24,8 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 RFChatHeader(
                     "chat-header",
-                    state.conversationId.ifEmpty { stringResource(R.string.ui_conversation) },
-                    "",
+                    state.title?.render() ?: stringResource(R.string.ui_conversation),
+                    state.conversationId,
                     theme,
                     leading = { TextButton(onClick = { onAction(ChatAction.Back) }) { Text(stringResource(R.string.ui_back)) } },
                     trailing = {
@@ -68,6 +68,7 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
                             )
                         }
                     }
+                    state.headerProblem?.let { problem -> item("header-problem") { Text(problem.render()) } }
                     if (state.loaded && state.rows.isEmpty()) {
                         item("empty") {
                             RFStateBlock(
@@ -82,18 +83,27 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
                             )
                         }
                     }
-                    items(state.rows, key = { "message:" + it.id }, contentType = { if (it.deleted) "deleted" else "message" }) { row ->
-                        Box(Modifier.fillMaxWidth(), contentAlignment = if (row.own) Alignment.CenterEnd else Alignment.CenterStart) {
-                            RFMessageBubble(
-                                row.id,
-                                if (row.own) RFBubbleKind.Own else RFBubbleKind.Peer,
-                                row.sender,
-                                theme,
-                                content = { Text(row.content.render()) },
-                                quote = {},
-                                attachment = {},
-                                footer = {}
-                            )
+                    items(state.rows, key = { "message:" + it.id }, contentType = { if (it is CallItem) "call" else "message" }) { row ->
+                        when (row) {
+                            is CallItem -> Column(Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.ui_call_record_unavailable))
+                                Text(row.time.render(), style = MaterialTheme.typography.labelSmall)
+                            }
+                            is MessageItem -> Box(
+                                Modifier.fillMaxWidth(),
+                                contentAlignment = if (row.own) Alignment.CenterEnd else Alignment.CenterStart
+                            ) {
+                                RFMessageBubble(
+                                    row.id,
+                                    if (row.own) RFBubbleKind.Own else RFBubbleKind.Peer,
+                                    row.sender,
+                                    theme,
+                                    content = { Text(row.content.render()) },
+                                    quote = {},
+                                    attachment = {},
+                                    footer = { Text(row.time.render(), style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
                         }
                     }
                 }

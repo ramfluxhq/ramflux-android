@@ -7,11 +7,13 @@ import org.ramflux.data.*
 class FakeChatHistory : MessageHistoryRepository {
     var reads = 0
     var sends = 0
-    var reading: suspend (String) -> ClientResult<List<MessageSummary>> = { ClientResult.Ready(emptyList()) }
-    override suspend fun read(account: String, conversation: String): ClientResult<List<MessageSummary>> {
+    var reading: suspend (String) -> ClientResult<List<TimelineSummary>> = { ClientResult.Ready(emptyList()) }
+    override suspend fun read(account: String, conversation: String): ClientResult<List<TimelineSummary>> {
         reads++
         return reading(conversation)
     }
+    var heading: ClientResult<ConversationHeader> = ClientResult.Ready(ConversationHeader(null))
+    override suspend fun header(account: String, conversation: String) = heading
     var capability: ClientResult<Unit> = ClientResult.Unavailable(
         ClientFeature.CHAT,
         UnavailableReason.UNSUPPORTED_BY_CORE

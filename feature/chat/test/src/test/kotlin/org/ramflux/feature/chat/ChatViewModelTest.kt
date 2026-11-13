@@ -32,6 +32,47 @@ class ChatViewModelTest {
         runCurrent()
     }
 
+    @Test fun mixedRowsKeepAdjacentMessagesAndActualTitleTimeInState() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            heading = ClientResult.Ready(ConversationHeader("Actual title"))
+            reading = {
+                ClientResult.Ready(
+                    listOf(
+                        MessageSummary("one", "peer", false, false, "approved", 10),
+                        CallSummary("call", 11),
+                        MessageSummary("deleted", "must-hide", true, true, "must-hide", 12)
+                    )
+                )
+            }
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertTrue(vm.state.value.loaded)
+        assertEquals(listOf("one", "call", "deleted"), vm.state.value.rows.map { it.id })
+        assertTrue(vm.state.value.rows[1] is CallItem)
+        assertEquals(org.ramflux.designsystem.UiText.Data("Actual title"), vm.state.value.title)
+        assertEquals(org.ramflux.designsystem.UiText.DateTime(12), vm.state.value.rows.last().time)
+        assertEquals(uiText(R.string.ui_message_deleted), (vm.state.value.rows.last() as MessageItem).content)
+        assertEquals(1, history.reads)
+    }
+
+    @Test fun titleFailureDoesNotDiscardAvailableMessages() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            heading = ClientResult.Failed(ClientProblem(ClientFailureKind.STORAGE, 8, ClientOutcome.NONE))
+            reading = { ClientResult.Ready(listOf(MessageSummary("one", "peer", false, false, "approved"))) }
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertTrue(vm.state.value.loaded)
+        assertEquals(1, vm.state.value.rows.size)
+        assertNull(vm.state.value.title)
+        assertNotNull(vm.state.value.headerProblem)
+    }
+
     @Test fun failedReadIsNotAnEmptyConversationAndRefreshCanRecover() = runTest(timeout = 5.seconds) {
         val history = FakeChatHistory().apply {
             reading = { ClientResult.Failed(ClientProblem(ClientFailureKind.STORAGE, 8, ClientOutcome.NONE)) }
@@ -58,8 +99,8 @@ class ChatViewModelTest {
         observe(vm)
         runCurrent()
         load(vm)
-        assertEquals("", vm.state.value.rows.single().sender)
-        assertEquals(uiText(R.string.ui_message_deleted), vm.state.value.rows.single().content)
+        assertEquals("", (vm.state.value.rows.single() as MessageItem).sender)
+        assertEquals(uiText(R.string.ui_message_deleted), (vm.state.value.rows.single() as MessageItem).content)
         assertFalse(vm.state.value.toString().contains("must-hide"))
     }
 
@@ -71,7 +112,7 @@ class ChatViewModelTest {
         observe(vm)
         runCurrent()
         load(vm)
-        assertEquals(uiText(R.string.ui_message_content_is_unavailable), vm.state.value.rows.single().content)
+        assertEquals(uiText(R.string.ui_message_content_is_unavailable), (vm.state.value.rows.single() as MessageItem).content)
     }
 
     @Test fun blockedSendKeepsDraftAndDoesNotEmitSuccessOrCreateMessageRow() = runTest(timeout = 5.seconds) {
