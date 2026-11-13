@@ -11,7 +11,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import org.ramflux.designsystem.*
 import org.ramflux.feature.groups.impl.R
 import org.ramflux.generated.*
@@ -231,14 +230,21 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit) {
         }
     }
     state.confirmation?.let { facts ->
-        Dialog(onDismissRequest = { onAction(GroupsAction.Deny) }) {
+        HostConfirmationDialog(onDismissRequest = { onAction(GroupsAction.Deny) }) {
             RFDialogShell(stringResource(R.string.groups_review), facts.operation.render(), theme, content = {
                 LazyColumn(Modifier.heightIn(max = (theme.gap * 20).dp)) {
                     items(facts.values.indices.toList()) { index -> Text(facts.values[index].render()) }
                 }
             }, actions = {
-                TextButton(onClick = { onAction(GroupsAction.Deny) }) { Text(stringResource(R.string.groups_deny)) }
-                TextButton(onClick = { onAction(GroupsAction.Confirm) }) { Text(stringResource(R.string.groups_confirm)) }
+                HostConfirmationActions(
+                    facts,
+                    stringResource(R.string.groups_deny),
+                    stringResource(R.string.groups_confirm),
+                    stringResource(R.string.groups_confirm_accessibility, facts.operation.render()),
+                    enabled = !state.busy && !state.loading,
+                    onDeny = { onAction(GroupsAction.Deny) },
+                    onConfirm = { onAction(GroupsAction.Confirm) }
+                )
             })
         }
     }
