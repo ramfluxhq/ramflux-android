@@ -10,12 +10,15 @@ data class MessageSummary(override val id: String, val sender: String?, val own:
 data class CallSummary(override val id: String, override val createdAt: Long?) : TimelineSummary {
     override fun toString() = "CallSummary(<redacted>)"
 }
-data class ConversationHeader(val title: String?) {
+data class ConversationHeader(val title: String?, val groupId: String? = null) {
     override fun toString() = "ConversationHeader(<redacted>)"
 }
 interface MessageHistoryRepository {
     suspend fun read(account: String, conversation: String): ClientResult<List<TimelineSummary>>
     suspend fun header(account: String, conversation: String): ClientResult<ConversationHeader>
+    /** Group presentation is enabled only after canonical group/conversation readback. */
+    suspend fun groupHeader(account: String, group: String, conversation: String): ClientResult<ConversationHeader> =
+        ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)
     suspend fun sendAvailability(): ClientResult<Unit>
     suspend fun send(account: String, conversation: String, text: String): ClientResult<Unit>
 }

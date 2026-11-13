@@ -3,7 +3,7 @@
 
 package org.ramflux.feature.chat
 sealed interface ChatAction {
-    data class Load(val accountId: String, val conversationId: String) : ChatAction
+    data class Load(val accountId: String, val conversationId: String, val groupId: String? = null) : ChatAction
     data object Refresh : ChatAction
     data class Draft(val text: String) : ChatAction
     data object Send : ChatAction

@@ -40,7 +40,6 @@ class GroupsViewModel @Inject constructor(
     private var request: Job? = null
     private var watch: Job? = null
     private var watchedAccount: String? = null
-    private var hold: Job? = null
     private var ticket = 0L
     private var revision = 0L
     private var needsRefresh = false
@@ -57,8 +56,8 @@ class GroupsViewModel @Inject constructor(
         }
     }
     fun onAction(action: GroupsAction) {
-        if (local.value.confirmation != null && action !is GroupsAction.HoldEnd && action !is GroupsAction.Visible &&
-            action !in setOf(GroupsAction.HoldStart, GroupsAction.Deny)
+        if (local.value.confirmation != null && action != GroupsAction.Confirm && action !is GroupsAction.Visible &&
+            action !in setOf(GroupsAction.Deny)
         ) {
             return
         }
@@ -127,24 +126,10 @@ class GroupsViewModel @Inject constructor(
             GroupsAction.OpenChat -> navigateChat()
             GroupsAction.Unavailable -> local.update { it.copy(problem = uiText(R.string.groups_unavailable)) }
             GroupsAction.Deny -> {
-                hold?.cancel()
                 prepared = null
                 local.update { it.copy(confirmation = null) }
             }
-            GroupsAction.HoldStart -> if (hold?.isActive != true && local.value.confirmation?.held == false) {
-                hold = viewModelScope.launch {
-                    delay(1_200)
-                    local.update { it.copy(confirmation = it.confirmation?.copy(held = true)) }
-                }
-            }
-            is GroupsAction.HoldEnd -> {
-                hold?.cancel()
-                if (action.released && local.value.confirmation?.held == true) {
-                    mutate()
-                } else {
-                    local.update { it.copy(confirmation = it.confirmation?.copy(held = false)) }
-                }
-            }
+            GroupsAction.Confirm -> if (local.value.confirmation != null && request?.isActive != true) mutate()
         }
     }
     private fun member(id: String): Pair<GroupDetail, GroupMember>? {
@@ -164,7 +149,7 @@ class GroupsViewModel @Inject constructor(
         ticket++
         detail = null
         prepared = null
-        hold?.cancel()
+
         local.update {
             it.copy(
                 page = page, selected = id, title = null, confirmation = null, name = "", problem = null, notice = null,
@@ -176,7 +161,7 @@ class GroupsViewModel @Inject constructor(
     private fun stop() {
         request?.cancel()
         watch?.cancel()
-        hold?.cancel()
+
         watchedAccount = null
         owner = null
         prepared = null
@@ -220,7 +205,7 @@ class GroupsViewModel @Inject constructor(
         owner = null
         detail = null
         prepared = null
-        hold?.cancel()
+
         watch?.cancel()
         watchedAccount = null
         local.value = GroupsState(problem = problem, accountRequired = required)
@@ -234,7 +219,7 @@ class GroupsViewModel @Inject constructor(
                 if (!active || owner != account) return@collect
                 revision++
                 prepared = null
-                hold?.cancel()
+
                 local.update {
                     it.copy(
                         authorityFresh = false, canManage = false, confirmation = null,
@@ -429,7 +414,7 @@ class GroupsViewModel @Inject constructor(
                             if (account(expected, generation, accountId) == null) return@launch
                             when (destination) {
                                 is ClientResult.Ready -> {
-                                    channel.send(GroupsEvent.OpenChat(accountId, destination.value))
+                                    channel.send(GroupsEvent.OpenChat(accountId, destination.value, result.value.group))
                                     return@launch
                                 }
                                 else -> failure(destination)
@@ -464,7 +449,7 @@ class GroupsViewModel @Inject constructor(
             current(expected, generation)
             if (account(expected, generation, owner) == null) return@launch
             when (result) {
-                is ClientResult.Ready -> channel.send(GroupsEvent.OpenChat(owner, result.value))
+                is ClientResult.Ready -> channel.send(GroupsEvent.OpenChat(owner, result.value, group))
                 else -> failure(result)
             }
         }
@@ -491,10 +476,14 @@ class GroupsViewModel @Inject constructor(
         }
     }
 }
-private fun ClientProblem.message() = uiText(
-    if (outcome == ClientOutcome.UNKNOWN) R.string.groups_unknown else R.string.groups_error_code,
-    UiText.Number(code.toLong())
-)
+private fun ClientProblem.message() = when (reason) {
+    ClientFailureReason.GROUP_CAPACITY -> uiText(R.string.groups_capacity)
+    ClientFailureReason.GROUP_INVALID -> uiText(R.string.groups_invalid_request)
+    null -> uiText(
+        if (outcome == ClientOutcome.UNKNOWN) R.string.groups_unknown else R.string.groups_error_code,
+        UiText.Number(code.toLong())
+    )
+}
 private fun GroupOperation.label() = uiText(
     when (this) {
         GroupOperation.CREATE -> R.string.groups_create
@@ -519,6 +508,9 @@ private fun String.requestLabel(waiting: Boolean) = uiText(
     when {
         waiting -> R.string.groups_waiting
         this == "applied" -> R.string.groups_applied
+        this == "already_applied" -> R.string.groups_already_applied
+        this == "capacity" -> R.string.groups_capacity
+        this == "invalid" -> R.string.groups_invalid_request
         this == "expired" -> R.string.groups_expired
         this in setOf("permission_denied", "rejected", "refused") -> R.string.groups_refused
         else -> R.string.groups_unknown_request

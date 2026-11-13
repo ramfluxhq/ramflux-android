@@ -10,7 +10,8 @@ enum class ClientPhase { CLOSED, OPENING, OPEN, CLOSING, FAILED }
 enum class ClientFeature(val id: String) { CHAT("chat"), ONBOARDING("onboarding"), CONVERSATIONS("conversations"), CONTACTS("contacts"), SETTINGS("settings"), GROUPS("groups") }
 enum class ClientFailureKind { INCOMPATIBLE, UNAVAILABLE, STORAGE, AUTHORIZATION, SHUTDOWN_PENDING, FAILED }
 enum class ClientOutcome { NONE, REFUSED, UNKNOWN }
-data class ClientProblem(val kind: ClientFailureKind, val code: Int, val outcome: ClientOutcome)
+enum class ClientFailureReason { GROUP_CAPACITY, GROUP_INVALID }
+data class ClientProblem(val kind: ClientFailureKind, val code: Int, val outcome: ClientOutcome, val reason: ClientFailureReason? = null)
 data class ClientSnapshot(val phase: ClientPhase = ClientPhase.CLOSED, val generation: Long = 0, val problem: ClientProblem? = null)
 enum class UnavailableReason { FEATURE_NOT_INSTALLED, UNSUPPORTED_BY_CORE, CUSTODY_PROVIDER_REQUIRED }
 sealed interface ClientResult<out T> {

@@ -9,12 +9,18 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
-fun ChatNavigation(accountId: String, conversationId: String, onBack: () -> Unit, vm: ChatViewModel = hiltViewModel()) {
+fun ChatNavigation(
+    accountId: String,
+    conversationId: String,
+    onBack: () -> Unit,
+    vm: ChatViewModel = hiltViewModel(),
+    groupId: String? = null
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     BackHandler { vm.onAction(ChatAction.Back) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(ChatAction.Refresh) }
-    LaunchedEffect(vm, accountId, conversationId) { vm.onAction(ChatAction.Load(accountId, conversationId)) }
+    LaunchedEffect(vm, accountId, conversationId, groupId) { vm.onAction(ChatAction.Load(accountId, conversationId, groupId)) }
     LaunchedEffect(vm) {
         vm.events.collect { event ->
             when (event) {

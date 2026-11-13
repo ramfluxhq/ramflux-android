@@ -5,5 +5,5 @@ package org.ramflux.feature.groups
 sealed interface GroupsEvent {
     data object Back : GroupsEvent
     data object SetupAccount : GroupsEvent
-    data class OpenChat(val account: String, val conversation: String) : GroupsEvent
+    data class OpenChat(val account: String, val conversation: String, val group: String) : GroupsEvent
 }

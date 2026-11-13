@@ -12,7 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun GroupsNavigation(
     onBack: () -> Unit,
     onSetupAccount: () -> Unit,
-    onChat: (String, String) -> Unit,
+    onChat: (String, String, String) -> Unit,
     vm: GroupsViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -30,7 +30,7 @@ fun GroupsNavigation(
             when (it) {
                 GroupsEvent.Back -> back()
                 GroupsEvent.SetupAccount -> setup()
-                is GroupsEvent.OpenChat -> chat(it.account, it.conversation)
+                is GroupsEvent.OpenChat -> chat(it.account, it.conversation, it.group)
             }
         }
     }

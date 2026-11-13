@@ -35,14 +35,12 @@ class GroupsViewModelTest {
         return vm
     }
     private fun TestScope.confirm(vm: GroupsViewModel) {
-        vm.onAction(GroupsAction.HoldStart)
-        advanceTimeBy(1200)
         runCurrent()
-        vm.onAction(GroupsAction.HoldEnd(true))
+        vm.onAction(GroupsAction.Confirm)
         runCurrent()
     }
 
-    @Test fun creationNeedsHostHoldThenReadbackAndCanonicalConversationBeforeOneNavigation() = runTest(timeout = 5.seconds) {
+    @Test fun creationNeedsHostConfirmThenReadbackAndCanonicalConversationBeforeOneNavigation() = runTest(timeout = 5.seconds) {
         val repo = FakeGroups()
         val vm = load(repo)
         val events = mutableListOf<GroupsEvent>()
@@ -51,14 +49,10 @@ class GroupsViewModelTest {
         runCurrent()
         vm.onAction(GroupsAction.Name("New group"))
         vm.onAction(GroupsAction.Create)
-        vm.onAction(GroupsAction.HoldStart)
-        advanceTimeBy(1199)
-        vm.onAction(GroupsAction.HoldEnd(true))
-        runCurrent()
         assertTrue(repo.changes.isEmpty())
         confirm(vm)
         assertEquals(1, repo.changes.size)
-        assertEquals(listOf(GroupsEvent.OpenChat("a", "canonical")), events)
+        assertEquals(listOf(GroupsEvent.OpenChat("a", "canonical", repo.changes.single().second.group)), events)
         assertFalse(repo.changes.single().first.isBlank())
     }
 

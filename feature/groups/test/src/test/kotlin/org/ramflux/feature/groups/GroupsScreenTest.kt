@@ -27,8 +27,9 @@ class GroupsScreenTest {
         compose.setContent { RamfluxTheme { GroupsScreen(GroupsState(confirmation = facts), actions::add) } }
         compose.onNodeWithText("account-A").assertExists()
         compose.onNodeWithText("group-A").assertExists()
+        compose.onNodeWithText("Confirm").performClick()
         compose.onNodeWithText("Deny").performClick()
-        compose.runOnIdle { assertEquals(listOf(GroupsAction.Deny), actions) }
+        compose.runOnIdle { assertEquals(listOf(GroupsAction.Confirm, GroupsAction.Deny), actions) }
     }
 
     @Test fun chineseFailureIsNotAnEmptyGroupSuccess() {

@@ -18,7 +18,6 @@ sealed interface GroupsAction {
     data class Invitation(val accept: Boolean) : GroupsAction
     data object OpenChat : GroupsAction
     data object Unavailable : GroupsAction
-    data object HoldStart : GroupsAction
-    data class HoldEnd(val released: Boolean) : GroupsAction
+    data object Confirm : GroupsAction
     data object Deny : GroupsAction
 }
