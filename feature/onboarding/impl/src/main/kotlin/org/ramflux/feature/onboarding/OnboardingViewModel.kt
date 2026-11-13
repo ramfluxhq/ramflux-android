@@ -75,6 +75,11 @@ class OnboardingViewModel @Inject constructor(
                 candidate = null
                 local.update { it.copy(address = action.value.take(2048), identity = null, normalizedOrigin = null, notice = null) }
             }
+            is OnboardingAction.OperatorKey -> {
+                if (local.value.page == OnboardingPage.ADDRESS && candidate == null) {
+                    local.update { it.copy(operatorKey = action.value.take(4096), operatorKeyIssue = null, notice = null) }
+                }
+            }
             is OnboardingAction.Page -> page(action.page)
             OnboardingAction.ReviewAddress -> reviewAddress()
             OnboardingAction.Discover -> discover()
@@ -135,6 +140,10 @@ class OnboardingViewModel @Inject constructor(
         }
     }
     private fun reviewAddress() {
+        if (local.value.operatorKey.isBlank()) {
+            local.update { it.copy(operatorKeyIssue = OperatorKeyIssue.REQUIRED) }
+            return
+        }
         val preview = DiscoveryOriginParser.preview(local.value.address)
         if (preview == null) {
             local.update { it.copy(notice = OnboardingNotice(uiText(R.string.ui_enter_an_https_address_without_a_username_or))) }
@@ -146,6 +155,8 @@ class OnboardingViewModel @Inject constructor(
     private fun discover() {
         if (local.value.page != OnboardingPage.CONFIRM) return
         val address = local.value.normalizedOrigin ?: return
+        val operatorKey = local.value.operatorKey
+        if (operatorKey.isBlank()) return
         candidate = null
         local.update { it.copy(page = OnboardingPage.CHECKING, identity = null) }
         launch {
@@ -153,6 +164,16 @@ class OnboardingViewModel @Inject constructor(
             checkCurrent()
             when (result) {
                 is ClientResult.Ready -> {
+                    if (result.value.node.publicKey != operatorKey) {
+                        local.update {
+                            it.copy(
+                                page = OnboardingPage.ADDRESS,
+                                identity = null,
+                                operatorKeyIssue = OperatorKeyIssue.MISMATCH
+                            )
+                        }
+                        return@launch
+                    }
                     candidate = result.value
                     local.update {
                         it.copy(
@@ -183,10 +204,10 @@ class OnboardingViewModel @Inject constructor(
     }
     private fun confirm() {
         val current = candidate ?: return
-        if (current.node.keyChanged) return
+        if (current.node.keyChanged || current.node.publicKey != local.value.operatorKey) return
         local.update { it.copy(page = OnboardingPage.SAVING) }
         launch {
-            val result = nodes.confirm(current)
+            val result = nodes.confirm(current, local.value.operatorKey)
             checkCurrent()
             when (result) {
                 is ClientResult.Ready -> {
