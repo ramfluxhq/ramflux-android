@@ -18,4 +18,3 @@ internal fun CoreError.appProblem(): ClientProblem = ClientProblem(
     code = code,
     outcome = when (effect) { Effect.NONE -> ClientOutcome.NONE; Effect.REFUSED -> ClientOutcome.REFUSED; Effect.UNKNOWN -> ClientOutcome.UNKNOWN },
 )
-
