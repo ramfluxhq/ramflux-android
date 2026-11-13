@@ -36,7 +36,8 @@ data class AppShellState(
     val additional: ImmutableList<ShellDestination> =
         persistentListOf(
             ShellDestination(ClientFeature.GROUPS, uiText(R.string.ui_groups)),
-            ShellDestination(ClientFeature.CALLS, uiText(R.string.ui_calls))
+            ShellDestination(ClientFeature.CALLS, uiText(R.string.ui_calls)),
+            ShellDestination(ClientFeature.AGENTS, uiText(R.string.ui_agents))
         ),
     val settings: ShellDestination = ShellDestination(ClientFeature.SETTINGS, uiText(R.string.ui_settings))
 )

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="agents_title">Agents</string>
+    <string name="agents_directory">Your Agents</string>
+    <string name="agents_create">Create Agent</string>
+    <string name="agents_profile">Profile</string>
+    <string name="agents_advanced">Advanced settings</string>
+    <string name="agents_chat">Private conversation</string>
+    <string name="agents_goal">Responsibility</string>
+    <string name="agents_manage">Manage Agent</string>
+    <string name="agents_collaboration">Collaboration</string>
+    <string name="agents_edit">Edit profile</string>
+    <string name="agents_remove">Remove Agent</string>
+    <string name="agents_pause">Pause Agent</string>
+    <string name="agents_hide">Hidden Agents</string>
+    <string name="agents_back">Back</string>
+    <string name="agents_retry">Refresh</string>
+    <string name="agents_setup">Set up an account</string>
+    <string name="agents_account">An unlocked active account is required.</string>
+    <string name="agents_closed">Private data is closed.</string>
+    <string name="agents_loading">Checking Agent configuration…</string>
+    <string name="agents_unavailable">Agent configuration is unavailable</string>
+    <string name="agents_explanation">This SDK does not support Agent creation or configuration. No Agent has been created or changed.</string>
+    <string name="agents_read_failure">Unable to check Agent configuration (code %1$s).</string>
+    <string name="agents_name">Name</string>
+    <string name="agents_responsibility">One-line responsibility</string>
+    <string name="agents_avatar">Avatar</string>
+    <string name="agents_orbit">Orbit</string>
+    <string name="agents_prism">Prism</string>
+    <string name="agents_waves">Waves</string>
+    <string name="agents_star">Star</string>
+    <string name="agents_defaults">Planned defaults · configuration unavailable</string>
+    <string name="agents_runtime">Local runtime; runtime credentials stay on this device.</string>
+    <string name="agents_tools">Conversation messages only; other tools are not enabled.</string>
+    <string name="agents_scope">Private conversation with you only.</string>
+    <string name="agents_desktop">Full configuration belongs in the desktop flow when supported.</string>
+    <string name="agents_name_required">Enter a name.</string>
+    <string name="agents_name_limit">Use at most 40 Unicode characters and 256 UTF-8 bytes.</string>
+    <string name="agents_goal_required">Enter a responsibility.</string>
+    <string name="agents_goal_limit">Use at most 256 UTF-8 bytes.</string>
+    <string name="agents_draft_only">Draft only · nothing is provisioned or authorized.</string>
+</resources>

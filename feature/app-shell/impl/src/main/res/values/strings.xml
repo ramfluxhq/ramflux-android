@@ -35,4 +35,5 @@
     <string name="ui_selected_theme_is_unavailable_choose_another_theme">Selected theme is unavailable. Choose another theme.</string>
     <string name="ui_groups">Groups</string>
     <string name="ui_calls">Calls</string>
+    <string name="ui_agents">Agents</string>
 </resources>
