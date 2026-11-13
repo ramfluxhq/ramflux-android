@@ -23,3 +23,4 @@ include(":feature:conversations:api", ":feature:conversations:impl", ":feature:c
 include(":feature:chat:api", ":feature:chat:impl", ":feature:chat:test")
 
 include(":feature:settings:api", ":feature:settings:impl", ":feature:settings:test")
+include(":feature:contacts:api", ":feature:contacts:impl", ":feature:contacts:test")
