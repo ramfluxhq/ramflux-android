@@ -66,10 +66,20 @@ class ChatViewModel @Inject constructor(
         current(expected, generation, expectedTarget)
         val catalog = accounts.list()
         current(expected, generation, expectedTarget)
-        val valid = (catalog as? ClientResult.Ready)?.value?.let { value ->
-            value.activeId == expectedTarget.account && value.accounts.any { it.id == expectedTarget.account && it.unlocked }
-        } == true
-        if (!valid) local.value = ChatState(problem = "The active account changed or could not be read. Return to conversations.")
+        val value = when (catalog) {
+            is ClientResult.Ready -> catalog.value
+            is ClientResult.Failed -> {
+                local.value = ChatState(problem = "Account state could not be read (code ${catalog.problem.code}).")
+                return false
+            }
+            is ClientResult.Unavailable -> {
+                local.value = ChatState(unavailable = "Account access is unavailable: ${catalog.reason.description()}")
+                return false
+            }
+        }
+        val valid = value.activeId == expectedTarget.account &&
+            value.accounts.any { it.id == expectedTarget.account && it.unlocked }
+        if (!valid) local.value = ChatState(problem = "The active account changed. Return to conversations.")
         return valid
     }
     private fun read() {
@@ -105,7 +115,14 @@ class ChatViewModel @Inject constructor(
                                 )
                             }.toPersistentList(),
                             canSend = capability is ClientResult.Ready,
-                            unavailable = if (capability is ClientResult.Unavailable) "Sending is unavailable in this version." else null
+                            unavailable = when (capability) {
+                                is ClientResult.Unavailable -> "Sending unavailable: ${capability.reason.description()}"
+                                is ClientResult.Ready, is ClientResult.Failed -> null
+                            },
+                            problem = when (capability) {
+                                is ClientResult.Failed -> "Send availability failed (code ${capability.problem.code})."
+                                is ClientResult.Ready, is ClientResult.Unavailable -> null
+                            }
                         )
                     }
                     is ClientResult.Failed -> local.update { it.copy(problem = "Read failed (code ${result.problem.code}).") }
@@ -128,6 +145,7 @@ class ChatViewModel @Inject constructor(
                 if (!validate(expected, generation, currentTarget)) return@launch
                 val result = history.send(currentTarget.account, currentTarget.conversation, text)
                 current(expected, generation, currentTarget)
+                if (!validate(expected, generation, currentTarget)) return@launch
                 when (result) {
                     is ClientResult.Ready -> {
                         local.update { it.copy(draft = "") }
@@ -159,4 +177,10 @@ class ChatViewModel @Inject constructor(
             )
         }
     }
+}
+
+private fun UnavailableReason.description(): String = when (this) {
+    UnavailableReason.FEATURE_NOT_INSTALLED -> "the feature is not installed."
+    UnavailableReason.UNSUPPORTED_BY_CORE -> "the SDK operation is not available in this version."
+    UnavailableReason.CUSTODY_PROVIDER_REQUIRED -> "secure account access is required on this device."
 }

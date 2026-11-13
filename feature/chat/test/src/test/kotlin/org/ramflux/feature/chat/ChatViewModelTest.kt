@@ -169,4 +169,25 @@ class ChatViewModelTest {
         runCurrent()
         assertEquals(1, events.size)
     }
+
+    @Test fun unavailableAccountAndFailedSendCapabilityStayVisibleWithoutFabricatedSuccess() = runTest(timeout = 5.seconds) {
+        val accounts = FakeChatAccounts().apply {
+            failure = ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
+        }
+        val history = FakeChatHistory()
+        val vm = ChatViewModel(history, accounts, FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertNotNull(vm.state.value.unavailable)
+        assertFalse(vm.state.value.loaded)
+        assertEquals(0, history.reads)
+        accounts.failure = null
+        history.capability = ClientResult.Failed(ClientProblem(ClientFailureKind.STORAGE, 8, ClientOutcome.NONE))
+        vm.onAction(ChatAction.Refresh)
+        runCurrent()
+        assertTrue(vm.state.value.loaded)
+        assertFalse(vm.state.value.canSend)
+        assertNotNull(vm.state.value.problem)
+    }
 }

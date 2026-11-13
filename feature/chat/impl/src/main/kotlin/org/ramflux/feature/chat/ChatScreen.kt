@@ -17,7 +17,7 @@ import org.ramflux.generated.*
 fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
     val theme = LocalRFTheme.current
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
-        Box(Modifier.fillMaxSize().padding(insets).imePadding(), contentAlignment = Alignment.TopCenter) {
+        Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 RFChatHeader(
                     "chat-header",

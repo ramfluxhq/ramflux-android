@@ -12,10 +12,11 @@ class FakeChatHistory : MessageHistoryRepository {
         reads++
         return reading(conversation)
     }
-    override suspend fun sendAvailability(): ClientResult<Unit> = ClientResult.Unavailable(
+    var capability: ClientResult<Unit> = ClientResult.Unavailable(
         ClientFeature.CHAT,
         UnavailableReason.UNSUPPORTED_BY_CORE
     )
+    override suspend fun sendAvailability(): ClientResult<Unit> = capability
     override suspend fun send(account: String, conversation: String, text: String): ClientResult<Unit> {
         sends++
         return sendAvailability()
@@ -23,7 +24,8 @@ class FakeChatHistory : MessageHistoryRepository {
 }
 class FakeChatAccounts : AccountAccessRepository {
     var active = "a"
-    override suspend fun list(): ClientResult<AccountCatalog> = ClientResult.Ready(
+    var failure: ClientResult<AccountCatalog>? = null
+    override suspend fun list(): ClientResult<AccountCatalog> = failure ?: ClientResult.Ready(
         AccountCatalog(listOf(AccountSummary(active, "Work", true, "unlocked")), active)
     )
     override suspend fun select(id: String): ClientResult<Unit> {
