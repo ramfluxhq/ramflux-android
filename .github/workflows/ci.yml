@@ -23,7 +23,8 @@ jobs:
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew :core:sdk:compileDebugKotlin :core:data:compileDebugKotlin :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest lint --console=plain
+      - run: python3 scripts/check-secret-boundary.py
+      - run: ./gradlew :core:sdk:compileDebugKotlin :core:data:compileDebugKotlin :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest --console=plain
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -31,3 +32,47 @@ jobs:
           path: |
             core/*/build/reports/
             core/*/build/test-results/
+  native-packaging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: android
+      - name: Read pinned SDK revision
+        id: sdk-pin
+        run: python3 -c 'import json,os; p=json.load(open("sdk-contract/pin.json")); open(os.environ["GITHUB_OUTPUT"],"a").write("revision="+p["revision"]+"\n")'
+      - uses: actions/checkout@v4
+        with:
+          repository: ramfluxhq/ramflux
+          ref: ${{ steps.sdk-pin.outputs.revision }}
+          path: sdk
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-36 build-tools;36.0.0 ndk;28.2.13676358 cmake;3.22.1
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install the SDK Rust toolchain and cargo-ndk
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --target aarch64-linux-android
+          cargo install cargo-ndk --version 4.1.2 --locked
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+      - name: Assemble real AAR and consumer APK
+        env:
+          RAMFLUX_CORE_DIR: ${{ github.workspace }}/sdk
+          CARGO_TARGET_DIR: ${{ github.workspace }}/native-target
+        run: ./gradlew :core:sdk:assembleDebug :fixtures:packaging:assembleDebug lint --console=plain
+      - name: Check every packaged ELF and APK zip alignment
+        run: python3 scripts/check-packaged-alignment.py core/sdk/build/outputs/aar/sdk-debug.aar fixtures/packaging/build/outputs/apk/debug/packaging-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-packaging
+          path: |
+            android/core/sdk/build/outputs/aar/sdk-debug.aar
+            android/fixtures/packaging/build/outputs/apk/debug/packaging-debug.apk

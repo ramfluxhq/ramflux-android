@@ -10,6 +10,62 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 internal object ReplyCodec {
+    fun submitRefusal(reply: NativeReply, operationId: String? = null): CoreResult.Failure = try {
+        CoreResult.Failure(error(if (reply.code == 0) 16 else reply.code, Effect.NONE), operationId)
+    } finally { reply.body.fill(0) }
+
+    private fun error(code: Int, effect: Effect): CoreError = when (code) {
+        1 -> CoreError.InvalidArgument(effect)
+        3 -> CoreError.UnsupportedVersion(effect)
+        12 -> CoreError.PermissionDenied(effect)
+        23 -> CoreError.SchemaResetRequired(effect)
+        else -> CoreError.Native(code, effect)
+    }
+
+    fun decodeSecret(reply: NativeReply, operationId: String?): CoreResult<SecretReply> = try {
+        if (reply.code != 0) CoreResult.Failure(error(reply.code, Effect.UNKNOWN), operationId)
+        else {
+            val parser = ByteJson(reply.body)
+            val envelope = parser.parse()
+            val code = parser.integer(parser.field(envelope, "code") ?: throw IllegalArgumentException("missing status"))
+            if (code == 0) {
+                val response = parser.field(envelope, "response") ?: throw IllegalArgumentException("missing response")
+                val body = parser.field(response, "body") ?: throw IllegalArgumentException("missing body")
+                CoreResult.Success(SecretReply(SecretBytes.take(parser.copy(body))))
+            } else {
+                val effects = parser.field(envelope, "effects") ?: parser.field(envelope, "effect")
+                val effect = effects?.let { node ->
+                    val chars = parser.chars(node)
+                    try { when {
+                        chars.contentEquals(charArrayOf('n', 'o', 'n', 'e')) -> Effect.NONE
+                        chars.contentEquals(charArrayOf('r', 'e', 'f', 'u', 's', 'e', 'd')) -> Effect.REFUSED
+                        else -> Effect.UNKNOWN
+                    } } finally { chars.fill('\u0000') }
+                } ?: Effect.UNKNOWN
+                CoreResult.Failure(error(code, effect), operationId)
+            }
+        }
+    } catch (_: Exception) {
+        CoreResult.Failure(CoreError.InvalidResponse(), operationId)
+    } finally { reply.body.fill(0) }
+
+    fun decodeEvent(reply: NativeReply, accountId: String?): CoreResult<SecretReply?> = try {
+        if (reply.code != 0) CoreResult.Failure(error(reply.code, Effect.UNKNOWN))
+        else {
+            val parser = ByteJson(reply.body)
+            val frame = parser.parse()
+            val account = parser.field(frame, "account_id")
+            val matches = if (accountId == null) true else if (account?.kind != 34) false else {
+                val chars = parser.chars(account)
+                try { chars.size == accountId.length && chars.indices.all { chars[it] == accountId[it] } }
+                finally { chars.fill('\u0000') }
+            }
+            if (matches) CoreResult.Success(SecretReply(SecretBytes.take(reply.body.copyOf())))
+            else CoreResult.Success(null)
+        }
+    } catch (_: Exception) { CoreResult.Failure(CoreError.InvalidResponse()) }
+    finally { reply.body.fill(0) }
+
     private const val MAX_FRAME = 1 shl 20
     fun decodeCompletion(reply: NativeReply, operationId: String?): CoreResult<JsonObject> {
         val decoded = decode(reply, operationId)

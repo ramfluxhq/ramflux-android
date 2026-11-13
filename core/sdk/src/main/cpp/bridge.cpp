@@ -6,6 +6,8 @@
 #include <cstring>
 #include <vector>
 #include <new>
+#include <chrono>
+#include <thread>
 #include "ramflux_sdk.h"
 
 namespace {
@@ -35,6 +37,16 @@ struct Input {
     }
     ~Input() { wipe(bytes.data(), bytes.size()); }
 };
+
+// The Java object was never delivered. Keep the token until shutdown is confirmed.
+void close_orphan_client(uint64_t handle) {
+    for (;;) {
+        const int32_t code = ramflux_v2_client_close(handle);
+        if (code == 0) return;
+        if (code != 10 && code != 24 && ramflux_v2_client_release(handle) == 0) return;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+}
 
 jobject reply(JNIEnv* env, int32_t code, RamfluxBuffer* buffer = nullptr, uint64_t handle = 0) {
     const bool valid = buffer == nullptr ||
@@ -71,7 +83,7 @@ Java_org_ramflux_sdk_JniCore_open(JNIEnv* env, jobject, jbyteArray config) {
     const int32_t code = ramflux_v2_client_open(input.bytes.data(), input.bytes.size(), &handle);
     jobject result = reply(env, code, nullptr, handle);
     // A failed Java allocation must not strand a live core handle.
-    if (result == nullptr && handle != 0) ramflux_v2_client_close(handle);
+    if (result == nullptr && handle != 0) close_orphan_client(handle);
     return result;
 }
 
@@ -89,8 +101,9 @@ Java_org_ramflux_sdk_JniCore_submit(JNIEnv* env, jobject, jlong core, jbyteArray
     const int32_t code = ramflux_v2_execute(handle, input.bytes.data(), input.bytes.size(), &operation);
     jobject result = reply(env, code, nullptr, operation);
     if (result == nullptr && operation != 0) {
-        ramflux_v2_operation_cancel(handle, operation);
-        ramflux_v2_operation_release(handle, operation);
+        const int32_t cancelled = ramflux_v2_operation_cancel(handle, operation);
+        const int32_t released = cancelled == 0 ? ramflux_v2_operation_release(handle, operation) : cancelled;
+        if (released != 0) close_orphan_client(handle);
     }
     return result;
 }
@@ -122,4 +135,9 @@ Java_org_ramflux_sdk_JniCore_eventPoll(JNIEnv* env, jobject, jlong core) {
 extern "C" JNIEXPORT jint JNICALL
 Java_org_ramflux_sdk_JniCore_eventReset(JNIEnv*, jobject, jlong core) {
     return ramflux_v2_event_reset(static_cast<uint64_t>(core));
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_org_ramflux_sdk_JniCore_releaseClosed(JNIEnv*, jobject, jlong core) {
+    return ramflux_v2_client_release(static_cast<uint64_t>(core));
 }

@@ -20,6 +20,7 @@ sealed interface HostState {
 /** Application lifecycle owner: one supervisor, no service or socket, no store held in background. */
 class AndroidCoreHost internal constructor(private val native: NativeCore, private val dataRoot: String, private val expectedDescriptorFingerprint: String) {
     private val transitions = Mutex()
+    private var retiring: CoreClient? = null
     private val mutableState = MutableStateFlow<HostState>(HostState.Stopped)
     val state: StateFlow<HostState> = mutableState.asStateFlow()
 
@@ -37,14 +38,25 @@ class AndroidCoreHost internal constructor(private val native: NativeCore, priva
         transitions.withLock {
             val current = mutableState.value
             if (current is HostState.Running) return@withLock CoreResult.Success(current.client)
-            if (current is HostState.Failed && current.shutdownPending) return@withLock CoreResult.Failure(current.error)
+            retiring?.let { previous ->
+                when (val stopped = previous.close()) {
+                    is CoreResult.Success -> retiring = null
+                    is CoreResult.Failure -> {
+                        if (stopped.error.code in setOf(10, 24)) return@withLock stopped
+                        val released = previous.releaseFailedClose()
+                        if (released is CoreResult.Failure) return@withLock released
+                        retiring = null
+                    }
+                }
+            }
             when (val result = CoreClient.open(native, dataRoot, expectedDescriptorFingerprint)) {
                 is CoreResult.Success -> {
                     mutableState.value = HostState.Running(result.value)
                     result
                 }
                 is CoreResult.Failure -> {
-                    mutableState.value = HostState.Failed(result.error)
+                    mutableState.value = HostState.Failed(result.error,
+                        shutdownPending = current is HostState.Failed && current.shutdownPending)
                     result
                 }
             }
@@ -57,6 +69,7 @@ class AndroidCoreHost internal constructor(private val native: NativeCore, priva
             val current = mutableState.value
             if (current !is HostState.Running) return@withLock CoreResult.Success(kotlinx.serialization.json.JsonObject(emptyMap()))
             val result = current.client.close()
+            if (result is CoreResult.Failure) retiring = current.client
             mutableState.value = when (result) {
                 is CoreResult.Success -> HostState.Stopped
                 is CoreResult.Failure -> HostState.Failed(result.error, shutdownPending = true)

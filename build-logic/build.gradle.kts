@@ -12,5 +12,9 @@ gradlePlugin {
     register("androidSdk") {
         id = "ramflux.android.sdk"
         implementationClass = "AndroidSdkPlugin"
+    }
+    register("androidPackaging") {
+        id = "ramflux.android.packaging"
+        implementationClass = "AndroidPackagingPlugin"
     } }
 }

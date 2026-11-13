@@ -7,6 +7,7 @@ package org.ramflux.sdk
 interface NativeCore {
     fun negotiate(): NativeReply
     fun open(config: ByteArray): NativeReply
+    fun releaseClosed(core: Long): Int
     fun close(core: Long): NativeReply
     fun submit(core: Long, request: ByteArray): NativeReply
     fun operationPoll(core: Long, operation: Long): NativeReply
@@ -20,6 +21,7 @@ interface NativeCore {
 class JniCore : NativeCore {
     override external fun negotiate(): NativeReply
     override external fun open(config: ByteArray): NativeReply
+    override external fun releaseClosed(core: Long): Int
     override external fun close(core: Long): NativeReply
     override external fun submit(core: Long, request: ByteArray): NativeReply
     override external fun operationPoll(core: Long, operation: Long): NativeReply

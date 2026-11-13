@@ -19,9 +19,8 @@ mkdir -p "$out/jniLibs/arm64-v8a" "$out/include"
 out="$(cd "$out" && pwd)"
 # cargo-ndk forwards the 16 KB link flags to the one Rust shared library.
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS='-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384'
-openssl_dir="$(bash "$repo/scripts/build-openssl.sh")"
-export OPENSSL_LIB_DIR="$openssl_dir/lib"
-export OPENSSL_INCLUDE_DIR="$openssl_dir/include"
+# The pinned SDK packages its mobile SQLCipher/OpenSSL dependency.
+cmp "$core/crates/ramflux-sdk/include/ramflux_sdk_methods.json" "$repo/sdk-contract/ramflux_sdk_methods.json"
 ndk_args=(-t arm64-v8a --platform 28)
 if [[ "$action" == build ]]; then ndk_args+=(-o "$out/jniLibs"); fi
 (cd "$core" && cargo ndk "${ndk_args[@]}" "$action" -p ramflux-sdk --lib --features c-abi --locked)
@@ -35,7 +34,9 @@ cmake_bin="${ANDROID_HOME:?Set ANDROID_HOME}/cmake/3.22.1/bin/cmake"
   -DRAMFLUX_NATIVE_DIR="$out/jniLibs" -DRAMFLUX_HEADER_DIR="$out/include" \
   -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="$out/jniLibs/arm64-v8a"
 "$cmake_bin" --build "$out/cmake" --parallel 2
-objdump="$ndk/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-objdump"
+host_tools=("$ndk"/toolchains/llvm/prebuilt/*/bin)
+[[ ${#host_tools[@]} == 1 ]] || { echo 'Expected one NDK host toolchain' >&2; exit 1; }
+objdump="${host_tools[0]}/llvm-objdump"
 for library in "$out/jniLibs/arm64-v8a/"*.so; do
   "$objdump" -p "$library" | python3 "$repo/scripts/check-elf-alignment.py"
 done

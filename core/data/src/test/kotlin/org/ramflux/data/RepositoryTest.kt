@@ -6,8 +6,6 @@ package org.ramflux.data
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import org.junit.Assert.*
 import org.junit.Test
 import org.ramflux.sdk.*
@@ -17,14 +15,12 @@ class RepositoryTest {
         val transport = RecordingTransport()
         val repository = DefaultConversationsRepository(transport)
         val context = RepositoryContext("account", "same-operation", 1234)
-        val body = buildJsonObject { put("recipient", "stranger"); put("text", "hello") }
+        val body = SecretBody.fields { publicText("recipient", "stranger"); chars("text", charArrayOf('h', 'i')) }
         val result = repository.messageSubmit(context, body)
         assertEquals(listOf("message.submit"), transport.requests.map { it.method })
         val request = transport.requests.single()
-        assertSame(body, request.body)
-        assertEquals("same-operation", request.operationId)
-        assertEquals("account", request.accountId)
-        assertEquals(1234L, request.deadlineUnixMs)
+        assertSame(body, request.body); assertEquals("same-operation", request.operationId)
+        assertEquals("account", request.accountId); assertEquals(1234L, request.deadlineUnixMs)
         assertEquals(MutationDisposition.Reconcile("same-operation"), PendingMutation(context, request.method).disposition(result))
     }
 
@@ -36,9 +32,10 @@ class RepositoryTest {
     }
 
     private class RecordingTransport : RepositoryTransport {
-        val requests = mutableListOf<CoreRequest>()
-        override suspend fun execute(request: CoreRequest): CoreResult<JsonObject> {
-            requests.add(request)
+        val requests = mutableListOf<SecretRequest>()
+        override suspend fun execute(request: CoreRequest): CoreResult<JsonObject> = CoreResult.Failure(CoreError.InvalidArgument(Effect.NONE))
+        override suspend fun executeSecret(request: SecretRequest): CoreResult<SecretReply> {
+            requests.add(request); request.body.close()
             return CoreResult.Failure(CoreError.Native(10, Effect.UNKNOWN), request.operationId)
         }
         override fun updates(filter: SubscriptionFilter) = emptyFlow<CoreUpdate>()

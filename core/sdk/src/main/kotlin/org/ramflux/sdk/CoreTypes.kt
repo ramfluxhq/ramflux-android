@@ -35,6 +35,10 @@ sealed interface CoreError {
     data class Native(override val code: Int, override val effect: Effect) : CoreError {
         val status: SdkStatus? get() = SdkStatus.entries.firstOrNull { it.code == code }
     }
+    data class CleanupPending(val nativeStatus: Int) : CoreError {
+        override val code = -3
+        override val effect = Effect.UNKNOWN
+    }
     data class Closed(override val effect: Effect = Effect.NONE) : CoreError { override val code = -1 }
     data class InvalidResponse(override val effect: Effect = Effect.UNKNOWN) : CoreError { override val code = -2 }
 }
@@ -69,7 +73,7 @@ class NativeReply(val code: Int, val body: ByteArray, val handle: Long = 0) {
 data class SubscriptionFilter(val accountId: String?, val body: JsonObject)
 
 sealed interface CoreUpdate {
-    class Events(val body: JsonObject) : CoreUpdate
+    class Events(val body: SecretReply) : CoreUpdate
     data class Terminal(val kind: String, val lastSequence: String?) : CoreUpdate
     data class Failure(val error: CoreError) : CoreUpdate
 }

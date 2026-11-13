@@ -3,48 +3,59 @@
 
 package org.ramflux.sdk
 
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.*
+import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Test
+import kotlin.time.Duration.Companion.seconds
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AndroidCoreHostTest {
-    @Test fun foregroundSharesOneCoreAndBackgroundClosesIt() = runTest {
-        val native = HostNative()
+    @Test fun foregroundSharesOneCoreAndBackgroundClosesIt() = runTest(timeout = 5.seconds) {
+        val native = FakeAbi()
         val host = AndroidCoreHost(native, "/private/no_backup", "a".repeat(64))
         val first = host.foreground() as CoreResult.Success
         val second = host.foreground() as CoreResult.Success
-        assertSame(first.value, second.value)
-        assertEquals(1, native.opens)
+        assertSame(first.value, second.value); assertEquals(1, native.liveWriters)
         assertTrue(host.background() is CoreResult.Success)
-        assertEquals(1, native.closes)
-        assertEquals(HostState.Stopped, host.state.value)
+        assertEquals(0, native.liveWriters); assertEquals(HostState.Stopped, host.state.value)
     }
 
-    @Test fun failedShutdownNeverAuthorizesReplacementWriter() = runTest {
-        val native = HostNative().apply { closeCode = 10 }
-        val host = AndroidCoreHost(native, "/private/no_backup", "a".repeat(64))
+    @Test fun cancelledOpenRetainsItsUndeliveredHandleUntilShutdownCompletes() = runTest(timeout = 5.seconds) {
+        val native = FakeAbi().apply { closeTimeout = true }
+        val call = async(start = CoroutineStart.LAZY) {
+            CoreClient.open(native, "/test/cancelled-open", "a".repeat(64), StandardTestDispatcher(testScheduler))
+        }
+        native.onOpened = { call.cancel() }
+        call.start(); runCurrent()
+        assertEquals(1, native.liveWriters)
+        assertFalse(call.isCompleted)
+        advanceTimeBy(101); runCurrent()
+        assertFalse(call.isCompleted)
+        native.releaseTimedOutOwner()
+        advanceTimeBy(101); runCurrent(); call.join()
+        assertEquals(0, native.liveWriters)
+        assertTrue(call.isCancelled)
+    }
+
+    @Test fun timeoutThenLeaseBusyThenReleasedLeaseRecoversWithoutTwoWriters() = runTest(timeout = 5.seconds) {
+        val native = FakeAbi()
+        val root = "/private/no_backup"
+        val host = AndroidCoreHost(native, root, "a".repeat(64))
         assertTrue(host.foreground() is CoreResult.Success)
-        assertTrue(host.background() is CoreResult.Failure)
-        assertTrue(host.foreground() is CoreResult.Failure)
-        assertEquals("failed shutdown cannot open a replacement", 1, native.opens)
-    }
-
-    private class HostNative : NativeCore {
-        var opens = 0
-        var closes = 0
-        var closeCode = 0
-        override fun negotiate() = NativeReply(0, """{
-            "abi_major":2,"abi_minor":0,"bus_protocol":"ramflux.local_bus.v1",
-            "max_frame_bytes":1048576,"message_descriptor_blake3":"${"a".repeat(64)}",
-            "methods":["account.list"]
-        }""".toByteArray())
-        override fun open(config: ByteArray): NativeReply { opens++; return NativeReply(0, byteArrayOf(), 1) }
-        override fun close(core: Long): NativeReply { closes++; return NativeReply(closeCode, byteArrayOf()) }
-        override fun submit(core: Long, request: ByteArray) = NativeReply(1, byteArrayOf())
-        override fun operationPoll(core: Long, operation: Long) = NativeReply(24, byteArrayOf())
-        override fun operationCancel(core: Long, operation: Long) = 0
-        override fun operationRelease(core: Long, operation: Long) = 0
-        override fun eventPoll(core: Long) = NativeReply(24, byteArrayOf())
-        override fun eventReset(core: Long) = 0
+        native.closeTimeout = true
+        assertEquals(10, (host.background() as CoreResult.Failure).error.code)
+        assertEquals(1, native.liveWriters)
+        assertEquals(24, (host.foreground() as CoreResult.Failure).error.code)
+        assertEquals(1, native.liveWriters)
+        native.releaseTimedOutOwner()
+        val competitor = native.newClient(root)
+        assertEquals(18, (host.foreground() as CoreResult.Failure).error.code)
+        assertEquals(1, native.liveWriters)
+        native.close(competitor)
+        assertTrue(host.foreground() is CoreResult.Success)
+        assertEquals(1, native.liveWriters)
+        assertTrue(host.state.value is HostState.Running)
+        host.background()
     }
 }

@@ -11,3 +11,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "ramflux-android"
 include(":core:sdk", ":core:data")
+include(":fixtures:packaging")

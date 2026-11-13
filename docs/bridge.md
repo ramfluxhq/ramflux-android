@@ -12,9 +12,8 @@ build configuration; dependencies and versions live in `gradle/libs.versions.tom
 ## Build
 
 Use JDK 17, Android SDK 36, NDK 28.2.13676358, SDK CMake 3.22.1 and cargo-ndk.
-The build fetches checksum-pinned OpenSSL 3.6.3 and builds its static Android
-libcrypto for the existing SQLCipher feature. Perl, make, curl, tar and Python 3
-are required. The dependency cache is under the persistent Cargo target.
+The pinned SDK owns the mobile SQLCipher/OpenSSL build and locks its dependencies.
+Perl, make and Python 3 are required. No host OpenSSL or software vault is substituted.
 Install `aarch64-linux-android` for the product repository's pinned Rust toolchain.
 Set `ANDROID_HOME`, `ANDROID_NDK_HOME`, `CARGO_TARGET_DIR` and `RAMFLUX_CORE_DIR`.
 The last variable must point to the product checkout containing the v2 exports.
@@ -25,11 +24,16 @@ ABI declaration. Only arm64-v8a is packaged; both ELF libraries are checked for
 ```sh
 ./scripts/build-native.sh core/sdk/build/generated/native check
 ./gradlew :core:sdk:assembleDebug :core:data:compileDebugKotlin
-./gradlew :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest lint
+./gradlew :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest
+./gradlew :fixtures:packaging:assembleDebug lint
+python3 scripts/check-packaged-alignment.py core/sdk/build/outputs/aar/sdk-debug.aar fixtures/packaging/build/outputs/apk/debug/packaging-debug.apk
 ```
 
-Kotlin compile/unit tests do not need native artifacts. Assembling the SDK AAR
-builds the real product library and JNI; a missing dependency fails the build.
+Kotlin compile/unit tests do not need native artifacts. Native assembly and lint
+require the pinned SDK checkout and native toolchain. The native-packaging CI job
+builds the real AAR and a build-only, non-UI APK consumer. It extracts and checks
+every packaged ELF and runs `zipalign -c -P 16` on the APK; the fast Kotlin job
+runs independently. A missing native dependency fails the native job.
 No placeholder library, skipped native build or emulator software vault is used.
 
 ## Ownership and cancellation
@@ -39,29 +43,59 @@ No placeholder library, skipped native build or emulator software vault is used.
 not from a runtime negotiation echo. A mismatch fails before opening a data root.
 The application must await `foreground()` and `background()`
 on its lifecycle transitions; background completes only after native close has
-returned. A failure to shut down is a failure, not permission to open a replacement.
+returned. A failed or pending shutdown retains its native handle. Foreground retries it:
+initial timeout is 10, pending is 24, and only confirmed completion is 0. A terminal
+failed shutdown is explicitly released after its error is observed; the data-root
+lease still arbitrates any replacement open. Busy/storage refusals remain retryable.
+Repositories resolve the current host generation for every call and collection.
 The host application must keep the library's backup and device-transfer exclusions,
 internal-only installation and strict network-security policy in its merged manifest.
 
 Each execute allocates one native operation/cancel token. Cancelling a coroutine
 calls `operation_cancel`, then `operation_release`; it never sends the mutation
 again. Before admission cancellation can prove no effects; after admission it
-cannot. Reconcile the original operation ID and frozen arguments. Native statuses
-and complete error frames are retained. Message contents and secrets are redacted
+cannot. Reconcile the original operation ID and frozen arguments. Submit-time refusals have no effects. Poll-time loss remains unknown.
+Cancel/release backpressure is retried with bounded backoff; unresolved handles
+remain owned and `cleanupFailure` exposes the fault until repair or close. Message contents and secrets are redacted
 from wrapper `toString()` output; the bridge performs no content logging.
 
-There is one active event collector per core queue. Collection holds the subscription
+Ordinary `execute` rejects all subscription methods. Only `updates` creates and
+owns the native subscription. There is one active event collector per core queue. Collection holds the subscription
 operation token until `awaitClose` cancels the producer, then cancels/releases that
-same token. Backpressure has zero additional Flow buffering. Native overflow emits
+same token. Recollection and reset join preceding cleanup; a fast restart cannot
+race a dying subscription. The queue is reset before opening, pre-open frames are
+discarded, and account-scoped collectors reject other accounts. Same-account
+generation filtering awaits the SDK contract extension and is not an accepted
+runtime boundary at this checkpoint. Idle polls back
+off to 100 ms. Backpressure has zero additional Flow buffering. Native overflow emits
 `resync_required`, never a continuous stream. Read snapshots, call
 `resetEventsAfterSnapshot()`, then subscribe from their journal cursor. A terminal
 completion has its own native credit and cannot be displaced by event overflow.
 
+## Secret transport
+
+The generated SDK policy marks secret input/output and one-time disclosure. An
+ordinary `CoreRequest` is rejected for a confidential method before submission.
+Use `SecretRequest` with a `SecretBody` built from owned UTF-8 bytes or `CharArray`
+fields. Input allocations and temporary native buffers are erased on success,
+refusal and cancellation. No secret body is serialized through `JsonObject`.
+
+`executeSecret` extracts the body directly from completion bytes using a bounded
+byte scanner. It never decodes the frame into a String or JSON tree. `SecretReply`
+is Closeable and permits one borrowed access; consumption, exceptions and explicit
+close erase its allocation. `consumeChars` decodes escapes/UTF-8 into a temporary
+CharArray, passes it to the native host, then erases it. The host must not create
+immutable Strings from those characters. Event payloads use the same owned type.
+Errors from secret operations expose numeric status/effect, never parsed secret
+error details. `check-secret-boundary.py` guards decoder entrypoints and all 185
+SDK classifications in CI.
+
 ## Capabilities and integration boundary
 
 Repository methods forward existing SDK bus request bodies; they do not invent
-another message schema. `operation-inventory.json` records the product registry
-used to create forwarding interfaces. Recovery and creation use the SDK's actual
+another message schema. `sdk-contract/ramflux_sdk_methods.json` is the exact pinned SDK policy;
+`pin.json` records its immutable source revision/hash. `scripts/sync-sdk-policy.py`
+reproduces classifications and repository signatures from that artifact. Recovery and creation use the SDK's actual
 connection-local ceremonies. Successful unknown message content stays successful.
 SDK errors are never converted into fabricated rows or optimistic delivery success.
 

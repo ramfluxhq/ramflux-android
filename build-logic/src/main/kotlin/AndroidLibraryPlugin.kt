@@ -34,6 +34,9 @@ class AndroidLibraryPlugin : Plugin<Project> {
                 // Keep upgrade advice visible without making pinned builds depend on release timing.
                 informational += setOf("AndroidGradlePluginVersion", "NewerVersionAvailable")
             }
+            if (path in setOf(":core:sdk", ":core:data")) {
+                sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/kotlin"))
+            }
             testOptions.unitTests.all { it.maxHeapSize = "1g" }
         }
         extensions.configure<KotlinAndroidProjectExtension> { jvmToolchain(17) }
