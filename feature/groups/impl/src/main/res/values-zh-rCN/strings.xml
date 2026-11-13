@@ -67,4 +67,5 @@
     <string name="groups_capacity">群组已达到容量上限。</string>
     <string name="groups_invalid_request">群组请求无效。</string>
     <string name="groups_confirm">确认</string>
+    <string name="groups_confirm_accessibility">确认：%1$s</string>
 </resources>

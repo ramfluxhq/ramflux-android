@@ -14,7 +14,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import org.ramflux.data.ContactOperation
 import org.ramflux.designsystem.*
 import org.ramflux.feature.contacts.impl.R
@@ -283,15 +282,21 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
         }
     }
     state.approval?.let { approval ->
-        Dialog(onDismissRequest = { onAction(ContactsAction.Deny) }) {
+        HostConfirmationDialog(onDismissRequest = { onAction(ContactsAction.Deny) }) {
             RFDialogShell(stringResource(R.string.contacts_confirm), approval.operation.render(), theme, content = {
                 Text(stringResource(R.string.contacts_confirm_account, approval.account))
                 LazyColumn(Modifier.heightIn(max = (theme.gap * 20).dp)) {
                     items(approval.targets) { target -> Text(target) }
                 }
             }, actions = {
-                TextButton(onClick = { onAction(ContactsAction.Deny) }) { Text(stringResource(R.string.contacts_deny)) }
-                TextButton(onClick = { onAction(ContactsAction.Confirm) }) { Text(stringResource(R.string.contacts_confirm_action)) }
+                HostConfirmationActions(
+                    approval,
+                    stringResource(R.string.contacts_deny),
+                    stringResource(R.string.contacts_confirm_action),
+                    stringResource(R.string.contacts_confirm_accessibility, approval.operation.render()),
+                    onDeny = { onAction(ContactsAction.Deny) },
+                    onConfirm = { onAction(ContactsAction.Confirm) }
+                )
             })
         }
     }

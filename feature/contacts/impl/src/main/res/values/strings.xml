@@ -63,4 +63,5 @@
     <string name="contacts_safety_binding_unavailable">Verification requires SDK support for the exact safety material you compared. No verification was recorded.</string>
     <string name="contacts_fingerprint">Fingerprint: %1$s</string>
     <string name="contacts_confirm_action">Confirm</string>
+    <string name="contacts_confirm_accessibility">Confirm: %1$s</string>
 </resources>
