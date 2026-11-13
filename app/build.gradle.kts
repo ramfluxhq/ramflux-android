@@ -5,6 +5,7 @@ plugins { id("ramflux.android.app") }
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":feature:settings:impl"))
+    implementation(project(":feature:contacts:impl"))
     implementation(project(":feature:chat:impl"))
     implementation(project(":feature:conversations:impl"))
     implementation(project(":feature:onboarding:impl"))
