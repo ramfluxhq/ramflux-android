@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_operator_key">Operator public key</string>
+    <string name="ui_operator_key_explanation">Before connecting, obtain the node public key directly from its operator through a separate trusted channel. Enter it here before discovery.</string>
+    <string name="ui_operator_key_required">Enter the operator public key before checking the address.</string>
+    <string name="ui_operator_key_mismatch">The discovered key does not match the operator key. Nothing was pinned. Verify the address and key with the operator.</string>
+</resources>

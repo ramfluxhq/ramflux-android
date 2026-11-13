@@ -11,8 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.feature.onboarding.impl.R
 import org.ramflux.generated.*
 
 /** Rendering only. State and all actions are supplied by the feature owner. */
@@ -142,6 +144,26 @@ fun OnboardingScreen(
                             OnboardingPage.ADDRESS, OnboardingPage.CONNECTION_FAILED, OnboardingPage.OFFLINE, OnboardingPage.REFUSED -> {
                                 Text("Add your node", style = MaterialTheme.typography.titleLarge)
                                 Text("Enter its HTTPS address. You will review the address before verification.")
+                                state.operatorKeyIssue?.let { issue ->
+                                    Text(
+                                        stringResource(
+                                            if (issue == OperatorKeyIssue.REQUIRED) {
+                                                R.string.ui_operator_key_required
+                                            } else {
+                                                R.string.ui_operator_key_mismatch
+                                            }
+                                        )
+                                    )
+                                }
+                                Text(stringResource(R.string.ui_operator_key_explanation))
+                                RFTextField(
+                                    "operator-key",
+                                    stringResource(R.string.ui_operator_key),
+                                    state.operatorKey,
+                                    theme,
+                                    disabled = state.busy,
+                                    onValueChange = { onAction(OnboardingAction.OperatorKey(it)) }
+                                )
                                 RFTextField(
                                     "node-address",
                                     "Node address",

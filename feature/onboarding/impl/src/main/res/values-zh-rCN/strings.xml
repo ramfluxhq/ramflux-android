@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_operator_key">运营方公钥</string>
+    <string name="ui_operator_key_explanation">连接前，请通过独立的可信渠道直接向节点运营方获取公钥，并在发现节点前输入。</string>
+    <string name="ui_operator_key_required">检查地址前，请先输入运营方公钥。</string>
+    <string name="ui_operator_key_mismatch">发现的公钥与运营方公钥不匹配，未固定任何公钥。请向运营方核实地址和公钥。</string>
+</resources>
