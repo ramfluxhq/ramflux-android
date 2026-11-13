@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.designsystem
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -38,14 +39,19 @@ fun HostConfirmationActions(
     key(identity) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy((theme.gap / 2).dp)) {
             AndroidView(
-                factory = { HostActionButton(it, initialDeny = true).apply { tag = "host-confirmation-deny" } },
+                factory = {
+                    HostActionButton(it).apply {
+                        markAsDismissal()
+                        tag = "host-confirmation-deny"
+                    }
+                },
                 modifier = Modifier.testTag("host-confirmation-deny").heightIn(min = (theme.gap * 3.25f).dp),
                 onReset = null,
                 onRelease = { it.release() },
                 update = { button -> button.bind(denyLabel, denyLabel, true, false, theme) { deny() } }
             )
             AndroidView(
-                factory = { HostActionButton(it, initialDeny = false).apply { tag = "host-confirmation-confirm" } },
+                factory = { HostActionButton(it).apply { tag = "host-confirmation-confirm" } },
                 modifier = Modifier.testTag("host-confirmation-confirm").heightIn(min = (theme.gap * 3.25f).dp),
                 onReset = null,
                 onRelease = { it.release() },
@@ -54,12 +60,21 @@ fun HostConfirmationActions(
         }
     }
 }
-private class HostActionButton(context: Context, private val initialDeny: Boolean) : Button(context) {
+private class HostActionButton(context: Context) : Button(context) {
+    private var initialDeny = false
+    fun markAsDismissal() {
+        initialDeny = true
+    }
     private var armedKey: Int? = null
     private var repeated = false
     private var pressTime = 0L
     private var attachedAt = 0L
-    private val focusDeny = Runnable {
+    private val focusDeny = Runnable { focusDismissalOnOpen() }
+
+    // A newly opened confirmation deliberately focuses its non-destructive dismissal action once.
+    // Recomposition never redirects accessibility focus; detachment cancels the pending request.
+    @SuppressLint("AccessibilityFocus")
+    private fun focusDismissalOnOpen() {
         if (isAttachedToWindow) {
             requestFocusFromTouch()
             performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null)
