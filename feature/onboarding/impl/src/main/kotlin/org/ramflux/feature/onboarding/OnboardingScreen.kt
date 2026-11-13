@@ -176,6 +176,26 @@ fun OnboardingScreen(
                             OnboardingPage.ADDRESS, OnboardingPage.CONNECTION_FAILED, OnboardingPage.OFFLINE, OnboardingPage.REFUSED -> {
                                 Text(stringResource(R.string.ui_add_your_node), style = MaterialTheme.typography.titleLarge)
                                 Text(stringResource(R.string.ui_enter_its_https_address_you_will_review_the))
+                                state.operatorKeyIssue?.let { issue ->
+                                    Text(
+                                        stringResource(
+                                            if (issue == OperatorKeyIssue.REQUIRED) {
+                                                R.string.ui_operator_key_required
+                                            } else {
+                                                R.string.ui_operator_key_mismatch
+                                            }
+                                        )
+                                    )
+                                }
+                                Text(stringResource(R.string.ui_operator_key_explanation))
+                                RFTextField(
+                                    "operator-key",
+                                    stringResource(R.string.ui_operator_key),
+                                    state.operatorKey,
+                                    theme,
+                                    disabled = state.busy,
+                                    onValueChange = { onAction(OnboardingAction.OperatorKey(it)) }
+                                )
                                 RFTextField(
                                     "node-address",
                                     stringResource(R.string.ui_node_address),

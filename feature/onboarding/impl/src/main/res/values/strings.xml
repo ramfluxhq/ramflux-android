@@ -75,4 +75,9 @@
     <string name="ui_welcome_to_ramflux">Welcome to Ramflux</string>
     <string name="ui_your_identity_your_choice">Your identity, your choice</string>
     <string name="ui_your_identity_your_connections">Your identity. Your connections.</string>
+
+    <string name="ui_operator_key">Operator public key</string>
+    <string name="ui_operator_key_explanation">Before connecting, obtain the node public key directly from its operator through a separate trusted channel. Enter it here before discovery.</string>
+    <string name="ui_operator_key_required">Enter the operator public key before checking the address.</string>
+    <string name="ui_operator_key_mismatch">The discovered key does not match the operator key. Nothing was pinned. Verify the address and key with the operator.</string>
 </resources>
