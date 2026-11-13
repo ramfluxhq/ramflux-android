@@ -6,3 +6,7 @@ Ramflux is a product brand of Span Brain.
 This repository contains the AGPL-3.0-or-later Android client for Ramflux. It
 depends on the BSD-3-Clause Ramflux core workspace maintained in the
 ramfluxhq/ramflux repository.
+
+The native build statically links OpenSSL 3.6.3 for the SDK's SQLCipher backend.
+OpenSSL is licensed under Apache-2.0; its license is included in the SDK AAR.
+The reused Keystore helper retains its BSD-3-Clause SPDX header.

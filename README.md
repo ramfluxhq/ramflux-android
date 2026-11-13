@@ -6,7 +6,10 @@ Gradle. It embeds the Ramflux core SDK through its C ABI.
 This repository contains only the AGPL client. The Ramflux core SDK and protocol
 crates live in `ramfluxhq/ramflux`.
 
-Status: project setup. Build instructions follow with the first module.
+The bridge libraries are `:core:sdk` and `:core:data`. They contain no UI. See
+[bridge architecture and build instructions](docs/bridge.md) for Kotlin tests,
+the cargo-ndk/JNI build, cancellation, event resync and the SDK capability boundary.
+Physical-device and server acceptance are separate from compilation and JVM tests.
 
 ## License
 

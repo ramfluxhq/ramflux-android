@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:installLocation="internalOnly">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:allowBackup="false"
+        android:fullBackupContent="@xml/ramflux_full_backup_content"
+        android:dataExtractionRules="@xml/ramflux_data_extraction_rules"
+        android:networkSecurityConfig="@xml/ramflux_network_security_config"
+        android:usesCleartextTraffic="false" />
+</manifest>

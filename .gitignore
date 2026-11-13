@@ -12,3 +12,6 @@ captures/
 *.aab
 *.jks
 *.keystore
+
+__pycache__/
+.kotlin/
