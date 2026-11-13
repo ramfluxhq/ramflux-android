@@ -4,8 +4,7 @@
 package org.ramflux.feature.contacts
 import org.ramflux.data.ContactOperation
 sealed interface ContactsAction {
-    data object HoldStart : ContactsAction
-    data class HoldEnd(val released: Boolean) : ContactsAction
+    data object Confirm : ContactsAction
     data object Deny : ContactsAction
     data object Refresh : ContactsAction
     data object Back : ContactsAction
