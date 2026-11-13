@@ -21,4 +21,3 @@ class UnavailableLocalSearchRepository : LocalSearchRepository {
     override suspend fun search(query: LocalSearchQuery): CoreResult<List<SearchHit>> =
         CoreResult.Failure(CoreError.Unavailable(UnavailableCapability.LOCAL_SEARCH))
 }
-

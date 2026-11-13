@@ -22,4 +22,3 @@ class UnavailableAgentConfigurationRepository : AgentConfigurationRepository {
     override suspend fun configure(context: RepositoryContext, agentId: String, configuration: AgentConfiguration): CoreResult<Unit> =
         CoreResult.Failure(CoreError.Unavailable(UnavailableCapability.AGENT_CONFIGURATION), context.operationId)
 }
-
