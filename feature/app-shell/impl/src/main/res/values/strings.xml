@@ -36,4 +36,5 @@
     <string name="ui_groups">Groups</string>
     <string name="ui_calls">Calls</string>
     <string name="ui_agents">Agents</string>
+    <string name="ui_tasks">Tasks</string>
 </resources>
