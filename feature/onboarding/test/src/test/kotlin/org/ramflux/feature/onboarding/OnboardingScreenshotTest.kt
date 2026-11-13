@@ -49,6 +49,8 @@ class OnboardingScreenshotTest(private val page: OnboardingPage, private val dar
                         OnboardingScreen(
                             OnboardingState(
                                 page = page,
+                                address = if (page == OnboardingPage.CONFIRM) "node.example/team?invite=1#join" else "",
+                                normalizedOrigin = if (page == OnboardingPage.CONFIRM) "https://node.example" else null,
                                 sessionReady = true,
                                 accountsLoaded = true,
                                 nodesLoaded = true,
