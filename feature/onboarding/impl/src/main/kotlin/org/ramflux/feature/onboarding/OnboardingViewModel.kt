@@ -38,6 +38,8 @@ class OnboardingViewModel @Inject constructor(
     private var candidate: DiscoveredNode? = null
     private var savedNodes = emptyList<SavedNode>()
     private var ticket = 0L
+    private var operationGeneration = 0L
+    private var operationTicket = 0L
     private val lifecycle = viewModelScope.launch {
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect { (phase, _) ->
             work?.cancel()
@@ -245,8 +247,6 @@ class OnboardingViewModel @Inject constructor(
             }
         }
     }
-    private var operationGeneration = 0L
-    private var operationTicket = 0L
     private suspend fun checkCurrent() {
         currentCoroutineContext().ensureActive()
         if (session.status.value.phase != ClientPhase.OPEN ||

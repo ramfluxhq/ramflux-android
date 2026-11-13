@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="settings_settings">Settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_devices">Devices</string>
+    <string name="settings_backup">Backup</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_refresh">Refresh</string>
+    <string name="settings_system">Follow system</string>
+    <string name="settings_appearance_help">Choose a theme for this device. Changes apply immediately.</string>
+    <string name="settings_account">Account</string>
+    <string name="settings_account_needed">Open an unlocked account to read its status and devices.</string>
+    <string name="settings_open_account">Open account</string>
+    <string name="settings_connections">Connections</string>
+    <string name="settings_manage_connections">Manage saved nodes</string>
+    <string name="settings_loading">Reading account state…</string>
+    <string name="settings_unavailable">Not available yet</string>
+    <string name="settings_action_missing">This action is not included in this build yet.</string>
+    <string name="settings_sdk_missing">This operation is not available in this version.</string>
+    <string name="settings_custody_missing">Secure account access is required on this device.</string>
+    <string name="settings_error">Unable to continue</string>
+    <string name="settings_read_failed">The request did not complete (code %1$s).</string>
+    <string name="settings_unknown_outcome">The outcome is unknown. Refresh the current state before another request.</string>
+    <string name="settings_account_changed">The active account changed. Refresh to read its current state.</string>
+    <string name="settings_closed">Private data is closed. Account details are hidden.</string>
+    <string name="settings_empty_devices">No devices were returned by the account library.</string>
+    <string name="settings_current_device">This device</string>
+    <string name="settings_other_device">Other device</string>
+    <string name="settings_revoke">Revoke</string>
+    <string name="settings_backup_help">Backup actions require secure account access. No backup has been created or exported.</string>
+    <string name="settings_sessions">Secure sessions</string>
+    <string name="settings_session_ready">Ready</string>
+    <string name="settings_session_reestablishing">Reestablishing</string>
+    <string name="settings_status_unknown">Status unavailable</string>
+    <string name="settings_sync">Synchronization</string>
+    <string name="settings_sync_running">Running</string>
+    <string name="settings_sync_idle">Idle</string>
+    <string name="settings_sync_error">Error</string>
+    <string name="settings_not_recorded">Not recorded</string>
+    <string name="settings_node">Node health</string>
+    <string name="settings_node_connected">Connected</string>
+    <string name="settings_node_unavailable">Unavailable</string>
+    <string name="settings_last_run">Last run</string>
+    <string name="settings_theme_missing">The selected theme is unavailable. Choose another theme.</string>
+</resources>

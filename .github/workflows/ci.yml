@@ -28,9 +28,9 @@ jobs:
       - run: python3 scripts/check-ui-resources.py
       - run: python3 scripts/test-theme-catalog.py
       - run: python3 scripts/test-ui-resource-guard.py
-      - run: ./gradlew ktlintCheck :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest :feature:onboarding:test:testDebugUnitTest :feature:conversations:test:testDebugUnitTest :feature:chat:test:testDebugUnitTest --console=plain
+      - run: ./gradlew ktlintCheck :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest :feature:onboarding:test:testDebugUnitTest :feature:conversations:test:testDebugUnitTest :feature:chat:test:testDebugUnitTest :feature:settings:test:testDebugUnitTest --console=plain
       - name: Record client screenshots
-        run: ./gradlew :feature:app-shell:test:recordRoborazziDebug :feature:onboarding:test:recordRoborazziDebug :feature:conversations:test:recordRoborazziDebug :feature:chat:test:recordRoborazziDebug --console=plain
+        run: ./gradlew :feature:app-shell:test:recordRoborazziDebug :feature:onboarding:test:recordRoborazziDebug :feature:conversations:test:recordRoborazziDebug :feature:chat:test:recordRoborazziDebug :feature:settings:test:recordRoborazziDebug --console=plain
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -17,6 +17,8 @@ import org.ramflux.feature.conversations.ConversationsNavigation
 import org.ramflux.feature.conversations.api.ConversationsRoute
 import org.ramflux.feature.onboarding.OnboardingNavigation
 import org.ramflux.feature.onboarding.api.OnboardingRoute
+import org.ramflux.feature.settings.SettingsNavigation
+import org.ramflux.feature.settings.api.SettingsRoute
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -29,9 +31,11 @@ class MainActivity : ComponentActivity() {
                 when (it) {
                     "onboarding" -> OnboardingRoute
                     "conversations" -> ConversationsRoute
+                    "settings" -> SettingsRoute
                     else -> FeatureRoute(it)
                 }
             }) { onBack, navigate ->
+                entry<SettingsRoute> { SettingsNavigation(onBack, { navigate(OnboardingRoute) }, { navigate(OnboardingRoute) }) }
                 entry<ChatRoute> { route -> ChatNavigation(route.accountId, route.conversationId, onBack) }
                 entry<ConversationsRoute> {
                     ConversationsNavigation(
