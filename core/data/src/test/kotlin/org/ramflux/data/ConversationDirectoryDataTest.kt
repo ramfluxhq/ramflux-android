@@ -35,7 +35,7 @@ class ConversationDirectoryDataTest {
             assertEquals("opaque-current", request["body"]?.jsonObject?.get("cursor")?.jsonPrimitive?.content)
             assertEquals(100, request["body"]?.jsonObject?.get("limit")?.jsonPrimitive?.int)
             assertTrue(repo.searchAvailability() is ClientResult.Unavailable)
-            assertTrue(repo.openAvailability("account", "visible") is ClientResult.Unavailable)
+            assertTrue(repo.openAvailability("account", "visible") is ClientResult.Ready)
         } finally { client.close() }
     }
     @Test fun malformedDirectoryAndClosedHostRemainTypedFailures() = runTest(timeout = 5.seconds) {

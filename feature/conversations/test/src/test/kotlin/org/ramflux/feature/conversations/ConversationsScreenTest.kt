@@ -10,6 +10,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.ramflux.designsystem.RamfluxTheme
+import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.uiText
+import org.ramflux.feature.conversations.impl.R
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
@@ -19,7 +22,14 @@ class ConversationsScreenTest {
 
     @Test fun renderFailureWithoutEmptySuccessAndEmitRefreshOnly() {
         var action: ConversationsAction? = null
-        compose.setContent { RamfluxTheme { ConversationsScreen(ConversationsState(problem = "Read failed"), { action = it }) } }
+        compose.setContent {
+            RamfluxTheme {
+                ConversationsScreen(
+                    ConversationsState(problem = UiText.Data("Read failed")),
+                    { action = it }
+                )
+            }
+        }
         compose.onNodeWithText("Read failed").assertExists()
         compose.onNodeWithText("No conversations").assertDoesNotExist()
         compose.onNodeWithText("Refresh").performClick()
@@ -37,17 +47,23 @@ class ConversationsScreenTest {
             ConversationItem(
                 "c$index",
                 "Team $index",
-                "Conversation",
+                uiText(R.string.ui_conversation),
                 if (index == 0) ULong.MAX_VALUE.toString() else "0",
                 true,
-                "10:30"
+                UiText.Data("10:30")
             )
         }.toPersistentList()
         compose.setContent {
             RamfluxTheme { ConversationsScreen(ConversationsState(accountLabel = "Work account", loaded = true, rows = rows), {}) }
         }
         compose.onNodeWithText("Work account").assertExists()
-        compose.onNodeWithContentDescription("${ULong.MAX_VALUE} unread").assertExists()
+        compose.onNodeWithContentDescription(
+            java.text.NumberFormat.getIntegerInstance(
+                androidx.test.core.app.ApplicationProvider
+                    .getApplicationContext<android.content.Context>().resources.configuration.locales[0]
+            )
+                .format(java.math.BigInteger(ULong.MAX_VALUE.toString())) + " unread messages"
+        ).assertExists()
         assertTrue(compose.onAllNodesWithText("10:30", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
         val header = compose.onNodeWithTag("conversations-header").getUnclippedBoundsInRoot()
         compose.onNodeWithTag("conversations-list").performScrollToIndex(20)

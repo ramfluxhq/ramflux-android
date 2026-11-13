@@ -12,7 +12,7 @@ concurrency:
 jobs:
   kotlin:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -25,9 +25,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: python3 scripts/check-secret-boundary.py
       - run: python3 scripts/check-client-architecture.py
-      - run: ./gradlew ktlintCheck :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest :feature:onboarding:test:testDebugUnitTest :feature:conversations:test:testDebugUnitTest --console=plain
+      - run: python3 scripts/check-ui-resources.py
+      - run: python3 scripts/test-theme-catalog.py
+      - run: python3 scripts/test-ui-resource-guard.py
+      - run: ./gradlew ktlintCheck :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest :feature:onboarding:test:testDebugUnitTest :feature:conversations:test:testDebugUnitTest :feature:chat:test:testDebugUnitTest --console=plain
       - name: Record client screenshots
-        run: ./gradlew :feature:app-shell:test:recordRoborazziDebug :feature:onboarding:test:recordRoborazziDebug :feature:conversations:test:recordRoborazziDebug --console=plain
+        run: ./gradlew :feature:app-shell:test:recordRoborazziDebug :feature:onboarding:test:recordRoborazziDebug :feature:conversations:test:recordRoborazziDebug :feature:chat:test:recordRoborazziDebug --console=plain
       - uses: actions/upload-artifact@v4
         if: always()
         with:

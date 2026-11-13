@@ -10,5 +10,6 @@ sealed interface AppShellAction {
     data object Retry : AppShellAction
     data object DismissNotice : AppShellAction
     data class Open(val feature: ClientFeature) : AppShellAction
+    data class ChangeTheme(val id: String) : AppShellAction
     data class ChangeAppearance(val value: Appearance) : AppShellAction
 }

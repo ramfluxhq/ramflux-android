@@ -24,5 +24,6 @@ internal class DefaultConversationDirectoryRepository(transport: RepositoryTrans
     }
     override suspend fun searchAvailability(): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CONVERSATIONS, UnavailableReason.UNSUPPORTED_BY_CORE)
     override suspend fun openAvailability(account: String, conversation: String): ClientResult<Unit> =
-        ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.FEATURE_NOT_INSTALLED)
+        if (account.isNotBlank() && conversation.isNotBlank()) ClientResult.Ready(Unit)
+        else ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
 }

@@ -24,6 +24,7 @@ class AndroidAppPlugin : Plugin<Project> {
             defaultConfig.buildConfigField("String", "MESSAGE_DESCRIPTOR", "\"${descriptor["blake3"]}\"")
             compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
             buildTypes.getByName("release") { isMinifyEnabled = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt")) }
+            buildTypes.getByName("debug").isPseudoLocalesEnabled = true
             packaging.jniLibs.useLegacyPackaging = false
             lint { warningsAsErrors = true; informational += setOf("AndroidGradlePluginVersion", "NewerVersionAvailable", "GradleDependency") }
         }

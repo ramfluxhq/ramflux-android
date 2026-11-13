@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="ui_account_state">Account state</string>
+    <string name="ui_account_state_unavailable">Account state unavailable</string>
+    <string name="ui_an_unlocked_active_account_is_required">An unlocked active account is required.</string>
+    <string name="ui_archived">Archived</string>
+    <string name="ui_back">Back</string>
+    <string name="ui_chat">Chat</string>
+    <string name="ui_conversation">Conversation</string>
+    <string name="ui_conversations">Conversations</string>
+    <string name="ui_conversations_will_appear_here_when_available">Conversations will appear here when available.</string>
+    <string name="ui_load_more">Load more</string>
+    <string name="ui_loading_conversations">Loading conversations</string>
+    <string name="ui_local_search">Local search</string>
+    <string name="ui_no_conversations">No conversations</string>
+    <string name="ui_open_an_account">Open an account</string>
+    <string name="ui_page_conflict_refresh_the_list">Page conflict. Refresh the list.</string>
+    <string name="ui_private_data_is_closed">Private data is closed.</string>
+    <string name="ui_reading_private_data">Reading private data…</string>
+    <string name="ui_refresh">Refresh</string>
+    <string name="ui_search_availability">Search availability</string>
+    <string name="ui_search_conversations">Search conversations</string>
+    <string name="ui_set_up_your_account">Set up your account</string>
+    <string name="ui_the_active_account_changed_refresh_the_list">The active account changed. Refresh the list.</string>
+    <string name="ui_time_unavailable">Time unavailable</string>
+    <string name="ui_unable_to_continue">Unable to continue</string>
+    <string name="ui_value_could_not_be_read_code_value">%1$s could not be read (code %2$s).</string>
+    <string name="ui_value_is_not_available_in_this_version">%1$s is not available in this version.</string>
+    <string name="ui_value_is_not_included_in_this_build_yet">%1$s is not included in this build yet.</string>
+    <string name="ui_value_requires_secure_account_access_on_this_device">%1$s requires secure account access on this device.</string>
+</resources>

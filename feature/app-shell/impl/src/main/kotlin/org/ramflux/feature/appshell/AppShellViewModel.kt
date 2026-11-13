@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.appshell
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,6 +13,10 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.ramflux.data.*
+import org.ramflux.designsystem.ThemeCatalog
+import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.uiText
+import org.ramflux.feature.app_shell.impl.R
 
 @HiltViewModel
 class AppShellViewModel @Inject constructor(
@@ -27,18 +30,28 @@ class AppShellViewModel @Inject constructor(
     val state: StateFlow<AppShellState> = combine(session.status, preferences.appearance, local) { status, appearance, local ->
         AppShellState(
             status = when (status.phase) {
-                ClientPhase.CLOSED -> "Private data is closed"
-                ClientPhase.OPENING -> "Opening private data…"
-                ClientPhase.OPEN -> "Client ready"
-                ClientPhase.CLOSING -> "Closing private data…"
-                ClientPhase.FAILED -> "Unable to open private data"
+                ClientPhase.CLOSED -> uiText(R.string.ui_private_data_is_closed_494e48)
+                ClientPhase.OPENING -> uiText(R.string.ui_opening_private_data)
+                ClientPhase.OPEN -> uiText(R.string.ui_client_ready)
+                ClientPhase.CLOSING -> uiText(R.string.ui_closing_private_data)
+                ClientPhase.FAILED -> uiText(R.string.ui_unable_to_open_private_data)
             },
             ready = status.phase == ClientPhase.OPEN,
             loading = status.phase in setOf(ClientPhase.OPENING, ClientPhase.CLOSING),
             canRetry = status.phase in setOf(ClientPhase.FAILED, ClientPhase.CLOSED),
-            error = status.problem?.notice() ?: appearance.problem?.notice(),
+            error = status.problem?.notice() ?: appearance.problem?.notice() ?: if (appearance.themeId != null &&
+                ThemeCatalog.find(appearance.themeId) == null
+            ) {
+                ShellNotice(
+                    uiText(R.string.ui_not_available_yet),
+                    uiText(R.string.ui_selected_theme_is_unavailable_choose_another_theme), ShellNoticeKind.UNAVAILABLE
+                )
+            } else {
+                null
+            },
             notice = local.notice,
             appearance = appearance.value,
+            namedTheme = appearance.themeId,
             savingAppearance = local.saving || appearance.loading
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), AppShellState())
@@ -56,6 +69,17 @@ class AppShellViewModel @Inject constructor(
                     when (val result = preferences.setAppearance(action.value)) {
                         is ClientResult.Failed -> local.update { it.copy(notice = result.problem.notice()) }
                         else -> Unit
+                    }
+                    local.update { it.copy(saving = false) }
+                }
+            }
+            is AppShellAction.ChangeTheme -> if (appearance?.isActive != true && ThemeCatalog.find(action.id) != null) {
+                appearance = viewModelScope.launch {
+                    local.update { it.copy(saving = true, notice = null) }
+                    when (val result = preferences.setNamedTheme(action.id)) {
+                        is ClientResult.Failed -> local.update { it.copy(notice = result.problem.notice()) }
+                        is ClientResult.Unavailable -> local.update { it.copy(notice = result.reason.notice()) }
+                        is ClientResult.Ready -> Unit
                     }
                     local.update { it.copy(saving = false) }
                 }
@@ -79,27 +103,27 @@ class AppShellViewModel @Inject constructor(
 }
 
 private fun ClientProblem.notice(): ShellNotice = ShellNotice(
-    "Unable to continue",
+    uiText(R.string.ui_unable_to_continue),
     when (kind) {
-        ClientFailureKind.INCOMPATIBLE -> "This app and its account library are not compatible. Update the app to continue."
-        ClientFailureKind.UNAVAILABLE -> "This action is not available on this device yet."
-        ClientFailureKind.AUTHORIZATION -> "This account cannot perform that action."
-        ClientFailureKind.STORAGE -> "The setting or private data could not be saved."
-        ClientFailureKind.SHUTDOWN_PENDING -> "Private data is still in use. Try again shortly."
+        ClientFailureKind.INCOMPATIBLE -> uiText(R.string.ui_this_app_and_its_account_library_are_not)
+        ClientFailureKind.UNAVAILABLE -> uiText(R.string.ui_this_action_is_not_available_on_this_device)
+        ClientFailureKind.AUTHORIZATION -> uiText(R.string.ui_this_account_cannot_perform_that_action)
+        ClientFailureKind.STORAGE -> uiText(R.string.ui_the_setting_or_private_data_could_not_be)
+        ClientFailureKind.SHUTDOWN_PENDING -> uiText(R.string.ui_private_data_is_still_in_use_try_again)
         ClientFailureKind.FAILED -> if (outcome == ClientOutcome.UNKNOWN) {
-            "The outcome is unknown. Check the current state before trying again."
+            uiText(R.string.ui_the_outcome_is_unknown_check_the_current_state)
         } else {
-            "The request did not complete (code $code)."
+            uiText(R.string.ui_the_request_did_not_complete_code_value, UiText.Number(code.toLong()))
         }
     }
 )
 
 private fun UnavailableReason.notice(): ShellNotice = ShellNotice(
-    "Not available yet",
+    uiText(R.string.ui_not_available_yet),
     when (this) {
-        UnavailableReason.FEATURE_NOT_INSTALLED -> "This feature is not included in this build yet."
-        UnavailableReason.UNSUPPORTED_BY_CORE -> "This action is not available in this version."
-        UnavailableReason.CUSTODY_PROVIDER_REQUIRED -> "Secure account access is not available on this device yet."
+        UnavailableReason.FEATURE_NOT_INSTALLED -> uiText(R.string.ui_this_feature_is_not_included_in_this_build)
+        UnavailableReason.UNSUPPORTED_BY_CORE -> uiText(R.string.ui_this_action_is_not_available_in_this_version)
+        UnavailableReason.CUSTODY_PROVIDER_REQUIRED -> uiText(R.string.ui_secure_account_access_is_not_available_on_this)
     },
     ShellNoticeKind.UNAVAILABLE
 )

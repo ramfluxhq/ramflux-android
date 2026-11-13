@@ -2,21 +2,25 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.appshell
-
 import androidx.compose.runtime.Immutable
+import kotlinx.collections.immutable.*
 import org.ramflux.data.Appearance
 import org.ramflux.data.ClientFeature
+import org.ramflux.designsystem.ThemeCatalog
+import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.uiText
+import org.ramflux.feature.app_shell.impl.R
 
 @Immutable
-data class ShellDestination(val feature: ClientFeature, val title: String)
+data class ShellDestination(val feature: ClientFeature, val title: UiText)
 enum class ShellNoticeKind { ERROR, UNAVAILABLE }
 
 @Immutable
-data class ShellNotice(val title: String, val description: String, val kind: ShellNoticeKind = ShellNoticeKind.ERROR)
+data class ShellNotice(val title: UiText, val description: UiText, val kind: ShellNoticeKind = ShellNoticeKind.ERROR)
 
 @Immutable
 data class AppShellState(
-    val status: String = "Opening private data…",
+    val status: UiText = uiText(R.string.ui_opening_private_data),
     val ready: Boolean = false,
     val loading: Boolean = true,
     val canRetry: Boolean = false,
@@ -24,8 +28,12 @@ data class AppShellState(
     val notice: ShellNotice? = null,
     val appearance: Appearance = Appearance.SYSTEM,
     val savingAppearance: Boolean = false,
-    val onboarding: ShellDestination = ShellDestination(ClientFeature.ONBOARDING, "Set up your account"),
-    val conversations: ShellDestination = ShellDestination(ClientFeature.CONVERSATIONS, "Conversations"),
-    val contacts: ShellDestination = ShellDestination(ClientFeature.CONTACTS, "People"),
-    val settings: ShellDestination = ShellDestination(ClientFeature.SETTINGS, "Settings")
+    val namedTheme: String? = null,
+    val themes: ImmutableList<ThemeChoice> = ThemeCatalog.themes.map { ThemeChoice(it.id, uiText(it.nameRes)) }.toPersistentList(),
+    val onboarding: ShellDestination = ShellDestination(ClientFeature.ONBOARDING, uiText(R.string.ui_set_up_your_account)),
+    val conversations: ShellDestination = ShellDestination(ClientFeature.CONVERSATIONS, uiText(R.string.ui_conversations)),
+    val contacts: ShellDestination = ShellDestination(ClientFeature.CONTACTS, uiText(R.string.ui_people)),
+    val settings: ShellDestination = ShellDestination(ClientFeature.SETTINGS, uiText(R.string.ui_settings))
 )
+
+@Immutable data class ThemeChoice(val id: String, val label: UiText)

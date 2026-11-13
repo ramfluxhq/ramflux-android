@@ -22,6 +22,7 @@ gradlePlugin {
         id = "ramflux.android.packaging"
         implementationClass = "AndroidPackagingPlugin"
     }
+    register("androidDesignSystem") { id = "ramflux.android.designsystem"; implementationClass = "AndroidDesignSystemPlugin" }
     register("androidCompose") { id = "ramflux.android.compose"; implementationClass = "AndroidComposePlugin" }
     register("androidFeature") { id = "ramflux.android.feature"; implementationClass = "AndroidFeaturePlugin" }
     register("androidTesting") { id = "ramflux.android.testing"; implementationClass = "AndroidTestingPlugin" }

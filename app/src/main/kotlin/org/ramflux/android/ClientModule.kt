@@ -26,5 +26,7 @@ object ClientModule {
 
     @Provides fun conversations(data: AndroidClientData): ConversationDirectoryRepository = data.conversations
 
+    @Provides fun history(data: AndroidClientData): MessageHistoryRepository = data.history
+
     @Provides fun appearance(data: AndroidClientData): AppearanceRepository = data.appearance
 }

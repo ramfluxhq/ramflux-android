@@ -12,6 +12,7 @@ import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.ramflux.data.*
+import org.ramflux.designsystem.UiText
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ConversationsViewModelTest {
@@ -178,7 +179,7 @@ class ConversationsViewModelTest {
         assertEquals("Work", vm.state.value.accountLabel)
         assertTrue(vm.state.value.rows.single().hasUnread)
         assertEquals("0", vm.state.value.rows.single().unread)
-        assertTrue(vm.state.value.rows.single().timestamp.isNotBlank())
+        assertTrue(vm.state.value.rows.single().timestamp is UiText.DateTime)
     }
 
     @Test fun failedOrUnavailableRevalidationNeverClaimsMissingAccountOrKeepsRows() = runTest(timeout = 5.seconds) {

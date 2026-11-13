@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="ui_account_access_is_unavailable_value">Account access is unavailable: %1$s</string>
+    <string name="ui_account_state_could_not_be_read_code_value">Account state could not be read (code %1$s).</string>
+    <string name="ui_back">Back</string>
+    <string name="ui_conversation">Conversation</string>
+    <string name="ui_loading_messages">Loading messages</string>
+    <string name="ui_message">Message</string>
+    <string name="ui_message_content_is_unavailable">Message content is unavailable.</string>
+    <string name="ui_message_deleted">Message deleted</string>
+    <string name="ui_message_history_is_unavailable">Message history is unavailable.</string>
+    <string name="ui_no_messages">No messages</string>
+    <string name="ui_private_data_is_closed">Private data is closed.</string>
+    <string name="ui_read_failed_code_value">Read failed (code %1$s).</string>
+    <string name="ui_reading_private_data">Reading private data…</string>
+    <string name="ui_refresh">Refresh</string>
+    <string name="ui_secure_account_access_is_required_on_this_device">secure account access is required on this device.</string>
+    <string name="ui_send">Send</string>
+    <string name="ui_send_availability_failed_code_value">Send availability failed (code %1$s).</string>
+    <string name="ui_send_outcome_is_unknown_refresh_before_making_another">Send outcome is unknown. Refresh before making another request.</string>
+    <string name="ui_sending_unavailable_draft_kept">Sending unavailable. Draft kept.</string>
+    <string name="ui_sending_unavailable_value">Sending unavailable: %1$s</string>
+    <string name="ui_the_active_account_changed_return_to_conversations">The active account changed. Return to conversations.</string>
+    <string name="ui_the_feature_is_not_installed">the feature is not installed.</string>
+    <string name="ui_the_message_was_not_sent_code_value">The message was not sent (code %1$s).</string>
+    <string name="ui_the_sdk_operation_is_not_available_in_this">the SDK operation is not available in this version.</string>
+    <string name="ui_this_conversation_has_no_messages">This conversation has no messages.</string>
+    <string name="ui_unable_to_continue">Unable to continue</string>
+    <string name="ui_conversation_details_unavailable">Conversation details unavailable</string>
+    <string name="ui_time_unavailable">Time unavailable</string>
+    <string name="ui_call_record_unavailable">Call record · details unavailable</string>
+</resources>

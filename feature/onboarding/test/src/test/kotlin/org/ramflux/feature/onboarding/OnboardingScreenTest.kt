@@ -13,6 +13,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.ramflux.designsystem.RamfluxTheme
+import org.ramflux.designsystem.UiText
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -45,7 +46,7 @@ class OnboardingScreenTest {
         compose.setContent {
             RamfluxTheme {
                 OnboardingScreen(
-                    OnboardingState(sessionReady = true, notice = OnboardingNotice("Read failed")),
+                    OnboardingState(sessionReady = true, notice = OnboardingNotice(UiText.Data("Read failed"))),
                     {}
                 )
             }

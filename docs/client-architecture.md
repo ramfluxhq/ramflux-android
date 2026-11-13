@@ -51,3 +51,11 @@ value. Pages recheck the active unlocked account before publication. Refresh on
 resume clears old state; failures never become successful empty lists. The current
 module reads snapshots on entry/refresh; it does not claim live event integration.
 Local search and an uninstalled chat feature return typed unavailable.
+
+Chat installs a public account/conversation route, final chat header, native message
+bubbles and controlled composer. It reads only approved SDK body_utf8 text,
+redacts deleted senders/content even if a backend over-discloses, and never decodes
+ciphertext as text. Account/session/route fences precede state publication.
+Sending remains typed unavailable until the published high-level SDK send can
+derive routing; a blocked action retains the draft and creates no message row.
+History is a bounded snapshot read on entry/resume/refresh, not a live stream.

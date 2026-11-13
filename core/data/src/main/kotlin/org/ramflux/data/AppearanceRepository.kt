@@ -6,9 +6,10 @@ package org.ramflux.data
 import kotlinx.coroutines.flow.StateFlow
 
 enum class Appearance { SYSTEM, LIGHT, DARK }
-data class AppearanceSnapshot(val value: Appearance = Appearance.SYSTEM, val loading: Boolean = true, val problem: ClientProblem? = null)
+data class AppearanceSnapshot(val value: Appearance = Appearance.SYSTEM, val loading: Boolean = true, val problem: ClientProblem? = null, val themeId: String? = null)
 
 interface AppearanceRepository {
     val appearance: StateFlow<AppearanceSnapshot>
     suspend fun setAppearance(value: Appearance): ClientResult<Unit>
+    suspend fun setNamedTheme(id: String): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.FEATURE_NOT_INSTALLED)
 }

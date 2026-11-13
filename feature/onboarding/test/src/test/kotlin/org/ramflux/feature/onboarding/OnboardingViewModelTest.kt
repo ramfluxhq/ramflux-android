@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.onboarding
-
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewmodel.initializer

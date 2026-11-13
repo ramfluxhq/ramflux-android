@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.onboarding
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,6 +13,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.render
 import org.ramflux.feature.onboarding.impl.R
 import org.ramflux.generated.*
 
@@ -30,28 +30,45 @@ fun OnboardingScreen(
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 Box(Modifier.testTag("onboarding-header")) {
                     RFPageHeader(
-                        state.page.title,
-                        "Your identity. Your connections.",
+                        state.page.title.render(),
+                        stringResource(R.string.ui_your_identity_your_connections),
                         theme,
-                        leading = { TextButton(onClick = { onAction(OnboardingAction.Back) }) { Text("Back") } },
+                        leading = { TextButton(onClick = { onAction(OnboardingAction.Back) }) { Text(stringResource(R.string.ui_back)) } },
                         trailing = {
                             TextButton(
                                 enabled = !state.busy && state.sessionReady,
                                 onClick = { onAction(OnboardingAction.Refresh) }
-                            ) { Text("Refresh") }
+                            ) { Text(stringResource(R.string.ui_refresh)) }
                         }
                     )
                 }
                 Column(
                     Modifier.weight(1f).fillMaxWidth().testTag("onboarding-body")
-                        .verticalScroll(rememberScrollState()).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .verticalScroll(rememberScrollState()).padding(theme.gap.dp),
+                    verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
                 ) {
-                    if (state.busy) RFStateBlock("Please wait", "Checking the current state…", RFStateKind.Loading, theme, action = {})
+                    if (state.busy) {
+                        RFStateBlock(
+                            stringResource(
+                                R.string.ui_please_wait
+                            ),
+                            stringResource(R.string.ui_checking_the_current_state),
+                            RFStateKind.Loading,
+                            theme,
+                            action = {
+                            }
+                        )
+                    }
                     state.notice?.let { notice ->
                         RFStateBlock(
-                            if (notice.kind == OnboardingNoticeKind.UNAVAILABLE) "Not available yet" else "Unable to continue",
-                            notice.message,
+                            if (notice.kind == OnboardingNoticeKind.UNAVAILABLE) {
+                                stringResource(
+                                    R.string.ui_not_available_yet
+                                )
+                            } else {
+                                stringResource(R.string.ui_unable_to_continue)
+                            },
+                            notice.message.render(),
                             if (notice.kind == OnboardingNoticeKind.UNAVAILABLE) RFStateKind.Empty else RFStateKind.Error,
                             theme,
                             action = {}
@@ -60,21 +77,28 @@ fun OnboardingScreen(
                     if (state.sessionReady) {
                         when (state.page) {
                             OnboardingPage.START, OnboardingPage.CONTINUE, OnboardingPage.WELCOME, OnboardingPage.RESUME -> {
-                                Text("Private conversations. An identity you control.", style = MaterialTheme.typography.headlineMedium)
-                                Text("Connect to a node, then create or open your account.")
+                                Text(
+                                    stringResource(R.string.ui_private_conversations_an_identity_you_control),
+                                    style = MaterialTheme.typography.headlineMedium
+                                )
+                                Text(stringResource(R.string.ui_connect_to_a_node_then_create_or_open))
                                 RFActionButton(
                                     "connect",
-                                    "Set up a connection",
+                                    stringResource(R.string.ui_set_up_a_connection),
                                     RFButtonKind.Primary,
                                     theme,
                                     disabled = state.busy,
                                     onAction = { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) }
                                 )
-                                if (state.accountsLoaded && state.accounts.isEmpty()) Text("No accounts are saved on this device.")
+                                if (state.accountsLoaded && state.accounts.isEmpty()) {
+                                    Text(
+                                        stringResource(R.string.ui_no_accounts_are_saved_on_this_device)
+                                    )
+                                }
                                 for (account in state.accounts) RFIdentityRow(
                                     account.id,
                                     account.label,
-                                    account.subtitle,
+                                    account.subtitle.render(),
                                     theme,
                                     avatar = { RFAvatar(account.label.take(1), RFAvatarKind.Person, theme) },
                                     badge = {},
@@ -83,14 +107,22 @@ fun OnboardingScreen(
                                             enabled = !state.busy,
                                             onClick = { onAction(OnboardingAction.SelectAccount(account.id)) }
                                         ) {
-                                            Text(if (account.unlocked) "Open" else "Unlock")
+                                            Text(
+                                                if (account.unlocked) {
+                                                    stringResource(
+                                                        R.string.ui_open
+                                                    )
+                                                } else {
+                                                    stringResource(R.string.ui_unlock)
+                                                }
+                                            )
                                         }
                                     }
                                 )
                                 for ((target, label) in listOf(
-                                    OnboardingPage.CREATE to "Create account",
-                                    OnboardingPage.PAIR to "Link device",
-                                    OnboardingPage.RECOVER to "Recover account"
+                                    OnboardingPage.CREATE to stringResource(R.string.ui_create_account),
+                                    OnboardingPage.PAIR to stringResource(R.string.ui_link_device),
+                                    OnboardingPage.RECOVER to stringResource(R.string.ui_recover_account)
                                 )) {
                                     RFActionButton(
                                         target.name,
@@ -103,8 +135,8 @@ fun OnboardingScreen(
                                 }
                             }
                             OnboardingPage.CONNECTION, OnboardingPage.REPAIR -> {
-                                RFSectionHeader("Saved nodes", theme, trailing = {})
-                                if (state.nodesLoaded && state.nodes.isEmpty()) Text("No saved nodes.")
+                                RFSectionHeader(stringResource(R.string.ui_saved_nodes), theme, trailing = {})
+                                if (state.nodesLoaded && state.nodes.isEmpty()) Text(stringResource(R.string.ui_no_saved_nodes))
                                 for (node in state.nodes) RFListRow(
                                     node.id,
                                     node.id,
@@ -112,12 +144,12 @@ fun OnboardingScreen(
                                     theme,
                                     disabled = state.busy,
                                     leading = {},
-                                    trailing = { if (node.isDefault) RFBadge("Default", theme) },
+                                    trailing = { if (node.isDefault) RFBadge(stringResource(R.string.ui_default), theme) },
                                     onAction = { onAction(OnboardingAction.ChooseNode(node.id)) }
                                 )
                                 RFActionButton(
                                     "add-node",
-                                    "Add a node",
+                                    stringResource(R.string.ui_add_a_node),
                                     RFButtonKind.Primary,
                                     theme,
                                     disabled = state.busy,
@@ -129,12 +161,12 @@ fun OnboardingScreen(
                                 Text(node.url)
                                 if (node.keyChanged || !node.enabled) {
                                     Text(
-                                        "This node cannot be selected. Review its identity and availability with your node operator."
+                                        stringResource(R.string.ui_this_node_cannot_be_selected_review_its_identity)
                                     )
                                 }
                                 RFActionButton(
                                     "use-node",
-                                    "Use this node",
+                                    stringResource(R.string.ui_use_this_node),
                                     RFButtonKind.Primary,
                                     theme,
                                     disabled = state.busy || node.keyChanged || !node.enabled,
@@ -142,8 +174,8 @@ fun OnboardingScreen(
                                 )
                             }
                             OnboardingPage.ADDRESS, OnboardingPage.CONNECTION_FAILED, OnboardingPage.OFFLINE, OnboardingPage.REFUSED -> {
-                                Text("Add your node", style = MaterialTheme.typography.titleLarge)
-                                Text("Enter its HTTPS address. You will review the address before verification.")
+                                Text(stringResource(R.string.ui_add_your_node), style = MaterialTheme.typography.titleLarge)
+                                Text(stringResource(R.string.ui_enter_its_https_address_you_will_review_the))
                                 state.operatorKeyIssue?.let { issue ->
                                     Text(
                                         stringResource(
@@ -166,7 +198,7 @@ fun OnboardingScreen(
                                 )
                                 RFTextField(
                                     "node-address",
-                                    "Node address",
+                                    stringResource(R.string.ui_node_address),
                                     state.address,
                                     theme,
                                     disabled = state.busy,
@@ -176,8 +208,8 @@ fun OnboardingScreen(
                             OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED ->
                                 state.identity?.let { identity ->
                                     RFTrustBanner(
-                                        "Compare the node fingerprint",
-                                        "Compare this fingerprint with your node operator. A saved address alone does not prove identity.",
+                                        stringResource(R.string.ui_compare_the_node_fingerprint),
+                                        stringResource(R.string.ui_compare_this_fingerprint_with_your_node_operator_a),
                                         identity.keyChanged,
                                         theme,
                                         icon = {},
@@ -188,17 +220,17 @@ fun OnboardingScreen(
                                     Text(identity.fingerprint, style = MaterialTheme.typography.bodySmall)
                                 }
                             OnboardingPage.CONFIRM -> {
-                                Text("Entered address", style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.ui_entered_address), style = MaterialTheme.typography.labelLarge)
                                 Text(state.address)
-                                Text("Address to verify", style = MaterialTheme.typography.labelLarge)
-                                Text(state.normalizedOrigin ?: "Return to edit the address.")
-                                Text("Only the HTTPS origin is sent. Paths, query parameters and fragments are not sent.")
+                                Text(stringResource(R.string.ui_address_to_verify), style = MaterialTheme.typography.labelLarge)
+                                Text(state.normalizedOrigin ?: stringResource(R.string.ui_return_to_edit_the_address))
+                                Text(stringResource(R.string.ui_only_the_https_origin_is_sent_paths_query))
                             }
                             OnboardingPage.SAVED -> {
-                                Text("Node saved. Choose it from your saved nodes to use it.")
+                                Text(stringResource(R.string.ui_node_saved_choose_it_from_your_saved_nodes))
                                 RFActionButton(
                                     "choose-saved",
-                                    "Choose a saved node",
+                                    stringResource(R.string.ui_choose_a_saved_node),
                                     RFButtonKind.Primary,
                                     theme,
                                     onAction = { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) }
@@ -206,7 +238,7 @@ fun OnboardingScreen(
                             }
                             OnboardingPage.SAVE_FAILED -> RFActionButton(
                                 "review-nodes",
-                                "Review saved nodes",
+                                stringResource(R.string.ui_review_saved_nodes),
                                 RFButtonKind.Secondary,
                                 theme,
                                 disabled = state.busy,
@@ -216,11 +248,11 @@ fun OnboardingScreen(
                             OnboardingPage.CREATE, OnboardingPage.PHRASE, OnboardingPage.CHALLENGE, OnboardingPage.LOCAL_UNLOCK,
                             OnboardingPage.CREATED, OnboardingPage.PAIR, OnboardingPage.RECOVER -> {
                                 Text(
-                                    "Secure setup is unavailable. No account, phrase or linked device has been created."
+                                    stringResource(R.string.ui_secure_setup_is_unavailable_no_account_phrase_or)
                                 )
                                 RFActionButton(
                                     "return-start",
-                                    "Return to start",
+                                    stringResource(R.string.ui_return_to_start),
                                     RFButtonKind.Secondary,
                                     theme,
                                     disabled = state.busy,
@@ -241,14 +273,14 @@ private fun OnboardingFooter(state: OnboardingState, onAction: (OnboardingAction
     val theme = LocalRFTheme.current
     if (!state.sessionReady) return
     Column(
-        Modifier.fillMaxWidth().testTag("onboarding-footer").padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        Modifier.fillMaxWidth().testTag("onboarding-footer").padding(horizontal = theme.gap.dp, vertical = (theme.gap * .5f).dp),
+        verticalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp)
     ) {
         when (state.page) {
             OnboardingPage.ADDRESS, OnboardingPage.CONNECTION_FAILED, OnboardingPage.OFFLINE, OnboardingPage.REFUSED ->
                 RFActionButton(
                     "review-address",
-                    "Verify node",
+                    stringResource(R.string.ui_verify_node),
                     RFButtonKind.Primary,
                     theme,
                     disabled = state.busy || state.address.isBlank(),
@@ -257,7 +289,7 @@ private fun OnboardingFooter(state: OnboardingState, onAction: (OnboardingAction
             OnboardingPage.CONFIRM -> {
                 RFActionButton(
                     "verify-origin",
-                    "Verify this address",
+                    stringResource(R.string.ui_verify_this_address),
                     RFButtonKind.Primary,
                     theme,
                     disabled = state.busy || state.normalizedOrigin == null,
@@ -265,7 +297,7 @@ private fun OnboardingFooter(state: OnboardingState, onAction: (OnboardingAction
                 )
                 RFActionButton(
                     "edit-address",
-                    "Return to edit",
+                    stringResource(R.string.ui_return_to_edit),
                     RFButtonKind.Secondary,
                     theme,
                     disabled = state.busy,
@@ -275,7 +307,7 @@ private fun OnboardingFooter(state: OnboardingState, onAction: (OnboardingAction
             OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED ->
                 RFActionButton(
                     "confirm-node",
-                    "Save this node",
+                    stringResource(R.string.ui_save_this_node),
                     RFButtonKind.Primary,
                     theme,
                     disabled = state.busy || state.identity == null || state.identity.keyChanged,

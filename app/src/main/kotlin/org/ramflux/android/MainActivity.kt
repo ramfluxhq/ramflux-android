@@ -11,6 +11,8 @@ import androidx.activity.enableEdgeToEdge
 import dagger.hilt.android.AndroidEntryPoint
 import org.ramflux.feature.appshell.AppShellNavigation
 import org.ramflux.feature.appshell.api.FeatureRoute
+import org.ramflux.feature.chat.ChatNavigation
+import org.ramflux.feature.chat.api.ChatRoute
 import org.ramflux.feature.conversations.ConversationsNavigation
 import org.ramflux.feature.conversations.api.ConversationsRoute
 import org.ramflux.feature.onboarding.OnboardingNavigation
@@ -30,11 +32,12 @@ class MainActivity : ComponentActivity() {
                     else -> FeatureRoute(it)
                 }
             }) { onBack, navigate ->
+                entry<ChatRoute> { route -> ChatNavigation(route.accountId, route.conversationId, onBack) }
                 entry<ConversationsRoute> {
                     ConversationsNavigation(
                         onBack = onBack,
                         onSetupAccount = { navigate(OnboardingRoute) },
-                        onOpenChat = { _, _ -> onBack() }
+                        onOpenChat = { account, conversation -> navigate(ChatRoute(account, conversation)) }
                     )
                 }
                 entry<OnboardingRoute> { OnboardingNavigation(onBack = onBack, onAccountSelected = { onBack() }) }

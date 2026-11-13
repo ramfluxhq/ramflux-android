@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="ui_account_state">账户状态</string>
+    <string name="ui_account_state_unavailable">无法获取账户状态</string>
+    <string name="ui_an_unlocked_active_account_is_required">需要一个已解锁且正在使用的账户。</string>
+    <string name="ui_archived">已归档</string>
+    <string name="ui_back">返回</string>
+    <string name="ui_chat">聊天</string>
+    <string name="ui_conversation">会话</string>
+    <string name="ui_conversations">会话</string>
+    <string name="ui_conversations_will_appear_here_when_available">有会话时将在此处显示。</string>
+    <string name="ui_load_more">加载更多</string>
+    <string name="ui_loading_conversations">正在加载会话</string>
+    <string name="ui_local_search">本地搜索</string>
+    <string name="ui_no_conversations">暂无会话</string>
+    <string name="ui_open_an_account">打开账户</string>
+    <string name="ui_page_conflict_refresh_the_list">分页数据不一致，请刷新列表。</string>
+    <string name="ui_private_data_is_closed">私有数据已关闭。</string>
+    <string name="ui_reading_private_data">正在读取私有数据…</string>
+    <string name="ui_refresh">刷新</string>
+    <string name="ui_search_availability">搜索可用状态</string>
+    <string name="ui_search_conversations">搜索会话</string>
+    <string name="ui_set_up_your_account">设置账户</string>
+    <string name="ui_the_active_account_changed_refresh_the_list">当前账户已变更，请刷新列表。</string>
+    <string name="ui_time_unavailable">时间不可用</string>
+    <string name="ui_unable_to_continue">无法继续</string>
+    <string name="ui_value_could_not_be_read_code_value">无法读取%1$s（代码 %2$s）。</string>
+    <string name="ui_value_is_not_available_in_this_version">此版本暂不支持%1$s。</string>
+    <string name="ui_value_is_not_included_in_this_build_yet">此版本尚未包含%1$s。</string>
+    <string name="ui_value_requires_secure_account_access_on_this_device">%1$s需要此设备上的安全账户访问支持。</string>
+</resources>
