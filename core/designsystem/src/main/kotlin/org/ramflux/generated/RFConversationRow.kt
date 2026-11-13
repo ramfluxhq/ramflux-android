@@ -42,7 +42,7 @@ fun RFConversationRow(model: RFConversationRowModel, theme: RFTheme,
             .drawBehind { drawLine(theme.line, Offset(0f, size.height), Offset(size.width, size.height), 0.5.dp.toPx()) },
             verticalArrangement = Arrangement.spacedBy(2.0.dp, Alignment.CenterVertically)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(model.title, Modifier.weight(1f), color = theme.text, fontSize = 16.0.sp,
+                Text(model.title, Modifier.weight(1f), color = theme.text, fontSize = 17.0.sp,
                     fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(model.timestamp, color = if (model.unreadCount > 0u) theme.text else theme.secondary,
                     fontSize = theme.size_mobile_caption.sp,

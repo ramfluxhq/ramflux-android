@@ -215,3 +215,49 @@ private fun RFComponentStyle.borderModifier(): Modifier {
     val style = RFStyles.attachment_shell_default(theme)
     RFBox(style) { Row(horizontalArrangement = Arrangement.spacedBy(style.gap.dp)) { icon(); Column(Modifier.weight(1f)) { Text(title); Text(detail, color = theme.secondary) }; actions() } }
 }
+
+enum class RFChartKind { Line, Bar, Table, State }
+enum class RFChatHeaderKind { Default, Channel }
+
+// Controlled presentation; the host supplies plot/table/state, legend and actions.
+@Composable fun RFChart(id: String, title: String, subtitle: String, summary: String, kind: RFChartKind,
+    theme: RFTheme, mobile: Boolean = true, legend: @Composable () -> Unit,
+    content: @Composable () -> Unit, actions: @Composable () -> Unit) {
+    val style = when (kind) {
+        RFChartKind.Line -> RFStyles.chart_line(theme, mobile)
+        RFChartKind.Bar -> RFStyles.chart_bar(theme, mobile)
+        RFChartKind.Table -> RFStyles.chart_table(theme, mobile)
+        RFChartKind.State -> RFStyles.chart_state(theme, mobile)
+    }
+    RFBox(style, Modifier.semantics { testTag = id }) {
+        Column(verticalArrangement = Arrangement.spacedBy(style.gap.dp)) {
+            Row { Column(Modifier.weight(1f)) { Text(title, modifier = Modifier.semantics { heading() }); Text(subtitle, color = theme.secondary) }; actions() }
+            if (kind == RFChartKind.Line || kind == RFChartKind.Bar) legend()
+            Box(Modifier.heightIn(min = style.plot_height.dp)) { content() }
+            Text(summary, color = theme.secondary)
+        }
+    }
+}
+
+@Composable fun RFChatHeader(id: String, title: String, subtitle: String, theme: RFTheme,
+    kind: RFChatHeaderKind = RFChatHeaderKind.Default, mobile: Boolean = true,
+    leading: @Composable () -> Unit, trailing: @Composable () -> Unit) {
+    val style = if (kind == RFChatHeaderKind.Channel) RFStyles.chat_header_channel(theme, mobile) else RFStyles.chat_header_default(theme, mobile)
+    RFBox(style, Modifier.semantics { testTag = id }) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(style.gap.dp)) {
+            leading(); Column(Modifier.weight(1f)) { Text(title); Text(subtitle, color = theme.secondary) }; trailing()
+        }
+    }
+}
+
+@Composable fun RFSearchField(id: String, label: String, value: String, theme: RFTheme,
+    disabled: Boolean = false, mobile: Boolean = true, onValueChange: (String) -> Unit) {
+    val style = RFStyles.search_field_default(theme, mobile)
+    Column(verticalArrangement = Arrangement.spacedBy(style.gap.dp), modifier = Modifier.semantics { testTag = id }) {
+        Text(label, color = theme.secondary)
+        TextField(value = value, onValueChange = onValueChange, enabled = !disabled, singleLine = true,
+            label = { Text(label) }, modifier = Modifier.heightIn(min = style.editor_height.dp),
+            shape = RoundedCornerShape(theme.radius_input.dp),
+            colors = TextFieldDefaults.colors(focusedContainerColor = style.editor_background, unfocusedContainerColor = style.editor_background))
+    }
+}

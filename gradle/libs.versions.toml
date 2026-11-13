@@ -21,6 +21,7 @@ roborazzi = "1.50.0"
 robolectric = "4.16.1"
 
 [libraries]
+collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version = "0.4.0" }
 android-gradle = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }

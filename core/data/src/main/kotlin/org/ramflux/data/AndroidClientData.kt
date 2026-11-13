@@ -7,6 +7,9 @@ import android.content.Context
 
 /** One composition-root instance owns the one native writer and the app preference store. */
 class AndroidClientData(context: Context, expectedDescriptor: String) {
-    val session: ClientSessionRepository = DefaultClientSessionRepository(AndroidClientLifecycleDriver(context.applicationContext, expectedDescriptor))
+    private val driver = AndroidClientLifecycleDriver(context.applicationContext, expectedDescriptor)
+    val session: ClientSessionRepository = DefaultClientSessionRepository(driver)
+    val accounts: AccountAccessRepository = DefaultAccountAccessRepository(driver.transport)
+    val nodes: NodeSetupRepository = DefaultNodeSetupRepository(driver.transport)
     val appearance: AppearanceRepository = AndroidAppearanceRepository(context.applicationContext)
 }

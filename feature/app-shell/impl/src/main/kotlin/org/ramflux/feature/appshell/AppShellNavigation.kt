@@ -19,7 +19,11 @@ import org.ramflux.feature.appshell.api.*
 
 /** Navigation owns one-shot collection. Feature screens own no coroutine or side effect. */
 @Composable
-fun AppShellNavigation(vm: AppShellViewModel = hiltViewModel()) {
+fun AppShellNavigation(
+    vm: AppShellViewModel = hiltViewModel(),
+    routeForFeature: (String) -> NavKey = { FeatureRoute(it) },
+    featureEntries: EntryProviderScope<NavKey>.(onBack: () -> Unit) -> Unit = {}
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val stack = rememberNavBackStack(ShellHome)
     val window = LocalActivity.current?.window
@@ -36,10 +40,11 @@ fun AppShellNavigation(vm: AppShellViewModel = hiltViewModel()) {
             }
         }
     }
+    val currentRoute by rememberUpdatedState(routeForFeature)
     LaunchedEffect(vm) {
         vm.events.collect { event ->
             when (event) {
-                is AppShellEvent.Navigate -> stack.add(FeatureRoute(event.featureId))
+                is AppShellEvent.Navigate -> stack.add(currentRoute(event.featureId))
             }
         }
     }
@@ -49,6 +54,7 @@ fun AppShellNavigation(vm: AppShellViewModel = hiltViewModel()) {
             onBack = { if (stack.size > 1) stack.removeLastOrNull() },
             entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), rememberViewModelStoreNavEntryDecorator()),
             entryProvider = entryProvider {
+                featureEntries { if (stack.size > 1) stack.removeLastOrNull() }
                 entry<ShellHome> { AppShellScreen(state, vm::onAction) }
                 // No other feature implementation is installed in this module. Data never emits a success for it.
                 entry<FeatureRoute> { AppShellScreen(state, vm::onAction) }

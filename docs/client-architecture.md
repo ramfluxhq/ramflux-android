@@ -16,10 +16,12 @@ before the app reports its private data closed; a pending writer remains owned.
 The shell's ready state means the supervisor opened, not account authentication.
 Appearance preferences have their own repository and are not SDK account state.
 
-Only the app-shell feature is installed in this module. Selecting a feature
+The app-shell and onboarding features are installed. Selecting a feature
 which is not installed returns typed `Unavailable(FEATURE_NOT_INSTALLED)` from
-Data. This is not a fake account, conversation, or service response. Each
-subsequent feature integrates through its public API and repository contract.
+Data. This is not a fake account, conversation, or service response. Onboarding reads real account metadata and saved nodes, performs SDK node discovery,
+confirms the reviewed public key and rechecks saved-node safety before selection.
+Account creation, recovery and pairing return typed custody-provider unavailable;
+no credential ceremony is simulated. Each subsequent feature integrates through its public API and repository contract.
 
 The design system consumes the manifest-owned generated component catalog and
 light/dark tokens. Handwritten code owns state, behavior, navigation, safe

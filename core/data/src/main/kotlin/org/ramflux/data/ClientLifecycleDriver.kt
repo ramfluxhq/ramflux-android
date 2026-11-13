@@ -12,7 +12,8 @@ internal interface ClientLifecycleDriver {
     suspend fun close(): ClientResult<Unit>
 }
 internal class AndroidClientLifecycleDriver(private val context: Context, private val descriptor: String) : ClientLifecycleDriver {
-    private var host: AndroidCoreHost? = null
+    @Volatile private var host: AndroidCoreHost? = null
+    val transport: RepositoryTransport = SdkRepositoryTransport { (host?.state?.value as? HostState.Running)?.client }
     override suspend fun open(): ClientResult<Unit> {
         if (host == null) when (val created = AndroidCoreHost.create(context, descriptor)) {
             is CoreResult.Failure -> return ClientResult.Failed(created.error.appProblem())

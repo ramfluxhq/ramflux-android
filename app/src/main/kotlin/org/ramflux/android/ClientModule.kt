@@ -20,5 +20,9 @@ object ClientModule {
 
     @Provides fun session(data: AndroidClientData): ClientSessionRepository = data.session
 
+    @Provides fun accounts(data: AndroidClientData): AccountAccessRepository = data.accounts
+
+    @Provides fun nodes(data: AndroidClientData): NodeSetupRepository = data.nodes
+
     @Provides fun appearance(data: AndroidClientData): AppearanceRepository = data.appearance
 }

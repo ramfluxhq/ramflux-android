@@ -4,6 +4,7 @@
 plugins { id("ramflux.android.app") }
 dependencies {
     implementation(project(":core:data"))
+    implementation(project(":feature:onboarding:impl"))
     implementation(project(":core:designsystem"))
     implementation(project(":feature:app-shell:impl"))
 }
