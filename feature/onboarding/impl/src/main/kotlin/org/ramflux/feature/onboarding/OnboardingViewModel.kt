@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.onboarding
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,6 +11,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import org.ramflux.data.*
+import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.uiText
+import org.ramflux.feature.onboarding.impl.R
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
@@ -28,7 +30,7 @@ class OnboardingViewModel @Inject constructor(
         } else {
             OnboardingState(
                 busy = status.phase == ClientPhase.OPENING,
-                notice = OnboardingNotice("Private data is closed. Return to the start screen to reconnect.")
+                notice = OnboardingNotice(uiText(R.string.ui_private_data_is_closed_return_to_the_start))
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), OnboardingState())
@@ -115,7 +117,15 @@ class OnboardingViewModel @Inject constructor(
         local.update {
             it.copy(
                 accounts = accountRows?.accounts?.map { row ->
-                    AccountItem(row.id, row.label ?: row.id, row.state, row.unlocked)
+                    AccountItem(
+                        row.id, row.label ?: row.id,
+                        when (row.state) {
+                            "unlocked" -> uiText(R.string.ui_unlocked)
+                            "locked" -> uiText(R.string.ui_locked)
+                            else -> uiText(R.string.ui_account_unavailable)
+                        },
+                        row.unlocked
+                    )
                 }?.toPersistentList() ?: kotlinx.collections.immutable.persistentListOf(),
                 nodes = savedNodes.map { row -> row.item() }.toPersistentList(),
                 accountsLoaded = accountRows != null,
@@ -127,7 +137,7 @@ class OnboardingViewModel @Inject constructor(
     private fun reviewAddress() {
         val preview = DiscoveryOriginParser.preview(local.value.address)
         if (preview == null) {
-            local.update { it.copy(notice = OnboardingNotice("Enter an HTTPS address without a username or password.")) }
+            local.update { it.copy(notice = OnboardingNotice(uiText(R.string.ui_enter_an_https_address_without_a_username_or))) }
             return
         }
         candidate = null
@@ -155,7 +165,7 @@ class OnboardingViewModel @Inject constructor(
                             ),
                             notice = if (result.value.node.keyChanged) {
                                 OnboardingNotice(
-                                    "The saved node key changed. Confirmation is blocked; contact your node operator.",
+                                    uiText(R.string.ui_the_saved_node_key_changed_confirmation_is_blocked),
                                     OnboardingNoticeKind.UNAVAILABLE
                                 )
                             } else {
@@ -250,7 +260,14 @@ class OnboardingViewModel @Inject constructor(
     private suspend fun failure(result: ClientResult<*>) {
         checkCurrent()
         local.update {
-            it.copy(notice = result.notice() ?: OnboardingNotice("This setup operation is unavailable.", OnboardingNoticeKind.UNAVAILABLE))
+            it.copy(
+                notice = result.notice() ?: OnboardingNotice(
+                    uiText(
+                        R.string.ui_this_setup_operation_is_unavailable
+                    ),
+                    OnboardingNoticeKind.UNAVAILABLE
+                )
+            )
         }
     }
 }
@@ -259,16 +276,16 @@ private fun ClientResult<*>.notice(): OnboardingNotice? = when (this) {
     is ClientResult.Ready -> null
     is ClientResult.Unavailable -> OnboardingNotice(
         when (reason) {
-            UnavailableReason.CUSTODY_PROVIDER_REQUIRED -> "Secure setup is unavailable. No phrase or account was created."
-            else -> "This action is not available in this version."
+            UnavailableReason.CUSTODY_PROVIDER_REQUIRED -> uiText(R.string.ui_secure_setup_is_unavailable_no_phrase_or_account)
+            else -> uiText(R.string.ui_this_action_is_not_available_in_this_version)
         },
         OnboardingNoticeKind.UNAVAILABLE
     )
     is ClientResult.Failed -> OnboardingNotice(
         if (problem.outcome == ClientOutcome.UNKNOWN) {
-            "The outcome is unknown. Refresh the current state before starting another request."
+            uiText(R.string.ui_the_outcome_is_unknown_refresh_the_current_state)
         } else {
-            "The request did not complete (code ${problem.code}). Refresh to try reading the current state."
+            uiText(R.string.ui_the_request_did_not_complete_code_value_refresh, UiText.Number(problem.code.toLong()))
         },
         if (problem.outcome == ClientOutcome.UNKNOWN) OnboardingNoticeKind.UNKNOWN_OUTCOME else OnboardingNoticeKind.ERROR
     )

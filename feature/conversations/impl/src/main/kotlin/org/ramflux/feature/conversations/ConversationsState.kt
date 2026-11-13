@@ -6,14 +6,15 @@ import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
 import org.ramflux.data.ClientFailureKind
 import org.ramflux.data.UnavailableReason
+import org.ramflux.designsystem.UiText
 
 @Immutable data class ConversationItem(
     val id: String,
     val title: String,
-    val summary: String,
+    val summary: UiText,
     val unread: String,
     val hasUnread: Boolean,
-    val timestamp: String = ""
+    val timestamp: UiText = UiText.Empty
 )
 
 @Immutable data class ConversationsState(
@@ -24,9 +25,9 @@ import org.ramflux.data.UnavailableReason
     val loaded: Boolean = false,
     val hasMore: Boolean = false,
     val accountRequired: Boolean = false,
-    val problem: String? = null,
+    val problem: UiText? = null,
     val problemKind: ClientFailureKind? = null,
-    val unavailable: String? = null,
+    val unavailable: UiText? = null,
     val unavailableReason: UnavailableReason? = null,
     val searchAvailable: Boolean = false
 )

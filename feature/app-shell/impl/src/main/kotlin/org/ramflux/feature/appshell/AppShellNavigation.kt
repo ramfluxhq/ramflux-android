@@ -15,6 +15,7 @@ import androidx.navigation3.runtime.*
 import androidx.navigation3.ui.NavDisplay
 import org.ramflux.data.Appearance
 import org.ramflux.designsystem.RamfluxTheme
+import org.ramflux.designsystem.ThemeCatalog
 import org.ramflux.feature.appshell.api.*
 
 /** Navigation owns one-shot collection. Feature screens own no coroutine or side effect. */
@@ -27,7 +28,7 @@ fun AppShellNavigation(
     val state by vm.state.collectAsStateWithLifecycle()
     val stack = rememberNavBackStack(ShellHome)
     val window = LocalActivity.current?.window
-    val dark = when (state.appearance) {
+    val dark = ThemeCatalog.find(state.namedTheme)?.dark ?: when (state.appearance) {
         Appearance.SYSTEM -> isSystemInDarkTheme()
         Appearance.DARK -> true
         Appearance.LIGHT -> false
@@ -48,7 +49,7 @@ fun AppShellNavigation(
             }
         }
     }
-    RamfluxTheme(dark) {
+    RamfluxTheme(dark, themeId = state.namedTheme) {
         NavDisplay(
             backStack = stack,
             onBack = { if (stack.size > 1) stack.removeLastOrNull() },

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="ui_account_access_is_unavailable_value">账户访问不可用：%1$s</string>
+    <string name="ui_account_state_could_not_be_read_code_value">无法读取账户状态（代码 %1$s）。</string>
+    <string name="ui_back">返回</string>
+    <string name="ui_conversation">会话</string>
+    <string name="ui_loading_messages">正在加载消息</string>
+    <string name="ui_message">消息</string>
+    <string name="ui_message_content_is_unavailable">消息内容不可用。</string>
+    <string name="ui_message_deleted">消息已删除</string>
+    <string name="ui_message_history_is_unavailable">消息历史不可用。</string>
+    <string name="ui_no_messages">暂无消息</string>
+    <string name="ui_private_data_is_closed">私有数据已关闭。</string>
+    <string name="ui_read_failed_code_value">读取失败（代码 %1$s）。</string>
+    <string name="ui_reading_private_data">正在读取私有数据…</string>
+    <string name="ui_refresh">刷新</string>
+    <string name="ui_secure_account_access_is_required_on_this_device">需要此设备上的安全账户访问支持。</string>
+    <string name="ui_send">发送</string>
+    <string name="ui_send_availability_failed_code_value">无法获取发送可用状态（代码 %1$s）。</string>
+    <string name="ui_send_outcome_is_unknown_refresh_before_making_another">发送结果未知，请先刷新状态再发起新请求。</string>
+    <string name="ui_sending_unavailable_draft_kept">发送不可用，草稿已保留。</string>
+    <string name="ui_sending_unavailable_value">发送不可用：%1$s</string>
+    <string name="ui_the_active_account_changed_return_to_conversations">当前账户已变更，请返回会话列表。</string>
+    <string name="ui_the_feature_is_not_installed">此功能尚未安装。</string>
+    <string name="ui_the_message_was_not_sent_code_value">消息未发送（代码 %1$s）。</string>
+    <string name="ui_the_sdk_operation_is_not_available_in_this">此版本暂不支持该操作。</string>
+    <string name="ui_this_conversation_has_no_messages">此会话暂无消息。</string>
+    <string name="ui_unable_to_continue">无法继续</string>
+</resources>

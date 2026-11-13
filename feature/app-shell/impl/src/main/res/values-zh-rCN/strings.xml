@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="ui_">›</string>
+    <string name="ui_appearance">外观</string>
+    <string name="ui_client_ready">客户端已就绪</string>
+    <string name="ui_closing_private_data">正在关闭私有数据…</string>
+    <string name="ui_conversations">会话</string>
+    <string name="ui_dark">深色</string>
+    <string name="ui_dismiss">关闭</string>
+    <string name="ui_get_started">开始使用</string>
+    <string name="ui_light">浅色</string>
+    <string name="ui_not_available_yet">暂不可用</string>
+    <string name="ui_opening_private_data">正在打开私有数据…</string>
+    <string name="ui_people">联系人</string>
+    <string name="ui_please_wait">请稍候</string>
+    <string name="ui_private_data_is_closed_494e48">私有数据已关闭</string>
+    <string name="ui_private_data_is_still_in_use_try_again">私有数据仍在使用中，请稍后重试。</string>
+    <string name="ui_ramflux">Ramflux</string>
+    <string name="ui_secure_account_access_is_not_available_on_this">此设备暂不支持安全账户访问。</string>
+    <string name="ui_set_up_your_account">设置账户</string>
+    <string name="ui_settings">设置</string>
+    <string name="ui_the_outcome_is_unknown_check_the_current_state">操作结果未知，请先确认当前状态再重试。</string>
+    <string name="ui_the_request_did_not_complete_code_value">请求未完成（代码 %1$s）。</string>
+    <string name="ui_the_setting_or_private_data_could_not_be">无法保存设置或私有数据。</string>
+    <string name="ui_this_account_cannot_perform_that_action">此账户无法执行此操作。</string>
+    <string name="ui_this_action_is_not_available_in_this_version">此版本暂不支持此操作。</string>
+    <string name="ui_this_action_is_not_available_on_this_device">此设备暂不支持此操作。</string>
+    <string name="ui_this_app_and_its_account_library_are_not">应用与账户组件不兼容，请更新应用后继续。</string>
+    <string name="ui_this_feature_is_not_included_in_this_build">此版本尚未包含此功能。</string>
+    <string name="ui_try_again">重试</string>
+    <string name="ui_unable_to_continue">无法继续</string>
+    <string name="ui_unable_to_open_private_data">无法打开私有数据</string>
+    <string name="ui_use_device_setting">跟随系统</string>
+    <string name="ui_selected_theme_is_unavailable_choose_another_theme">所选主题不可用，请选择其他主题。</string>
+</resources>

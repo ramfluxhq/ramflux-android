@@ -4,7 +4,8 @@
 package org.ramflux.feature.chat
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
-@Immutable data class MessageItem(val id: String, val sender: String, val own: Boolean, val deleted: Boolean, val content: String) {
+import org.ramflux.designsystem.UiText
+@Immutable data class MessageItem(val id: String, val sender: String, val own: Boolean, val deleted: Boolean, val content: UiText) {
     override fun toString() = "MessageItem(<redacted>)"
 }
 
@@ -16,8 +17,8 @@ import kotlinx.collections.immutable.*
     val sending: Boolean = false,
     val draft: String = "",
     val canSend: Boolean = false,
-    val problem: String? = null,
-    val unavailable: String? = null
+    val problem: UiText? = null,
+    val unavailable: UiText? = null
 ) {
     override fun toString() = "ChatState(<redacted>)"
 }

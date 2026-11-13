@@ -9,8 +9,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.render
+import org.ramflux.feature.chat.impl.R
 import org.ramflux.generated.*
 
 @Composable
@@ -21,34 +24,62 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 RFChatHeader(
                     "chat-header",
-                    state.conversationId.ifEmpty { "Conversation" },
+                    state.conversationId.ifEmpty { stringResource(R.string.ui_conversation) },
                     "",
                     theme,
-                    leading = { TextButton(onClick = { onAction(ChatAction.Back) }) { Text("Back") } },
+                    leading = { TextButton(onClick = { onAction(ChatAction.Back) }) { Text(stringResource(R.string.ui_back)) } },
                     trailing = {
                         TextButton(
                             enabled = !state.loading && !state.sending,
                             onClick = { onAction(ChatAction.Refresh) }
-                        ) { Text("Refresh") }
+                        ) { Text(stringResource(R.string.ui_refresh)) }
                     }
                 )
                 LazyColumn(
-                    Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    Modifier.weight(1f).fillMaxWidth().padding(horizontal = theme.gap.dp),
+                    verticalArrangement = Arrangement.spacedBy((theme.gap * .75f).dp)
                 ) {
                     if (state.loading) {
                         item(
                             "loading"
-                        ) { RFStateBlock("Loading messages", "Reading private data…", RFStateKind.Loading, theme, action = {}) }
+                        ) {
+                            RFStateBlock(
+                                stringResource(
+                                    R.string.ui_loading_messages
+                                ),
+                                stringResource(R.string.ui_reading_private_data),
+                                RFStateKind.Loading,
+                                theme,
+                                action = {
+                                }
+                            )
+                        }
                     }
                     state.problem?.let { problem ->
                         item(
                             "error"
-                        ) { RFStateBlock("Unable to continue", problem, RFStateKind.Error, theme, action = {}) }
+                        ) {
+                            RFStateBlock(
+                                stringResource(R.string.ui_unable_to_continue),
+                                problem.render(),
+                                RFStateKind.Error,
+                                theme,
+                                action = {}
+                            )
+                        }
                     }
                     if (state.loaded && state.rows.isEmpty()) {
                         item("empty") {
-                            RFStateBlock("No messages", "This conversation has no messages.", RFStateKind.Empty, theme, action = {})
+                            RFStateBlock(
+                                stringResource(
+                                    R.string.ui_no_messages
+                                ),
+                                stringResource(R.string.ui_this_conversation_has_no_messages),
+                                RFStateKind.Empty,
+                                theme,
+                                action = {
+                                }
+                            )
                         }
                     }
                     items(state.rows, key = { "message:" + it.id }, contentType = { if (it.deleted) "deleted" else "message" }) { row ->
@@ -58,7 +89,7 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
                                 if (row.own) RFBubbleKind.Own else RFBubbleKind.Peer,
                                 row.sender,
                                 theme,
-                                content = { Text(row.content) },
+                                content = { Text(row.content.render()) },
                                 quote = {},
                                 attachment = {},
                                 footer = {}
@@ -66,12 +97,12 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
                         }
                     }
                 }
-                state.unavailable?.let { Text(it, Modifier.padding(16.dp)) }
+                state.unavailable?.let { Text(it.render(), Modifier.padding(theme.gap.dp)) }
                 RFComposerShell("composer", theme, mode = {}, quote = {}, attachment = {}, editor = {
                     OutlinedTextField(
                         state.draft,
                         onValueChange = { onAction(ChatAction.Draft(it)) },
-                        label = { Text("Message") },
+                        label = { Text(stringResource(R.string.ui_message)) },
                         enabled = !state.sending,
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 4
@@ -80,7 +111,7 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
                     TextButton(
                         enabled = state.canSend && !state.sending && state.draft.isNotBlank(),
                         onClick = { onAction(ChatAction.Send) }
-                    ) { Text("Send") }
+                    ) { Text(stringResource(R.string.ui_send)) }
                 })
             }
         }

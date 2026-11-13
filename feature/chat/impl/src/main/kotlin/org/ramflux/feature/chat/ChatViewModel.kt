@@ -11,6 +11,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import org.ramflux.data.*
+import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.uiText
+import org.ramflux.feature.chat.impl.R
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
@@ -24,7 +27,7 @@ class ChatViewModel @Inject constructor(
     private val channel = Channel<ChatEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
     val state = combine(local, session.status) { screen, status ->
-        if (status.phase == ClientPhase.OPEN) screen else ChatState(problem = "Private data is closed.")
+        if (status.phase == ClientPhase.OPEN) screen else ChatState(problem = uiText(R.string.ui_private_data_is_closed))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), ChatState())
     private var request: Job? = null
     private var ticket = 0L
@@ -69,17 +72,21 @@ class ChatViewModel @Inject constructor(
         val value = when (catalog) {
             is ClientResult.Ready -> catalog.value
             is ClientResult.Failed -> {
-                local.value = ChatState(problem = "Account state could not be read (code ${catalog.problem.code}).")
+                local.value = ChatState(
+                    problem = uiText(
+                        R.string.ui_account_state_could_not_be_read_code_value, UiText.Number(catalog.problem.code.toLong())
+                    )
+                )
                 return false
             }
             is ClientResult.Unavailable -> {
-                local.value = ChatState(unavailable = "Account access is unavailable: ${catalog.reason.description()}")
+                local.value = ChatState(unavailable = uiText(R.string.ui_account_access_is_unavailable_value, catalog.reason.description()))
                 return false
             }
         }
         val valid = value.activeId == expectedTarget.account &&
             value.accounts.any { it.id == expectedTarget.account && it.unlocked }
-        if (!valid) local.value = ChatState(problem = "The active account changed. Return to conversations.")
+        if (!valid) local.value = ChatState(problem = uiText(R.string.ui_the_active_account_changed_return_to_conversations))
         return valid
     }
     private fun read() {
@@ -111,22 +118,40 @@ class ChatViewModel @Inject constructor(
                             rows = result.value.map { row ->
                                 MessageItem(
                                     row.id, if (row.deleted) "" else row.sender ?: "", row.own, row.deleted,
-                                    if (row.deleted) "Message deleted" else row.text ?: "Message content is unavailable."
+                                    if (row.deleted) {
+                                        uiText(R.string.ui_message_deleted)
+                                    } else {
+                                        row.text?.let {
+                                            UiText.Data(it)
+                                        } ?: uiText(R.string.ui_message_content_is_unavailable)
+                                    }
                                 )
                             }.toPersistentList(),
                             canSend = capability is ClientResult.Ready,
                             unavailable = when (capability) {
-                                is ClientResult.Unavailable -> "Sending unavailable: ${capability.reason.description()}"
+                                is ClientResult.Unavailable -> uiText(
+                                    R.string.ui_sending_unavailable_value, capability.reason.description()
+                                )
                                 is ClientResult.Ready, is ClientResult.Failed -> null
                             },
                             problem = when (capability) {
-                                is ClientResult.Failed -> "Send availability failed (code ${capability.problem.code})."
+                                is ClientResult.Failed -> uiText(
+                                    R.string.ui_send_availability_failed_code_value, UiText.Number(capability.problem.code.toLong())
+                                )
                                 is ClientResult.Ready, is ClientResult.Unavailable -> null
                             }
                         )
                     }
-                    is ClientResult.Failed -> local.update { it.copy(problem = "Read failed (code ${result.problem.code}).") }
-                    is ClientResult.Unavailable -> local.update { it.copy(unavailable = "Message history is unavailable.") }
+                    is ClientResult.Failed -> local.update {
+                        it.copy(problem = uiText(R.string.ui_read_failed_code_value, UiText.Number(result.problem.code.toLong())))
+                    }
+                    is ClientResult.Unavailable -> local.update {
+                        it.copy(
+                            unavailable = uiText(
+                                R.string.ui_message_history_is_unavailable
+                            )
+                        )
+                    }
                 }
             } finally {
                 if (expected == ticket) local.update { it.copy(loading = false) }
@@ -151,13 +176,19 @@ class ChatViewModel @Inject constructor(
                         local.update { it.copy(draft = "") }
                         channel.send(ChatEvent.Sent)
                     }
-                    is ClientResult.Unavailable -> local.update { it.copy(unavailable = "Sending unavailable. Draft kept.") }
+                    is ClientResult.Unavailable -> local.update {
+                        it.copy(
+                            unavailable = uiText(
+                                R.string.ui_sending_unavailable_draft_kept
+                            )
+                        )
+                    }
                     is ClientResult.Failed -> local.update {
                         it.copy(
                             problem = if (result.problem.outcome == ClientOutcome.UNKNOWN) {
-                                "Send outcome is unknown. Refresh before making another request."
+                                uiText(R.string.ui_send_outcome_is_unknown_refresh_before_making_another)
                             } else {
-                                "The message was not sent (code ${result.problem.code})."
+                                uiText(R.string.ui_the_message_was_not_sent_code_value, UiText.Number(result.problem.code.toLong()))
                             }
                         )
                     }
@@ -179,8 +210,8 @@ class ChatViewModel @Inject constructor(
     }
 }
 
-private fun UnavailableReason.description(): String = when (this) {
-    UnavailableReason.FEATURE_NOT_INSTALLED -> "the feature is not installed."
-    UnavailableReason.UNSUPPORTED_BY_CORE -> "the SDK operation is not available in this version."
-    UnavailableReason.CUSTODY_PROVIDER_REQUIRED -> "secure account access is required on this device."
+private fun UnavailableReason.description(): UiText = when (this) {
+    UnavailableReason.FEATURE_NOT_INSTALLED -> uiText(R.string.ui_the_feature_is_not_installed)
+    UnavailableReason.UNSUPPORTED_BY_CORE -> uiText(R.string.ui_the_sdk_operation_is_not_available_in_this)
+    UnavailableReason.CUSTODY_PROVIDER_REQUIRED -> uiText(R.string.ui_secure_account_access_is_required_on_this_device)
 }

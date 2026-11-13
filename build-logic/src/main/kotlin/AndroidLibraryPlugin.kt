@@ -27,6 +27,7 @@ class AndroidLibraryPlugin : Plugin<Project> {
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
             }
+            buildTypes.getByName("debug").isPseudoLocalesEnabled = true
             packaging.jniLibs.useLegacyPackaging = false
             lint {
                 warningsAsErrors = true

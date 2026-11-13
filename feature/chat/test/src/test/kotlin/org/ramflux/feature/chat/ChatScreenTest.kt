@@ -10,6 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.ramflux.designsystem.RamfluxTheme
+import org.ramflux.designsystem.UiText
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
@@ -20,7 +21,9 @@ class ChatScreenTest {
     @Test fun draftIsAnActionAndBlockedSendCannotFire() {
         val actions = mutableListOf<ChatAction>()
         compose.setContent {
-            RamfluxTheme { ChatScreen(ChatState(loaded = true, draft = "Draft", unavailable = "Sending unavailable"), { actions.add(it) }) }
+            RamfluxTheme {
+                ChatScreen(ChatState(loaded = true, draft = "Draft", unavailable = UiText.Data("Sending unavailable")), { actions.add(it) })
+            }
         }
         compose.onNodeWithText("Send").assertIsNotEnabled()
         compose.onNodeWithText("Draft").performTextInput("!")
@@ -31,7 +34,10 @@ class ChatScreenTest {
         compose.setContent {
             RamfluxTheme {
                 ChatScreen(
-                    ChatState(problem = "Read failed", rows = persistentListOf(MessageItem("m", "", false, true, "Message deleted"))),
+                    ChatState(
+                        problem = UiText.Data("Read failed"),
+                        rows = persistentListOf(MessageItem("m", "", false, true, UiText.Data("Message deleted")))
+                    ),
                     {}
                 )
             }

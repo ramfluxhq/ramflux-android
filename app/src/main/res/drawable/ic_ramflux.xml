@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Launcher mark uses the shared light primary / on-primary palette. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
-    <path android:fillColor="#222224" android:pathData="M8,4L40,4Q44,4 44,8L44,40Q44,44 40,44L8,44Q4,44 4,40L4,8Q4,4 8,4" />
-    <path android:fillColor="#FFFFFF" android:pathData="M13,13L35,13L35,18L18,18L18,23L30,23L30,28L18,28L18,35L13,35Z" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="@dimen/rf_launcher_size" android:height="@dimen/rf_launcher_size" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="@color/rf_brand_primary" android:pathData="M8,4L40,4Q44,4 44,8L44,40Q44,44 40,44L8,44Q4,44 4,40L4,8Q4,4 8,4" />
+    <path android:fillColor="@color/rf_brand_on_primary" android:pathData="M13,13L35,13L35,18L18,18L18,23L30,23L30,28L18,28L18,35L13,35Z" />
 </vector>

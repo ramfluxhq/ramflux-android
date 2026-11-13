@@ -5,16 +5,15 @@ package org.ramflux.feature.conversations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import javax.inject.Inject
 import kotlinx.collections.immutable.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import org.ramflux.data.*
+import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.uiText
+import org.ramflux.feature.conversations.impl.R
 
 @HiltViewModel
 class ConversationsViewModel @Inject constructor(
@@ -26,7 +25,7 @@ class ConversationsViewModel @Inject constructor(
     private val channel = Channel<ConversationsEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
     val state = combine(local, session.status) { value, status ->
-        if (status.phase == ClientPhase.OPEN) value else ConversationsState(problem = "Private data is closed.")
+        if (status.phase == ClientPhase.OPEN) value else ConversationsState(problem = uiText(R.string.ui_private_data_is_closed))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), ConversationsState())
     private var request: Job? = null
     private var cursor: String? = null
@@ -63,12 +62,12 @@ class ConversationsViewModel @Inject constructor(
         when (result) {
             is ClientResult.Failed -> {
                 cursor = null
-                local.value = result.notice(ConversationsState(), "Account state")
+                local.value = result.notice(ConversationsState(), uiText(R.string.ui_account_state))
                 return null
             }
             is ClientResult.Unavailable -> {
                 cursor = null
-                local.value = result.notice(ConversationsState(), "Account state")
+                local.value = result.notice(ConversationsState(), uiText(R.string.ui_account_state))
                 return null
             }
             is ClientResult.Ready -> {
@@ -80,7 +79,7 @@ class ConversationsViewModel @Inject constructor(
                 }
                 if (requiredId != null && active.id != requiredId) {
                     cursor = null
-                    local.value = ConversationsState(problem = "The active account changed. Refresh the list.")
+                    local.value = ConversationsState(problem = uiText(R.string.ui_the_active_account_changed_refresh_the_list))
                     return null
                 }
                 return active
@@ -110,7 +109,14 @@ class ConversationsViewModel @Inject constructor(
                         val rows = result.value.rows.map { row ->
                             ConversationItem(
                                 row.id, row.title,
-                                if (row.archived) "Archived" else "Conversation", row.unread.toString(), row.isUnread,
+                                if (row.archived) {
+                                    uiText(
+                                        R.string.ui_archived
+                                    )
+                                } else {
+                                    uiText(R.string.ui_conversation)
+                                },
+                                row.unread.toString(), row.isUnread,
                                 row.lastActivity.displayTime()
                             )
                         }
@@ -118,7 +124,7 @@ class ConversationsViewModel @Inject constructor(
                         if (combined.size > 1000 || combined.map { it.id }.distinct().size != combined.size ||
                             (result.value.nextCursor != null && result.value.nextCursor == cursor)
                         ) {
-                            local.update { it.copy(problem = "Page conflict. Refresh the list.", hasMore = false) }
+                            local.update { it.copy(problem = uiText(R.string.ui_page_conflict_refresh_the_list), hasMore = false) }
                             cursor = null
                             return@launch
                         }
@@ -132,12 +138,12 @@ class ConversationsViewModel @Inject constructor(
                         )
                         local.value = when (search) {
                             is ClientResult.Ready -> fresh.copy(searchAvailable = true)
-                            is ClientResult.Failed -> search.notice(fresh, "Search availability")
-                            is ClientResult.Unavailable -> search.notice(fresh, "Local search")
+                            is ClientResult.Failed -> search.notice(fresh, uiText(R.string.ui_search_availability))
+                            is ClientResult.Unavailable -> search.notice(fresh, uiText(R.string.ui_local_search))
                         }
                     }
-                    is ClientResult.Failed -> local.update { result.notice(it, "Conversations") }
-                    is ClientResult.Unavailable -> local.update { result.notice(it, "Conversations") }
+                    is ClientResult.Failed -> local.update { result.notice(it, uiText(R.string.ui_conversations)) }
+                    is ClientResult.Unavailable -> local.update { result.notice(it, uiText(R.string.ui_conversations)) }
                 }
             } finally {
                 if (expected == ticket) local.update { it.copy(loading = false) }
@@ -158,8 +164,8 @@ class ConversationsViewModel @Inject constructor(
                 account(expected, generation, accountId) ?: return@launch
                 when (result) {
                     is ClientResult.Ready -> channel.send(ConversationsEvent.OpenChat(accountId, id))
-                    is ClientResult.Unavailable -> local.update { result.notice(it, "Chat") }
-                    is ClientResult.Failed -> local.update { result.notice(it, "Chat") }
+                    is ClientResult.Unavailable -> local.update { result.notice(it, uiText(R.string.ui_chat)) }
+                    is ClientResult.Failed -> local.update { result.notice(it, uiText(R.string.ui_chat)) }
                 }
             } finally {
                 if (expected == ticket) local.update { it.copy(loading = false) }
@@ -173,27 +179,20 @@ class ConversationsViewModel @Inject constructor(
         }
     }
 }
-private fun ClientResult.Failed.notice(state: ConversationsState, subject: String) = state.copy(
-    problem = "$subject could not be read (code ${problem.code}).",
+private fun ClientResult.Failed.notice(state: ConversationsState, subject: UiText) = state.copy(
+    problem = uiText(R.string.ui_value_could_not_be_read_code_value, subject, UiText.Number(problem.code.toLong())),
     problemKind = problem.kind,
     unavailable = null,
     unavailableReason = null
 )
-private fun ClientResult.Unavailable.notice(state: ConversationsState, subject: String) = state.copy(
+private fun ClientResult.Unavailable.notice(state: ConversationsState, subject: UiText) = state.copy(
     unavailable = when (reason) {
-        UnavailableReason.FEATURE_NOT_INSTALLED -> "$subject is not included in this build yet."
-        UnavailableReason.UNSUPPORTED_BY_CORE -> "$subject is not available in this version."
-        UnavailableReason.CUSTODY_PROVIDER_REQUIRED -> "$subject requires secure account access on this device."
+        UnavailableReason.FEATURE_NOT_INSTALLED -> uiText(R.string.ui_value_is_not_included_in_this_build_yet, subject)
+        UnavailableReason.UNSUPPORTED_BY_CORE -> uiText(R.string.ui_value_is_not_available_in_this_version, subject)
+        UnavailableReason.CUSTODY_PROVIDER_REQUIRED -> uiText(R.string.ui_value_requires_secure_account_access_on_this_device, subject)
     },
     unavailableReason = reason,
     problem = null,
     problemKind = null
 )
-private fun Long?.displayTime(): String {
-    if (this == null) return ""
-    return try {
-        DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withZone(ZoneId.systemDefault()).format(Instant.ofEpochSecond(this))
-    } catch (_: java.time.DateTimeException) {
-        "Time unavailable"
-    }
-}
+private fun Long?.displayTime(): UiText = if (this == null) UiText.Empty else UiText.DateTime(this)

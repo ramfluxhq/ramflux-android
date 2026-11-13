@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.appshell
-
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -13,6 +12,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.ramflux.designsystem.RamfluxTheme
+import org.ramflux.designsystem.UiText
 import org.ramflux.feature.appshell.api.*
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -30,7 +30,7 @@ class AppShellScreenTest {
                     AppShellState(
                         ready = true,
                         loading = false,
-                        notice = ShellNotice("Not available yet", "Feature unavailable")
+                        notice = ShellNotice(UiText.Data("Not available yet"), UiText.Data("Feature unavailable"))
                     ),
                     {
                         selected = it

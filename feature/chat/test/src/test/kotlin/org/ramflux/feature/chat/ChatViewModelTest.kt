@@ -12,6 +12,8 @@ import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.ramflux.data.*
+import org.ramflux.designsystem.uiText
+import org.ramflux.feature.chat.impl.R
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModelTest {
     @get:Rule val main = object : TestWatcher() {
@@ -57,7 +59,7 @@ class ChatViewModelTest {
         runCurrent()
         load(vm)
         assertEquals("", vm.state.value.rows.single().sender)
-        assertEquals("Message deleted", vm.state.value.rows.single().content)
+        assertEquals(uiText(R.string.ui_message_deleted), vm.state.value.rows.single().content)
         assertFalse(vm.state.value.toString().contains("must-hide"))
     }
 
@@ -69,7 +71,7 @@ class ChatViewModelTest {
         observe(vm)
         runCurrent()
         load(vm)
-        assertEquals("Message content is unavailable.", vm.state.value.rows.single().content)
+        assertEquals(uiText(R.string.ui_message_content_is_unavailable), vm.state.value.rows.single().content)
     }
 
     @Test fun blockedSendKeepsDraftAndDoesNotEmitSuccessOrCreateMessageRow() = runTest(timeout = 5.seconds) {

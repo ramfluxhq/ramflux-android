@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="marked_unread">已标为未读</string>
+    <string name="time_unavailable">时间不可用</string>
+    <string name="unread_count">%1$s 条未读</string>
+    <plurals name="unread_messages">
+        <item quantity="other">%1$s 条未读消息</item>
+    </plurals>
+</resources>

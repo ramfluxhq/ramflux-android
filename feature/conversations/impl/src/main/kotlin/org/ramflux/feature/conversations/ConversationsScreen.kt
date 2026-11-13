@@ -10,10 +10,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.ramflux.designsystem.ExactConversationRow
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.render
+import org.ramflux.feature.conversations.impl.R
 import org.ramflux.generated.*
 
 @Composable
@@ -30,15 +33,19 @@ fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsActio
                         )
                     ) {
                         RFPageHeader(
-                            "Conversations",
-                            state.accountLabel ?: "Account state unavailable",
+                            stringResource(R.string.ui_conversations),
+                            state.accountLabel ?: stringResource(R.string.ui_account_state_unavailable),
                             theme,
-                            leading = { TextButton(onClick = { onAction(ConversationsAction.Back) }) { Text("Back") } },
+                            leading = {
+                                TextButton(
+                                    onClick = { onAction(ConversationsAction.Back) }
+                                ) { Text(stringResource(R.string.ui_back)) }
+                            },
                             trailing = {
                                 TextButton(
                                     enabled = !state.loading,
                                     onClick = { onAction(ConversationsAction.Refresh) }
-                                ) { Text("Refresh") }
+                                ) { Text(stringResource(R.string.ui_refresh)) }
                             }
                         )
                     }
@@ -47,7 +54,7 @@ fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsActio
                     item("search") {
                         RFSearchField(
                             "conversation-search",
-                            "Search conversations",
+                            stringResource(R.string.ui_search_conversations),
                             "",
                             theme,
                             disabled = true,
@@ -57,8 +64,8 @@ fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsActio
                     if (state.loading) {
                         item("loading") {
                             RFStateBlock(
-                                "Loading conversations",
-                                "Reading private data…",
+                                stringResource(R.string.ui_loading_conversations),
+                                stringResource(R.string.ui_reading_private_data),
                                 RFStateKind.Loading,
                                 theme,
                                 action = {}
@@ -67,21 +74,27 @@ fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsActio
                     }
                     state.problem?.let { problem ->
                         item("error") {
-                            RFStateBlock("Unable to continue", problem, RFStateKind.Error, theme, action = {})
+                            RFStateBlock(
+                                stringResource(R.string.ui_unable_to_continue),
+                                problem.render(),
+                                RFStateKind.Error,
+                                theme,
+                                action = {}
+                            )
                         }
                     }
-                    state.unavailable?.let { message -> item("unavailable") { Text(message, Modifier.padding(16.dp)) } }
+                    state.unavailable?.let { message -> item("unavailable") { Text(message.render(), Modifier.padding(theme.gap.dp)) } }
                     if (state.accountRequired) {
                         item("account-required") {
                             RFStateBlock(
-                                "Open an account",
-                                "An unlocked active account is required.",
+                                stringResource(R.string.ui_open_an_account),
+                                stringResource(R.string.ui_an_unlocked_active_account_is_required),
                                 RFStateKind.Empty,
                                 theme,
                                 action = {
                                     TextButton(
                                         onClick = { onAction(ConversationsAction.SetupAccount) }
-                                    ) { Text("Set up your account") }
+                                    ) { Text(stringResource(R.string.ui_set_up_your_account)) }
                                 }
                             )
                         }
@@ -89,8 +102,8 @@ fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsActio
                     if (state.loaded && state.rows.isEmpty()) {
                         item("empty") {
                             RFStateBlock(
-                                "No conversations",
-                                "Conversations will appear here when available.",
+                                stringResource(R.string.ui_no_conversations),
+                                stringResource(R.string.ui_conversations_will_appear_here_when_available),
                                 RFStateKind.Empty,
                                 theme,
                                 action = {}
@@ -101,8 +114,8 @@ fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsActio
                         ExactConversationRow(
                             row.id,
                             row.title,
-                            row.summary,
-                            row.timestamp,
+                            row.summary.render(),
+                            row.timestamp.render(),
                             row.unread,
                             row.hasUnread,
                             onSelect = { onAction(ConversationsAction.Open(it)) }
@@ -110,7 +123,10 @@ fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsActio
                     }
                     if (state.hasMore) {
                         item("more") {
-                            TextButton(enabled = !state.loading, onClick = { onAction(ConversationsAction.LoadMore) }) { Text("Load more") }
+                            TextButton(
+                                enabled = !state.loading,
+                                onClick = { onAction(ConversationsAction.LoadMore) }
+                            ) { Text(stringResource(R.string.ui_load_more)) }
                         }
                     }
                 }

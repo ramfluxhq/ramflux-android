@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.appshell
-
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -13,6 +12,8 @@ import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.ramflux.data.*
+import org.ramflux.designsystem.uiText
+import org.ramflux.feature.app_shell.impl.R
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppShellViewModelTest {
@@ -40,12 +41,12 @@ class AppShellViewModelTest {
         runCurrent()
         assertFalse(vm.state.value.ready)
         assertTrue(vm.state.value.canRetry)
-        assertTrue(vm.state.value.error?.description?.contains("not compatible") == true)
+        assertEquals(uiText(R.string.ui_this_app_and_its_account_library_are_not), vm.state.value.error?.description)
         session.status.value = ClientSnapshot(ClientPhase.OPEN, 1)
         runCurrent()
         vm.onAction(AppShellAction.Open(ClientFeature.ONBOARDING))
         runCurrent()
-        assertEquals("Not available yet", vm.state.value.notice?.title)
+        assertEquals(uiText(R.string.ui_not_available_yet), vm.state.value.notice?.title)
         assertTrue(vm.state.value.ready)
     }
 
@@ -88,7 +89,7 @@ class AppShellViewModelTest {
         barrier.complete(Unit)
         runCurrent()
         assertTrue(events.isEmpty())
-        assertEquals("Not available yet", vm.state.value.notice?.title)
+        assertEquals(uiText(R.string.ui_not_available_yet), vm.state.value.notice?.title)
     }
 
     @Test fun installedFeatureUsesOneShotEventAndPreferenceFailureDoesNotClaimSuccess() = runTest(timeout = 5.seconds) {
