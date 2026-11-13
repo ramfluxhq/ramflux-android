@@ -18,12 +18,12 @@ import org.ramflux.feature.appshell.AppShellNavigation
 import org.ramflux.feature.appshell.api.FeatureRoute
 import org.ramflux.feature.chat.ChatNavigation
 import org.ramflux.feature.chat.api.ChatRoute
+import org.ramflux.feature.contacts.ContactsNavigation
+import org.ramflux.feature.contacts.api.ContactsRoute
 import org.ramflux.feature.conversations.ConversationsNavigation
 import org.ramflux.feature.conversations.api.ConversationsRoute
 import org.ramflux.feature.onboarding.OnboardingNavigation
 import org.ramflux.feature.onboarding.api.OnboardingRoute
-import org.ramflux.feature.contacts.ContactsNavigation
-import org.ramflux.feature.contacts.api.ContactsRoute
 import org.ramflux.feature.settings.SettingsNavigation
 import org.ramflux.feature.settings.api.SettingsRoute
 

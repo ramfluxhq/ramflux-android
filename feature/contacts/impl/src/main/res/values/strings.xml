@@ -55,4 +55,12 @@
     <string name="contacts_verified">Safety number verified</string>
     <string name="contacts_unverified">Safety number not verified</string>
     <plurals name="contacts_messages"><item quantity="one">%1$s held message</item><item quantity="other">%1$s held messages</item></plurals>
+    <string name="contacts_confirm">Confirm contact operation</string>
+    <string name="contacts_confirm_account">Account: %1$s</string>
+    <string name="contacts_hold">Hold for 1.2 seconds to allow</string>
+    <string name="contacts_release">Release to allow</string>
+    <string name="contacts_deny">Deny</string>
+    <string name="contacts_confirmed_refresh">The account confirmed this operation. Refresh to read the current relationship.</string>
+    <string name="contacts_unknown_operation">Outcome unknown for operation %1$s. Refresh to reconcile; do not repeat it.</string>
+    <string name="contacts_safety_binding_unavailable">Verification requires SDK support for the exact safety material you compared. No verification was recorded.</string>
 </resources>

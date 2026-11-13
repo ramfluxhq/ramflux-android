@@ -55,4 +55,12 @@
     <string name="contacts_verified">安全号码已核对</string>
     <string name="contacts_unverified">安全号码尚未核对</string>
     <plurals name="contacts_messages"><item quantity="other">%1$s 条待处理消息</item></plurals>
+    <string name="contacts_confirm">核对联系人操作</string>
+    <string name="contacts_confirm_account">账号：%1$s</string>
+    <string name="contacts_hold">按住 1.2 秒以允许</string>
+    <string name="contacts_release">松开以允许</string>
+    <string name="contacts_deny">拒绝</string>
+    <string name="contacts_confirmed_refresh">账号已确认此操作。请刷新以读取当前联系人关系。</string>
+    <string name="contacts_unknown_operation">操作 %1$s 的结果未知。请刷新核对，勿重复提交。</string>
+    <string name="contacts_safety_binding_unavailable">验证需要 SDK 绑定您实际核对的安全材料。未记录任何验证。</string>
 </resources>

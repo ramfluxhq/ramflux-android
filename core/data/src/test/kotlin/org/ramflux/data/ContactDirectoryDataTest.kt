@@ -15,7 +15,9 @@ class ContactDirectoryDataTest {
         try {
             val repo = DefaultContactDirectoryRepository(SdkRepositoryTransport { client })
             assertEquals(listOf(ContactSummary("yes", "peer", "Actual name", true)), (repo.contacts("account") as ClientResult.Ready).value)
-            for (operation in ContactOperation.entries) assertTrue(repo.availability(operation) is ClientResult.Unavailable)
+            assertTrue(repo.availability(ContactOperation.ACCEPT) is ClientResult.Ready)
+            assertTrue(repo.availability(ContactOperation.REPORT) is ClientResult.Unavailable)
+            assertTrue(repo.availability(ContactOperation.VERIFY) is ClientResult.Unavailable)
             assertEquals("contact.list", abi.submitted.single()["method"]?.jsonPrimitive?.content)
             assertEquals("account", abi.submitted.single()["account_id"]?.jsonPrimitive?.content)
             abi.completionBody = buildJsonObject {}

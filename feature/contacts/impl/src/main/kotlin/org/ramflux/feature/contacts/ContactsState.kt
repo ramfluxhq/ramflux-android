@@ -23,6 +23,8 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
     override fun toString() = "PersonItem(<redacted>)"
 }
 
+@Immutable data class ContactApproval(val account: String, val operation: UiText, val targets: ImmutableList<String>, val held: Boolean = false)
+
 @Immutable data class ContactsState(
     val page: ContactsPage = ContactsPage.LIST,
     val tab: ContactsTab = ContactsTab.CONTACTS,
@@ -36,7 +38,10 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
     val loaded: Boolean = false,
     val accountRequired: Boolean = false,
     val problem: UiText? = null,
-    val unavailable: UiText? = null
+    val unavailable: UiText? = null,
+    val approval: ContactApproval? = null,
+    val operationNotice: UiText? = null,
+    val uncertain: ImmutableList<UiText> = persistentListOf()
 ) {
     override fun toString() = "ContactsState(<redacted>)"
 }

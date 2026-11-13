@@ -7,6 +7,9 @@ import org.ramflux.sdk.*
 
 internal class DefaultContactDirectoryRepository(transport: RepositoryTransport) : ContactDirectoryRepository {
     private val source = DefaultContactsRepository(transport)
+    private val actions = ContactCommandAdapter(transport)
+    override suspend fun submit(command: ContactCommand, confirmed: Boolean) = actions.submit(command, confirmed)
+    override fun attempts(account: String) = actions.attempts(account)
     override suspend fun contacts(account: String): ClientResult<List<ContactSummary>> {
         if (account.isBlank() || account.length > 4096) return invalid()
         return when (val reply = source.list(RepositoryContext(account), buildJsonObject {})) {
@@ -40,7 +43,8 @@ internal class DefaultContactDirectoryRepository(transport: RepositoryTransport)
             }
         }
     }
-    override suspend fun availability(operation: ContactOperation): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CONTACTS,
-        if (operation == ContactOperation.REPORT) UnavailableReason.UNSUPPORTED_BY_CORE else UnavailableReason.FEATURE_NOT_INSTALLED)
+    override suspend fun availability(operation: ContactOperation): ClientResult<Unit> =
+        if (operation in setOf(ContactOperation.ADD, ContactOperation.ACCEPT, ContactOperation.DECLINE, ContactOperation.BLOCK, ContactOperation.BATCH_DECLINE)) ClientResult.Ready(Unit)
+        else ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
     private fun invalid() = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
 }

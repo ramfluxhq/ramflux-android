@@ -88,6 +88,8 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
                             RFStateBlock(stringResource(R.string.contacts_error), message.render(), RFStateKind.Error, theme, action = {})
                         }
                     }
+                    state.operationNotice?.let { notice -> item("operation-notice") { Text(notice.render()) } }
+                    items(state.uncertain.indices.toList(), key = { "uncertain:" + it }) { index -> Text(state.uncertain[index].render()) }
                     state.unavailable?.let { message ->
                         item("unavailable") {
                             RFStateBlock(
@@ -275,6 +277,21 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
             }
         }
     }
+    state.approval?.let { approval ->
+        Dialog(onDismissRequest = { onAction(ContactsAction.Deny) }) {
+            RFDialogShell(stringResource(R.string.contacts_confirm), approval.operation.render(), theme, content = {
+                Text(stringResource(R.string.contacts_confirm_account, approval.account))
+                LazyColumn(Modifier.heightIn(max = (theme.gap * 20).dp)) {
+                    items(approval.targets) { target -> Text(target) }
+                }
+                HoldConfirmation(stringResource(if (approval.held) R.string.contacts_release else R.string.contacts_hold), approval.held,
+                    onStart = { onAction(ContactsAction.HoldStart) }, onEnd = { onAction(ContactsAction.HoldEnd(it)) })
+            }, actions = {
+                TextButton(onClick = { onAction(ContactsAction.Deny) }) { Text(stringResource(R.string.contacts_deny)) }
+            })
+        }
+    }
+
 }
 
 @Composable

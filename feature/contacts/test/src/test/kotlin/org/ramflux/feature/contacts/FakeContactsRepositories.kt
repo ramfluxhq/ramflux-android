@@ -5,6 +5,14 @@ package org.ramflux.feature.contacts
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.ramflux.data.*
 class FakeContactDirectory : ContactDirectoryRepository {
+    val submitted = mutableListOf<ContactCommand>()
+    var submitting: suspend (ContactCommand) -> ClientResult<Unit> = { ClientResult.Ready(Unit) }
+    override suspend fun submit(command: ContactCommand, confirmed: Boolean): ClientResult<Unit> {
+        if (!confirmed) return ClientResult.Failed(ClientProblem(ClientFailureKind.AUTHORIZATION, 12, ClientOutcome.REFUSED))
+        submitted.add(command)
+        return submitting(command)
+    }
+    override fun attempts(account: String): List<ContactAttempt> = emptyList()
     var reads = 0
     val operations = mutableListOf<ContactOperation>()
     var reading: suspend (String) -> ClientResult<List<ContactSummary>> = { ClientResult.Ready(emptyList()) }

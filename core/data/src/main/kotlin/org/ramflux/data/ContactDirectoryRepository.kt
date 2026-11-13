@@ -15,6 +15,16 @@ enum class ContactOperation { ADD, ACCEPT, DECLINE, BLOCK, REPORT, REPLY, VERIFY
 interface ContactDirectoryRepository {
     suspend fun contacts(account: String): ClientResult<List<ContactSummary>>
     suspend fun requests(account: String): ClientResult<List<ContactRequestSummary>>
-    /** Read-only preflight. No mutation or success is fabricated while host approval is not installed. */
+    suspend fun submit(command: ContactCommand, confirmed: Boolean): ClientResult<Unit>
+    fun attempts(account: String): List<ContactAttempt>
+    /** Reports SDK support; does not execute or grant consent. */
     suspend fun availability(operation: ContactOperation): ClientResult<Unit>
+}
+
+data class ContactCommand(val account: String, val operationId: String, val operation: ContactOperation, val target: String, val principal: String) {
+    override fun toString() = "ContactCommand(<redacted>)"
+}
+enum class ContactAttemptPhase { CONFIRMED, REFUSED, FAILED, UNKNOWN }
+data class ContactAttempt(val operationId: String, val operation: ContactOperation, val target: String, val phase: ContactAttemptPhase) {
+    override fun toString() = "ContactAttempt(<redacted>)"
 }
