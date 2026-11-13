@@ -5,6 +5,7 @@ package org.ramflux.designsystem
 import android.annotation.SuppressLint
 import android.content.res.Configuration
 import android.os.LocaleList
+import android.view.ContextThemeWrapper
 import android.view.View
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalConfiguration
@@ -12,7 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 
-/** A host-owned locale context updates resources, dates and layout without replacing the navigation tree. */
+/** A resource override whose base remains the Activity context required by Hilt and platform services. */
 // The application packages every launch locale; the resource guard enforces its bundle setting.
 @SuppressLint("AppBundleLocaleChanges")
 @Composable
@@ -28,7 +29,9 @@ fun AppLanguageProvider(languageTag: String, content: @Composable () -> Unit) {
             }
         }
     }
-    val localized = remember(base, configuration) { base.createConfigurationContext(configuration) }
+    val localized = remember(base, configuration) {
+        ContextThemeWrapper(base, base.theme).apply { applyOverrideConfiguration(configuration) }
+    }
     val direction = if (configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL) LayoutDirection.Rtl else LayoutDirection.Ltr
     CompositionLocalProvider(
         LocalContext provides localized,

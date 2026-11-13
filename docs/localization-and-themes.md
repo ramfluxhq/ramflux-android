@@ -12,7 +12,9 @@ Settings offers English, Simplified Chinese and follow-system, with an explicit
 Apply action. The device-local language repository confirms an IO preference
 commit before publishing the active selection. The composition root observes
 that selection through `AppLanguageProvider`, supplying the resource context,
-configuration and layout direction to the existing navigation tree. Choosing a
+configuration and layout direction to the existing navigation tree. Its
+`ContextThemeWrapper` retains the Activity as its base, so Hilt and Activity
+services stay reachable for system and explicit locales. Choosing a
 language does not call the SDK, change peer data or modify account permissions.
 Unknown stored locales fall back to the inherited configuration with a typed
 notice; failed commits leave the active selection unchanged.
