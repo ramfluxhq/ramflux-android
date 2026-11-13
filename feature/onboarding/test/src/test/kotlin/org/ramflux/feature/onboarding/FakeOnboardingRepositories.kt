@@ -38,6 +38,7 @@ class FakeAccountAccess : AccountAccessRepository {
 class FakeNodeSetup : NodeSetupRepository {
     var reads = 0
     var discoveries = 0
+    var lastAddress: String? = null
     var confirmations = 0
     var lastConfirmed: DiscoveredNode? = null
     var listing: ClientResult<List<SavedNode>> = ClientResult.Ready(emptyList())
@@ -49,6 +50,7 @@ class FakeNodeSetup : NodeSetupRepository {
     }
     override suspend fun discover(address: String): ClientResult<DiscoveredNode> {
         discoveries++
+        lastAddress = address
         return discoverResult()
     }
     override suspend fun confirm(candidate: DiscoveredNode): ClientResult<Unit> {

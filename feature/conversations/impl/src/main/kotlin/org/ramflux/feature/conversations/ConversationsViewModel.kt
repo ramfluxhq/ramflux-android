@@ -5,6 +5,10 @@ package org.ramflux.feature.conversations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import javax.inject.Inject
 import kotlinx.collections.immutable.*
 import kotlinx.coroutines.*
@@ -43,14 +47,44 @@ class ConversationsViewModel @Inject constructor(
                 ticket++
                 local.update { it.copy(loading = false) }
                 viewModelScope.launch {
-                    channel.send(
-                        if (action == ConversationsAction.Back) ConversationsEvent.Back else ConversationsEvent.SetupAccount
-                    )
+                    channel.send(if (action == ConversationsAction.Back) ConversationsEvent.Back else ConversationsEvent.SetupAccount)
                 }
             }
             ConversationsAction.Refresh -> if (request?.isActive != true) read(false)
             ConversationsAction.LoadMore -> if (request?.isActive != true && cursor != null) read(true)
-            is ConversationsAction.Open -> if (!local.value.loading && local.value.rows.any { it.id == action.id }) open(action.id)
+            is ConversationsAction.Open -> if (request?.isActive != true && local.value.rows.any { it.id == action.id }) open(action.id)
+        }
+    }
+
+    /** Account absence is asserted only by a successful authoritative catalog. */
+    private suspend fun account(expected: Long, generation: Long, requiredId: String? = null): AccountSummary? {
+        val result = accounts.list()
+        current(expected, generation)
+        when (result) {
+            is ClientResult.Failed -> {
+                cursor = null
+                local.value = result.notice(ConversationsState(), "Account state")
+                return null
+            }
+            is ClientResult.Unavailable -> {
+                cursor = null
+                local.value = result.notice(ConversationsState(), "Account state")
+                return null
+            }
+            is ClientResult.Ready -> {
+                val active = result.value.accounts.find { it.id == result.value.activeId && it.unlocked }
+                if (active == null) {
+                    cursor = null
+                    local.value = ConversationsState(accountRequired = true)
+                    return null
+                }
+                if (requiredId != null && active.id != requiredId) {
+                    cursor = null
+                    local.value = ConversationsState(problem = "The active account changed. Refresh the list.")
+                    return null
+                }
+                return active
+            }
         }
     }
     private fun read(more: Boolean) {
@@ -62,40 +96,22 @@ class ConversationsViewModel @Inject constructor(
             cursor = null
             local.value = ConversationsState(loading = true)
         } else {
-            local.update { it.copy(loading = true, problem = null, unavailable = null) }
+            local.update { it.copy(loading = true, problem = null, problemKind = null, unavailable = null, unavailableReason = null) }
         }
         request = viewModelScope.launch {
             try {
-                val catalog = accounts.list()
+                val selected = account(expected, generation, if (more) previous.accountId else null) ?: return@launch
+                local.update { it.copy(accountId = selected.id, accountLabel = selected.label ?: selected.id) }
+                val result = directory.page(selected.id, if (more) cursor else null)
                 current(expected, generation)
-                val active = (catalog as? ClientResult.Ready)?.value
-                val account = active?.activeId?.takeIf { id -> active.accounts.any { it.id == id && it.unlocked } }
-                if (account == null || (more && account != previous.accountId)) {
-                    cursor = null
-                    local.value = ConversationsState(
-                        accountRequired = catalog is ClientResult.Ready,
-                        problem = if (catalog is ClientResult.Failed) "Account read failed (code ${catalog.problem.code})." else null
-                    )
-                    return@launch
-                }
-                val result = directory.page(account, if (more) cursor else null)
-                current(expected, generation)
-                val now = accounts.list()
-                current(expected, generation)
-                if ((now as? ClientResult.Ready)?.value?.let {
-                        it.activeId == account && it.accounts.any { row -> row.id == account && row.unlocked }
-                    } != true
-                ) {
-                    cursor = null
-                    local.value = ConversationsState(accountRequired = true)
-                    return@launch
-                }
+                account(expected, generation, selected.id) ?: return@launch
                 when (result) {
                     is ClientResult.Ready -> {
                         val rows = result.value.rows.map { row ->
                             ConversationItem(
                                 row.id, row.title,
-                                if (row.archived) "Archived" else "Conversation", row.unread.toString(), row.unread > 0u
+                                if (row.archived) "Archived" else "Conversation", row.unread.toString(), row.isUnread,
+                                row.lastActivity.displayTime()
                             )
                         }
                         val combined = if (more) previous.rows + rows else rows
@@ -104,19 +120,24 @@ class ConversationsViewModel @Inject constructor(
                         ) {
                             local.update { it.copy(problem = "Page conflict. Refresh the list.", hasMore = false) }
                             cursor = null
-                        } else {
-                            cursor = result.value.nextCursor
-                            val search = directory.searchAvailability()
-                            current(expected, generation)
-                            local.value = ConversationsState(
-                                accountId = account, rows = combined.toPersistentList(), loaded = true,
-                                hasMore = cursor != null, searchAvailable = search is ClientResult.Ready,
-                                unavailable = if (search is ClientResult.Unavailable) "Local search is unavailable." else null
-                            )
+                            return@launch
+                        }
+                        cursor = result.value.nextCursor
+                        val search = directory.searchAvailability()
+                        current(expected, generation)
+                        val afterCapabilities = account(expected, generation, selected.id) ?: return@launch
+                        val fresh = ConversationsState(
+                            accountId = selected.id, accountLabel = afterCapabilities.label ?: afterCapabilities.id,
+                            rows = combined.toPersistentList(), loaded = true, hasMore = cursor != null
+                        )
+                        local.value = when (search) {
+                            is ClientResult.Ready -> fresh.copy(searchAvailable = true)
+                            is ClientResult.Failed -> search.notice(fresh, "Search availability")
+                            is ClientResult.Unavailable -> search.notice(fresh, "Local search")
                         }
                     }
-                    is ClientResult.Failed -> local.update { it.copy(problem = "Read failed (code ${result.problem.code}).") }
-                    is ClientResult.Unavailable -> local.update { it.copy(unavailable = "Conversations are unavailable.") }
+                    is ClientResult.Failed -> local.update { result.notice(it, "Conversations") }
+                    is ClientResult.Unavailable -> local.update { result.notice(it, "Conversations") }
                 }
             } finally {
                 if (expected == ticket) local.update { it.copy(loading = false) }
@@ -124,42 +145,55 @@ class ConversationsViewModel @Inject constructor(
         }
     }
     private fun open(id: String) {
-        val account = local.value.accountId ?: return
+        val accountId = local.value.accountId ?: return
         val expected = ++ticket
         val generation = session.status.value.generation
         request?.cancel()
+        local.update { it.copy(loading = true) }
         request = viewModelScope.launch {
-            val current = accounts.list()
-            current(expected, generation)
-            if ((current as? ClientResult.Ready)?.value?.let {
-                    it.activeId == account && it.accounts.any { row -> row.id == account && row.unlocked }
-                } != true
-            ) {
-                local.value = ConversationsState(accountRequired = true)
-                return@launch
-            }
-            when (val result = directory.openAvailability(account, id)) {
-                is ClientResult.Ready -> {
-                    current(expected, generation)
-                    channel.send(ConversationsEvent.OpenChat(account, id))
+            try {
+                account(expected, generation, accountId) ?: return@launch
+                val result = directory.openAvailability(accountId, id)
+                current(expected, generation)
+                account(expected, generation, accountId) ?: return@launch
+                when (result) {
+                    is ClientResult.Ready -> channel.send(ConversationsEvent.OpenChat(accountId, id))
+                    is ClientResult.Unavailable -> local.update { result.notice(it, "Chat") }
+                    is ClientResult.Failed -> local.update { result.notice(it, "Chat") }
                 }
-                is ClientResult.Unavailable -> {
-                    current(expected, generation)
-                    local.update { it.copy(unavailable = "Chat is not included in this build yet.") }
-                }
-                is ClientResult.Failed -> {
-                    current(expected, generation)
-                    local.update { it.copy(problem = "This conversation could not be opened (code ${result.problem.code}).") }
-                }
+            } finally {
+                if (expected == ticket) local.update { it.copy(loading = false) }
             }
         }
     }
     private suspend fun current(expected: Long, generation: Long) {
         currentCoroutineContext().ensureActive()
         if (ticket != expected || session.status.value.phase != ClientPhase.OPEN || session.status.value.generation != generation) {
-            throw CancellationException(
-                "retired session"
-            )
+            throw CancellationException("retired session")
         }
+    }
+}
+private fun ClientResult.Failed.notice(state: ConversationsState, subject: String) = state.copy(
+    problem = "$subject could not be read (code ${problem.code}).",
+    problemKind = problem.kind,
+    unavailable = null,
+    unavailableReason = null
+)
+private fun ClientResult.Unavailable.notice(state: ConversationsState, subject: String) = state.copy(
+    unavailable = when (reason) {
+        UnavailableReason.FEATURE_NOT_INSTALLED -> "$subject is not included in this build yet."
+        UnavailableReason.UNSUPPORTED_BY_CORE -> "$subject is not available in this version."
+        UnavailableReason.CUSTODY_PROVIDER_REQUIRED -> "$subject requires secure account access on this device."
+    },
+    unavailableReason = reason,
+    problem = null,
+    problemKind = null
+)
+private fun Long?.displayTime(): String {
+    if (this == null) return ""
+    return try {
+        DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withZone(ZoneId.systemDefault()).format(Instant.ofEpochSecond(this))
+    } catch (_: java.time.DateTimeException) {
+        "Time unavailable"
     }
 }

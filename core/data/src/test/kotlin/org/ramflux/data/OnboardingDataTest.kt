@@ -66,4 +66,19 @@ class OnboardingDataTest {
             assertTrue(abi.returnedBuffers.all { buffer -> buffer.all { it == 0.toByte() } })
         } finally { client.close() }
     }
+
+    @Test fun missingDiscoveryNodeOrFingerprintIsTypedFailure() = runTest(timeout = 5.seconds) {
+        for (body in listOf(buildJsonObject { put("key_fingerprint", "a".repeat(64)) },
+            buildJsonObject { put("node", node()) }, buildJsonObject { put("node", JsonNull); put("key_fingerprint", 3) })) {
+            val transport = PublicTransport().apply { answer = { reply(body) } }
+            assertTrue(DefaultNodeSetupRepository(transport).discover("https://node.example") is ClientResult.Failed)
+            assertEquals(1, transport.calls.size)
+        }
+    }
+    @Test fun originReviewStripsUnapprovedPathQueryAndFragmentButRejectsCredentials() {
+        assertEquals(DiscoveryOrigin("Node.Example/team?source=invite#join", "https://node.example"),
+            DiscoveryOriginParser.preview("Node.Example/team?source=invite#join"))
+        assertNull(DiscoveryOriginParser.preview("https://user:secret@node.example/path"))
+        assertNull(DiscoveryOriginParser.preview("http://node.example"))
+    }
 }

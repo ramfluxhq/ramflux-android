@@ -30,13 +30,13 @@ class ConversationsScreenshotTest(private val width: Int, private val dark: Bool
 
     @Test fun screen() {
         val state = when (kind) {
-            "loading" -> ConversationsState(loading = true)
-            "error" -> ConversationsState(problem = "Private data could not be read.")
+            "loading" -> ConversationsState(accountLabel = "Work", loading = true)
+            "error" -> ConversationsState(accountLabel = "Work", problem = "Private data could not be read.")
             "empty" -> ConversationsState(loaded = true)
             "account" -> ConversationsState(accountRequired = true)
             else -> ConversationsState(
                 loaded = true,
-                rows = persistentListOf(ConversationItem("c", "Project", "Conversation", "7", true)),
+                rows = persistentListOf(ConversationItem("c", "Project", "Conversation", "7", true, "10:30")),
                 unavailable = "Local search is not available in this version."
             )
         }

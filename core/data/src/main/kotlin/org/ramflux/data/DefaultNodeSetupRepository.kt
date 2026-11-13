@@ -39,10 +39,11 @@ internal class DefaultNodeSetupRepository(transport: RepositoryTransport) : Node
         rows.map { node(it.jsonObject, default) }.also { require(it.map { row -> row.id }.distinct().size == it.size) }
     }
     override suspend fun discover(address: String): ClientResult<DiscoveredNode> {
-        if (NodeAddress.parse(address) !is NodeAddress.Valid) return invalid
+        if (DiscoveryOriginParser.preview(address)?.origin != address) return invalid
         return decode(nodes.add(context(true), buildJsonObject { put("url", address) })) { body ->
-            val candidate = node(body.getValue("node").jsonObject)
-            val fingerprint = body.getValue("key_fingerprint").jsonPrimitive.content
+            val candidate = node(body["node"] as? JsonObject ?: throw IllegalArgumentException("missing node"))
+            val fingerprint = (body["key_fingerprint"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+                ?: throw IllegalArgumentException("missing fingerprint")
             require(fingerprint.length == 64 && fingerprint.all { it in '0'..'9' || it in 'a'..'f' })
             DiscoveredNode(candidate, fingerprint)
         }
