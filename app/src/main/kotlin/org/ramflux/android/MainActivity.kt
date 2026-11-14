@@ -32,10 +32,10 @@ import org.ramflux.feature.groups.GroupsNavigation
 import org.ramflux.feature.groups.api.GroupsRoute
 import org.ramflux.feature.onboarding.OnboardingNavigation
 import org.ramflux.feature.onboarding.api.OnboardingRoute
-import org.ramflux.feature.permissions.PermissionsNavigation
 import org.ramflux.feature.permissions.NotificationPermissionBannerNavigation
-import org.ramflux.feature.permissions.api.PermissionsRoute
+import org.ramflux.feature.permissions.PermissionsNavigation
 import org.ramflux.feature.permissions.api.PermissionEntry
+import org.ramflux.feature.permissions.api.PermissionsRoute
 import org.ramflux.feature.settings.SettingsNavigation
 import org.ramflux.feature.settings.api.SettingsRoute
 import org.ramflux.feature.tasks.TasksNavigation
@@ -79,11 +79,22 @@ class MainActivity : ComponentActivity() {
                     entry<ContactsRoute> { ContactsNavigation(onBack, { navigate(OnboardingRoute) }) }
                     entry<PermissionsRoute> { route -> PermissionsNavigation(route, onBack) }
                     entry<SettingsRoute> {
-                        SettingsNavigation(onBack, { navigate(OnboardingRoute) }, { navigate(OnboardingRoute) },
-                            onPermissions = { navigate(PermissionsRoute()) })
+                        SettingsNavigation(
+                            onBack,
+                            { navigate(OnboardingRoute) },
+                            { navigate(OnboardingRoute) },
+                            onPermissions = { navigate(PermissionsRoute()) }
+                        )
                     }
-                    entry<ChatRoute> { route -> ChatNavigation(route.accountId, route.conversationId, onBack, groupId = route.groupId,
-                        onAttachments = { navigate(PermissionsRoute(PermissionEntry.ATTACHMENTS)) }) }
+                    entry<ChatRoute> { route ->
+                        ChatNavigation(
+                            route.accountId,
+                            route.conversationId,
+                            onBack,
+                            groupId = route.groupId,
+                            onAttachments = { navigate(PermissionsRoute(PermissionEntry.ATTACHMENTS)) }
+                        )
+                    }
                     entry<ConversationsRoute> {
                         ConversationsNavigation(
                             onBack = onBack,
@@ -92,8 +103,13 @@ class MainActivity : ComponentActivity() {
                             permissionBanner = { NotificationPermissionBannerNavigation({ navigate(PermissionsRoute()) }) }
                         )
                     }
-                    entry<OnboardingRoute> { OnboardingNavigation(onBack = onBack, onAccountSelected = { onBack() },
-                        onAccountCreated = { navigate(PermissionsRoute(PermissionEntry.AFTER_ACCOUNT_CREATION, it)) }) }
+                    entry<OnboardingRoute> {
+                        OnboardingNavigation(
+                            onBack = onBack,
+                            onAccountSelected = { onBack() },
+                            onAccountCreated = { navigate(PermissionsRoute(PermissionEntry.AFTER_ACCOUNT_CREATION, it)) }
+                        )
+                    }
                 }
             }
         }
