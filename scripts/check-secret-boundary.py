@@ -13,8 +13,8 @@ pin = json.loads((root / 'sdk-contract/pin.json').read_text())
 assert hashlib.sha256(raw).hexdigest() == pin['policy_sha256'], 'pinned policy changed'
 policy = json.loads(raw)
 source = (root / 'core/sdk/src/main/kotlin/org/ramflux/sdk/MethodPolicy.kt').read_text()
-actual = {name: (a == 'true', b == 'true', c == 'true', capability) for name, a, b, c, capability in re.findall(r'"([^"]+)" to MethodPolicy\((true|false), (true|false), (true|false), "([^"]+)"\)', source)}
-expected = {m['name']: tuple(m[k] for k in ('secret_input','secret_output','show_once','capability')) for m in policy['methods']}
+actual = {name: (a == 'true', b == 'true', c == 'true', d == 'true', e == 'true', capability) for name, a, b, c, d, e, capability in re.findall(r'"([^"]+)" to MethodPolicy\((true|false), (true|false), (true|false), (true|false), (true|false), "([^"]+)"\)', source)}
+expected = {m['name']: tuple(m[k] for k in ('secret_input','secret_output','show_once','key_export','bridge_allowed','capability')) for m in policy['methods']}
 assert actual == expected, 'Kotlin policy differs from the SDK artifact'
 codec = (root / 'core/sdk/src/main/kotlin/org/ramflux/sdk/ReplyCodec.kt').read_text()
 secret_section = codec[codec.index('    fun decodeSecret'):codec.index('    private const val MAX_FRAME')]

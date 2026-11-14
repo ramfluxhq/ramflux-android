@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.ramflux.sdk.vault.HostCustodyBridge
 
 sealed interface HostState {
     data object Stopped : HostState
@@ -29,7 +30,9 @@ class AndroidCoreHost internal constructor(private val native: NativeCore, priva
             withContext(kotlinx.coroutines.Dispatchers.IO) { when (val root = AndroidStorage.noBackupRoot(context)) {
                 is CoreResult.Failure -> root
                 is CoreResult.Success -> try {
-                    CoreResult.Success(AndroidCoreHost(JniCore.load(), root.value.absolutePath, expectedDescriptorFingerprint))
+                    val native = JniCore.load()
+                    HostCustodyBridge.install(context.applicationContext)
+                    CoreResult.Success(AndroidCoreHost(native, root.value.absolutePath, expectedDescriptorFingerprint))
                 } catch (_: LinkageError) { CoreResult.Failure(CoreError.UnsupportedVersion(Effect.NONE)) }
             } }
     }

@@ -21,9 +21,12 @@ case "$profile" in
   *) echo 'RAMFLUX_NATIVE_PROFILE must be release or dev' >&2; exit 1 ;;
 esac
 # Retain line tables for the separate symbol artifact, then strip only packaging copies.
-# Optimisation/LTO/codegen remain the SDK's shipping release profile.
+# C ABI v2 refuses panic=abort. Shipping is ffi-release: release optimisation with unwind.
+# The packaged marker stays "release"; dev remains the non-shipping local profile.
 export CARGO_PROFILE_RELEASE_STRIP=none
 export CARGO_PROFILE_RELEASE_DEBUG=line-tables-only
+export CARGO_PROFILE_FFI_RELEASE_STRIP=none
+export CARGO_PROFILE_FFI_RELEASE_DEBUG=line-tables-only
 mkdir -p "$out/jniLibs/arm64-v8a" "$out/include" "$out/symbols/arm64-v8a" "$out/assets"
 out="$(cd "$out" && pwd)"
 python3 - "$core" "$repo" <<'PYDESC'
@@ -38,7 +41,7 @@ export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS='-C link-arg=-Wl,-z,max-page
 # The pinned SDK packages its mobile SQLCipher/OpenSSL dependency.
 cmp "$core/crates/ramflux-sdk/include/ramflux_sdk_methods.json" "$repo/sdk-contract/ramflux_sdk_methods.json"
 profile_args=()
-if [[ "$profile" == release ]]; then profile_args+=(--release); fi
+if [[ "$profile" == release ]]; then profile_args+=(--profile ffi-release); fi
 ndk_args=(-t arm64-v8a --platform 28)
 if [[ "$action" == build ]]; then ndk_args+=(-o "$out/jniLibs"); fi
 (cd "$core" && cargo ndk "${ndk_args[@]}" "$action" -p ramflux-sdk --lib --features c-abi --locked "${profile_args[@]}")

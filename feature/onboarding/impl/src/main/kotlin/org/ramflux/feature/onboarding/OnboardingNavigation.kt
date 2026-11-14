@@ -27,5 +27,5 @@ fun OnboardingNavigation(
             }
         }
     }
-    OnboardingScreen(state, vm::onAction)
+    OnboardingScreen(state, vm::onAction, drawPhrase = vm::drawPhrase)
 }

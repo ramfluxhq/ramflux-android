@@ -21,7 +21,7 @@ outcomes explicitly. It must retain the original operation ID for reconciliation
 | Voice calls | Calls; video, group calls and screen sharing are deferred |
 | Theme, language, OS permissions and navigation | Native-shell responsibilities; this module has no UI |
 
-The Android Keystore wrapper is a platform primitive, not a replacement for the
-SDK's custody provider. Linking that provider, microphone/Telecom integration,
-notification delivery and physical-device verification remain separate from
-these bridge compile checks.
+The Android Keystore wrapper is the host custody provider: records are sealed
+with a non-exportable hardware key and the client opens through that provider.
+Microphone/Telecom integration, notification delivery and physical-device
+verification remain separate from these bridge compile checks.

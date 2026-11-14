@@ -13,5 +13,10 @@ sealed interface OnboardingAction {
     data object UseNode : OnboardingAction
     data object Confirm : OnboardingAction
     data class SelectAccount(val id: String) : OnboardingAction
+    data class DisplayName(val value: String) : OnboardingAction
+    data object BeginCreate : OnboardingAction
+    data object PhraseSaved : OnboardingAction
+    class ConfirmChallenge(val words: Array<CharArray>, val passphrase: CharArray) : OnboardingAction
+    data object ContinueCreated : OnboardingAction
     data object Back : OnboardingAction
 }

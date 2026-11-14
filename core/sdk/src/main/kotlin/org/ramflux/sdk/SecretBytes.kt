@@ -49,6 +49,21 @@ class SecretFields internal constructor() : Closeable {
     private var fields = 0
     init { output[0] = 123 }
     private fun put(value: Int) { require(position < output.size); output[position++] = value.toByte() }
+    fun charArrays(name: String, values: Array<CharArray>) {
+        try {
+            if (fields++ > 0) put(44)
+            writeChars(name.toCharArray())
+            put(58)
+            put(91)
+            values.forEachIndexed { index, value ->
+                if (index > 0) put(44)
+                writeChars(value)
+            }
+            put(93)
+        } finally {
+            values.forEach { it.fill('\u0000') }
+        }
+    }
     fun chars(name: String, value: CharArray) {
         try {
             if (fields++ > 0) put(44)
@@ -94,6 +109,30 @@ private fun java.nio.charset.CoderResult.throwExceptionIfError() { if (isError) 
 class SecretReply internal constructor(private val storage: SecretBytes) : Closeable {
     fun <T> useOnce(block: (ByteArray) -> T): T = storage.useOnce(block)
     /** One disclosure. The host draws the characters and must not make an immutable String. */
+    fun textAndLong(textField: String, numberField: String): Pair<String, Long> = storage.useOnce { raw ->
+        val parser = ByteJson(raw)
+        val root = parser.parse()
+        val text = parser.chars(parser.field(root, textField) ?: throw IllegalArgumentException("missing field"))
+        try {
+            val number = parser.integer(parser.field(root, numberField) ?: throw IllegalArgumentException("missing field"))
+            String(text) to number.toLong()
+        } finally { text.fill('\u0000') }
+    }
+    fun ints(field: String): IntArray = storage.useOnce { raw ->
+        val parser = ByteJson(raw)
+        val node = parser.field(parser.parse(), field) ?: throw IllegalArgumentException("missing field")
+        require(node.kind == 91 && node.children.size in 1..8)
+        IntArray(node.children.size) { parser.integer(node.children[it]) }
+    }
+    fun twoTexts(first: String, second: String): Pair<String, String> = storage.useOnce { raw ->
+        val parser = ByteJson(raw)
+        val root = parser.parse()
+        fun text(name: String): String {
+            val chars = parser.chars(parser.field(root, name) ?: throw IllegalArgumentException("missing field"))
+            return try { String(chars) } finally { chars.fill('\u0000') }
+        }
+        text(first) to text(second)
+    }
     fun <T> consumeChars(field: String, block: (CharArray) -> T): T = storage.useOnce { raw ->
         val parser = ByteJson(raw)
         val root = parser.parse()

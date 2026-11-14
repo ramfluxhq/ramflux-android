@@ -80,4 +80,15 @@
     <string name="ui_operator_key_explanation">Before connecting, obtain the node public key directly from its operator through a separate trusted channel. Enter it here before discovery.</string>
     <string name="ui_operator_key_required">Enter the operator public key before checking the address.</string>
     <string name="ui_operator_key_mismatch">The discovered key does not match the operator key. Nothing was pinned. Verify the address and key with the operator.</string>
+    <string name="ui_display_name">Display name</string>
+    <string name="ui_display_name_explanation">This name is shown for the new account. The recovery phrase is created on this device and shown only once.</string>
+    <string name="ui_begin_account_creation">Create the account</string>
+    <string name="ui_write_down_the_recovery_phrase">Write down these 24 words in order. They are shown only once and are not saved on this device.</string>
+    <string name="ui_i_have_saved_the_phrase">I have written down the phrase</string>
+    <string name="ui_recovery_word_position">Word %1$d</string>
+    <string name="ui_data_passphrase">Data passphrase</string>
+    <string name="ui_data_passphrase_explanation">This passphrase seals account data on this device. It is separate from the recovery phrase.</string>
+    <string name="ui_confirm_account">Confirm account</string>
+    <string name="ui_account_created_detail">The account is unlocked on this device.</string>
+    <string name="ui_continue_into_the_account">Continue</string>
 </resources>

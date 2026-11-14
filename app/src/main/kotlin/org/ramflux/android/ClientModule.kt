@@ -22,6 +22,8 @@ object ClientModule {
 
     @Provides fun accounts(data: AndroidClientData): AccountAccessRepository = data.accounts
 
+    @Provides fun ceremony(data: AndroidClientData): AccountCeremonyRepository = data.ceremony
+
     @Provides fun nodes(data: AndroidClientData): NodeSetupRepository = data.nodes
 
     @Provides fun conversations(data: AndroidClientData): ConversationDirectoryRepository = data.conversations

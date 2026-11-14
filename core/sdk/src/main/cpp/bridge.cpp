@@ -9,6 +9,7 @@
 #include <chrono>
 #include <thread>
 #include "ramflux_sdk.h"
+#include "custody_jni.h"
 
 namespace {
 constexpr size_t kMaxFrame = 1024 * 1024;
@@ -80,7 +81,7 @@ Java_org_ramflux_sdk_JniCore_open(JNIEnv* env, jobject, jbyteArray config) {
     Input input(env, config);
     if (!input.valid) return env->ExceptionCheck() ? nullptr : reply(env, 1);
     uint64_t handle = 0;
-    const int32_t code = ramflux_v2_client_open(input.bytes.data(), input.bytes.size(), &handle);
+    const int32_t code = ramflux_android_open_with_custody(input.bytes.data(), input.bytes.size(), &handle);
     jobject result = reply(env, code, nullptr, handle);
     // A failed Java allocation must not strand a live core handle.
     if (result == nullptr && handle != 0) close_orphan_client(handle);

@@ -10,6 +10,7 @@ class AndroidClientData(context: Context, expectedDescriptor: String) {
     private val driver = AndroidClientLifecycleDriver(context.applicationContext, expectedDescriptor)
     val session: ClientSessionRepository = DefaultClientSessionRepository(driver)
     val accounts: AccountAccessRepository = DefaultAccountAccessRepository(driver.transport)
+    val ceremony: AccountCeremonyRepository = DefaultAccountCeremonyRepository(driver.transport)
     val nodes: NodeSetupRepository = DefaultNodeSetupRepository(driver.transport)
     val conversations: ConversationDirectoryRepository = DefaultConversationDirectoryRepository(driver.transport)
     val history: MessageHistoryRepository = DefaultMessageHistoryRepository(driver.transport)

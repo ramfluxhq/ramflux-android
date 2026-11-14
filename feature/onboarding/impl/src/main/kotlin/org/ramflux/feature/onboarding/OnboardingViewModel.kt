@@ -19,7 +19,8 @@ import org.ramflux.feature.onboarding.impl.R
 class OnboardingViewModel @Inject constructor(
     private val accounts: AccountAccessRepository,
     private val nodes: NodeSetupRepository,
-    private val session: ClientSessionRepository
+    private val session: ClientSessionRepository,
+    private val ceremony: AccountCeremonyRepository = UnavailableAccountCeremonyRepository()
 ) : ViewModel() {
     private val local = MutableStateFlow(OnboardingState())
     private val channel = Channel<OnboardingEvent>(Channel.BUFFERED)
@@ -35,6 +36,7 @@ class OnboardingViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), OnboardingState())
     private var work: Job? = null
+    private var phrase: RecoveryPhrase? = null
     private var candidate: DiscoveredNode? = null
     private var savedNodes = emptyList<SavedNode>()
     private var ticket = 0L
@@ -46,6 +48,8 @@ class OnboardingViewModel @Inject constructor(
             ticket++
             candidate = null
             savedNodes = emptyList()
+            phrase?.close()
+            phrase = null
             local.value = OnboardingState()
             if (phase == ClientPhase.OPEN) onAction(OnboardingAction.Refresh)
         }
@@ -55,6 +59,10 @@ class OnboardingViewModel @Inject constructor(
             work?.cancel()
             ticket++
             candidate = null
+            val dropCeremony = local.value.page == OnboardingPage.PHRASE || local.value.page == OnboardingPage.CHALLENGE
+            phrase?.close()
+            phrase = null
+            if (dropCeremony) viewModelScope.launch { ceremony.cancel() }
             if (local.value.page == OnboardingPage.START) {
                 viewModelScope.launch { channel.send(OnboardingEvent.Back) }
             } else {
@@ -98,6 +106,15 @@ class OnboardingViewModel @Inject constructor(
                         else -> failure(result)
                     }
                 }
+            }
+            is OnboardingAction.DisplayName -> if (local.value.page == OnboardingPage.CREATE) {
+                local.update { it.copy(displayName = action.value.trim().take(64), notice = null) }
+            }
+            OnboardingAction.BeginCreate -> beginCreate()
+            OnboardingAction.PhraseSaved -> hidePhrase()
+            is OnboardingAction.ConfirmChallenge -> confirmChallenge(action)
+            OnboardingAction.ContinueCreated -> local.value.createdAccountId?.let { id ->
+                viewModelScope.launch { channel.send(OnboardingEvent.AccountCreated(id)) }
             }
             is OnboardingAction.SelectAccount -> launch {
                 val result = accounts.select(action.id)
@@ -225,12 +242,10 @@ class OnboardingViewModel @Inject constructor(
         }
     }
     private fun page(page: OnboardingPage) {
+        if (page == OnboardingPage.PHRASE || page == OnboardingPage.CHALLENGE || page == OnboardingPage.CREATED) return
         val setup = when (page) {
-            OnboardingPage.CREATE -> AccountSetupAction.CREATE
             OnboardingPage.RECOVER -> AccountSetupAction.RECOVER
             OnboardingPage.PAIR -> AccountSetupAction.PAIR
-            OnboardingPage.PHRASE -> AccountSetupAction.SHOW_PHRASE
-            OnboardingPage.CHALLENGE -> AccountSetupAction.CHECK_PHRASE
             OnboardingPage.LOCAL_UNLOCK -> AccountSetupAction.LOCAL_UNLOCK
             else -> null
         }
@@ -241,7 +256,8 @@ class OnboardingViewModel @Inject constructor(
             OnboardingPage.ADDRESS,
             OnboardingPage.RESUME,
             OnboardingPage.REPAIR,
-            OnboardingPage.WELCOME
+            OnboardingPage.WELCOME,
+            OnboardingPage.CREATE
         )
         if (setup == null && page !in selectable) return
         candidate = null
@@ -249,6 +265,74 @@ class OnboardingViewModel @Inject constructor(
         if (setup != null) {
             launch { failure(accounts.setup(setup)) }
         } else if (page in setOf(OnboardingPage.CONNECTION, OnboardingPage.WELCOME, OnboardingPage.RESUME)) read()
+    }
+
+    /** Draws one recovery word into the caller and never copies it into screen state. */
+    fun drawPhrase(index: Int, block: (CharArray) -> Unit) {
+        phrase?.draw(index, block)
+    }
+
+    private fun beginCreate() {
+        val name = local.value.displayName.trim()
+        if (name.isEmpty()) return
+        val nodeId = local.value.selectedNode?.id ?: savedNodes.firstOrNull { it.isDefault }?.id
+        launch {
+            when (val pending = ceremony.beginCreate(name, nodeId)) {
+                is ClientResult.Ready -> when (val shown = ceremony.showPhrase()) {
+                    is ClientResult.Ready -> {
+                        checkCurrent()
+                        phrase?.close()
+                        phrase = shown.value
+                        local.update { it.copy(page = OnboardingPage.PHRASE, phraseSlots = shown.value.length, notice = null) }
+                    }
+                    else -> {
+                        ceremony.cancel()
+                        failure(shown)
+                    }
+                }
+                else -> failure(pending)
+            }
+        }
+    }
+
+    private fun hidePhrase() {
+        launch {
+            phrase?.close()
+            phrase = null
+            local.update { it.copy(phraseSlots = 0) }
+            when (val result = ceremony.challenge()) {
+                is ClientResult.Ready -> {
+                    checkCurrent()
+                    local.update {
+                        it.copy(page = OnboardingPage.CHALLENGE, challengePositions = result.value.toList().toPersistentList())
+                    }
+                }
+                else -> failure(result)
+            }
+        }
+    }
+
+    private fun confirmChallenge(action: OnboardingAction.ConfirmChallenge) {
+        launch {
+            try {
+                when (val result = ceremony.confirm(action.words, action.passphrase)) {
+                    is ClientResult.Ready -> {
+                        checkCurrent()
+                        local.update {
+                            it.copy(
+                                page = OnboardingPage.CREATED,
+                                createdAccountId = result.value,
+                                challengePositions = kotlinx.collections.immutable.persistentListOf()
+                            )
+                        }
+                    }
+                    else -> failure(result)
+                }
+            } finally {
+                action.words.forEach { it.fill('\u0000') }
+                action.passphrase.fill('\u0000')
+            }
+        }
     }
 
     /** Every completion is fenced by lifecycle generation as well as cancellation. */

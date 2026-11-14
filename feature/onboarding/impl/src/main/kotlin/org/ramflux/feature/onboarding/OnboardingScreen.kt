@@ -22,7 +22,8 @@ import org.ramflux.generated.*
 fun OnboardingScreen(
     state: OnboardingState,
     onAction: (OnboardingAction) -> Unit,
-    contentWindowInsets: WindowInsets = WindowInsets.safeDrawing
+    contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
+    drawPhrase: (Int, (CharArray) -> Unit) -> Unit = { _, _ -> }
 ) {
     val theme = LocalRFTheme.current
     Scaffold(modifier = Modifier.testTag("onboarding-window"), contentWindowInsets = contentWindowInsets) { insets ->
@@ -245,8 +246,11 @@ fun OnboardingScreen(
                                 onAction = { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) }
                             )
                             OnboardingPage.CHECKING, OnboardingPage.SAVING -> Unit
-                            OnboardingPage.CREATE, OnboardingPage.PHRASE, OnboardingPage.CHALLENGE, OnboardingPage.LOCAL_UNLOCK,
-                            OnboardingPage.CREATED, OnboardingPage.PAIR, OnboardingPage.RECOVER -> {
+                            OnboardingPage.CREATE -> CreateAccountPage(state, onAction)
+                            OnboardingPage.PHRASE -> PhrasePage(state, drawPhrase)
+                            OnboardingPage.CHALLENGE -> ChallengePage(state, onAction)
+                            OnboardingPage.CREATED -> CreatedAccountPage(state)
+                            OnboardingPage.LOCAL_UNLOCK, OnboardingPage.PAIR, OnboardingPage.RECOVER -> {
                                 Text(
                                     stringResource(R.string.ui_secure_setup_is_unavailable_no_account_phrase_or)
                                 )
@@ -304,6 +308,30 @@ private fun OnboardingFooter(state: OnboardingState, onAction: (OnboardingAction
                     onAction = { onAction(OnboardingAction.Page(OnboardingPage.ADDRESS)) }
                 )
             }
+            OnboardingPage.CREATE -> RFActionButton(
+                "begin-create",
+                stringResource(R.string.ui_begin_account_creation),
+                RFButtonKind.Primary,
+                theme,
+                disabled = state.busy || state.displayName.isBlank(),
+                onAction = { onAction(OnboardingAction.BeginCreate) }
+            )
+            OnboardingPage.PHRASE -> RFActionButton(
+                "phrase-saved",
+                stringResource(R.string.ui_i_have_saved_the_phrase),
+                RFButtonKind.Primary,
+                theme,
+                disabled = state.busy || state.phraseSlots == 0,
+                onAction = { onAction(OnboardingAction.PhraseSaved) }
+            )
+            OnboardingPage.CREATED -> RFActionButton(
+                "continue-created",
+                stringResource(R.string.ui_continue_into_the_account),
+                RFButtonKind.Primary,
+                theme,
+                disabled = state.busy || state.createdAccountId == null,
+                onAction = { onAction(OnboardingAction.ContinueCreated) }
+            )
             OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED ->
                 RFActionButton(
                     "confirm-node",

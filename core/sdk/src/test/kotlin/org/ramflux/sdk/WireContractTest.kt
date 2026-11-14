@@ -40,10 +40,10 @@ class WireContractTest {
         val first = rows.first() as JsonObject
         val variants = listOf(
             JsonObject(original - "policy_version"),
-            JsonObject(original + ("policy_version" to JsonPrimitive(2))),
+            JsonObject(original + ("policy_version" to JsonPrimitive(1))),
             JsonObject(original + ("methods" to JsonArray(rows.drop(1)))),
             JsonObject(original + ("methods" to JsonArray(rows.dropLast(1) + rows.first()))),
-        ) + listOf("secret_input", "secret_output", "show_once").map { flag ->
+        ) + listOf("secret_input", "secret_output", "show_once", "key_export", "bridge_allowed").map { flag ->
             val changed = JsonObject(first + (flag to JsonPrimitive(!(first.getValue(flag) as JsonPrimitive).boolean)))
             JsonObject(original + ("methods" to JsonArray(listOf(changed) + rows.drop(1))))
         } + JsonObject(original + ("methods" to JsonArray(listOf(JsonObject(first + ("capability" to JsonPrimitive("changed")))) + rows.drop(1))))

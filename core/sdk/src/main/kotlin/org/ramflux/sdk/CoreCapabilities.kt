@@ -14,19 +14,21 @@ data class CoreCapabilities(val descriptorFingerprint: String, val methods: Set<
         fun matchesPolicy(body: JsonObject): Boolean {
             val manifest = body["method_policy"] as? JsonObject ?: return false
             if (manifest.keys != setOf("abi_major", "policy_version", "methods") ||
-                manifest["abi_major"] != JsonPrimitive(2) || manifest["policy_version"] != JsonPrimitive(1)) return false
+                manifest["abi_major"] != JsonPrimitive(2) || manifest["policy_version"] != JsonPrimitive(2)) return false
             val rows = manifest["methods"] as? JsonArray ?: return false
             if (rows.size != SdkMethodPolicy.methods.size) return false
             val seen = mutableSetOf<String>()
             for (entry in rows) {
                 val row = entry as? JsonObject ?: return false
-                if (row.keys != setOf("name", "capability", "secret_input", "secret_output", "show_once")) return false
+                if (row.keys != setOf("name", "capability", "bridge_allowed", "secret_input", "secret_output", "show_once", "key_export")) return false
                 val name = (row["name"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return false
                 val policy = SdkMethodPolicy.methods[name] ?: return false
                 if (!seen.add(name) || row["capability"] != JsonPrimitive(policy.capability) ||
+                    row["bridge_allowed"] != JsonPrimitive(policy.bridgeAllowed) ||
                     row["secret_input"] != JsonPrimitive(policy.secretInput) ||
                     row["secret_output"] != JsonPrimitive(policy.secretOutput) ||
-                    row["show_once"] != JsonPrimitive(policy.showOnce)) return false
+                    row["show_once"] != JsonPrimitive(policy.showOnce) ||
+                    row["key_export"] != JsonPrimitive(policy.keyExport)) return false
             }
             return true
         }
@@ -52,7 +54,7 @@ data class CoreCapabilities(val descriptorFingerprint: String, val methods: Set<
                 if (method.length !in 1..128 || method.contains("itest")) return null
                 if (!methods.add(method)) return null
             }
-            if (methods != SdkMethodPolicy.methods.keys) return null
+            if (methods != SdkMethodPolicy.methods.filterValues { it.bridgeAllowed }.keys) return null
             return CoreCapabilities(fingerprint, methods.toSet())
         }
     }

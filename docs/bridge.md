@@ -34,8 +34,9 @@ require the pinned SDK checkout and native toolchain. The native-packaging CI jo
 builds the real AAR and a build-only, non-UI APK consumer. It extracts and checks
 every packaged ELF and runs `zipalign -c -P 16` on the APK; the fast Kotlin job
 runs independently. A missing native dependency fails the native job.
-Native packaging defaults to the SDK's shipping release profile (its optimisation,
-LTO and codegen settings). Line tables and symbols are retained in separate `.dbg`
+Native packaging defaults to the SDK shipping profile `ffi-release` (release
+optimisation, LTO and codegen, with panic=unwind). The packaged marker stays
+`release`. Line tables and symbols are retained in separate `.dbg`
 artifacts under `core/sdk/build/generated/native/symbols`, then packaging copies
 are stripped with NDK tools and linked to their debug files. Cargo target outputs
 and the original JNI build remain unstripped. CI uploads symbols separately.
@@ -110,7 +111,7 @@ close erase its allocation. `consumeChars` decodes escapes/UTF-8 into a temporar
 CharArray, passes it to the native host, then erases it. The host must not create
 immutable Strings from those characters. Event payloads use the same owned type.
 Errors from secret operations expose numeric status/effect, never parsed secret
-error details. `check-secret-boundary.py` guards decoder entrypoints and all 185
+error details. `check-secret-boundary.py` guards decoder entrypoints and all 191
 SDK classifications in CI.
 
 ## Capabilities and integration boundary
@@ -133,8 +134,8 @@ It accepts only verified TEE/StrongBox AES-GCM keys; only
 `StrongBoxUnavailableException` permits fallback to TEE. Background keys require
 no user authentication; presence keys require a fresh CryptoObject authorization.
 `KeyWrapping` implements typed errors and a background round trip, never rekeys
-on unwrap, and erases temporary plaintext. These primitives do not install a vault
-inside the product SDK. That requires the Android vault/provider seam from the
-platform SDK module; the bridge does not claim custody creation is operational
-until that seam is linked and verified. Physical hardware and real lifecycle
-acceptance are distinct from compile and JVM unit checks.
+on unwrap, and erases temporary plaintext. The host custody provider seals vault
+records with that non-exportable background key and opens the client through
+`ramflux_v2_client_open_with_custody`. Ciphertext lives in no-backup storage.
+A software keystore is refused; there is no software vault. Physical hardware
+and real lifecycle acceptance are distinct from compile and JVM unit checks.

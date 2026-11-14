@@ -16,6 +16,7 @@ interface ConversationsRepository {
     suspend fun conversationList(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun conversationMute(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun messageAck(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun messageFocus(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun messageDelete(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun messageFranking_evidence(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun messageList(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
@@ -24,6 +25,11 @@ interface ConversationsRepository {
     suspend fun messageReceiptRead(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun messageReceive(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun messageSubmit(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun conversationSend(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun conversationEdit(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun conversationReact(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun conversationReply(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun conversationDelete(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun objectDelete(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun objectDirectory(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun objectFetch(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -64,6 +70,9 @@ class DefaultConversationsRepository(transport: RepositoryTransport) : SdkReposi
     override suspend fun messageAck(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("message.ack", "message", context, body)
 
+    override suspend fun messageFocus(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("message.focus", "message", context, body)
+
     override suspend fun messageDelete(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("message.delete", "message", context, body)
 
@@ -86,7 +95,22 @@ class DefaultConversationsRepository(transport: RepositoryTransport) : SdkReposi
         executeSecret("message.receive", "message", context, body)
 
     override suspend fun messageSubmit(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
-        executeSecret("message.submit", "message", context, body)
+        executeSecret("message.submit", "raw_message", context, body)
+
+    override suspend fun conversationSend(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("conversation.send", "conversation", context, body)
+
+    override suspend fun conversationEdit(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("conversation.edit", "conversation", context, body)
+
+    override suspend fun conversationReact(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("conversation.react", "conversation", context, body)
+
+    override suspend fun conversationReply(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("conversation.reply", "conversation", context, body)
+
+    override suspend fun conversationDelete(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("conversation.delete", "conversation", context, body)
 
     override suspend fun objectDelete(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("object.delete", "object", context, body)

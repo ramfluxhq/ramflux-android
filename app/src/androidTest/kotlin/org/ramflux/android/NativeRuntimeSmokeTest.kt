@@ -15,6 +15,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.ramflux.sdk.*
+import org.ramflux.sdk.vault.HostCustodyBridge
 
 /** Exercises the installed shipping-profile libraries, not a Robolectric/native fixture. */
 @RunWith(AndroidJUnit4::class)
@@ -24,7 +25,9 @@ class NativeRuntimeSmokeTest {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val root = Files.createTempDirectory(context.filesDir.toPath(), "native-runtime-").toFile()
             try {
-                val result = CoreClient.open(JniCore.load(), root.absolutePath, BuildConfig.MESSAGE_DESCRIPTOR)
+                val native = JniCore.load()
+                HostCustodyBridge.install(context)
+                val result = CoreClient.open(native, root.absolutePath, BuildConfig.MESSAGE_DESCRIPTOR)
                 assertTrue("Real SDK negotiation/open must succeed: $result", result is CoreResult.Success)
                 val client = (result as CoreResult.Success).value
                 try {

@@ -331,7 +331,11 @@ class CoreClient internal constructor(
                     if (!CoreCapabilities.matchesPolicy(version)) return@withContext CoreResult.Failure(CoreError.MethodPolicyMismatch)
                     val capabilities = CoreCapabilities.parse(version, expectedDescriptorFingerprint)
                         ?: return@withContext CoreResult.Failure(CoreError.UnsupportedVersion(Effect.NONE))
-                    val bytes = buildJsonObject { put("data_root", dataRoot) }.toString().toByteArray()
+                    // First-party host: show-once recovery phrases are key-export rows and stay inside this process.
+                    val bytes = buildJsonObject {
+                        put("data_root", dataRoot)
+                        put("allow_secret_exports", true)
+                    }.toString().toByteArray()
                     val reply = try { native.open(bytes) } finally { bytes.fill(0) }
                     if (reply.code == 0 && reply.handle != 0L) {
                         reply.body.fill(0)

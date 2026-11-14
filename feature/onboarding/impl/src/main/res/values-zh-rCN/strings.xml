@@ -80,4 +80,15 @@
     <string name="ui_operator_key_explanation">连接前，请通过独立的可信渠道直接向节点运营方获取公钥，并在发现节点前输入。</string>
     <string name="ui_operator_key_required">检查地址前，请先输入运营方公钥。</string>
     <string name="ui_operator_key_mismatch">发现的公钥与运营方公钥不匹配，未固定任何公钥。请向运营方核实地址和公钥。</string>
+    <string name="ui_display_name">显示名称</string>
+    <string name="ui_display_name_explanation">此名称用于新账户。恢复短语在本机生成，并且只显示一次。</string>
+    <string name="ui_begin_account_creation">创建账户</string>
+    <string name="ui_write_down_the_recovery_phrase">请按顺序抄写这 24 个词。它们只显示一次，不会保存在本机上。</string>
+    <string name="ui_i_have_saved_the_phrase">我已抄写恢复短语</string>
+    <string name="ui_recovery_word_position">第 %1$d 个词</string>
+    <string name="ui_data_passphrase">数据口令</string>
+    <string name="ui_data_passphrase_explanation">此口令用于在本机封存账户数据，与恢复短语无关。</string>
+    <string name="ui_confirm_account">确认账户</string>
+    <string name="ui_account_created_detail">账户已在本机解锁。</string>
+    <string name="ui_continue_into_the_account">继续</string>
 </resources>

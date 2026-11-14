@@ -67,24 +67,27 @@ class FakeAbi : NativeCore {
         }
     }
     fun policyManifest(): JsonObject = buildJsonObject {
-        put("abi_major", 2); put("policy_version", 1)
+        put("abi_major", 2); put("policy_version", 2)
         put("methods", JsonArray(SdkMethodPolicy.methods.map { (name, policy) -> buildJsonObject {
-            put("name", name); put("capability", policy.capability)
-            put("secret_input", policy.secretInput); put("secret_output", policy.secretOutput); put("show_once", policy.showOnce)
+            put("name", name); put("capability", policy.capability); put("bridge_allowed", policy.bridgeAllowed)
+            put("secret_input", policy.secretInput); put("secret_output", policy.secretOutput)
+            put("show_once", policy.showOnce); put("key_export", policy.keyExport)
         } }))
     }
     override fun negotiate() = out(0, buildJsonObject {
         put("abi_major", 2); put("abi_minor", 0); put("bus_protocol", "ramflux.local_bus.v1")
         put("max_frame_bytes", 1048576); put("message_descriptor_blake3", "a".repeat(64))
         put("max_operations", 64); put("max_events", 64); put("max_event_bytes", 4 * 1024 * 1024)
-        put("methods", JsonArray(SdkMethodPolicy.methods.keys.map(::JsonPrimitive)))
+        put("methods", JsonArray(SdkMethodPolicy.methods.filterValues { it.bridgeAllowed }.keys.map(::JsonPrimitive)))
         put("method_policy", negotiatedPolicy ?: policyManifest())
     }.toString().toByteArray())
     override fun open(config: ByteArray): NativeReply {
         val input = runCatching { Json.parseToJsonElement(config.decodeToString()).jsonObject }.getOrNull() ?: return out(1)
         val root = (input["data_root"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return out(1)
-        if (!root.startsWith("/") || input.keys.any { it !in setOf("data_root", "builtin_nodes") } ||
-            input["builtin_nodes"]?.let { it !is JsonArray } == true) return out(1)
+        val exports = input["allow_secret_exports"]
+        if (!root.startsWith("/") || input.keys.any { it !in setOf("data_root", "builtin_nodes", "allow_secret_exports") } ||
+            input["builtin_nodes"]?.let { it !is JsonArray } == true ||
+            (exports != null && exports != JsonPrimitive(true) && exports != JsonPrimitive(false))) return out(1)
         opens++
         if (clients.size >= 16) return out(15)
         if (root in leases) return out(18)

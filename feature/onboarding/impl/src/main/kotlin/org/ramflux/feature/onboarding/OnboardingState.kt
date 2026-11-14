@@ -59,5 +59,9 @@ enum class OnboardingNoticeKind { ERROR, UNAVAILABLE, UNKNOWN_OUTCOME }
     val selectedNode: NodeItem? = null,
     val busy: Boolean = false,
     val sessionReady: Boolean = false,
-    val notice: OnboardingNotice? = null
+    val notice: OnboardingNotice? = null,
+    val displayName: String = "",
+    val phraseSlots: Int = 0,
+    val challengePositions: ImmutableList<Int> = persistentListOf(),
+    val createdAccountId: String? = null
 )

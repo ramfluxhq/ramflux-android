@@ -18,7 +18,7 @@ a = p.parse_args()
 root = Path(__file__).resolve().parent.parent
 payload = subprocess.check_output(['git', '-C', a.sdk, 'show', a.revision + ':crates/ramflux-sdk/include/ramflux_sdk_methods.json'])
 policy = json.loads(payload)
-assert policy['abi_major'] == 2 and policy['policy_version'] == 1
+assert policy['abi_major'] == 2 and policy['policy_version'] == 2
 (root / 'sdk-contract/ramflux_sdk_methods.json').write_bytes(payload)
 (root / 'sdk-contract/pin.json').write_text(json.dumps({'revision': subprocess.check_output(['git', '-C', a.sdk, 'rev-parse', a.revision], text=True).strip(), 'policy_sha256': hashlib.sha256(payload).hexdigest()}, indent=2) + '\n')
 # Derive the expected descriptor from the same immutable revision, never negotiation echo.
@@ -41,10 +41,11 @@ with tempfile.TemporaryDirectory(prefix='rf-descriptor-pin-') as directory:
     'blake3': fingerprint, 'sha256': hashlib.sha256(descriptor).hexdigest(),
 }, indent=2) + '\n')
 h = '// SPDX-License-Identifier: AGPL-3.0-or-later\n// Copyright (c) 2026 Span Brain\n// Generated from the pinned SDK method policy.\n\n'
-rows = '\n'.join('        "' + m['name'] + '" to MethodPolicy(' + ', '.join(str(m[k]).lower() for k in ['secret_input','secret_output','show_once']) + ', "' + m['capability'] + '"),' for m in policy['methods'])
+flags = ['secret_input', 'secret_output', 'show_once', 'key_export', 'bridge_allowed']
+rows = '\n'.join('        "' + m['name'] + '" to MethodPolicy(' + ', '.join(str(m[k]).lower() for k in flags) + ', "' + m['capability'] + '"),' for m in policy['methods'])
 (root / 'core/sdk/src/main/kotlin/org/ramflux/sdk/MethodPolicy.kt').write_text(h + '''package org.ramflux.sdk
 
-data class MethodPolicy(val secretInput: Boolean, val secretOutput: Boolean, val showOnce: Boolean, val capability: String) {
+data class MethodPolicy(val secretInput: Boolean, val secretOutput: Boolean, val showOnce: Boolean, val keyExport: Boolean, val bridgeAllowed: Boolean, val capability: String) {
     val confidential: Boolean get() = secretInput || secretOutput
 }
 

@@ -135,13 +135,61 @@ class OnboardingViewModelTest {
         vm.onAction(OnboardingAction.SelectAccount("a"))
         runCurrent()
         assertEquals(OnboardingNoticeKind.UNAVAILABLE, vm.state.value.notice?.kind)
-        for (page in listOf(OnboardingPage.CREATE, OnboardingPage.PAIR, OnboardingPage.RECOVER)) {
+        vm.onAction(OnboardingAction.Page(OnboardingPage.CREATE))
+        runCurrent()
+        assertEquals(OnboardingPage.CREATE, vm.state.value.page)
+        assertEquals(null, vm.state.value.notice)
+        for (page in listOf(OnboardingPage.PAIR, OnboardingPage.RECOVER)) {
             vm.onAction(OnboardingAction.Page(page))
             runCurrent()
             assertEquals(page, vm.state.value.page)
             assertEquals(OnboardingNoticeKind.UNAVAILABLE, vm.state.value.notice?.kind)
         }
-        assertEquals(3, accounts.setups)
+        assertEquals(2, accounts.setups)
+    }
+
+    @Test fun createDrawsThePhraseOnceAndLeavesItOutOfState() = runTest(timeout = 5.seconds) {
+        val ceremony = FakeAccountCeremony()
+        val nodes = FakeNodeSetup().apply {
+            listing = ClientResult.Ready(listOf(SavedNode("node-1", "https://node.example", "key", true, false, true)))
+        }
+        val vm = OnboardingViewModel(FakeAccountAccess(), nodes, FakeOnboardingSession(), ceremony)
+        observe(vm)
+        val events = mutableListOf<OnboardingEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        runCurrent()
+        vm.onAction(OnboardingAction.Page(OnboardingPage.CREATE))
+        vm.onAction(OnboardingAction.DisplayName("Ada"))
+        vm.onAction(OnboardingAction.BeginCreate)
+        runCurrent()
+        assertEquals(OnboardingPage.PHRASE, vm.state.value.page)
+        assertEquals(24, vm.state.value.phraseSlots)
+        assertFalse(vm.state.value.toString().contains("alpha"))
+        val drawn = CharArray(8)
+        vm.drawPhrase(0) { word -> word.copyInto(drawn) }
+        assertEquals("alpha0", String(drawn).trimEnd('\u0000'))
+        drawn.fill('\u0000')
+        vm.onAction(OnboardingAction.PhraseSaved)
+        runCurrent()
+        var drawnAfterHide = false
+        vm.drawPhrase(0) { drawnAfterHide = true }
+        assertFalse(drawnAfterHide)
+        assertEquals(OnboardingPage.CHALLENGE, vm.state.value.page)
+        assertEquals(listOf(2, 15, 24), vm.state.value.challengePositions)
+        val words = arrayOf("alpha1".toCharArray(), "alpha14".toCharArray(), "alpha23".toCharArray())
+        val passphrase = "seal".toCharArray()
+        vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
+        runCurrent()
+        assertEquals(OnboardingPage.CREATED, vm.state.value.page)
+        assertEquals("account-created", vm.state.value.createdAccountId)
+        assertTrue(words.all { word -> word.all { it == '\u0000' } })
+        assertTrue(passphrase.all { it == '\u0000' })
+        assertFalse(vm.state.value.toString().contains("seal"))
+        assertEquals("Ada", ceremony.lastName)
+        assertEquals("node-1", ceremony.lastNode)
+        vm.onAction(OnboardingAction.ContinueCreated)
+        runCurrent()
+        assertEquals("account-created", (events.single { it is OnboardingEvent.AccountCreated } as OnboardingEvent.AccountCreated).id)
     }
 
     @Test fun sessionCloseRemovesPrivateRowsAndDropsLateDiscovery() = runTest(timeout = 5.seconds) {
