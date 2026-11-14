@@ -2,9 +2,14 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.onboarding
+import android.text.InputType
+import android.text.method.PasswordTransformationMethod
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.textclassifier.TextClassifier
 import android.widget.EditText
+import android.widget.TextView
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -134,6 +139,50 @@ class OnboardingScreenTest {
         assertTrue(buffer.isEmpty())
     }
 
+    @Test fun secretFieldDisablesUndoHistoryAndDropsThePreviousSecret() {
+        val buffer = ErasableBuffer()
+        var root: View? = null
+        compose.setContent {
+            root = LocalView.current
+            RamfluxTheme {
+                ErasableSecretField(
+                    buffer,
+                    stringResource(R.string.ui_data_passphrase),
+                    "data-passphrase",
+                    enabled = true,
+                    password = true,
+                    limit = 128,
+                    onEdited = {}
+                )
+            }
+        }
+        compose.waitForIdle()
+        val field = root!!.findTagged("data-passphrase")
+        assertSealed(field, InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        assertTrue(field.transformationMethod is PasswordTransformationMethod)
+        compose.runOnIdle {
+            field.text.replace(0, field.text.length, "first-secret")
+        }
+        compose.waitForIdle()
+        assertEquals("first-secret", field.text.toString())
+        compose.runOnIdle { field.onTextContextMenuItem(android.R.id.undo) }
+        assertEquals("first-secret", field.text.toString())
+        compose.runOnIdle {
+            field.text.replace(0, field.text.length, "second-secret")
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { field.onTextContextMenuItem(android.R.id.undo) }
+        assertEquals("second-secret", field.text.toString())
+        assertNoSecret(field, "first-secret")
+        compose.runOnIdle { buffer.clear() }
+        compose.waitForIdle()
+        assertTrue(field.text.isEmpty())
+        assertTrue(buffer.isEmpty())
+        assertNoSecret(field, "first-secret")
+        assertNoSecret(field, "second-secret")
+        assertTrue(field.text.filters.none { it.javaClass.simpleName == "UndoInputFilter" })
+    }
+
     @Test fun challengePageConfirmsFromTheErasableFieldsAndClearsThem() {
         val actions = mutableListOf<OnboardingAction>()
         var root: View? = null
@@ -158,6 +207,11 @@ class OnboardingScreenTest {
             view.findTagged("challenge-2").setText("charlie")
             view.findTagged("data-passphrase").setText("seal")
         }
+        val word = view.findTagged("challenge-0")
+        val secret = view.findTagged("data-passphrase")
+        assertSealed(word, InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
+        assertSealed(secret, InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        assertFalse(word.transformationMethod is PasswordTransformationMethod)
         compose.onNodeWithTag("confirm-account").performScrollTo().performClick()
         compose.waitForIdle()
         val action = actions.single() as OnboardingAction.ConfirmChallenge
@@ -168,6 +222,74 @@ class OnboardingScreenTest {
         assertTrue(view.findTagged("challenge-0").text.isEmpty())
         assertTrue(view.findTagged("data-passphrase").text.isEmpty())
     }
+}
+
+private fun assertNoSecret(field: EditText, secret: String) {
+    val leaked = editorStrings(field).filter { it.contains(secret) }
+    assertTrue(leaked.joinToString("|"), leaked.isEmpty())
+}
+
+private fun assertSealed(field: EditText, variation: Int) {
+    assertFalse(field.isSuggestionsEnabled)
+    assertFalse(field.isSaveEnabled)
+    assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO, field.importantForAutofill)
+    assertEquals(TextClassifier.NO_OP, field.textClassifier)
+    assertTrue(field.inputType and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0)
+    assertTrue(field.inputType and variation != 0)
+    assertTrue(field.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0)
+    assertTrue(field.imeOptions and EditorInfo.IME_FLAG_NO_EXTRACT_UI != 0)
+    val editor = editorOf(field)
+    val allow = editor.javaClass.getDeclaredField("mAllowUndo")
+    allow.isAccessible = true
+    assertFalse(allow.getBoolean(editor))
+    assertTrue(field.text.filters.none { it.javaClass.simpleName == "UndoInputFilter" })
+}
+
+private fun editorOf(field: EditText): Any {
+    val editor = TextView::class.java.getDeclaredField("mEditor")
+    editor.isAccessible = true
+    return checkNotNull(editor.get(field))
+}
+
+private fun editorStrings(field: EditText): List<String> {
+    val found = ArrayList<String>()
+    val seen = HashSet<Int>()
+    fun walk(value: Any?, depth: Int) {
+        if (value == null || depth > 8) return
+        if (value is String) {
+            found.add(value)
+            return
+        }
+        if (value is View || value is android.content.Context || value is Class<*>) return
+        if (value is Boolean || value is Number || value is Char || value is Enum<*>) return
+        val typeName = value.javaClass.name
+        val skipped = typeName.startsWith("java.") || typeName.startsWith("jdk.") ||
+            typeName.startsWith("sun.") || typeName.startsWith("kotlin.")
+        if (skipped) return
+        if (!seen.add(System.identityHashCode(value))) return
+        if (value is Array<*>) {
+            value.forEach { walk(it, depth + 1) }
+            return
+        }
+        var type: Class<*>? = value.javaClass
+        var levels = 0
+        while (type != null && type != Any::class.java && levels < 8) {
+            for (member in type.declaredFields) {
+                if (java.lang.reflect.Modifier.isStatic(member.modifiers)) continue
+                val child = try {
+                    member.isAccessible = true
+                    member.get(value)
+                } catch (_: Exception) {
+                    null
+                }
+                if (child is String) found.add(child) else walk(child, depth + 1)
+            }
+            type = type.superclass
+            levels++
+        }
+    }
+    walk(editorOf(field), 0)
+    return found
 }
 
 private fun View.findTagged(tag: String): EditText {

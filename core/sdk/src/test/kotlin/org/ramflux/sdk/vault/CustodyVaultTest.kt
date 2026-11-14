@@ -5,6 +5,8 @@ package org.ramflux.sdk.vault
 
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.security.MessageDigest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -92,11 +94,53 @@ class CustodyVaultTest {
         }
     }
 
+    @Test fun deleteSyncsTheParentAndReportsSyncFailure() {
+        val root = Files.createTempDirectory("custody-delete-sync").toFile()
+        try {
+            val dir = SyncGate(root)
+            val files = DirectoryCustodyFiles(dir)
+            val cipher = XorCipher()
+            val vault = CustodyVault(files, cipher)
+            val name = "ab".repeat(32)
+            assertTrue(files.createDurable(name, byteArrayOf(1, 2, 3)))
+            val stored = File(root, name)
+            assertTrue(stored.isFile)
+            assertTrue(files.delete(name))
+            assertFalse(stored.exists())
+            assertTrue(files.delete(name))
+            val reference = "sync-fail".toByteArray()
+            val seed = ByteArray(32) { 4 }
+            assertEquals(0, vault.invoke(CustodyVault.STORE_PRIMARY, reference, seed.copyOf(), ByteArray(0)).status)
+            val hashed = MessageDigest.getInstance("SHA-256").digest(reference).joinToString("") { "%02x".format(it) }
+            val record = File(root, hashed)
+            assertTrue(record.isFile)
+            dir.failSync = true
+            val refused = vault.invoke(CustodyVault.DELETE, reference, ByteArray(0), ByteArray(0))
+            assertEquals(CustodyFailure.BUSY, refused.failure)
+            assertEquals(5, refused.status)
+            assertFalse(record.exists())
+            assertTrue(files.delete(hashed))
+            assertEquals(0, vault.invoke(CustodyVault.DELETE, reference, ByteArray(0), ByteArray(0)).status)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     private fun contains(haystack: ByteArray, needle: ByteArray): Boolean {
         if (needle.isEmpty() || haystack.size < needle.size) return false
         for (start in 0..haystack.size - needle.size) {
             if (needle.indices.all { haystack[start + it] == needle[it] }) return true
         }
         return false
+    }
+}
+
+/** Directory sync uses [toPath]. The real adapter still unlinks through this file. */
+private class SyncGate(path: File) : File(path.absolutePath) {
+    var failSync: Boolean = false
+
+    override fun toPath(): Path {
+        if (failSync) return Paths.get("/no/such/custody-dir-sync")
+        return super.toPath()
     }
 }

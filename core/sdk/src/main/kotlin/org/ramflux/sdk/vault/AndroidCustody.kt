@@ -51,11 +51,12 @@ internal class DirectoryCustodyFiles(private val root: File) : CustodyFiles {
         }
     }
 
-    /** Missing records are already gone. An existing record that cannot be removed is a failure. */
+    /** Missing records are already gone. A removed record is acknowledged only after the directory is synced. */
     override fun delete(name: String): Boolean {
         val target = file(name) ?: return true
         if (!target.exists()) return true
-        return target.delete()
+        if (!target.delete()) return false
+        return syncDirectory(root)
     }
 
     private fun syncDirectory(dir: File): Boolean = try {
