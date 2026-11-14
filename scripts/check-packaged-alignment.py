@@ -4,6 +4,7 @@
 """Check every packaged native ELF; APKs additionally require 16 KB zip alignment."""
 import argparse
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -37,6 +38,14 @@ for archive in a.archives:
                 while chunk := source.read(1024 * 1024):
                     destination.write(chunk)
             output = subprocess.run([str(readelf), '-l', '--wide', str(elf)], capture_output=True, text=True, check=True, timeout=30).stdout
+            dynamic = subprocess.run([str(readelf), '-d', '--wide', str(elf)], capture_output=True, text=True, check=True, timeout=30).stdout
+            for needed in re.findall(r'\(NEEDED\).*Shared library: \[(.*?)\]', dynamic):
+                if '/' in needed or '\\' in needed:
+                    raise SystemExit(f'Nonportable ELF dependency: {entry.filename}: {needed}')
+                system = {'libc.so', 'libm.so', 'libdl.so', 'liblog.so', 'libandroid.so', 'libz.so'}
+                sibling = str(Path(entry.filename).parent / needed)
+                if needed not in system and sibling not in z.namelist():
+                    raise SystemExit(f'Missing packaged ELF dependency: {entry.filename}: {needed}')
             sections = subprocess.run([str(readelf), '-S', '--wide', str(elf)], capture_output=True, text=True, check=True, timeout=30).stdout
             if '.debug_' in sections or '.zdebug_' in sections:
                 raise SystemExit(f'Packaged native debug info was not split: {measurement}')
