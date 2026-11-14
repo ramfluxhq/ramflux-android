@@ -159,6 +159,9 @@ class ErasableSecretView(context: Context) : View(context) {
     private var pendingAccent = 0
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val fontMetrics = Paint.FontMetrics()
+    private val maskStep = charArrayOf(MASK_GLYPH)
+    private var maskGlyphs = CharArray(0)
 
     init {
         isFocusable = true
@@ -189,6 +192,7 @@ class ErasableSecretView(context: Context) : View(context) {
         }
         mask = maskInput
         limit = maxChars.coerceAtLeast(0)
+        prepareMaskGlyphs()
         contentDescription = description
         onEdited = edited
         isSaveEnabled = false
@@ -248,9 +252,10 @@ class ErasableSecretView(context: Context) : View(context) {
         val baseline = textBaseline()
         if (owned.isNotEmpty()) {
             if (mask) {
-                val glyphs = CharArray(owned.size) { MASK_GLYPH }
-                canvas.drawText(glyphs, 0, glyphs.size, paddingLeft.toFloat(), baseline, textPaint)
-                glyphs.fill('\u0000')
+                val count = owned.size.coerceAtMost(maskGlyphs.size)
+                if (count > 0) {
+                    canvas.drawText(maskGlyphs, 0, count, paddingLeft.toFloat(), baseline, textPaint)
+                }
             } else {
                 canvas.drawText(owned, 0, owned.size, paddingLeft.toFloat(), baseline, textPaint)
             }
@@ -277,11 +282,16 @@ class ErasableSecretView(context: Context) : View(context) {
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!isEnabled) return false
-        if (event.action == MotionEvent.ACTION_UP) {
-            requestFocus()
-            val manager = context.getSystemService(InputMethodManager::class.java)
-            manager?.showSoftInput(this, 0)
-        }
+        if (event.action == MotionEvent.ACTION_UP) performClick()
+        return true
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
+        if (!isEnabled) return false
+        requestFocus()
+        val manager = context.getSystemService(InputMethodManager::class.java)
+        manager?.showSoftInput(this, 0)
         return true
     }
 
@@ -507,22 +517,27 @@ class ErasableSecretView(context: Context) : View(context) {
         if (moreBefore > 0 || moreAfter > 0) deleteAround(moreBefore, moreAfter, codePoints = true)
     }
 
+    private fun prepareMaskGlyphs() {
+        val count = maxOf(limit, secret?.owned()?.size ?: 0)
+        if (count <= maskGlyphs.size) return
+        val previous = maskGlyphs
+        val next = CharArray(count)
+        next.fill(MASK_GLYPH)
+        maskGlyphs = next
+        previous.fill('\u0000')
+    }
+
     private fun textBaseline(): Float {
-        val metrics = textPaint.fontMetrics
+        textPaint.getFontMetrics(fontMetrics)
         val content = (height - paddingTop - paddingBottom).toFloat()
-        return paddingTop + (content - metrics.bottom - metrics.top) / 2f
+        return paddingTop + (content - fontMetrics.bottom - fontMetrics.top) / 2f
     }
 
     private fun caretX(owned: CharArray): Float {
         val origin = paddingLeft.toFloat()
         val count = selStart.coerceIn(0, owned.size)
         if (count == 0) return origin
-        if (mask) {
-            val glyph = charArrayOf(MASK_GLYPH)
-            val step = textPaint.measureText(glyph, 0, 1)
-            glyph[0] = '\u0000'
-            return origin + step * count
-        }
+        if (mask) return origin + textPaint.measureText(maskStep, 0, 1) * count
         return origin + textPaint.measureText(owned, 0, count)
     }
 
