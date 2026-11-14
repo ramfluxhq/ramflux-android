@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 /** App-owned values: no native reply, secret holder, or SDK error crosses this contract. */
 enum class ClientPhase { CLOSED, OPENING, OPEN, CLOSING, FAILED }
-enum class ClientFeature(val id: String) { CHAT("chat"), ONBOARDING("onboarding"), CONVERSATIONS("conversations"), CONTACTS("contacts"), SETTINGS("settings"), GROUPS("groups"), AGENTS("agents"), CALLS("calls") }
+enum class ClientFeature(val id: String) { CHAT("chat"), ONBOARDING("onboarding"), CONVERSATIONS("conversations"), CONTACTS("contacts"), SETTINGS("settings"), GROUPS("groups"), AGENTS("agents"), TASKS("tasks"), CALLS("calls") }
 enum class ClientFailureKind { INCOMPATIBLE, UNAVAILABLE, STORAGE, AUTHORIZATION, SHUTDOWN_PENDING, FAILED }
 enum class ClientOutcome { NONE, REFUSED, UNKNOWN }
 enum class ClientFailureReason { GROUP_CAPACITY, GROUP_INVALID }

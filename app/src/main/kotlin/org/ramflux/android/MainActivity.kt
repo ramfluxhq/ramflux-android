@@ -32,6 +32,8 @@ import org.ramflux.feature.onboarding.OnboardingNavigation
 import org.ramflux.feature.onboarding.api.OnboardingRoute
 import org.ramflux.feature.settings.SettingsNavigation
 import org.ramflux.feature.settings.api.SettingsRoute
+import org.ramflux.feature.tasks.TasksNavigation
+import org.ramflux.feature.tasks.api.TasksRoute
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -52,10 +54,12 @@ class MainActivity : ComponentActivity() {
                         "groups" -> GroupsRoute
                         "calls" -> CallsRoute
                         "agents" -> AgentsRoute
+                        "tasks" -> TasksRoute
                         else -> FeatureRoute(it)
                     }
                 }) { onBack, navigate ->
                     entry<CallsRoute> { CallsNavigation(onBack, { navigate(OnboardingRoute) }) }
+                    entry<TasksRoute> { TasksNavigation(onBack, { navigate(OnboardingRoute) }) }
                     entry<AgentsRoute> { AgentsNavigation(onBack, { navigate(OnboardingRoute) }) }
                     entry<GroupsRoute> {
                         GroupsNavigation(

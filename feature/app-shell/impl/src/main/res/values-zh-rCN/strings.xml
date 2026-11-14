@@ -36,4 +36,5 @@
     <string name="ui_groups">群组</string>
     <string name="ui_calls">通话</string>
     <string name="ui_agents">Agent</string>
+    <string name="ui_tasks">任务</string>
 </resources>
