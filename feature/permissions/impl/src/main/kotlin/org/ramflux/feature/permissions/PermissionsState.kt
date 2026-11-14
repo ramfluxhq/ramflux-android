@@ -6,11 +6,14 @@ import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
 import org.ramflux.data.*
 import org.ramflux.feature.permissions.api.PermissionEntry
+enum class PermissionsProblem { BATTERY_SETTINGS_UNAVAILABLE }
+
 @Immutable data class PermissionsState(
     val entry: PermissionEntry = PermissionEntry.SETTINGS,
     val rows: ImmutableList<OsPermissionRow> = persistentListOf(),
     val loading: Boolean = true,
     val failed: Boolean = false,
+    val problem: PermissionsProblem? = null,
     val explanation: OsPermission? = null,
     val waiting: Boolean = false,
     val needed: Boolean = false,
@@ -28,6 +31,7 @@ sealed interface PermissionsAction {
     data object Back : PermissionsAction
     data object SystemFinished : PermissionsAction
     data object SystemFailed : PermissionsAction
+    data object BatterySettingsUnavailable : PermissionsAction
     data object Settings : PermissionsAction
     data class Pick(val photo: Boolean) : PermissionsAction
     data class Picked(val valid: Boolean) : PermissionsAction

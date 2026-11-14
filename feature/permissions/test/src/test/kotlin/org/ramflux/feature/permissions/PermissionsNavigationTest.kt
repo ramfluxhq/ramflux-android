@@ -38,13 +38,19 @@ import org.robolectric.shadows.ShadowDialog
 class PermissionsNavigationTest {
     @get:Rule val compose = createComposeRule()
     private val app = ApplicationProvider.getApplicationContext<Application>()
-    private inner class Registry : ActivityResultRegistry(), ActivityResultRegistryOwner {
+    private inner class Registry(
+        private val missingBatterySettings: Boolean = false
+    ) : ActivityResultRegistry(), ActivityResultRegistryOwner {
         override val activityResultRegistry: ActivityResultRegistry get() = this
         val intents = mutableListOf<Intent>()
         var code = 0
         override fun <I, O> onLaunch(requestCode: Int, contract: ActivityResultContract<I, O>, input: I, options: ActivityOptionsCompat?) {
             code = requestCode
-            intents.add(contract.createIntent(app, input))
+            val intent = contract.createIntent(app, input)
+            intents.add(intent)
+            if (missingBatterySettings && intent.action == android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS) {
+                throw android.content.ActivityNotFoundException("OEM battery settings absent")
+            }
         }
     }
     private fun await(condition: () -> Boolean) {
@@ -189,5 +195,37 @@ class PermissionsNavigationTest {
         compose.onNodeWithText("Selected on this device. No attachment has been sent.").assertExists()
         assertEquals(listOf("content://picker/photo"), selected)
         assertFalse(app.getSharedPreferences("os-permissions", 0).all.keys.any { it.startsWith("asked-") })
+    }
+
+    @Test fun missingBatterySettingsHasEnglishMessageAndAppSettingsFallback() = missingBatterySettings(
+        "en",
+        "This device does not provide a battery optimization settings screen. " +
+            "Open app settings below or find battery settings in the Settings app."
+    )
+
+    @Test fun missingBatterySettingsHasChineseMessageAndAppSettingsFallback() = missingBatterySettings(
+        "zh-CN",
+        "此设备未提供电池优化设置页面。请使用下方按钮打开应用设置，或在系统设置中查找电池选项。"
+    )
+
+    private fun missingBatterySettings(locale: String, message: String) {
+        val registry = Registry(missingBatterySettings = true)
+        val vm = PermissionsViewModel(AndroidOsPermissionsRepository(app))
+        compose.setContent {
+            CompositionLocalProvider(LocalActivityResultRegistryOwner provides registry) {
+                AppLanguageProvider(locale) { RamfluxTheme { PermissionsNavigation(PermissionsRoute(), {}, vm = vm) } }
+            }
+        }
+        await { !vm.state.value.loading }
+        compose.onNodeWithTag("BATTERY").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.runOnIdle { button("host-confirmation-confirm").performClick() }
+        await { vm.state.value.problem == PermissionsProblem.BATTERY_SETTINGS_UNAVAILABLE }
+        assertFalse(vm.state.value.waiting)
+        assertFalse(vm.state.value.failed)
+        compose.onNodeWithText(message).assertIsDisplayed()
+        compose.onNodeWithTag("open-permission-settings").performClick()
+        await { registry.intents.size == 2 }
+        assertEquals(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, registry.intents.last().action)
     }
 }

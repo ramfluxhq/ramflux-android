@@ -26,6 +26,7 @@ jobs:
       - run: python3 scripts/check-secret-boundary.py
       - run: python3 scripts/check-client-architecture.py
       - run: python3 scripts/check-os-permissions.py
+      - run: python3 scripts/test-native-emulator.py
       - run: python3 scripts/check-ui-resources.py
       - run: python3 scripts/test-theme-catalog.py
       - run: python3 scripts/test-ui-resource-guard.py
@@ -89,6 +90,8 @@ jobs:
           path: native-target
           key: native-release-symbols-v1-${{ runner.os }}-${{ steps.sdk-pin.outputs.revision }}
           restore-keys: native-release-symbols-v1-${{ runner.os }}-
+      - name: Exercise ELF guard regressions with real ARM fixtures
+        run: python3 scripts/test-packaged-elf-guard.py
       - name: Assemble shipping-profile AAR and consumer APK
         env:
           RAMFLUX_CORE_DIR: ${{ github.workspace }}/sdk
@@ -139,16 +142,8 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Exercise packaged ARM libraries on API 35 with ARM translation
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_5
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
-          disable-animations: true
-          script: python3 scripts/run-native-smoke.py --app packaged/debug/app-debug.apk --test packaged/androidTest/debug/app-debug-androidTest.apk --output native-runtime-results
+      - name: Exercise packaged ARM libraries with one boot-only retry
+        run: python3 scripts/run-native-emulator.py --app packaged/debug/app-debug.apk --test packaged/androidTest/debug/app-debug-androidTest.apk --output native-runtime-results
       - uses: actions/upload-artifact@v4
         if: always()
         with:

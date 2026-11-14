@@ -50,4 +50,5 @@
     <string name="permissions_take_photo">拍照</string>
     <string name="permissions_selection">已在此设备上选择，尚未发送附件。</string>
     <string name="permissions_camera_unavailable">拍照暂不可用，请通过系统选择器选择照片或文件。</string>
+    <string name="permissions_battery_settings_unavailable">此设备未提供电池优化设置页面。请使用下方按钮打开应用设置，或在系统设置中查找电池选项。</string>
 </resources>

@@ -27,7 +27,7 @@ class PermissionsScreenshotTest(private val kind: String, private val dark: Bool
         fun cases(): List<Array<Any>> = buildList {
             for (kind in listOf(
                 "settings", "notification", "camera", "battery", "denied",
-                "media", "attachments", "selected", "error", "loading"
+                "media", "attachments", "selected", "error", "loading", "battery-missing"
             )) {
                 for (dark in listOf(false, true)) for (locale in listOf("en", "zh-CN", "en-XA")) for (width in listOf(400, 900)) {
                     add(arrayOf(kind, dark, locale, width))
@@ -40,6 +40,7 @@ class PermissionsScreenshotTest(private val kind: String, private val dark: Bool
         val state = PermissionsState(
             loading = kind == "loading",
             failed = kind == "error",
+            problem = if (kind == "battery-missing") PermissionsProblem.BATTERY_SETTINGS_UNAVAILABLE else null,
             needed = kind == "denied",
             unavailable = kind == "media",
             selected = kind == "selected",

@@ -90,7 +90,13 @@ fun PermissionsNavigation(
             } catch (
                 _: android.content.ActivityNotFoundException
             ) {
-                vm.onAction(PermissionsAction.SystemFailed)
+                vm.onAction(
+                    if (event is PermissionsEvent.Request && event.permission == OsPermission.BATTERY) {
+                        PermissionsAction.BatterySettingsUnavailable
+                    } else {
+                        PermissionsAction.SystemFailed
+                    }
+                )
             } catch (_: SecurityException) {
                 vm.onAction(PermissionsAction.SystemFailed)
             }

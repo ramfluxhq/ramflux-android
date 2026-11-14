@@ -42,6 +42,9 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                         }
                     }
                 )
+                if (state.problem == PermissionsProblem.BATTERY_SETTINGS_UNAVAILABLE) {
+                    Text(stringResource(R.string.permissions_battery_settings_unavailable))
+                }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).testTag("permissions-body")) {
                     Text(stringResource(R.string.permissions_intro))
                     if (state.loading) Text(stringResource(R.string.permissions_loading))

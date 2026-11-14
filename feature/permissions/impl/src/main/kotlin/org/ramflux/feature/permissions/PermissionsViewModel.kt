@@ -67,7 +67,7 @@ class PermissionsViewModel @Inject constructor(private val repository: OsPermiss
             is PermissionsAction.Select -> {
                 if (local.value.waiting || action?.isActive == true || local.value.loading) return
                 if (intent.permission == OsPermission.BATTERY && local.value.entry == PermissionEntry.SETTINGS) {
-                    local.update { it.copy(explanation = OsPermission.BATTERY, failed = false) }
+                    local.update { it.copy(explanation = OsPermission.BATTERY, failed = false, problem = null) }
                 } else {
                     onAction(PermissionsAction.Settings)
                 }
@@ -86,9 +86,12 @@ class PermissionsViewModel @Inject constructor(private val repository: OsPermiss
                 local.update { it.copy(waiting = false) }
                 if (active) refresh()
             }
+            PermissionsAction.BatterySettingsUnavailable -> local.update {
+                it.copy(waiting = false, failed = false, problem = PermissionsProblem.BATTERY_SETTINGS_UNAVAILABLE)
+            }
             PermissionsAction.SystemFailed -> local.update { it.copy(waiting = false, failed = true) }
             PermissionsAction.Settings -> if (!local.value.waiting) {
-                local.update { it.copy(waiting = true) }
+                local.update { it.copy(waiting = true, problem = null) }
                 event(PermissionsEvent.OpenSettings)
             }
             is PermissionsAction.Pick -> if (local.value.entry == PermissionEntry.ATTACHMENTS && !local.value.waiting) {

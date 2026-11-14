@@ -50,4 +50,5 @@
     <string name="permissions_take_photo">Take photo</string>
     <string name="permissions_selection">Selected on this device. No attachment has been sent.</string>
     <string name="permissions_camera_unavailable">Taking photos is not available yet. Choose a photo or file with the system picker.</string>
+    <string name="permissions_battery_settings_unavailable">This device does not provide a battery optimization settings screen. Open app settings below or find battery settings in the Settings app.</string>
 </resources>

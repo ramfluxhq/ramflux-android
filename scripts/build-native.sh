@@ -33,8 +33,8 @@ sdk, repo = map(Path,sys.argv[1:])
 pin=json.loads((repo/'sdk-contract/descriptor.json').read_text())
 assert hashlib.sha256((sdk/'crates/ramflux-protocol/src/message/descriptor.bin').read_bytes()).hexdigest()==pin['sha256'], 'pinned descriptor mismatch'
 PYDESC
-# cargo-ndk forwards the 16 KB link flags to the one Rust shared library.
-export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS='-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384'
+# cargo-ndk forwards 16 KB alignment and the stable SDK SONAME to the Rust shared library.
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS='-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384 -C link-arg=-Wl,-soname,libramflux_sdk.so'
 # The pinned SDK packages its mobile SQLCipher/OpenSSL dependency.
 cmp "$core/crates/ramflux-sdk/include/ramflux_sdk_methods.json" "$repo/sdk-contract/ramflux_sdk_methods.json"
 profile_args=()

@@ -5,10 +5,9 @@ if(NOT DEFINED RAMFLUX_NATIVE_DIR OR NOT DEFINED RAMFLUX_HEADER_DIR)
     message(FATAL_ERROR "Use scripts/build-native.sh with the matching SDK library and generated header")
 endif()
 add_library(ramflux_sdk SHARED IMPORTED)
-# The Rust cdylib has no ELF SONAME. Link by basename, never its host build path.
+# build-native.sh sets the SDK SONAME; the archive guard verifies portable linkage.
 set_target_properties(ramflux_sdk PROPERTIES
-    IMPORTED_LOCATION "${RAMFLUX_NATIVE_DIR}/arm64-v8a/libramflux_sdk.so"
-    IMPORTED_NO_SONAME TRUE)
+    IMPORTED_LOCATION "${RAMFLUX_NATIVE_DIR}/arm64-v8a/libramflux_sdk.so")
 add_library(ramflux_android SHARED bridge.cpp)
 target_compile_features(ramflux_android PRIVATE cxx_std_17)
 target_compile_options(ramflux_android PRIVATE -Wall -Wextra -Werror)
