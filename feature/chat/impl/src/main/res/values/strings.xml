@@ -30,4 +30,5 @@
     <string name="ui_conversation_details_unavailable">Conversation details unavailable</string>
     <string name="ui_time_unavailable">Time unavailable</string>
     <string name="ui_call_record_unavailable">Call record · details unavailable</string>
+    <string name="ui_attach">Attach</string>
 </resources>

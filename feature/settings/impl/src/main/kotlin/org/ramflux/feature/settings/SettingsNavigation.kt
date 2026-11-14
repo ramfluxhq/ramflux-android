@@ -10,11 +10,18 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-fun SettingsNavigation(onBack: () -> Unit, onAccount: () -> Unit, onConnections: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
+fun SettingsNavigation(
+    onBack: () -> Unit,
+    onAccount: () -> Unit,
+    onConnections: () -> Unit,
+    onPermissions: () -> Unit = {},
+    vm: SettingsViewModel = hiltViewModel()
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val account by rememberUpdatedState(onAccount)
     val connections by rememberUpdatedState(onConnections)
+    val permissions by rememberUpdatedState(onPermissions)
     BackHandler { vm.onAction(SettingsAction.Back) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(SettingsAction.Refresh) }
     LaunchedEffect(vm) {
@@ -23,6 +30,7 @@ fun SettingsNavigation(onBack: () -> Unit, onAccount: () -> Unit, onConnections:
                 SettingsEvent.Back -> back()
                 SettingsEvent.OpenAccount -> account()
                 SettingsEvent.Connections -> connections()
+                SettingsEvent.Permissions -> permissions()
             }
         }
     }

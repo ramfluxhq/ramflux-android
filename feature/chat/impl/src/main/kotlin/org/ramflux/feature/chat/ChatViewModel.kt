@@ -56,6 +56,9 @@ class ChatViewModel @Inject constructor(
                 local.update { it.copy(draft = action.text.take(65536)) }
             }
             ChatAction.Send -> if (request?.isActive != true && local.value.draft.isNotBlank()) send()
+            ChatAction.Attachments -> if (target != null && !local.value.sending) {
+                viewModelScope.launch { channel.send(ChatEvent.Attachments) }
+            }
             ChatAction.Back -> {
                 request?.cancel()
                 ticket++

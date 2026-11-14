@@ -119,6 +119,10 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
                     )
                 }, actions = {
                     TextButton(
+                        enabled = !state.loading && !state.sending,
+                        onClick = { onAction(ChatAction.Attachments) }
+                    ) { Text(stringResource(R.string.ui_attach)) }
+                    TextButton(
                         enabled = state.canSend && !state.sending && state.draft.isNotBlank(),
                         onClick = { onAction(ChatAction.Send) }
                     ) { Text(stringResource(R.string.ui_send)) }

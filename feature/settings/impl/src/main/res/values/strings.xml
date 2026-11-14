@@ -48,4 +48,6 @@
     <string name="settings_english">English</string>
     <string name="settings_chinese">Simplified Chinese</string>
     <string name="settings_apply_language">Apply language</string>
+    <string name="settings_permissions">Permissions</string>
+    <string name="settings_permissions_help">Live system status and permission settings</string>
 </resources>

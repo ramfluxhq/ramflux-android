@@ -115,6 +115,7 @@ class SettingsViewModel @Inject constructor(
                 }
             }
             SettingsAction.OpenAccount -> event(SettingsEvent.OpenAccount)
+            SettingsAction.Permissions -> event(SettingsEvent.Permissions)
             SettingsAction.Connections -> event(SettingsEvent.Connections)
             is SettingsAction.Page -> {
                 capability?.cancel()

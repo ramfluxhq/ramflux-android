@@ -8,6 +8,7 @@ sealed interface SettingsAction {
     data object Refresh : SettingsAction
     data object Back : SettingsAction
     data object OpenAccount : SettingsAction
+    data object Permissions : SettingsAction
     data object Connections : SettingsAction
     data class Page(val page: SettingsPage) : SettingsAction
     data class Theme(val id: String?) : SettingsAction
