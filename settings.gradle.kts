@@ -26,3 +26,5 @@ include(":feature:settings:api", ":feature:settings:impl", ":feature:settings:te
 include(":feature:contacts:api", ":feature:contacts:impl", ":feature:contacts:test")
 
 include(":feature:groups:api", ":feature:groups:impl", ":feature:groups:test")
+
+include(":feature:calls:api", ":feature:calls:impl", ":feature:calls:test")

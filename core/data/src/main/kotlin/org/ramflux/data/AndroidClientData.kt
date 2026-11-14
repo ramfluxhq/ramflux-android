@@ -13,6 +13,7 @@ class AndroidClientData(context: Context, expectedDescriptor: String) {
     val nodes: NodeSetupRepository = DefaultNodeSetupRepository(driver.transport)
     val conversations: ConversationDirectoryRepository = DefaultConversationDirectoryRepository(driver.transport)
     val history: MessageHistoryRepository = DefaultMessageHistoryRepository(driver.transport)
+    val calls: CallDirectoryRepository = DefaultCallDirectoryRepository(driver.transport)
     val groups: GroupDirectoryRepository = DefaultGroupDirectoryRepository(driver.transport)
     val contacts: ContactDirectoryRepository = DefaultContactDirectoryRepository(driver.transport)
     val devices: DeviceDirectoryRepository = DefaultDeviceDirectoryRepository(driver.transport)

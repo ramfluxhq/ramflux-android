@@ -42,7 +42,8 @@ class ThemeCatalogTest(unittest.TestCase):
             data = json.loads(path.read_text())
             tokens = data['tokens']
             for foreground, background in [('text', 'bg'), ('text', 'surface'), ('secondary', 'bg'),
-                    ('on-primary', 'primary'), ('on-badge', 'badge'), ('outgoing-text', 'outgoing')]:
+                    ('on-primary', 'primary'), ('on-badge', 'badge'), ('outgoing-text', 'outgoing'),
+                    ('on-danger', 'danger'), ('on-success', 'success')]:
                 a, b = luminance(tokens[foreground]), luminance(tokens[background])
                 ratio = (max(a, b) + .05) / (min(a, b) + .05)
                 self.assertGreaterEqual(ratio, 4.5, f'{data["id"]}: {foreground}/{background}: {ratio:.2f}')
