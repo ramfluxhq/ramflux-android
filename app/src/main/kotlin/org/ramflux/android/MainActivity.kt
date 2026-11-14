@@ -14,6 +14,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
+import org.ramflux.feature.agents.AgentsNavigation
+import org.ramflux.feature.agents.api.AgentsRoute
 import org.ramflux.feature.appshell.AppShellNavigation
 import org.ramflux.feature.appshell.api.FeatureRoute
 import org.ramflux.feature.calls.CallsNavigation
@@ -49,10 +51,12 @@ class MainActivity : ComponentActivity() {
                         "contacts" -> ContactsRoute
                         "groups" -> GroupsRoute
                         "calls" -> CallsRoute
+                        "agents" -> AgentsRoute
                         else -> FeatureRoute(it)
                     }
                 }) { onBack, navigate ->
                     entry<CallsRoute> { CallsNavigation(onBack, { navigate(OnboardingRoute) }) }
+                    entry<AgentsRoute> { AgentsNavigation(onBack, { navigate(OnboardingRoute) }) }
                     entry<GroupsRoute> {
                         GroupsNavigation(
                             onBack,

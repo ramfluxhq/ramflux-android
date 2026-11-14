@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="agents_title">Agent</string>
+    <string name="agents_directory">我的 Agent</string>
+    <string name="agents_create">创建 Agent</string>
+    <string name="agents_profile">档案</string>
+    <string name="agents_advanced">高级设置</string>
+    <string name="agents_chat">私人会话</string>
+    <string name="agents_goal">职责</string>
+    <string name="agents_manage">管理 Agent</string>
+    <string name="agents_collaboration">协作</string>
+    <string name="agents_edit">编辑档案</string>
+    <string name="agents_remove">移除 Agent</string>
+    <string name="agents_pause">暂停 Agent</string>
+    <string name="agents_hide">已隐藏的 Agent</string>
+    <string name="agents_back">返回</string>
+    <string name="agents_retry">刷新</string>
+    <string name="agents_setup">设置账户</string>
+    <string name="agents_account">需要已解锁的当前账户。</string>
+    <string name="agents_closed">私密数据已关闭。</string>
+    <string name="agents_loading">正在检查 Agent 配置…</string>
+    <string name="agents_unavailable">Agent 配置暂不可用</string>
+    <string name="agents_explanation">此 SDK 不支持创建或配置 Agent。尚未创建或更改任何 Agent。</string>
+    <string name="agents_read_failure">无法检查 Agent 配置（代码 %1$s）。</string>
+    <string name="agents_name">名称</string>
+    <string name="agents_responsibility">一句职责或说明</string>
+    <string name="agents_avatar">头像</string>
+    <string name="agents_orbit">轨道</string>
+    <string name="agents_prism">棱镜</string>
+    <string name="agents_waves">波纹</string>
+    <string name="agents_star">星形</string>
+    <string name="agents_defaults">计划的默认设置 · 配置暂不可用</string>
+    <string name="agents_runtime">未绑定 · 未运行。尚未配置提供方、模型或运行绑定。</string>
+    <string name="agents_tools">未启用任何工具。完全授权已关闭。</string>
+    <string name="agents_scope">仅限所有者的私人会话。</string>
+    <string name="agents_desktop">完整配置将在受支持时通过桌面端进行。</string>
+    <string name="agents_name_required">请输入名称。</string>
+    <string name="agents_name_limit">最多输入 40 个 Unicode 字符和 256 个 UTF-8 字节。</string>
+    <string name="agents_goal_required">请输入职责。</string>
+    <string name="agents_goal_limit">最多输入 256 个 UTF-8 字节。</string>
+    <string name="agents_draft_only">仅为草稿 · 尚未部署或授权任何内容。</string>
+</resources>

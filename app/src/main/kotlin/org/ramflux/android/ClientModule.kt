@@ -30,6 +30,8 @@ object ClientModule {
 
     @Provides fun calls(data: AndroidClientData): CallDirectoryRepository = data.calls
 
+    @Provides fun agents(data: AndroidClientData): AgentDirectoryRepository = data.agents
+
     @Provides fun groups(data: AndroidClientData): GroupDirectoryRepository = data.groups
 
     @Provides fun contacts(data: AndroidClientData): ContactDirectoryRepository = data.contacts
