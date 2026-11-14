@@ -13,6 +13,8 @@ dependencies {
     implementation(project(":feature:agents:impl"))
     implementation(project(":feature:calls:impl"))
     implementation(project(":feature:groups:impl"))
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.junit)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
