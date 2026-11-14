@@ -3,17 +3,21 @@
 
 package org.ramflux.feature.onboarding
 
-import android.text.InputFilter
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.os.Build
+import android.text.Editable
 import android.text.InputType
-import android.text.method.PasswordTransformationMethod
-import android.view.ActionMode
-import android.view.Menu
-import android.view.MenuItem
+import android.util.TypedValue
+import android.view.MotionEvent
 import android.view.View
+import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
-import android.view.textclassifier.TextClassifier
-import android.widget.EditText
-import android.widget.TextView
+import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputMethodManager
+import android.view.inputmethod.SurroundingText
+import android.view.inputmethod.TextAttribute
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,9 +31,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.viewinterop.AndroidView
 import org.ramflux.designsystem.LocalRFTheme
 
-/** Owned secret text. [replace] and [clear] wipe the previous array. */
+/** Owned secret text. [replace], [splice], [removeOutside], and [clear] wipe the previous array. */
 class ErasableBuffer {
     private var chars = CharArray(0)
+
+    /** Invoked after the array is already zero. The callback must not call [clear]. */
     internal var onCleared: (() -> Unit)? = null
 
     fun owned(): CharArray = chars
@@ -47,9 +53,51 @@ class ErasableBuffer {
         next.fill('\u0000')
     }
 
+    /** Inserts [incoming] at [at], dropping [drop] following chars. Wipes [incoming]. Returns how many chars were kept. */
+    internal fun splice(at: Int, drop: Int, incoming: CharArray, limit: Int): Int {
+        val size = chars.size
+        val safeAt = at.coerceIn(0, size)
+        val safeDrop = drop.coerceIn(0, size - safeAt)
+        val room = (limit - (size - safeDrop)).coerceAtLeast(0)
+        val take = incoming.size.coerceAtMost(room)
+        if (take == 0 && safeDrop == 0) {
+            incoming.fill('\u0000')
+            return 0
+        }
+        val next = CharArray(size - safeDrop + take)
+        chars.copyInto(next, 0, 0, safeAt)
+        if (take > 0) incoming.copyInto(next, safeAt, 0, take)
+        chars.copyInto(next, safeAt + take, safeAt + safeDrop, size)
+        val previous = chars
+        chars = next
+        previous.fill('\u0000')
+        incoming.fill('\u0000')
+        return take
+    }
+
+    /** Drops `[start, keepStart)` and `[keepEnd, end)`. Returns whether the array changed. */
+    internal fun removeOutside(start: Int, keepStart: Int, keepEnd: Int, end: Int): Boolean {
+        val size = chars.size
+        val head = start.coerceIn(0, size)
+        val keptStart = keepStart.coerceIn(head, size)
+        val keptEnd = keepEnd.coerceIn(keptStart, size)
+        val tail = end.coerceIn(keptEnd, size)
+        val removed = (keptStart - head) + (tail - keptEnd)
+        if (removed == 0) return false
+        val next = CharArray(size - removed)
+        chars.copyInto(next, 0, 0, head)
+        chars.copyInto(next, head, keptStart, keptEnd)
+        chars.copyInto(next, head + (keptEnd - keptStart), tail, size)
+        val previous = chars
+        chars = next
+        previous.fill('\u0000')
+        return true
+    }
+
     fun clear() {
-        chars.fill('\u0000')
+        val previous = chars
         chars = CharArray(0)
+        previous.fill('\u0000')
         onCleared?.invoke()
     }
 }
@@ -67,128 +115,438 @@ fun ErasableSecretField(
 ) {
     val theme = LocalRFTheme.current
     val edited by rememberUpdatedState(onEdited)
-    val editRef = remember { arrayOfNulls<EditText>(1) }
-    val watcher = remember(buffer) {
-        object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-            override fun afterTextChanged(s: android.text.Editable?) {
-                val next = CharArray(s?.length ?: 0)
-                if (s != null && next.isNotEmpty()) s.getChars(0, next.size, next, 0)
-                buffer.replace(next)
-                edited()
-            }
-        }
-    }
+    val viewRef = remember { arrayOfNulls<ErasableSecretView>(1) }
     DisposableEffect(buffer) {
-        buffer.onCleared = {
-            editRef[0]?.let { edit ->
-                edit.removeTextChangedListener(watcher)
-                wipeEditText(edit)
-                edit.addTextChangedListener(watcher)
-            }
-        }
+        buffer.onCleared = { viewRef[0]?.forgetImeState() }
         onDispose {
             buffer.onCleared = null
-            editRef[0]?.let { edit ->
-                edit.removeTextChangedListener(watcher)
-                wipeEditText(edit)
-            }
+            viewRef[0]?.forgetImeState()
             buffer.clear()
         }
     }
     Text(label)
     AndroidView(
         factory = { context ->
-            SecretEditText(context).apply {
+            ErasableSecretView(context).apply {
                 tag = fieldTag
-                isSingleLine = true
-                val variation = if (password) {
-                    InputType.TYPE_TEXT_VARIATION_PASSWORD
-                } else {
-                    InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-                }
-                inputType = InputType.TYPE_CLASS_TEXT or variation or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                if (password) transformationMethod = PasswordTransformationMethod.getInstance()
-                isSaveEnabled = false
-                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
-                imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING or EditorInfo.IME_FLAG_NO_EXTRACT_UI
-                setTextClassifier(TextClassifier.NO_OP)
-                customSelectionActionModeCallback = NoTextAction
-                customInsertionActionModeCallback = NoTextAction
-                filters = arrayOf(InputFilter.LengthFilter(limit))
-                sealHistory(this)
-                addTextChangedListener(watcher)
-                editRef[0] = this
+                viewRef[0] = this
             }
         },
-        update = { edit ->
-            edit.isEnabled = enabled
-            edit.setTextColor(theme.text.toArgb())
+        update = { view ->
+            view.isEnabled = enabled
+            view.bind(buffer, password, limit, label) { edited() }
+            view.applyStyle(theme.text.toArgb(), theme.line.toArgb(), theme.size_body, theme.gap)
         },
         modifier = Modifier.fillMaxWidth().testTag(fieldTag)
     )
 }
 
-private fun wipeEditText(edit: EditText) {
-    sealHistory(edit)
-    val existing = edit.text
-    if (existing != null && existing.isNotEmpty()) {
-        zeroBacking(existing)
-        existing.delete(0, existing.length)
+/**
+ * Secret entry that does not use [android.widget.TextView]. The platform text editor keeps an undo
+ * history, and no public API turns that history off, so this view owns the characters and draws them.
+ */
+class ErasableSecretView(context: Context) : View(context) {
+    private var secret: ErasableBuffer? = null
+    private var mask = true
+    private var limit = 0
+    private var onEdited: (() -> Unit)? = null
+    private var selStart = 0
+    private var selEnd = 0
+    private var compStart = -1
+    private var compEnd = -1
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    init {
+        isFocusable = true
+        isFocusableInTouchMode = true
+        isClickable = true
+        isLongClickable = false
+        isSaveEnabled = false
+        importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+        setAutofillHints()
+        linePaint.style = Paint.Style.STROKE
     }
-    zeroBacking(edit.text)
-    edit.setText("")
-    sealHistory(edit)
-}
 
-/** EditText installs the undo filter again whenever its text or filters change. */
-private class SecretEditText(context: android.content.Context) : EditText(context) {
-    override fun setFilters(filters: Array<InputFilter>) {
-        super.setFilters(filters)
-        sealHistory(this)
-    }
+    fun masksInput(): Boolean = mask
 
-    override fun setText(text: CharSequence?, type: BufferType?) {
-        super.setText(text, type)
-        sealHistory(this)
-    }
-}
+    fun secretLength(): Int = secret?.owned()?.size ?: 0
 
-/** Undo is off before the first secret edit. The undo filter stores old and new text as strings. */
-private fun sealHistory(edit: EditText) {
-    val editorField = TextView::class.java.getDeclaredField(member('m', 'E', 'd', 'i', 't', 'o', 'r'))
-    editorField.isAccessible = true
-    val editor = editorField.get(edit) ?: return
-    val allow = editor.javaClass.getDeclaredField(member('m', 'A', 'l', 'l', 'o', 'w', 'U', 'n', 'd', 'o'))
-    allow.isAccessible = true
-    allow.setBoolean(editor, false)
-    val forget = editor.javaClass.getDeclaredMethod(member('f', 'o', 'r', 'g', 'e', 't', 'U', 'n', 'd', 'o', 'R', 'e', 'd', 'o'))
-    forget.isAccessible = true
-    forget.invoke(editor)
-    val undoName = member('U', 'n', 'd', 'o', 'I', 'n', 'p', 'u', 't', 'F', 'i', 'l', 't', 'e', 'r')
-    val text = edit.text ?: return
-    val kept = text.filters.filterNot { it.javaClass.simpleName == undoName }
-    if (kept.size != text.filters.size) text.filters = kept.toTypedArray()
-}
+    fun isSecretEmpty(): Boolean = secretLength() == 0
 
-private fun member(vararg chars: Char): String = String(chars)
-
-private object NoTextAction : ActionMode.Callback {
-    override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
-    override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
-    override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean = false
-    override fun onDestroyActionMode(mode: ActionMode?) = Unit
-}
-
-/** SpannableStringBuilder keeps the old characters in its gap. Zero every char array it still holds. */
-private fun zeroBacking(text: android.text.Editable?) {
-    if (text == null) return
-    runCatching {
-        for (field in text.javaClass.declaredFields) {
-            if (field.type != CharArray::class.java) continue
-            field.isAccessible = true
-            (field.get(text) as? CharArray)?.fill('\u0000')
+    fun bind(next: ErasableBuffer, maskInput: Boolean, maxChars: Int, description: String, edited: () -> Unit) {
+        if (secret !== next) {
+            secret = next
+            selStart = 0
+            selEnd = 0
+            compStart = -1
+            compEnd = -1
         }
+        mask = maskInput
+        limit = maxChars.coerceAtLeast(0)
+        contentDescription = description
+        onEdited = edited
+        isSaveEnabled = false
+        importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        setAutofillHints()
+    }
+
+    fun applyStyle(textColor: Int, lineColor: Int, sizeSp: Float, gapDp: Float) {
+        textPaint.color = textColor
+        textPaint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sizeSp, resources.displayMetrics)
+        linePaint.color = lineColor
+        linePaint.strokeWidth = resources.displayMetrics.density
+        val pad = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, gapDp, resources.displayMetrics)
+        val padX = pad.toInt()
+        val padY = (pad / 2f).toInt()
+        setPadding(padX, padY, padX, padY)
+        minimumHeight = (textPaint.textSize + pad).toInt()
+    }
+
+    /** Drops the cursor and composing range after the buffer has been wiped. */
+    internal fun forgetImeState() {
+        selStart = 0
+        selEnd = 0
+        compStart = -1
+        compEnd = -1
+        invalidate()
+    }
+
+    override fun getAutofillType(): Int = AUTOFILL_TYPE_NONE
+
+    override fun onCheckIsTextEditor(): Boolean = true
+
+    override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
+        if (!isEnabled) return null
+        outAttrs.inputType = SECRET_INPUT_TYPE
+        outAttrs.imeOptions = SECRET_IME_OPTIONS
+        outAttrs.initialSelStart = selStart
+        outAttrs.initialSelEnd = selEnd
+        outAttrs.initialCapsMode = 0
+        return openConnection()
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val width = MeasureSpec.getSize(widthMeasureSpec)
+        val desired = minimumHeight.coerceAtLeast(suggestedMinimumHeight)
+        val height = when (MeasureSpec.getMode(heightMeasureSpec)) {
+            MeasureSpec.EXACTLY -> MeasureSpec.getSize(heightMeasureSpec)
+            MeasureSpec.AT_MOST -> desired.coerceAtMost(MeasureSpec.getSize(heightMeasureSpec))
+            else -> desired
+        }
+        setMeasuredDimension(width, height)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        val owned = secret?.owned() ?: return
+        val baseline = textBaseline()
+        if (owned.isNotEmpty()) {
+            if (mask) {
+                val glyphs = CharArray(owned.size) { MASK_GLYPH }
+                canvas.drawText(glyphs, 0, glyphs.size, paddingLeft.toFloat(), baseline, textPaint)
+                glyphs.fill('\u0000')
+            } else {
+                canvas.drawText(owned, 0, owned.size, paddingLeft.toFloat(), baseline, textPaint)
+            }
+        }
+        val rule = (height - paddingBottom).toFloat()
+        canvas.drawLine(paddingLeft.toFloat(), rule, (width - paddingRight).toFloat(), rule, linePaint)
+        if (isFocused) {
+            val caret = caretX(owned)
+            canvas.drawLine(caret, paddingTop.toFloat(), caret, rule, textPaint)
+        }
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (!isEnabled) return false
+        if (event.action == MotionEvent.ACTION_UP) {
+            requestFocus()
+            val manager = context.getSystemService(InputMethodManager::class.java)
+            manager?.showSoftInput(this, 0)
+        }
+        return true
+    }
+
+    private fun openConnection(): InputConnection {
+        return when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> Connection34()
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> Connection31()
+            else -> SecretInputConnection()
+        }
+    }
+
+    private fun commit(text: CharSequence, newCursorPosition: Int) {
+        val (start, end) = activeRange()
+        replace(start, end, text, newCursorPosition, composing = false)
+    }
+
+    private fun compose(text: CharSequence, newCursorPosition: Int) {
+        val (start, end) = activeRange()
+        replace(start, end, text, newCursorPosition, composing = true)
+    }
+
+    private fun activeRange(): Pair<Int, Int> {
+        val size = secretLength()
+        if (compStart >= 0 && compEnd >= 0) {
+            val start = minOf(compStart, compEnd).coerceIn(0, size)
+            val end = maxOf(compStart, compEnd).coerceIn(start, size)
+            return start to end
+        }
+        val start = minOf(selStart, selEnd).coerceIn(0, size)
+        val end = maxOf(selStart, selEnd).coerceIn(start, size)
+        return start to end
+    }
+
+    private fun replace(start: Int, end: Int, text: CharSequence, newCursorPosition: Int, composing: Boolean) {
+        val buffer = secret ?: return
+        val size = buffer.owned().size
+        val from = start.coerceIn(0, size)
+        val to = end.coerceIn(from, size)
+        val incoming = copyChars(text)
+        val taken = buffer.splice(from, to - from, incoming, limit)
+        val newSize = buffer.owned().size
+        val insertedEnd = from + taken
+        var cursor = if (newCursorPosition > 0) insertedEnd + newCursorPosition - 1 else from + newCursorPosition
+        if (cursor < 0) cursor = 0
+        if (cursor > newSize) cursor = newSize
+        selStart = cursor
+        selEnd = cursor
+        if (composing && taken > 0) {
+            compStart = from
+            compEnd = insertedEnd
+        } else {
+            compStart = -1
+            compEnd = -1
+        }
+        if (taken > 0 || to > from) onEdited?.invoke()
+        invalidate()
+    }
+
+    private fun deleteAround(beforeLength: Int, afterLength: Int, codePoints: Boolean) {
+        val buffer = secret ?: return
+        val owned = buffer.owned()
+        val size = owned.size
+        val from = minOf(selStart, selEnd).coerceIn(0, size)
+        val to = maxOf(selStart, selEnd).coerceIn(0, size)
+        val before = beforeLength.coerceAtLeast(0)
+        val after = afterLength.coerceAtLeast(0)
+        val start = if (codePoints) offsetCodePoints(owned, from, -before) else (from - before).coerceAtLeast(0)
+        val end = if (codePoints) offsetCodePoints(owned, to, after) else (to + after).coerceAtMost(size)
+        val changed = buffer.removeOutside(start, from, to, end)
+        val removedBefore = from - start
+        val newSize = buffer.owned().size
+        selStart = (from - removedBefore).coerceIn(0, newSize)
+        selEnd = (to - removedBefore).coerceIn(selStart, newSize)
+        compStart = -1
+        compEnd = -1
+        if (changed) onEdited?.invoke()
+        invalidate()
+    }
+
+    private fun moveSelection(start: Int, end: Int) {
+        val size = secretLength()
+        selStart = start.coerceIn(0, size)
+        selEnd = end.coerceIn(0, size)
+        invalidate()
+    }
+
+    private fun moveComposing(start: Int, end: Int) {
+        val size = secretLength()
+        val from = start.coerceIn(0, size)
+        val to = end.coerceIn(0, size)
+        if (from == to) {
+            compStart = -1
+            compEnd = -1
+        } else {
+            compStart = minOf(from, to)
+            compEnd = maxOf(from, to)
+        }
+    }
+
+    private fun finishComposing() {
+        compStart = -1
+        compEnd = -1
+    }
+
+    private fun sliceBefore(count: Int): CharSequence {
+        val owned = secret?.owned() ?: return EmptySlice
+        val end = minOf(selStart, selEnd).coerceIn(0, owned.size)
+        val start = (end - count.coerceAtLeast(0)).coerceAtLeast(0)
+        if (start == end) return EmptySlice
+        return LiveSlice(owned, start, end)
+    }
+
+    private fun sliceAfter(count: Int): CharSequence {
+        val owned = secret?.owned() ?: return EmptySlice
+        val start = maxOf(selStart, selEnd).coerceIn(0, owned.size)
+        val end = (start + count.coerceAtLeast(0)).coerceAtMost(owned.size)
+        if (start == end) return EmptySlice
+        return LiveSlice(owned, start, end)
+    }
+
+    private fun sliceSelected(): CharSequence? {
+        val owned = secret?.owned() ?: return null
+        val start = minOf(selStart, selEnd).coerceIn(0, owned.size)
+        val end = maxOf(selStart, selEnd).coerceIn(0, owned.size)
+        if (start == end) return null
+        return LiveSlice(owned, start, end)
+    }
+
+    private fun textBaseline(): Float {
+        val metrics = textPaint.fontMetrics
+        val content = (height - paddingTop - paddingBottom).toFloat()
+        return paddingTop + (content - metrics.bottom - metrics.top) / 2f
+    }
+
+    private fun caretX(owned: CharArray): Float {
+        val origin = paddingLeft.toFloat()
+        val count = selStart.coerceIn(0, owned.size)
+        if (count == 0) return origin
+        if (mask) {
+            val glyph = charArrayOf(MASK_GLYPH)
+            val step = textPaint.measureText(glyph, 0, 1)
+            glyph[0] = '\u0000'
+            return origin + step * count
+        }
+        return origin + textPaint.measureText(owned, 0, count)
+    }
+
+    private fun copyChars(text: CharSequence): CharArray {
+        val out = CharArray(text.length)
+        for (index in text.indices) out[index] = text[index]
+        return out
+    }
+
+    private fun offsetCodePoints(chars: CharArray, index: Int, delta: Int): Int {
+        var cursor = index.coerceIn(0, chars.size)
+        if (delta > 0) {
+            var left = delta
+            while (left > 0 && cursor < chars.size) {
+                if (chars[cursor].isHighSurrogate() && cursor + 1 < chars.size && chars[cursor + 1].isLowSurrogate()) {
+                    cursor += 2
+                } else {
+                    cursor += 1
+                }
+                left--
+            }
+        } else if (delta < 0) {
+            var left = -delta
+            while (left > 0 && cursor > 0) {
+                cursor--
+                if (chars[cursor].isLowSurrogate() && cursor > 0 && chars[cursor - 1].isHighSurrogate()) cursor--
+                left--
+            }
+        }
+        return cursor
+    }
+
+    /**
+     * IME bridge over the view's own buffer. Text methods do not call through to
+     * [BaseInputConnection]: its default buffer is a copy this view does not own.
+     * [getEditable] stays null so that copy is never created.
+     */
+    private open inner class SecretInputConnection : BaseInputConnection(this@ErasableSecretView, false) {
+        override fun getEditable(): Editable? = null
+
+        override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
+            if (text == null || !isEnabled) return false
+            commit(text, newCursorPosition)
+            return true
+        }
+
+        override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean {
+            if (text == null || !isEnabled) return false
+            compose(text, newCursorPosition)
+            return true
+        }
+
+        override fun finishComposingText(): Boolean {
+            finishComposing()
+            return true
+        }
+
+        override fun setComposingRegion(start: Int, end: Int): Boolean {
+            moveComposing(start, end)
+            return true
+        }
+
+        override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
+            if (!isEnabled) return false
+            deleteAround(beforeLength, afterLength, codePoints = false)
+            return true
+        }
+
+        override fun deleteSurroundingTextInCodePoints(beforeLength: Int, afterLength: Int): Boolean {
+            if (!isEnabled) return false
+            deleteAround(beforeLength, afterLength, codePoints = true)
+            return true
+        }
+
+        override fun setSelection(start: Int, end: Int): Boolean {
+            moveSelection(start, end)
+            return true
+        }
+
+        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence = sliceBefore(n)
+
+        override fun getTextAfterCursor(n: Int, flags: Int): CharSequence = sliceAfter(n)
+
+        override fun getSelectedText(flags: Int): CharSequence? = sliceSelected()
+
+        override fun getCursorCapsMode(reqModes: Int): Int = 0
+
+        override fun performContextMenuAction(id: Int): Boolean = false
+    }
+
+    /**
+     * API 31 surrounding text is refused. The platform parcels that value into a string copy,
+     * which this field cannot wipe.
+     */
+    private open inner class Connection31 : SecretInputConnection() {
+        override fun getSurroundingText(beforeLength: Int, afterLength: Int, flags: Int): SurroundingText? = null
+    }
+
+    /** API 34 replace goes through the same buffer path. Styling attributes are ignored. */
+    private inner class Connection34 : Connection31() {
+        override fun replaceText(start: Int, end: Int, text: CharSequence, newCursorPosition: Int, textAttribute: TextAttribute?): Boolean {
+            if (!isEnabled) return false
+            finishComposing()
+            moveSelection(start, end)
+            commit(text, newCursorPosition)
+            return true
+        }
+    }
+
+    private class LiveSlice(private val chars: CharArray, private val start: Int, private val end: Int) : CharSequence {
+        override val length: Int = (end - start).coerceAtLeast(0)
+
+        override fun get(index: Int): Char {
+            if (index < 0 || index >= length) throw IndexOutOfBoundsException()
+            return chars[start + index]
+        }
+
+        override fun subSequence(startIndex: Int, endIndex: Int): CharSequence {
+            if (startIndex < 0 || endIndex > length || startIndex > endIndex) throw IndexOutOfBoundsException()
+            return LiveSlice(chars, start + startIndex, start + endIndex)
+        }
+    }
+
+    private object EmptySlice : CharSequence {
+        override val length: Int = 0
+
+        override fun get(index: Int): Char = throw IndexOutOfBoundsException()
+
+        override fun subSequence(startIndex: Int, endIndex: Int): CharSequence {
+            if (startIndex == 0 && endIndex == 0) return this
+            throw IndexOutOfBoundsException()
+        }
+    }
+
+    private companion object {
+        const val MASK_GLYPH = '\u2022'
+        const val SECRET_INPUT_TYPE =
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        const val SECRET_IME_OPTIONS = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING or EditorInfo.IME_FLAG_NO_EXTRACT_UI
     }
 }

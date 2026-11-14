@@ -3,13 +3,10 @@
 
 package org.ramflux.feature.onboarding
 import android.text.InputType
-import android.text.method.PasswordTransformationMethod
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
-import android.view.textclassifier.TextClassifier
-import android.widget.EditText
-import android.widget.TextView
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -21,6 +18,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.*
+import java.net.URI
+import java.util.jar.JarFile
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.*
 import org.junit.Rule
@@ -124,22 +123,27 @@ class OnboardingScreenTest {
         }
         compose.waitForIdle()
         val field = root!!.findTagged("data-passphrase")
-        compose.runOnIdle { field.setText("first-secret") }
+        compose.runOnIdle { assertTrue(field.openConnection().second.commitText("first-secret", 1)) }
         compose.waitForIdle()
         val previous = buffer.owned()
-        assertEquals("first-secret", String(previous))
-        compose.runOnIdle { field.setText("second-secret") }
+        assertChars(previous, "first-secret")
+        compose.runOnIdle {
+            val connection = field.openConnection().second
+            connection.setSelection(0, field.secretLength())
+            assertTrue(connection.commitText("second-secret", 1))
+        }
         compose.waitForIdle()
         assertTrue(previous.all { it == '\u0000' })
         val current = buffer.owned()
-        assertEquals("second-secret", String(current))
+        assertChars(current, "second-secret")
         shown = false
         compose.waitForIdle()
         assertTrue(current.all { it == '\u0000' })
         assertTrue(buffer.isEmpty())
+        assertTrue(field.isSecretEmpty())
     }
 
-    @Test fun secretFieldDisablesUndoHistoryAndDropsThePreviousSecret() {
+    @Test fun secretFieldCommitsDeletesAndClearZeroesTheBuffer() {
         val buffer = ErasableBuffer()
         var root: View? = null
         compose.setContent {
@@ -158,29 +162,55 @@ class OnboardingScreenTest {
         }
         compose.waitForIdle()
         val field = root!!.findTagged("data-passphrase")
-        assertSealed(field, InputType.TYPE_TEXT_VARIATION_PASSWORD)
-        assertTrue(field.transformationMethod is PasswordTransformationMethod)
-        compose.runOnIdle {
-            field.text.replace(0, field.text.length, "first-secret")
-        }
+        val (info, connection) = field.openConnection()
+        assertSecretInput(info, field)
+        assertTrue(field.masksInput())
+        assertTrue(field.onCheckIsTextEditor())
+        assertNull(connection.getEditable())
+        compose.runOnIdle { assertTrue(connection.commitText("first-secret", 1)) }
         compose.waitForIdle()
-        assertEquals("first-secret", field.text.toString())
-        compose.runOnIdle { field.onTextContextMenuItem(android.R.id.undo) }
-        assertEquals("first-secret", field.text.toString())
-        compose.runOnIdle {
-            field.text.replace(0, field.text.length, "second-secret")
-        }
+        assertChars(buffer.owned(), "first-secret")
+        val handed = checkNotNull(connection.getTextBeforeCursor(32, 0))
+        assertChars(handed, "first-secret")
+        assertFalse(handed.toString().contains("first-secret"))
+        assertNull(connection.getSurroundingText(32, 32, 0))
+        assertNull(connection.getEditable())
+        val previous = buffer.owned()
+        compose.runOnIdle { assertTrue(connection.deleteSurroundingText(6, 0)) }
         compose.waitForIdle()
-        compose.runOnIdle { field.onTextContextMenuItem(android.R.id.undo) }
-        assertEquals("second-secret", field.text.toString())
-        assertNoSecret(field, "first-secret")
+        assertTrue(previous.all { it == '\u0000' })
+        assertTrue((0 until handed.length).all { handed[it] == '\u0000' })
+        assertChars(buffer.owned(), "first-")
+        val current = buffer.owned()
         compose.runOnIdle { buffer.clear() }
         compose.waitForIdle()
-        assertTrue(field.text.isEmpty())
+        assertTrue(current.all { it == '\u0000' })
         assertTrue(buffer.isEmpty())
-        assertNoSecret(field, "first-secret")
-        assertNoSecret(field, "second-secret")
-        assertTrue(field.text.filters.none { it.javaClass.simpleName == "UndoInputFilter" })
+        assertTrue(field.isSecretEmpty())
+        assertNull(connection.getEditable())
+        assertNull(connection.getSurroundingText(32, 32, 0))
+    }
+
+    @Test fun secretFieldDoesNotReflectOnFrameworkTypes() {
+        val files = erasableClassFiles()
+        val names = files.map { it.first }
+        assertTrue(names.toString(), names.contains("ErasableSecretView.class"))
+        assertTrue(names.toString(), names.contains("ErasableBuffer.class"))
+        assertTrue(names.toString(), names.contains("ErasableSecretFieldKt.class"))
+        val forbidden = listOf(
+            "java/lang/reflect",
+            "android/widget/EditText",
+            "android/widget/TextView",
+            "android/widget/Editor",
+            "mAllowUndo",
+            "forgetUndoRedo",
+            "UndoInputFilter"
+        )
+        for ((name, bytes) in files) {
+            for (needle in forbidden) {
+                assertFalse(name + " " + needle, containsAscii(bytes, needle))
+            }
+        }
     }
 
     @Test fun challengePageConfirmsFromTheErasableFieldsAndClearsThem() {
@@ -202,16 +232,19 @@ class OnboardingScreenTest {
         compose.waitForIdle()
         val view = root!!
         compose.runOnIdle {
-            view.findTagged("challenge-0").setText("alpha")
-            view.findTagged("challenge-1").setText("bravo")
-            view.findTagged("challenge-2").setText("charlie")
-            view.findTagged("data-passphrase").setText("seal")
+            view.findTagged("challenge-0").commit("alpha")
+            view.findTagged("challenge-1").commit("bravo")
+            view.findTagged("challenge-2").commit("charlie")
+            view.findTagged("data-passphrase").commit("seal")
         }
         val word = view.findTagged("challenge-0")
         val secret = view.findTagged("data-passphrase")
-        assertSealed(word, InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
-        assertSealed(secret, InputType.TYPE_TEXT_VARIATION_PASSWORD)
-        assertFalse(word.transformationMethod is PasswordTransformationMethod)
+        val wordInfo = word.openConnection().first
+        val secretInfo = secret.openConnection().first
+        assertTrue(wordInfo.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0)
+        assertTrue(secretInfo.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0)
+        assertFalse(word.masksInput())
+        assertTrue(secret.masksInput())
         compose.onNodeWithTag("confirm-account").performScrollTo().performClick()
         compose.waitForIdle()
         val action = actions.single() as OnboardingAction.ConfirmChallenge
@@ -219,87 +252,84 @@ class OnboardingScreenTest {
         assertEquals("bravo", String(action.words[1]))
         assertEquals("charlie", String(action.words[2]))
         assertEquals("seal", String(action.passphrase))
-        assertTrue(view.findTagged("challenge-0").text.isEmpty())
-        assertTrue(view.findTagged("data-passphrase").text.isEmpty())
+        assertTrue(view.findTagged("challenge-0").isSecretEmpty())
+        assertTrue(view.findTagged("data-passphrase").isSecretEmpty())
     }
 }
 
-private fun assertNoSecret(field: EditText, secret: String) {
-    val leaked = editorStrings(field).filter { it.contains(secret) }
-    assertTrue(leaked.joinToString("|"), leaked.isEmpty())
+private fun ErasableSecretView.commit(text: String) {
+    assertTrue(openConnection().second.commitText(text, 1))
 }
 
-private fun assertSealed(field: EditText, variation: Int) {
-    assertFalse(field.isSuggestionsEnabled)
-    assertFalse(field.isSaveEnabled)
-    assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO, field.importantForAutofill)
-    assertEquals(TextClassifier.NO_OP, field.textClassifier)
-    assertTrue(field.inputType and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0)
-    assertTrue(field.inputType and variation != 0)
-    assertTrue(field.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0)
-    assertTrue(field.imeOptions and EditorInfo.IME_FLAG_NO_EXTRACT_UI != 0)
-    val editor = editorOf(field)
-    val allow = editor.javaClass.getDeclaredField("mAllowUndo")
-    allow.isAccessible = true
-    assertFalse(allow.getBoolean(editor))
-    assertTrue(field.text.filters.none { it.javaClass.simpleName == "UndoInputFilter" })
+private fun ErasableSecretView.openConnection(): Pair<EditorInfo, BaseInputConnection> {
+    val info = EditorInfo()
+    val created = onCreateInputConnection(info)
+    check(created is BaseInputConnection) { "secret field did not return its input connection" }
+    return info to created
 }
 
-private fun editorOf(field: EditText): Any {
-    val editor = TextView::class.java.getDeclaredField("mEditor")
-    editor.isAccessible = true
-    return checkNotNull(editor.get(field))
+private fun assertSecretInput(info: EditorInfo, view: ErasableSecretView) {
+    val type = info.inputType
+    assertTrue(type and InputType.TYPE_CLASS_TEXT != 0)
+    assertTrue(type and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0)
+    assertTrue(type and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0)
+    assertTrue(info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0)
+    assertTrue(info.imeOptions and EditorInfo.IME_FLAG_NO_EXTRACT_UI != 0)
+    assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS, view.importantForAutofill)
+    assertFalse(view.isSaveEnabled)
+    assertTrue(view.autofillHints.isNullOrEmpty())
 }
 
-private fun editorStrings(field: EditText): List<String> {
-    val found = ArrayList<String>()
-    val seen = HashSet<Int>()
-    fun walk(value: Any?, depth: Int) {
-        if (value == null || depth > 8) return
-        if (value is String) {
-            found.add(value)
-            return
-        }
-        if (value is View || value is android.content.Context || value is Class<*>) return
-        if (value is Boolean || value is Number || value is Char || value is Enum<*>) return
-        val typeName = value.javaClass.name
-        val skipped = typeName.startsWith("java.") || typeName.startsWith("jdk.") ||
-            typeName.startsWith("sun.") || typeName.startsWith("kotlin.")
-        if (skipped) return
-        if (!seen.add(System.identityHashCode(value))) return
-        if (value is Array<*>) {
-            value.forEach { walk(it, depth + 1) }
-            return
-        }
-        var type: Class<*>? = value.javaClass
-        var levels = 0
-        while (type != null && type != Any::class.java && levels < 8) {
-            for (member in type.declaredFields) {
-                if (java.lang.reflect.Modifier.isStatic(member.modifiers)) continue
-                val child = try {
-                    member.isAccessible = true
-                    member.get(value)
-                } catch (_: Exception) {
-                    null
-                }
-                if (child is String) found.add(child) else walk(child, depth + 1)
-            }
-            type = type.superclass
-            levels++
-        }
+private fun assertChars(actual: CharArray, expected: String) {
+    assertEquals(expected.length, actual.size)
+    for (index in expected.indices) assertEquals(expected[index], actual[index])
+}
+
+private fun assertChars(actual: CharSequence, expected: String) {
+    assertEquals(expected.length, actual.length)
+    for (index in expected.indices) assertEquals(expected[index], actual[index])
+}
+
+private fun erasableClassFiles(): List<Pair<String, ByteArray>> {
+    val marker = ErasableSecretView::class.java.getResource("ErasableSecretView.class")
+    checkNotNull(marker) { "ErasableSecretView class resource missing" }
+    check(marker.protocol == "jar") { marker.toString() }
+    val path = marker.path
+    val bang = path.indexOf('!')
+    check(bang > 0) { path }
+    val jarPath = URI.create(path.substring(0, bang)).path
+    checkNotNull(jarPath) { path }
+    val prefix = "org/ramflux/feature/onboarding/Erasable"
+    return JarFile(jarPath).use { jar ->
+        jar.entries().asSequence().filter { entry ->
+            !entry.isDirectory && entry.name.startsWith(prefix) && entry.name.endsWith(".class")
+        }.map { entry ->
+            entry.name.substringAfterLast('/') to jar.getInputStream(entry).use { it.readBytes() }
+        }.sortedBy { it.first }.toList()
     }
-    walk(editorOf(field), 0)
-    return found
 }
 
-private fun View.findTagged(tag: String): EditText {
+private fun containsAscii(bytes: ByteArray, needle: String): Boolean {
+    val target = needle.toByteArray(Charsets.US_ASCII)
+    if (target.isEmpty() || bytes.size < target.size) return false
+    var index = 0
+    while (index <= bytes.size - target.size) {
+        var offset = 0
+        while (offset < target.size && bytes[index + offset] == target[offset]) offset++
+        if (offset == target.size) return true
+        index++
+    }
+    return false
+}
+
+private fun View.findTagged(tag: String): ErasableSecretView {
     val found = findTaggedOrNull(tag)
     check(found != null) { "missing secret field $tag" }
     return found
 }
 
-private fun View.findTaggedOrNull(tag: String): EditText? {
-    if (this is EditText && this.tag == tag) return this
+private fun View.findTaggedOrNull(tag: String): ErasableSecretView? {
+    if (this is ErasableSecretView && this.tag == tag) return this
     if (this !is ViewGroup) return null
     for (index in 0 until childCount) {
         getChildAt(index).findTaggedOrNull(tag)?.let { return it }
