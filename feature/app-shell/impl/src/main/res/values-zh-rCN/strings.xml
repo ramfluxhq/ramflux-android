@@ -37,4 +37,5 @@
     <string name="ui_calls">通话</string>
     <string name="ui_agents">Agent</string>
     <string name="ui_tasks">任务</string>
+    <string name="ui_cards">卡片</string>
 </resources>

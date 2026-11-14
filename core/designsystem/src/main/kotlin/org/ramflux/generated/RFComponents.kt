@@ -201,12 +201,6 @@ private fun RFComponentStyle.borderModifier(): Modifier {
         hostControls()
     } }
 }
-// Non-interactive: the host owns gestures, timing, cancellation and confirmation.
-@Composable fun RFHoldPresentation(label: String, progress: Float, theme: RFTheme, danger: Boolean = false) {
-    val style = if (danger) RFStyles.hold_presentation_danger(theme) else RFStyles.hold_presentation_default(theme)
-    val fraction = if (progress.isFinite()) progress.coerceIn(0f, 1f) else 0f
-    RFBox(style) { Column { Text(label); LinearProgressIndicator(progress = { fraction }, color = style.foreground) } }
-}
 @Composable fun RFQuoteExcerpt(sender: String, text: String, theme: RFTheme) {
     val style = RFStyles.quote_excerpt_default(theme)
     RFBox(style) { Column(verticalArrangement = Arrangement.spacedBy(style.gap.dp)) { Text(sender); Text(text, maxLines = 3) } }

@@ -20,6 +20,8 @@ import org.ramflux.feature.appshell.AppShellNavigation
 import org.ramflux.feature.appshell.api.FeatureRoute
 import org.ramflux.feature.calls.CallsNavigation
 import org.ramflux.feature.calls.api.CallsRoute
+import org.ramflux.feature.cards.CardsNavigation
+import org.ramflux.feature.cards.api.CardsRoute
 import org.ramflux.feature.chat.ChatNavigation
 import org.ramflux.feature.chat.api.ChatRoute
 import org.ramflux.feature.contacts.ContactsNavigation
@@ -55,10 +57,12 @@ class MainActivity : ComponentActivity() {
                         "calls" -> CallsRoute
                         "agents" -> AgentsRoute
                         "tasks" -> TasksRoute
+                        "cards" -> CardsRoute
                         else -> FeatureRoute(it)
                     }
                 }) { onBack, navigate ->
                     entry<CallsRoute> { CallsNavigation(onBack, { navigate(OnboardingRoute) }) }
+                    entry<CardsRoute> { CardsNavigation(onBack) }
                     entry<TasksRoute> { TasksNavigation(onBack, { navigate(OnboardingRoute) }) }
                     entry<AgentsRoute> { AgentsNavigation(onBack, { navigate(OnboardingRoute) }) }
                     entry<GroupsRoute> {
