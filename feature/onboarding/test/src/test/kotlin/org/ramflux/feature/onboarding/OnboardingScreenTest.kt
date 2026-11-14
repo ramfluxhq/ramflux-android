@@ -3,6 +3,8 @@
 
 package org.ramflux.feature.onboarding
 import android.text.InputType
+import android.view.KeyCharacterMap
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.BaseInputConnection
@@ -167,20 +169,18 @@ class OnboardingScreenTest {
         assertTrue(field.masksInput())
         assertTrue(field.onCheckIsTextEditor())
         assertNull(connection.getEditable())
+        assertNoImeContext(connection)
         compose.runOnIdle { assertTrue(connection.commitText("first-secret", 1)) }
         compose.waitForIdle()
         assertChars(buffer.owned(), "first-secret")
-        val handed = checkNotNull(connection.getTextBeforeCursor(32, 0))
-        assertChars(handed, "first-secret")
-        assertFalse(handed.toString().contains("first-secret"))
-        assertNull(connection.getSurroundingText(32, 32, 0))
+        assertNoImeContext(connection)
         assertNull(connection.getEditable())
         val previous = buffer.owned()
         compose.runOnIdle { assertTrue(connection.deleteSurroundingText(6, 0)) }
         compose.waitForIdle()
         assertTrue(previous.all { it == '\u0000' })
-        assertTrue((0 until handed.length).all { handed[it] == '\u0000' })
         assertChars(buffer.owned(), "first-")
+        assertNoImeContext(connection)
         val current = buffer.owned()
         compose.runOnIdle { buffer.clear() }
         compose.waitForIdle()
@@ -188,7 +188,105 @@ class OnboardingScreenTest {
         assertTrue(buffer.isEmpty())
         assertTrue(field.isSecretEmpty())
         assertNull(connection.getEditable())
-        assertNull(connection.getSurroundingText(32, 32, 0))
+        assertNoImeContext(connection)
+    }
+
+    @Test fun secretFieldTypesFromKeyEventsAndComposingText() {
+        val buffer = ErasableBuffer()
+        var root: View? = null
+        compose.setContent {
+            root = LocalView.current
+            RamfluxTheme {
+                ErasableSecretField(
+                    buffer,
+                    stringResource(R.string.ui_data_passphrase),
+                    "data-passphrase",
+                    enabled = true,
+                    password = true,
+                    limit = 128,
+                    onEdited = {}
+                )
+            }
+        }
+        compose.waitForIdle()
+        val field = root!!.findTagged("data-passphrase")
+        val connection = field.openConnection().second
+        compose.runOnIdle { assertTrue(connection.setComposingText("wor", 1)) }
+        compose.waitForIdle()
+        val composed = buffer.owned()
+        assertChars(composed, "wor")
+        compose.runOnIdle { assertTrue(connection.setComposingText("word", 1)) }
+        compose.waitForIdle()
+        assertTrue(composed.all { it == '\u0000' })
+        assertChars(buffer.owned(), "word")
+        val composing = buffer.owned()
+        compose.runOnIdle { assertTrue(connection.commitText("W", 1)) }
+        compose.waitForIdle()
+        assertTrue(composing.all { it == '\u0000' })
+        assertChars(buffer.owned(), "W")
+        val downA = keyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A)
+        val downB = keyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_B)
+        val charA = downA.unicodeChar
+        val charB = downB.unicodeChar
+        assertTrue(charA != 0)
+        assertTrue(charB != 0)
+        compose.runOnIdle {
+            assertTrue(connection.sendKeyEvent(downA))
+            assertTrue(connection.sendKeyEvent(keyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_A)))
+            assertTrue(connection.sendKeyEvent(downB))
+            assertTrue(connection.sendKeyEvent(keyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_B)))
+        }
+        compose.waitForIdle()
+        assertEquals(3, buffer.owned().size)
+        assertEquals('W', buffer.owned()[0])
+        assertEquals(charA.toChar(), buffer.owned()[1])
+        assertEquals(charB.toChar(), buffer.owned()[2])
+        val typed = buffer.owned()
+        compose.runOnIdle {
+            assertTrue(connection.sendKeyEvent(keyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL)))
+            assertTrue(connection.sendKeyEvent(keyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL)))
+        }
+        compose.waitForIdle()
+        assertTrue(typed.all { it == '\u0000' })
+        assertEquals(2, buffer.owned().size)
+        assertEquals('W', buffer.owned()[0])
+        assertEquals(charA.toChar(), buffer.owned()[1])
+        val downC = keyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_C)
+        val charC = downC.unicodeChar
+        assertTrue(charC != 0)
+        compose.runOnIdle {
+            assertTrue(field.onKeyDown(KeyEvent.KEYCODE_C, downC))
+            assertTrue(field.onKeyUp(KeyEvent.KEYCODE_C, keyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_C)))
+        }
+        compose.waitForIdle()
+        assertEquals(3, buffer.owned().size)
+        assertEquals(charC.toChar(), buffer.owned()[2])
+        compose.runOnIdle {
+            val multiple = KeyEvent(0L, "de", 0, 0)
+            assertTrue(field.onKeyMultiple(multiple.keyCode, multiple.repeatCount, multiple))
+        }
+        compose.waitForIdle()
+        assertEquals(5, buffer.owned().size)
+        assertEquals('d', buffer.owned()[3])
+        assertEquals('e', buffer.owned()[4])
+        compose.runOnIdle {
+            connection.setSelection(0, 0)
+            assertTrue(connection.sendKeyEvent(keyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_FORWARD_DEL)))
+            assertTrue(connection.sendKeyEvent(keyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_FORWARD_DEL)))
+        }
+        compose.waitForIdle()
+        assertEquals(4, buffer.owned().size)
+        assertEquals(charA.toChar(), buffer.owned()[0])
+        val selected = buffer.owned()
+        compose.runOnIdle {
+            connection.setSelection(0, field.secretLength())
+            assertTrue(connection.sendKeyEvent(keyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL)))
+        }
+        compose.waitForIdle()
+        assertTrue(selected.all { it == '\u0000' })
+        assertTrue(buffer.isEmpty())
+        assertNoImeContext(connection)
+        assertFalse(field.onKeyDown(KeyEvent.KEYCODE_ENTER, keyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER)))
     }
 
     @Test fun secretFieldDoesNotReflectOnFrameworkTypes() {
@@ -285,10 +383,25 @@ private fun assertChars(actual: CharArray, expected: String) {
     for (index in expected.indices) assertEquals(expected[index], actual[index])
 }
 
-private fun assertChars(actual: CharSequence, expected: String) {
-    assertEquals(expected.length, actual.length)
-    for (index in expected.indices) assertEquals(expected[index], actual[index])
+private fun assertNoImeContext(connection: BaseInputConnection) {
+    assertNull(connection.getTextBeforeCursor(32, 0))
+    assertNull(connection.getTextAfterCursor(32, 0))
+    assertNull(connection.getSelectedText(0))
+    assertNull(connection.getSurroundingText(32, 32, 0))
 }
+
+private fun keyEvent(action: Int, code: Int): KeyEvent = KeyEvent(
+    0L,
+    0L,
+    action,
+    code,
+    0,
+    0,
+    KeyCharacterMap.VIRTUAL_KEYBOARD,
+    0,
+    0,
+    0
+)
 
 private fun erasableClassFiles(): List<Pair<String, ByteArray>> {
     val marker = ErasableSecretView::class.java.getResource("ErasableSecretView.class")

@@ -10,6 +10,8 @@ import android.os.Build
 import android.text.Editable
 import android.text.InputType
 import android.util.TypedValue
+import android.view.KeyCharacterMap
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.BaseInputConnection
@@ -154,6 +156,7 @@ class ErasableSecretView(context: Context) : View(context) {
     private var selEnd = 0
     private var compStart = -1
     private var compEnd = -1
+    private var pendingAccent = 0
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
@@ -182,6 +185,7 @@ class ErasableSecretView(context: Context) : View(context) {
             selEnd = 0
             compStart = -1
             compEnd = -1
+            pendingAccent = 0
         }
         mask = maskInput
         limit = maxChars.coerceAtLeast(0)
@@ -210,6 +214,7 @@ class ErasableSecretView(context: Context) : View(context) {
         selEnd = 0
         compStart = -1
         compEnd = -1
+        pendingAccent = 0
         invalidate()
     }
 
@@ -257,6 +262,18 @@ class ErasableSecretView(context: Context) : View(context) {
             canvas.drawLine(caret, paddingTop.toFloat(), caret, rule, textPaint)
         }
     }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (!isEnabled) return false
+        return applyKeyEvent(event, 1)
+    }
+
+    override fun onKeyMultiple(keyCode: Int, repeatCount: Int, event: KeyEvent): Boolean {
+        if (!isEnabled) return false
+        return applyKeyEvent(event, repeatCount.coerceAtLeast(1))
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean = isEnabled && isTextKey(event)
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!isEnabled) return false
@@ -369,28 +386,125 @@ class ErasableSecretView(context: Context) : View(context) {
         compEnd = -1
     }
 
-    private fun sliceBefore(count: Int): CharSequence {
-        val owned = secret?.owned() ?: return EmptySlice
-        val end = minOf(selStart, selEnd).coerceIn(0, owned.size)
-        val start = (end - count.coerceAtLeast(0)).coerceAtLeast(0)
-        if (start == end) return EmptySlice
-        return LiveSlice(owned, start, end)
+    private fun applyKeyEvent(event: KeyEvent, repeats: Int): Boolean {
+        if (!isEnabled || secret == null) return false
+        if (event.action == KeyEvent.ACTION_UP) return isTextKey(event)
+        if (event.action != KeyEvent.ACTION_DOWN && event.action != KeyEvent.ACTION_MULTIPLE) return false
+        val code = event.keyCode
+        val times = repeats.coerceAtLeast(1)
+        if (code == KeyEvent.KEYCODE_DEL) {
+            deleteSelectionOr(times, 0)
+            return true
+        }
+        if (code == KeyEvent.KEYCODE_FORWARD_DEL) {
+            deleteSelectionOr(0, times)
+            return true
+        }
+        if (event.action == KeyEvent.ACTION_MULTIPLE && code == KeyEvent.KEYCODE_UNKNOWN) {
+            val text = event.characters
+            if (text.isNullOrEmpty()) return false
+            pendingAccent = 0
+            finishComposing()
+            insertOwned(copyChars(text))
+            return true
+        }
+        val value = event.unicodeChar
+        if (value == 0 || Character.isISOControl(value)) return false
+        if ((value and KeyCharacterMap.COMBINING_ACCENT) != 0) {
+            pendingAccent = value and KeyCharacterMap.COMBINING_ACCENT_MASK
+            return true
+        }
+        val unit = charsFromCodePoints(codePointsFor(value))
+        val count = times.coerceAtMost(limit.coerceAtLeast(1))
+        finishComposing()
+        insertOwned(if (count == 1) unit else repeatChars(unit, count))
+        return true
     }
 
-    private fun sliceAfter(count: Int): CharSequence {
-        val owned = secret?.owned() ?: return EmptySlice
-        val start = maxOf(selStart, selEnd).coerceIn(0, owned.size)
-        val end = (start + count.coerceAtLeast(0)).coerceAtMost(owned.size)
-        if (start == end) return EmptySlice
-        return LiveSlice(owned, start, end)
+    private fun isTextKey(event: KeyEvent): Boolean {
+        val code = event.keyCode
+        if (code == KeyEvent.KEYCODE_DEL || code == KeyEvent.KEYCODE_FORWARD_DEL) return true
+        if (code == KeyEvent.KEYCODE_UNKNOWN && !event.characters.isNullOrEmpty()) return true
+        val value = event.unicodeChar
+        return value != 0 && !Character.isISOControl(value)
     }
 
-    private fun sliceSelected(): CharSequence? {
-        val owned = secret?.owned() ?: return null
-        val start = minOf(selStart, selEnd).coerceIn(0, owned.size)
-        val end = maxOf(selStart, selEnd).coerceIn(0, owned.size)
-        if (start == end) return null
-        return LiveSlice(owned, start, end)
+    private fun codePointsFor(value: Int): IntArray {
+        val accent = pendingAccent
+        pendingAccent = 0
+        if (accent == 0) return intArrayOf(value)
+        val combined = KeyCharacterMap.getDeadChar(accent, value)
+        if (combined != 0) return intArrayOf(combined)
+        return intArrayOf(accent, value)
+    }
+
+    private fun charsFromCodePoints(points: IntArray): CharArray {
+        var count = 0
+        for (point in points) {
+            if (Character.isValidCodePoint(point)) count += Character.charCount(point)
+        }
+        val out = CharArray(count)
+        var offset = 0
+        for (point in points) {
+            if (!Character.isValidCodePoint(point)) continue
+            offset += Character.toChars(point, out, offset)
+        }
+        points.fill(0)
+        return out
+    }
+
+    private fun repeatChars(unit: CharArray, times: Int): CharArray {
+        val incoming = CharArray(unit.size * times)
+        var offset = 0
+        var left = times
+        while (left > 0) {
+            unit.copyInto(incoming, offset)
+            offset += unit.size
+            left--
+        }
+        unit.fill('\u0000')
+        return incoming
+    }
+
+    private fun insertOwned(incoming: CharArray) {
+        val buffer = secret
+        if (buffer == null) {
+            incoming.fill('\u0000')
+            return
+        }
+        val size = buffer.owned().size
+        val from = minOf(selStart, selEnd).coerceIn(0, size)
+        val to = maxOf(selStart, selEnd).coerceIn(from, size)
+        val taken = buffer.splice(from, to - from, incoming, limit)
+        val cursor = (from + taken).coerceIn(0, buffer.owned().size)
+        selStart = cursor
+        selEnd = cursor
+        compStart = -1
+        compEnd = -1
+        if (taken > 0 || to > from) onEdited?.invoke()
+        invalidate()
+    }
+
+    private fun deleteSelectionOr(before: Int, after: Int) {
+        pendingAccent = 0
+        finishComposing()
+        val size = secretLength()
+        val from = minOf(selStart, selEnd).coerceIn(0, size)
+        val to = maxOf(selStart, selEnd).coerceIn(from, size)
+        if (from == to) {
+            deleteAround(before, after, codePoints = true)
+            return
+        }
+        val buffer = secret ?: return
+        val changed = buffer.removeOutside(from, from, from, to)
+        val newSize = buffer.owned().size
+        selStart = from.coerceIn(0, newSize)
+        selEnd = selStart
+        if (changed) onEdited?.invoke()
+        invalidate()
+        val moreBefore = (before - 1).coerceAtLeast(0)
+        val moreAfter = (after - 1).coerceAtLeast(0)
+        if (moreBefore > 0 || moreAfter > 0) deleteAround(moreBefore, moreAfter, codePoints = true)
     }
 
     private fun textBaseline(): Float {
@@ -488,11 +602,16 @@ class ErasableSecretView(context: Context) : View(context) {
             return true
         }
 
-        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence = sliceBefore(n)
+        override fun sendKeyEvent(event: KeyEvent): Boolean {
+            if (!isEnabled) return false
+            return applyKeyEvent(event, 1)
+        }
 
-        override fun getTextAfterCursor(n: Int, flags: Int): CharSequence = sliceAfter(n)
+        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence? = null
 
-        override fun getSelectedText(flags: Int): CharSequence? = sliceSelected()
+        override fun getTextAfterCursor(n: Int, flags: Int): CharSequence? = null
+
+        override fun getSelectedText(flags: Int): CharSequence? = null
 
         override fun getCursorCapsMode(reqModes: Int): Int = 0
 
@@ -500,8 +619,9 @@ class ErasableSecretView(context: Context) : View(context) {
     }
 
     /**
-     * API 31 surrounding text is refused. The platform parcels that value into a string copy,
-     * which this field cannot wipe.
+     * API 31 surrounding text is refused. The platform parcels a character sequence into a
+     * string copy, which this field cannot wipe. The cursor queries above stay null for the
+     * same reason.
      */
     private open inner class Connection31 : SecretInputConnection() {
         override fun getSurroundingText(beforeLength: Int, afterLength: Int, flags: Int): SurroundingText? = null
@@ -515,31 +635,6 @@ class ErasableSecretView(context: Context) : View(context) {
             moveSelection(start, end)
             commit(text, newCursorPosition)
             return true
-        }
-    }
-
-    private class LiveSlice(private val chars: CharArray, private val start: Int, private val end: Int) : CharSequence {
-        override val length: Int = (end - start).coerceAtLeast(0)
-
-        override fun get(index: Int): Char {
-            if (index < 0 || index >= length) throw IndexOutOfBoundsException()
-            return chars[start + index]
-        }
-
-        override fun subSequence(startIndex: Int, endIndex: Int): CharSequence {
-            if (startIndex < 0 || endIndex > length || startIndex > endIndex) throw IndexOutOfBoundsException()
-            return LiveSlice(chars, start + startIndex, start + endIndex)
-        }
-    }
-
-    private object EmptySlice : CharSequence {
-        override val length: Int = 0
-
-        override fun get(index: Int): Char = throw IndexOutOfBoundsException()
-
-        override fun subSequence(startIndex: Int, endIndex: Int): CharSequence {
-            if (startIndex == 0 && endIndex == 0) return this
-            throw IndexOutOfBoundsException()
         }
     }
 
