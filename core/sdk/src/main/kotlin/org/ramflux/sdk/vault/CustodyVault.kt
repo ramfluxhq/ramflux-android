@@ -19,7 +19,8 @@ internal interface CustodyFiles {
     fun exists(name: String): Boolean
     fun read(name: String): ByteArray?
     fun createDurable(name: String, bytes: ByteArray): Boolean
-    fun delete(name: String)
+    /** True when the record is gone. False when an existing record could not be removed. */
+    fun delete(name: String): Boolean
 }
 
 /** Seal and open wipe caller plaintext. The Keystore key itself never leaves hardware. */
@@ -50,8 +51,7 @@ internal class CustodyVault(private val files: CustodyFiles, private val cipher:
                 val name = referenceName(reference) ?: return failed(CustodyFailure.CORRUPT)
                 val expected = expectedLength(operation, input.size) ?: return failed(CustodyFailure.CORRUPT)
                 if (operation == DELETE) {
-                    files.delete(name)
-                    return ok(0)
+                    return if (files.delete(name)) ok(0) else failed(CustodyFailure.BUSY)
                 }
                 val aad = aad(reference)
                 try {

@@ -131,15 +131,15 @@ class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : Account
     }
 
     override suspend fun cancel(): ClientResult<Unit> {
-        val active = synchronized(gate) { ceremony.also { ceremony = null } } ?: return ClientResult.Ready(Unit)
+        val active = synchronized(gate) { ceremony } ?: return ClientResult.Ready(Unit)
         return when (val reply = accounts.accountCreateCancel(context(), JsonObject(emptyMap()))) {
             is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
             is CoreResult.Success -> {
                 val body = reply.value["body"] as? JsonObject
                 val cancelled = (body?.get("cancelled") as? JsonPrimitive)?.booleanOrNull == true
-                if (cancelled) ClientResult.Ready(Unit) else {
-                    synchronized(gate) { ceremony = active }
-                    failed()
+                if (!cancelled) failed() else {
+                    synchronized(gate) { if (ceremony == active) ceremony = null }
+                    ClientResult.Ready(Unit)
                 }
             }
         }

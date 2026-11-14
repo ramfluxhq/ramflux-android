@@ -7,6 +7,8 @@ import android.content.Context
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.nio.channels.FileChannel
+import java.nio.file.StandardOpenOption
 
 /** Ciphertext lives in no-backup storage. The wrapping key is the non-exportable background Keystore key. */
 internal class DirectoryCustodyFiles(private val root: File) : CustodyFiles {
@@ -37,6 +39,9 @@ internal class DirectoryCustodyFiles(private val root: File) : CustodyFiles {
             if (target.exists() || !partial.renameTo(target)) {
                 partial.delete()
                 false
+            } else if (!syncDirectory(root)) {
+                target.delete()
+                false
             } else {
                 true
             }
@@ -46,8 +51,18 @@ internal class DirectoryCustodyFiles(private val root: File) : CustodyFiles {
         }
     }
 
-    override fun delete(name: String) {
-        file(name)?.delete()
+    /** Missing records are already gone. An existing record that cannot be removed is a failure. */
+    override fun delete(name: String): Boolean {
+        val target = file(name) ?: return true
+        if (!target.exists()) return true
+        return target.delete()
+    }
+
+    private fun syncDirectory(dir: File): Boolean = try {
+        FileChannel.open(dir.toPath(), StandardOpenOption.READ).use { it.force(true) }
+        true
+    } catch (_: IOException) {
+        false
     }
 
     private fun file(name: String): File? {

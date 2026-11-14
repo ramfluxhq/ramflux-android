@@ -192,6 +192,46 @@ class OnboardingViewModelTest {
         assertEquals("account-created", (events.single { it is OnboardingEvent.AccountCreated } as OnboardingEvent.AccountCreated).id)
     }
 
+    @Test fun stalePhraseCompletionWipesTheUnadoptedArrays() = runTest(timeout = 5.seconds) {
+        val ceremony = FakeAccountCeremony()
+        val session = FakeOnboardingSession()
+        ceremony.beforePhrase = { session.retire() }
+        val vm = OnboardingViewModel(FakeAccountAccess(), FakeNodeSetup(), session, ceremony)
+        observe(vm)
+        runCurrent()
+        vm.onAction(OnboardingAction.Page(OnboardingPage.CREATE))
+        vm.onAction(OnboardingAction.DisplayName("Ada"))
+        vm.onAction(OnboardingAction.BeginCreate)
+        runCurrent()
+        assertTrue(ceremony.heldWords.isNotEmpty())
+        assertTrue(ceremony.heldWords.all { word -> word.all { it == '\u0000' } })
+        var drawn = false
+        vm.drawPhrase(0) { drawn = true }
+        assertFalse(drawn)
+        assertEquals(0, vm.state.value.phraseSlots)
+    }
+
+    @Test fun clearingTheViewModelWipesTheRetainedPhrase() = runTest(timeout = 5.seconds) {
+        val ceremony = FakeAccountCeremony()
+        val vm = OnboardingViewModel(FakeAccountAccess(), FakeNodeSetup(), FakeOnboardingSession(), ceremony)
+        observe(vm)
+        runCurrent()
+        vm.onAction(OnboardingAction.Page(OnboardingPage.CREATE))
+        vm.onAction(OnboardingAction.DisplayName("Ada"))
+        vm.onAction(OnboardingAction.BeginCreate)
+        runCurrent()
+        assertEquals(OnboardingPage.PHRASE, vm.state.value.page)
+        val words = ceremony.heldWords
+        assertTrue(words[0].any { it != '\u0000' })
+        val store = ViewModelStore()
+        ViewModelProvider.create(store, viewModelFactory { initializer { vm } })[OnboardingViewModel::class]
+        store.clear()
+        assertTrue(words.all { word -> word.all { it == '\u0000' } })
+        var drawn = false
+        vm.drawPhrase(0) { drawn = true }
+        assertFalse(drawn)
+    }
+
     @Test fun sessionCloseRemovesPrivateRowsAndDropsLateDiscovery() = runTest(timeout = 5.seconds) {
         val barrier = CompletableDeferred<Unit>()
         val nodes = FakeNodeSetup().apply {

@@ -4,6 +4,9 @@
 package org.ramflux.data
 
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -17,6 +20,7 @@ import org.ramflux.sdk.CoreClient
 import org.ramflux.sdk.CoreResult
 import org.ramflux.sdk.FakeAbi
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class AccountCeremonyDataTest {
     @Test fun creationCeremonyUsesShowOnceThenChallengeWithoutASecondPhraseCopy() = runTest(timeout = 5.seconds) {
         val abi = FakeAbi()
@@ -82,6 +86,64 @@ class AccountCeremonyDataTest {
             assertTrue(repo.cancel() is ClientResult.Failed)
             abi.completionBody = buildJsonObject { put("cancelled", true) }
             assertTrue(repo.cancel() is ClientResult.Ready)
+            assertTrue(repo.cancel() is ClientResult.Ready)
+            assertEquals(2, abi.submitted.count { it.getValue("method").toString().contains("cancel") })
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test fun failedCancelKeepsTheCeremonyUntilTheDaemonAcknowledges() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi()
+        val client = (CoreClient.open(abi, "/test/ceremony-cancel-fail", "a".repeat(64)) as CoreResult.Success).value
+        try {
+            val repo = DefaultAccountCeremonyRepository(SdkRepositoryTransport { client })
+            abi.completionBody = buildJsonObject {
+                put("ceremony", "pending"); put("ceremony_id", "ceremony-fail"); put("expires_in_ms", 1000)
+            }
+            assertTrue(repo.beginCreate("Ada", null) is ClientResult.Ready)
+            abi.completionCode = 12
+            assertTrue(repo.cancel() is ClientResult.Failed)
+            val before = abi.submitted.size
+            assertTrue(repo.beginCreate("Ada", null) is ClientResult.Failed)
+            assertEquals(before, abi.submitted.size)
+            abi.completionCode = 0
+            abi.completionBody = buildJsonObject { put("cancelled", true) }
+            assertTrue(repo.cancel() is ClientResult.Ready)
+            assertEquals(2, abi.submitted.count { it.getValue("method").toString().contains("cancel") })
+            assertTrue(repo.cancel() is ClientResult.Ready)
+            assertEquals(2, abi.submitted.count { it.getValue("method").toString().contains("cancel") })
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test fun cancelledCancelCallKeepsTheCeremonyForALaterAttempt() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi()
+        val client = (CoreClient.open(abi, "/test/ceremony-cancel-job", "a".repeat(64)) as CoreResult.Success).value
+        try {
+            val repo = DefaultAccountCeremonyRepository(SdkRepositoryTransport { client })
+            abi.completionBody = buildJsonObject {
+                put("ceremony", "pending"); put("ceremony_id", "ceremony-job"); put("expires_in_ms", 1000)
+            }
+            assertTrue(repo.beginCreate("Ada", null) is ClientResult.Ready)
+            val seen = CompletableDeferred<Unit>()
+            abi.pendingRequests = true
+            abi.onSubmitted = { frame ->
+                if (frame.getValue("method").toString().contains("cancel")) seen.complete(Unit)
+            }
+            val job = launch(Dispatchers.IO) { repo.cancel() }
+            seen.await()
+            assertEquals(1, abi.submitted.count { it.getValue("method").toString().contains("cancel") })
+            job.cancel()
+            job.join()
+            assertTrue(job.isCancelled)
+            val before = abi.submitted.size
+            assertTrue(repo.beginCreate("Ada", null) is ClientResult.Failed)
+            assertEquals(before, abi.submitted.size)
+            abi.pendingRequests = false
+            abi.onSubmitted = null
+            abi.completionBody = buildJsonObject { put("cancelled", true) }
             assertTrue(repo.cancel() is ClientResult.Ready)
             assertEquals(2, abi.submitted.count { it.getValue("method").toString().contains("cancel") })
         } finally {

@@ -3,7 +3,9 @@
 
 package org.ramflux.sdk.vault
 
+import java.io.File
 import java.nio.file.Files
+import java.security.MessageDigest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -70,6 +72,21 @@ class CustodyVaultTest {
             assertEquals(CustodyFailure.KEY_INVALIDATED, invalidated.failure)
             assertEquals(2, invalidated.status)
             assertEquals(0, vault.invoke(CustodyVault.DELETE, "missing".toByteArray(), ByteArray(0), ByteArray(0)).status)
+            val blocked = "blocked-delete".toByteArray()
+            val blockedName = MessageDigest.getInstance("SHA-256").digest(blocked).joinToString("") { "%02x".format(it) }
+            val blockedDir = File(root, blockedName)
+            assertTrue(blockedDir.mkdirs())
+            File(blockedDir, "child").writeBytes(byteArrayOf(1))
+            val refused = vault.invoke(CustodyVault.DELETE, blocked, ByteArray(0), ByteArray(0))
+            assertEquals(CustodyFailure.BUSY, refused.failure)
+            assertEquals(5, refused.status)
+            assertTrue(blockedDir.exists())
+            assertFalse(files.delete(blockedName))
+            val fresh = "ab".repeat(32)
+            assertTrue(files.createDurable(fresh, byteArrayOf(1, 2, 3)))
+            assertTrue(File(root, fresh).isFile)
+            assertFalse(File(root, "$fresh.partial").exists())
+            assertTrue(files.delete("cd".repeat(32)))
         } finally {
             root.deleteRecursively()
         }

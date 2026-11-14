@@ -25,6 +25,8 @@ class FakeAbi : NativeCore {
     var submitReplyOom = false
     var negotiatedPolicy: JsonObject? = null
     var pendingRequests = false
+    var completionCode = 0
+    var onSubmitted: ((JsonObject) -> Unit)? = null
     var closeTimeout = false
     var closes = 0
     var opens = 0
@@ -134,9 +136,10 @@ class FakeAbi : NativeCore {
         val id = next++
         val account = frame["account_id"]?.jsonPrimitive?.contentOrNull
         submitted.add(frame)
+        onSubmitted?.invoke(frame)
         state.operations[id] = Operation(method, account,
             if (deadline <= System.currentTimeMillis().toULong()) completion(method, account, 10)
-            else if (pendingRequests) null else completion(method, account, 0), !pendingRequests)
+            else if (pendingRequests) null else completion(method, account, completionCode), !pendingRequests)
         if (method in setOf("subscription.open", "bus.subscribe")) {
             state.subscription = id
             if (!pendingRequests) {

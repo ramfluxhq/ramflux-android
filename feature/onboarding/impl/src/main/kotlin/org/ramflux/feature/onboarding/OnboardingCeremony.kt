@@ -7,13 +7,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -21,8 +18,6 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.feature.onboarding.impl.R
@@ -73,40 +68,47 @@ private fun PhraseWord(index: Int, theme: RFTheme, drawPhrase: (Int, (CharArray)
 @Composable
 internal fun ChallengePage(state: OnboardingState, onAction: (OnboardingAction) -> Unit) {
     val theme = LocalRFTheme.current
-    val words = remember { mutableStateListOf("", "", "") }
-    var passphrase by remember { mutableStateOf("") }
+    var revision by remember { mutableIntStateOf(0) }
+    val words = remember { List(3) { ErasableBuffer() } }
+    val passphrase = remember { ErasableBuffer() }
+    val edited: () -> Unit = { revision++ }
     Text(stringResource(R.string.ui_check_your_phrase))
     state.challengePositions.forEachIndexed { index, position ->
-        RFTextField(
-            "challenge-$index",
-            stringResource(R.string.ui_recovery_word_position, position),
-            words.getOrElse(index) { "" },
-            theme,
-            disabled = state.busy,
-            onValueChange = { if (index in words.indices) words[index] = it.take(64) }
-        )
+        if (index < words.size) {
+            ErasableSecretField(
+                words[index],
+                stringResource(R.string.ui_recovery_word_position, position),
+                "challenge-$index",
+                enabled = !state.busy,
+                password = false,
+                limit = 64,
+                onEdited = edited
+            )
+        }
     }
     Text(stringResource(R.string.ui_data_passphrase_explanation))
-    OutlinedTextField(
-        value = passphrase,
-        onValueChange = { passphrase = it.take(128) },
-        label = { Text(stringResource(R.string.ui_data_passphrase)) },
+    ErasableSecretField(
+        passphrase,
+        stringResource(R.string.ui_data_passphrase),
+        "data-passphrase",
         enabled = !state.busy,
-        visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        modifier = Modifier.fillMaxWidth().testTag("data-passphrase")
+        password = true,
+        limit = 128,
+        onEdited = edited
     )
+    val ready = revision >= 0 && state.challengePositions.size == 3 && words.none { it.isBlank() } && !passphrase.isEmpty()
     RFActionButton(
         "confirm-account",
         stringResource(R.string.ui_confirm_account),
         RFButtonKind.Primary,
         theme,
-        disabled = state.busy || state.challengePositions.size != 3 || words.any { it.isBlank() } || passphrase.isEmpty(),
+        disabled = state.busy || !ready,
         onAction = {
-            val owned = Array(words.size) { words[it].toCharArray() }
-            val secret = passphrase.toCharArray()
-            words.indices.forEach { words[it] = "" }
-            passphrase = ""
+            val owned = Array(words.size) { words[it].snapshot() }
+            val secret = passphrase.snapshot()
+            words.forEach { it.clear() }
+            passphrase.clear()
+            revision++
             onAction(OnboardingAction.ConfirmChallenge(owned, secret))
         }
     )

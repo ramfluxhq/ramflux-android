@@ -37,6 +37,12 @@ class OnboardingViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), OnboardingState())
     private var work: Job? = null
     private var phrase: RecoveryPhrase? = null
+
+    override fun onCleared() {
+        phrase?.close()
+        phrase = null
+        super.onCleared()
+    }
     private var candidate: DiscoveredNode? = null
     private var savedNodes = emptyList<SavedNode>()
     private var ticket = 0L
@@ -280,10 +286,18 @@ class OnboardingViewModel @Inject constructor(
             when (val pending = ceremony.beginCreate(name, nodeId)) {
                 is ClientResult.Ready -> when (val shown = ceremony.showPhrase()) {
                     is ClientResult.Ready -> {
-                        checkCurrent()
-                        phrase?.close()
-                        phrase = shown.value
-                        local.update { it.copy(page = OnboardingPage.PHRASE, phraseSlots = shown.value.length, notice = null) }
+                        var adopted = false
+                        try {
+                            checkCurrent()
+                            phrase?.close()
+                            phrase = shown.value
+                            adopted = true
+                            local.update {
+                                it.copy(page = OnboardingPage.PHRASE, phraseSlots = shown.value.length, notice = null)
+                            }
+                        } finally {
+                            if (!adopted) shown.value.close()
+                        }
                     }
                     else -> {
                         ceremony.cancel()
