@@ -33,4 +33,9 @@
     <string name="ui_unable_to_open_private_data">无法打开私有数据</string>
     <string name="ui_use_device_setting">跟随系统</string>
     <string name="ui_selected_theme_is_unavailable_choose_another_theme">所选主题不可用，请选择其他主题。</string>
+    <string name="ui_groups">群组</string>
+    <string name="ui_calls">通话</string>
+    <string name="ui_agents">Agent</string>
+    <string name="ui_tasks">任务</string>
+    <string name="ui_cards">卡片</string>
 </resources>

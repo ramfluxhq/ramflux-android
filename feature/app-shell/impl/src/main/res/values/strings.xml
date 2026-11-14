@@ -33,4 +33,9 @@
     <string name="ui_unable_to_open_private_data">Unable to open private data</string>
     <string name="ui_use_device_setting">Use device setting</string>
     <string name="ui_selected_theme_is_unavailable_choose_another_theme">Selected theme is unavailable. Choose another theme.</string>
+    <string name="ui_groups">Groups</string>
+    <string name="ui_calls">Calls</string>
+    <string name="ui_agents">Agents</string>
+    <string name="ui_tasks">Tasks</string>
+    <string name="ui_cards">Cards</string>
 </resources>

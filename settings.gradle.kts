@@ -10,6 +10,7 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = "ramflux-android"
+include(":feature:permissions:api", ":feature:permissions:impl", ":feature:permissions:test")
 include(":core:sdk", ":core:data")
 include(":fixtures:packaging")
 
@@ -23,5 +24,14 @@ include(":feature:conversations:api", ":feature:conversations:impl", ":feature:c
 include(":feature:chat:api", ":feature:chat:impl", ":feature:chat:test")
 
 include(":feature:settings:api", ":feature:settings:impl", ":feature:settings:test")
+include(":feature:contacts:api", ":feature:contacts:impl", ":feature:contacts:test")
 
-include(":feature:permissions:api", ":feature:permissions:impl", ":feature:permissions:test")
+include(":feature:groups:api", ":feature:groups:impl", ":feature:groups:test")
+
+include(":feature:calls:api", ":feature:calls:impl", ":feature:calls:test")
+
+include(":feature:agents:api", ":feature:agents:impl", ":feature:agents:test")
+
+include(":feature:tasks:api", ":feature:tasks:impl", ":feature:tasks:test")
+
+include(":feature:cards:api", ":feature:cards:impl", ":feature:cards:test")

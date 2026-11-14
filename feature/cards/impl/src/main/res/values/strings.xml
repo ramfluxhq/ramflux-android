@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cards_title">Cards</string>
+    <string name="cards_back">Back</string>
+    <string name="cards_retry">Check again</string>
+    <string name="cards_checking">Checking card availability…</string>
+    <string name="cards_unavailable">Cards unavailable</string>
+    <string name="cards_missing">Cards are not available on this device yet. No card content or actions have been loaded.</string>
+    <string name="cards_unsupported">Cards are not supported by this version.</string>
+    <string name="cards_access">Secure account access is required to view cards.</string>
+    <string name="cards_failed">Unable to check card availability</string>
+    <string name="cards_error_code">The availability check failed (code %1$s).</string>
+    <string name="cards_unverified">Card availability could not be verified.</string>
+    <string name="cards_closed">Private data is closed.</string>
+</resources>

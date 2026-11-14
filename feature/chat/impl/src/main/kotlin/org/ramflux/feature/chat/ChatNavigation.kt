@@ -13,15 +13,16 @@ fun ChatNavigation(
     accountId: String,
     conversationId: String,
     onBack: () -> Unit,
-    onAttachments: () -> Unit = {},
-    vm: ChatViewModel = hiltViewModel()
+    vm: ChatViewModel = hiltViewModel(),
+    groupId: String? = null,
+    onAttachments: () -> Unit = {}
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val attachments by rememberUpdatedState(onAttachments)
     BackHandler { vm.onAction(ChatAction.Back) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(ChatAction.Refresh) }
-    LaunchedEffect(vm, accountId, conversationId) { vm.onAction(ChatAction.Load(accountId, conversationId)) }
+    LaunchedEffect(vm, accountId, conversationId, groupId) { vm.onAction(ChatAction.Load(accountId, conversationId, groupId)) }
     LaunchedEffect(vm) {
         vm.events.collect { event ->
             when (event) {

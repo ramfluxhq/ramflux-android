@@ -25,6 +25,7 @@ import org.ramflux.designsystem.UiText
 
 @Immutable data class ChatState(
     val conversationId: String = "",
+    val groupId: String? = null,
     val title: UiText? = null,
     val headerProblem: UiText? = null,
     val rows: ImmutableList<TimelineItem> = persistentListOf(),

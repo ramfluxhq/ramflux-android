@@ -21,7 +21,7 @@ class ChatViewModel @Inject constructor(
     private val accounts: AccountAccessRepository,
     private val session: ClientSessionRepository
 ) : ViewModel() {
-    private data class Target(val account: String, val conversation: String)
+    private data class Target(val account: String, val conversation: String, val group: String?)
     private var target: Target? = null
     private val local = MutableStateFlow(ChatState())
     private val channel = Channel<ChatEvent>(Channel.BUFFERED)
@@ -42,7 +42,7 @@ class ChatViewModel @Inject constructor(
     fun onAction(action: ChatAction) {
         when (action) {
             is ChatAction.Load -> {
-                val next = Target(action.accountId, action.conversationId)
+                val next = Target(action.accountId, action.conversationId, action.groupId)
                 if (target != next) {
                     request?.cancel()
                     ticket++
@@ -100,6 +100,10 @@ class ChatViewModel @Inject constructor(
         local.update {
             it.copy(
                 conversationId = currentTarget.conversation,
+                groupId = null,
+                canSend = false,
+                title = null,
+                headerProblem = null,
                 loading = true,
                 loaded = false,
                 rows = kotlinx.collections.immutable.persistentListOf(),
@@ -109,14 +113,26 @@ class ChatViewModel @Inject constructor(
         request = viewModelScope.launch {
             try {
                 if (!validate(expected, generation, currentTarget)) return@launch
+                val groupHeader = currentTarget.group?.let {
+                    history.groupHeader(currentTarget.account, it, currentTarget.conversation)
+                }
+                current(expected, generation, currentTarget)
+                if (!validate(expected, generation, currentTarget)) return@launch
+                if (currentTarget.group != null &&
+                    (groupHeader !is ClientResult.Ready || groupHeader.value.groupId != currentTarget.group)
+                ) {
+                    local.value = ChatState(problem = uiText(R.string.ui_conversation_details_unavailable))
+                    return@launch
+                }
                 val result = history.read(currentTarget.account, currentTarget.conversation)
                 current(expected, generation, currentTarget)
                 if (!validate(expected, generation, currentTarget)) return@launch
-                val header = history.header(currentTarget.account, currentTarget.conversation)
+                val header = groupHeader ?: history.header(currentTarget.account, currentTarget.conversation)
                 current(expected, generation, currentTarget)
                 if (!validate(expected, generation, currentTarget)) return@launch
                 local.update {
                     it.copy(
+                        groupId = (groupHeader as? ClientResult.Ready)?.value?.groupId,
                         title = (header as? ClientResult.Ready)?.value?.title?.takeIf { it.isNotBlank() }?.let { UiText.Data(it) },
                         headerProblem = when (header) {
                             is ClientResult.Ready -> null

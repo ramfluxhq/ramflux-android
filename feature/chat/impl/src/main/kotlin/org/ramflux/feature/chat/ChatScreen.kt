@@ -91,11 +91,11 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
                             }
                             is MessageItem -> Box(
                                 Modifier.fillMaxWidth(),
-                                contentAlignment = if (row.own) Alignment.CenterEnd else Alignment.CenterStart
+                                contentAlignment = if (row.own && state.groupId == null) Alignment.CenterEnd else Alignment.CenterStart
                             ) {
                                 RFMessageBubble(
                                     row.id,
-                                    if (row.own) RFBubbleKind.Own else RFBubbleKind.Peer,
+                                    if (row.own && state.groupId == null) RFBubbleKind.Own else RFBubbleKind.Peer,
                                     row.sender,
                                     theme,
                                     content = { Text(row.content.render()) },

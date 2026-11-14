@@ -52,7 +52,7 @@ fun AppShellScreen(state: AppShellState, onAction: (AppShellAction) -> Unit) {
                     )
                 }
                 RFSectionHeader(stringResource(R.string.ui_get_started), theme, trailing = {})
-                for (destination in listOf(state.onboarding, state.conversations, state.contacts, state.settings)) {
+                for (destination in (listOf(state.onboarding, state.conversations, state.contacts, state.settings) + state.additional)) {
                     RFListRow(
                         destination.feature.id,
                         destination.title.render(),

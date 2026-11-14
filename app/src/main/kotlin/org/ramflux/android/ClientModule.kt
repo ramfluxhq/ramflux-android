@@ -28,6 +28,18 @@ object ClientModule {
 
     @Provides fun history(data: AndroidClientData): MessageHistoryRepository = data.history
 
+    @Provides fun calls(data: AndroidClientData): CallDirectoryRepository = data.calls
+
+    @Provides fun cards(data: AndroidClientData): CardHostAvailabilityRepository = data.cards
+
+    @Provides fun tasks(data: AndroidClientData): TaskDirectoryRepository = data.taskDirectory
+
+    @Provides fun agents(data: AndroidClientData): AgentDirectoryRepository = data.agents
+
+    @Provides fun groups(data: AndroidClientData): GroupDirectoryRepository = data.groups
+
+    @Provides fun contacts(data: AndroidClientData): ContactDirectoryRepository = data.contacts
+
     @Provides fun devices(data: AndroidClientData): DeviceDirectoryRepository = data.devices
 
     @Provides fun accountStatus(data: AndroidClientData): AccountStatusRepository = data.accountStatus
