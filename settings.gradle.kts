@@ -10,6 +10,7 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = "ramflux-android"
+include(":feature:permissions:api", ":feature:permissions:impl", ":feature:permissions:test")
 include(":core:sdk", ":core:data")
 include(":fixtures:packaging")
 

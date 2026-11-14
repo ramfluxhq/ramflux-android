@@ -25,12 +25,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: python3 scripts/check-secret-boundary.py
       - run: python3 scripts/check-client-architecture.py
+      - run: python3 scripts/check-os-permissions.py
       - run: python3 scripts/check-ui-resources.py
       - run: python3 scripts/test-theme-catalog.py
       - run: python3 scripts/test-ui-resource-guard.py
-      - run: ./gradlew ktlintCheck :app:testDebugUnitTest :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :feature:cards:test:testDebugUnitTest :feature:tasks:test:testDebugUnitTest :feature:agents:test:testDebugUnitTest :feature:calls:test:testDebugUnitTest :feature:groups:test:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest :feature:onboarding:test:testDebugUnitTest :feature:conversations:test:testDebugUnitTest :feature:chat:test:testDebugUnitTest :feature:settings:test:testDebugUnitTest :feature:contacts:test:testDebugUnitTest --console=plain
+      - run: ./gradlew ktlintCheck :app:testDebugUnitTest :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :feature:permissions:test:testDebugUnitTest :feature:cards:test:testDebugUnitTest :feature:tasks:test:testDebugUnitTest :feature:agents:test:testDebugUnitTest :feature:calls:test:testDebugUnitTest :feature:groups:test:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest :feature:onboarding:test:testDebugUnitTest :feature:conversations:test:testDebugUnitTest :feature:chat:test:testDebugUnitTest :feature:settings:test:testDebugUnitTest :feature:contacts:test:testDebugUnitTest --console=plain
+      - run: python3 scripts/check-os-permissions.py
       - name: Record client screenshots
-        run: ./gradlew :feature:app-shell:test:recordRoborazziDebug :feature:onboarding:test:recordRoborazziDebug :feature:conversations:test:recordRoborazziDebug :feature:chat:test:recordRoborazziDebug :feature:settings:test:recordRoborazziDebug :feature:cards:test:recordRoborazziDebug :feature:tasks:test:recordRoborazziDebug :feature:agents:test:recordRoborazziDebug :feature:calls:test:recordRoborazziDebug :feature:groups:test:recordRoborazziDebug :feature:contacts:test:recordRoborazziDebug --console=plain
+        run: ./gradlew :feature:app-shell:test:recordRoborazziDebug :feature:onboarding:test:recordRoborazziDebug :feature:conversations:test:recordRoborazziDebug :feature:chat:test:recordRoborazziDebug :feature:settings:test:recordRoborazziDebug :feature:permissions:test:recordRoborazziDebug :feature:cards:test:recordRoborazziDebug :feature:tasks:test:recordRoborazziDebug :feature:agents:test:recordRoborazziDebug :feature:calls:test:recordRoborazziDebug :feature:groups:test:recordRoborazziDebug :feature:contacts:test:recordRoborazziDebug --console=plain
       - uses: actions/upload-artifact@v4
         if: always()
         with:

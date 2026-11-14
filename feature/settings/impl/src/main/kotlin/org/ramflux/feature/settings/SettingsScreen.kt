@@ -100,6 +100,18 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
                     }
                     when (state.page) {
                         SettingsPage.GENERAL -> {
+                            item("permissions") {
+                                RFSettingsRow(
+                                    "permissions",
+                                    stringResource(R.string.settings_permissions),
+                                    stringResource(R.string.settings_permissions_help),
+                                    theme,
+                                    leading = {},
+                                    trailing = {},
+                                    onAction = { onAction(SettingsAction.Permissions) }
+                                )
+                            }
+
                             item("appearance") {
                                 RFSettingsRow(
                                     "appearance",

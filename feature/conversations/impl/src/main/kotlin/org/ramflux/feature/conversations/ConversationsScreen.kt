@@ -20,7 +20,7 @@ import org.ramflux.feature.conversations.impl.R
 import org.ramflux.generated.*
 
 @Composable
-fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsAction) -> Unit) {
+fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsAction) -> Unit, permissionBanner: @Composable () -> Unit = {}) {
     val theme = LocalRFTheme.current
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
@@ -51,6 +51,7 @@ fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsActio
                     }
                 }
                 LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("conversations-list")) {
+                    item("permission-banner") { permissionBanner() }
                     item("search") {
                         RFSearchField(
                             "conversation-search",

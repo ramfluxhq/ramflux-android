@@ -3,6 +3,7 @@
 
 package org.ramflux.feature.chat
 sealed interface ChatEvent {
+    data object Attachments : ChatEvent
     data object Back : ChatEvent
     data object Sent : ChatEvent
 }

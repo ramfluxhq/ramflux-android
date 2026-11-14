@@ -3,6 +3,7 @@
 
 package org.ramflux.feature.onboarding
 sealed interface OnboardingEvent {
+    data class AccountCreated(val id: String) : OnboardingEvent
     data class AccountSelected(val id: String) : OnboardingEvent
     data object Back : OnboardingEvent
 }

@@ -30,4 +30,5 @@
     <string name="ui_conversation_details_unavailable">会话详情不可用</string>
     <string name="ui_time_unavailable">时间不可用</string>
     <string name="ui_call_record_unavailable">通话记录 · 详情不可用</string>
+    <string name="ui_attach">添加附件</string>
 </resources>

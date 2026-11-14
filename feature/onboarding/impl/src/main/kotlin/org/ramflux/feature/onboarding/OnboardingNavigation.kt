@@ -10,7 +10,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /** Host owns navigation callbacks; the feature never depends on another implementation. */
 @Composable
-fun OnboardingNavigation(onBack: () -> Unit, onAccountSelected: (String) -> Unit, vm: OnboardingViewModel = hiltViewModel()) {
+fun OnboardingNavigation(
+    onBack: () -> Unit,
+    onAccountSelected: (String) -> Unit,
+    onAccountCreated: (String) -> Unit = {},
+    vm: OnboardingViewModel = hiltViewModel()
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     BackHandler { vm.onAction(OnboardingAction.Back) }
     LaunchedEffect(vm) {
@@ -18,6 +23,7 @@ fun OnboardingNavigation(onBack: () -> Unit, onAccountSelected: (String) -> Unit
             when (event) {
                 OnboardingEvent.Back -> onBack()
                 is OnboardingEvent.AccountSelected -> onAccountSelected(event.id)
+                is OnboardingEvent.AccountCreated -> onAccountCreated(event.id)
             }
         }
     }

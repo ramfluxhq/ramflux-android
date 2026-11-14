@@ -14,6 +14,7 @@ fun ConversationsNavigation(
     onBack: () -> Unit,
     onSetupAccount: () -> Unit,
     onOpenChat: (String, String) -> Unit,
+    permissionBanner: @Composable () -> Unit = {},
     vm: ConversationsViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -31,5 +32,5 @@ fun ConversationsNavigation(
             }
         }
     }
-    ConversationsScreen(state, vm::onAction)
+    ConversationsScreen(state, vm::onAction, permissionBanner)
 }

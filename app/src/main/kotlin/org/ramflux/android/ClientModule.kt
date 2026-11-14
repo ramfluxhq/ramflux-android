@@ -46,5 +46,8 @@ object ClientModule {
 
     @Provides fun language(data: AndroidClientData): LanguageRepository = data.language
 
+    @Provides @Singleton
+    fun osPermissions(@ApplicationContext context: Context): OsPermissionsRepository = AndroidOsPermissionsRepository(context)
+
     @Provides fun appearance(data: AndroidClientData): AppearanceRepository = data.appearance
 }

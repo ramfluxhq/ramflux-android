@@ -7,5 +7,6 @@ sealed interface ChatAction {
     data object Refresh : ChatAction
     data class Draft(val text: String) : ChatAction
     data object Send : ChatAction
+    data object Attachments : ChatAction
     data object Back : ChatAction
 }
