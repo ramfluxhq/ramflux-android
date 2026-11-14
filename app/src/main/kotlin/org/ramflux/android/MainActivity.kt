@@ -22,6 +22,8 @@ import org.ramflux.feature.contacts.ContactsNavigation
 import org.ramflux.feature.contacts.api.ContactsRoute
 import org.ramflux.feature.conversations.ConversationsNavigation
 import org.ramflux.feature.conversations.api.ConversationsRoute
+import org.ramflux.feature.groups.GroupsNavigation
+import org.ramflux.feature.groups.api.GroupsRoute
 import org.ramflux.feature.onboarding.OnboardingNavigation
 import org.ramflux.feature.onboarding.api.OnboardingRoute
 import org.ramflux.feature.settings.SettingsNavigation
@@ -43,12 +45,20 @@ class MainActivity : ComponentActivity() {
                         "conversations" -> ConversationsRoute
                         "settings" -> SettingsRoute
                         "contacts" -> ContactsRoute
+                        "groups" -> GroupsRoute
                         else -> FeatureRoute(it)
                     }
                 }) { onBack, navigate ->
+                    entry<GroupsRoute> {
+                        GroupsNavigation(
+                            onBack,
+                            { navigate(OnboardingRoute) },
+                            { account, conversation, group -> navigate(ChatRoute(account, conversation, group)) }
+                        )
+                    }
                     entry<ContactsRoute> { ContactsNavigation(onBack, { navigate(OnboardingRoute) }) }
                     entry<SettingsRoute> { SettingsNavigation(onBack, { navigate(OnboardingRoute) }, { navigate(OnboardingRoute) }) }
-                    entry<ChatRoute> { route -> ChatNavigation(route.accountId, route.conversationId, onBack) }
+                    entry<ChatRoute> { route -> ChatNavigation(route.accountId, route.conversationId, onBack, groupId = route.groupId) }
                     entry<ConversationsRoute> {
                         ConversationsNavigation(
                             onBack = onBack,

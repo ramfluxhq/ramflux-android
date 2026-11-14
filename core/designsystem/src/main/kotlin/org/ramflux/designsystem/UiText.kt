@@ -26,6 +26,7 @@ sealed interface UiText {
     data class Resource(@param:StringRes val id: Int, val args: ImmutableList<UiText> = persistentListOf()) : UiText
     data class Data(val value: String) : UiText
     data class Number(val value: Long) : UiText
+    data class Unsigned(val value: ULong) : UiText
     data class DateTime(val epochSeconds: Long) : UiText
     data class Quantity(@param:PluralsRes val id: Int, val value: ULong) : UiText
 }
@@ -38,6 +39,7 @@ fun UiText.render(): String {
         UiText.Empty -> ""
         is UiText.Resource -> if (args.isEmpty()) stringResource(id) else stringResource(id, *args.map { it.render() }.toTypedArray())
         is UiText.Data -> value
+        is UiText.Unsigned -> NumberFormat.getIntegerInstance(locale).format(BigInteger(value.toString()))
         is UiText.Number -> NumberFormat.getIntegerInstance(locale).format(value)
         is UiText.Quantity -> pluralStringResource(
             id,

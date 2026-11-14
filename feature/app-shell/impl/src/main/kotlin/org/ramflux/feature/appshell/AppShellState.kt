@@ -33,6 +33,7 @@ data class AppShellState(
     val onboarding: ShellDestination = ShellDestination(ClientFeature.ONBOARDING, uiText(R.string.ui_set_up_your_account)),
     val conversations: ShellDestination = ShellDestination(ClientFeature.CONVERSATIONS, uiText(R.string.ui_conversations)),
     val contacts: ShellDestination = ShellDestination(ClientFeature.CONTACTS, uiText(R.string.ui_people)),
+    val additional: ImmutableList<ShellDestination> = persistentListOf(ShellDestination(ClientFeature.GROUPS, uiText(R.string.ui_groups))),
     val settings: ShellDestination = ShellDestination(ClientFeature.SETTINGS, uiText(R.string.ui_settings))
 )
 
