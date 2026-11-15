@@ -86,7 +86,9 @@ class OnboardingViewModel @Inject constructor(
         }
         if (session.status.value.phase != ClientPhase.OPEN || local.value.busy) {
             if (action is OnboardingAction.ConfirmChallenge) {
-                logConfirm("confirm ignored phase=${session.status.value.phase} busy=${local.value.busy}")
+                val phase = session.status.value.phase
+                val busy = local.value.busy
+                logConfirm("confirm.ignored.$phase.$busy")
             }
             return
         }
@@ -338,14 +340,16 @@ class OnboardingViewModel @Inject constructor(
             try {
                 val blank = words.size != 3 || words.any { it.isEmpty() || it.all(Char::isWhitespace) } || passphrase.isEmpty()
                 if (blank) {
-                    logConfirm("confirm rejected empty words=${words.size} passLen=${passphrase.size}")
+                    val count = words.size
+                    val length = passphrase.size
+                    logConfirm("confirm.rejected.$count.$length")
                     local.update {
                         it.copy(notice = OnboardingNotice(uiText(R.string.ui_enter_the_recovery_words_and_the_data_passphrase)))
                     }
                 } else {
                     when (val result = ceremony.confirm(words, passphrase)) {
                         is ClientResult.Ready -> {
-                            logConfirm("confirm ready")
+                            logConfirm("confirm.ready")
                             local.update {
                                 it.copy(
                                     page = OnboardingPage.CREATED,
@@ -356,23 +360,25 @@ class OnboardingViewModel @Inject constructor(
                             }
                         }
                         is ClientResult.Failed -> {
-                            logConfirm(
-                                "confirm failed code=${result.problem.code} name=${result.problem.statusName} " +
-                                    "outcome=${result.problem.outcome}"
-                            )
+                            val code = result.problem.code
+                            val name = result.problem.statusName ?: "none"
+                            val outcome = result.problem.outcome
+                            logConfirm("confirm.failed.$code.$name.$outcome")
                             record(result)
                         }
                         is ClientResult.Unavailable -> {
-                            logConfirm("confirm unavailable ${result.reason}")
+                            val reason = result.reason
+                            logConfirm("confirm.unavailable.$reason")
                             record(result)
                         }
                     }
                 }
             } catch (cancelled: CancellationException) {
-                logConfirm("confirm cancelled")
+                logConfirm("confirm.cancelled")
                 throw cancelled
             } catch (error: Exception) {
-                logConfirm("confirm thrown ${error.javaClass.simpleName}")
+                val kind = error.javaClass.simpleName
+                logConfirm("confirm.thrown.$kind")
                 local.update {
                     it.copy(
                         notice = OnboardingNotice(
@@ -404,7 +410,7 @@ class OnboardingViewModel @Inject constructor(
 
     private fun logConfirm(message: String) {
         try {
-            android.util.Log.e("RamfluxAbi", message)
+            android.util.Log.e("ramflux.abi", message)
         } catch (_: RuntimeException) {
             // The JVM android.jar stub throws. A device logger returns normally.
         }
