@@ -94,12 +94,18 @@ jobs:
           restore-keys: native-release-symbols-v1-${{ runner.os }}-
       - name: Exercise ELF guard regressions with real ARM fixtures
         run: python3 scripts/test-packaged-elf-guard.py
+      - name: Link the shipping native library alone
+        env:
+          RAMFLUX_CORE_DIR: ${{ github.workspace }}/sdk
+          CARGO_TARGET_DIR: ${{ github.workspace }}/native-target
+          CARGO_BUILD_JOBS: 1
+        run: bash scripts/build-native.sh core/sdk/build/generated/native
       - name: Assemble shipping-profile AAR and consumer APK
         env:
           RAMFLUX_CORE_DIR: ${{ github.workspace }}/sdk
           CARGO_TARGET_DIR: ${{ github.workspace }}/native-target
-          # One rustc. Two thin-LTO jobs are killed mid-compile on this runner.
           CARGO_BUILD_JOBS: 1
+          RAMFLUX_NATIVE_PREBUILT: 1
         run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :core:sdk:assembleRelease :fixtures:packaging:assembleRelease lint --console=plain
       - name: Check every packaged ELF and APK zip alignment
         run: python3 scripts/check-packaged-alignment.py core/sdk/build/outputs/aar/sdk-release.aar fixtures/packaging/build/outputs/apk/release/packaging-release-unsigned.apk app/build/outputs/apk/debug/app-debug.apk

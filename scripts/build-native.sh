@@ -8,12 +8,10 @@ ndk="${ANDROID_NDK_HOME:?Set ANDROID_NDK_HOME to Android NDK r28 or newer}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 out="${1:-$repo/core/sdk/build/generated/native}"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:?Set a persistent Cargo target directory}"
-# The hosted runner shuts down, with no compiler error, during codegen-units=1
-# thin LTO of the current SDK. CI keeps thin LTO and uses more codegen units.
-# Local release builds stay at the Cargo.toml profile.
+# One rustc on the hosted runner. The packaged profile stays ffi-release:
+# opt-level 3, thin LTO, codegen-units=1. Local builds keep two jobs.
 if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
   export CARGO_BUILD_JOBS=1
-  export CARGO_PROFILE_FFI_RELEASE_CODEGEN_UNITS=16
 else
   export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}"
 fi
@@ -45,14 +43,20 @@ pin=json.loads((repo/'sdk-contract/descriptor.json').read_text())
 assert hashlib.sha256((sdk/'crates/ramflux-protocol/src/message/descriptor.bin').read_bytes()).hexdigest()==pin['sha256'], 'pinned descriptor mismatch'
 PYDESC
 # cargo-ndk forwards 16 KB alignment and the stable SDK SONAME to the Rust shared library.
-export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS='-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384 -C link-arg=-Wl,-soname,libramflux_sdk.so'
+rustflags='-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384 -C link-arg=-Wl,-soname,libramflux_sdk.so'
+# LLVM's parallel backend is what exhausts the hosted runner during this one
+# crate. One thread does not change opt-level, LTO, or codegen-units.
+if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+  rustflags+=' -C threads=1'
+fi
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="$rustflags"
 # The pinned SDK packages its mobile SQLCipher/OpenSSL dependency.
 cmp "$core/crates/ramflux-sdk/include/ramflux_sdk_methods.json" "$repo/sdk-contract/ramflux_sdk_methods.json"
 profile_args=()
 if [[ "$profile" == release ]]; then profile_args+=(--profile ffi-release); fi
 ndk_args=(-t arm64-v8a --platform 28)
 if [[ "$action" == build ]]; then ndk_args+=(-o "$out/jniLibs"); fi
-echo "native cargo jobs=${CARGO_BUILD_JOBS} ffi-release codegen-units=${CARGO_PROFILE_FFI_RELEASE_CODEGEN_UNITS:-profile}"
+echo "native cargo jobs=${CARGO_BUILD_JOBS} profile=${profile}"
 (cd "$core" && cargo ndk "${ndk_args[@]}" "$action" -p ramflux-sdk --lib --features c-abi --locked "${profile_args[@]}")
 if [[ "$action" == check ]]; then exit 0; fi
 cp "$CARGO_TARGET_DIR/include/ramflux_sdk.h" "$out/include/ramflux_sdk.h"

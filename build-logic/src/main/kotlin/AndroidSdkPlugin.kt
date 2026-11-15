@@ -34,12 +34,18 @@ class AndroidSdkPlugin : Plugin<Project> {
         extensions.getByType<LibraryAndroidComponentsExtension>().onVariants { variant ->
             variant.sources.assets?.addGeneratedSourceDirectory(generateProfile) { it.outputDirectory }
         }
+        val prebuilt = providers.environmentVariable("RAMFLUX_NATIVE_PREBUILT")
         val buildNative = tasks.register<Exec>("buildNative") {
             dependsOn(generateProfile)
             group = "build"
             description = "Build the pinned shared C ABI and JNI with cargo-ndk and NDK r28"
             commandLine("bash", rootProject.file("scripts/build-native.sh"), nativeOutput.get().asFile)
             outputs.upToDateWhen { false }
+            // CI links the shipping library before Gradle starts, then packages that file.
+            onlyIf {
+                prebuilt.orNull != "1" ||
+                    !nativeOutput.get().asFile.resolve("jniLibs/arm64-v8a/libramflux_sdk.so").isFile
+            }
         }
         extensions.getByType<LibraryExtension>().sourceSets.getByName("main")
             .jniLibs.srcDir(nativeOutput.map { it.dir("jniLibs") })
