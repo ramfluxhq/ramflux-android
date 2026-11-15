@@ -1,0 +1,7 @@
+# Subflow: type and send ${MESSAGE_TEXT} in the open chat (sender side only).
+- tapOn:
+    id: "chat-draft"
+- inputText: ${MESSAGE_TEXT}
+- hideKeyboard
+- tapOn:
+    id: "chat-send"

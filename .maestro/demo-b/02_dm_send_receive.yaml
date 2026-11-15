@@ -1,0 +1,19 @@
+appId: org.ramflux.android
+---
+# Demo B step 02 (B1): DM send and receive.
+# Peer precondition: before this step the rf peer sends a message to the phone:
+#   rf conversation send --to <PHONE_USERNAME> --text "${PEER_MESSAGE_TEXT}"
+# Phone is the recipient for the first leg (asserted here).
+# Peer-side check for the second leg (not in Maestro): `rf conversation messages --with <PHONE_USERNAME>`
+# shows ${MESSAGE_TEXT} with the same logical message id as the phone DB.
+- runFlow: common/unlock.yaml
+- runFlow: common/open_conversation.yaml
+- runFlow:
+    file: common/expect_text.yaml
+    env:
+      EXPECTED_TEXT: ${PEER_MESSAGE_TEXT}
+- runFlow: common/send_message.yaml
+- extendedWaitUntil:
+    visible:
+      text: ${MESSAGE_TEXT}
+    timeout: 20000

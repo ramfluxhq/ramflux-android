@@ -1,0 +1,37 @@
+appId: org.ramflux.android
+---
+# Demo B step 08 (B8): pair a second device (A2) and check the own copy.
+# Phone is device A1. A2 is the rf CLI or TUI on the second device, named ${SECOND_DEVICE_NAME}.
+# Operator sequence:
+#   1. this flow opens device pairing on A1 and waits for the pairing request;
+#   2. A2 runs `rf device pair --code <code shown on A1>` (the code stays on screen; it is never copied out);
+#   3. this flow approves the request on A1 and checks the device is listed.
+# Then the peer-side and own-copy checks run with rf on A2 (sent message has all 8 SentMessage fields; no copy goes
+# back to the recipient). The edit from A2 is asserted on A1 (recipient side).
+- runFlow: common/unlock.yaml
+- tapOn:
+    id: "tab-more"
+- tapOn:
+    id: "devices-open"
+- tapOn:
+    id: "device-pair-start"
+- extendedWaitUntil:
+    visible:
+      id: "pairing-code"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "device-pair-request-${SECOND_DEVICE_NAME}"
+    timeout: 180000
+- tapOn:
+    id: "device-pair-approve-${SECOND_DEVICE_NAME}"
+- extendedWaitUntil:
+    visible:
+      id: "device-row-${SECOND_DEVICE_NAME}"
+    timeout: 60000
+- runFlow: common/open_conversation.yaml
+- runFlow: common/send_message.yaml
+- extendedWaitUntil:
+    visible:
+      text: ${EDITED_TEXT}
+    timeout: 180000

@@ -1,0 +1,5 @@
+# Subflow: recipient-side assertion. Env: EXPECTED_TEXT (pass with runFlow env:).
+- extendedWaitUntil:
+    visible:
+      text: ${EXPECTED_TEXT}
+    timeout: 30000

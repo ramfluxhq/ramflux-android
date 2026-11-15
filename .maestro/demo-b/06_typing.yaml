@@ -1,0 +1,18 @@
+appId: org.ramflux.android
+---
+# Demo B step 06 (B6): typing indicator, phone as recipient.
+# Precondition (rf CLI peer): the peer starts typing into the phone's 1:1 chat after this flow opens it:
+#   rf conversation typing start --to <PHONE_USERNAME>, then `rf conversation typing stop` after ~10 s.
+# Recipient-side checks on the phone: the indicator appears, then clears within 5 s of the stop.
+# Peer-side and node checks (not in Maestro): sender-side crypto state may change, message/outbox rows must not.
+# Sender-side legs (phone types to the peer) are checked from the peer's side with rf.
+- runFlow: common/unlock.yaml
+- runFlow: common/open_conversation.yaml
+- extendedWaitUntil:
+    visible:
+      id: "chat-typing-indicator"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: "chat-typing-indicator"
+    timeout: 5000

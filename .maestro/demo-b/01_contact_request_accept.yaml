@@ -1,0 +1,26 @@
+appId: org.ramflux.android
+---
+# Demo B step 01 (contacts): phone adds the peer, peer accepts, phone sees the accepted state.
+# Two-party step. Peer precondition (rf CLI peer, PEER_USERNAME) must be ready within 120 s:
+#   the peer runs `rf contact accept --from <PHONE_USERNAME>` after this flow sends the request.
+# Recipient-side check on the phone: the accepted status arrives and the contact row appears.
+# Peer-side check (not in Maestro): `rf contact list` shows the phone as an accepted contact.
+- runFlow: common/unlock.yaml
+- tapOn:
+    id: "tab-messages"
+- tapOn:
+    id: "contacts-open"
+- tapOn:
+    id: "contacts-add"
+- tapOn:
+    id: "contacts-username-input"
+- inputText: ${PEER_USERNAME}
+- hideKeyboard
+- tapOn:
+    id: "contacts-send-request"
+- extendedWaitUntil:
+    visible:
+      id: "contact-status-accepted-${PEER_USERNAME}"
+    timeout: 120000
+- assertVisible:
+    id: "contact-row-${PEER_USERNAME}"

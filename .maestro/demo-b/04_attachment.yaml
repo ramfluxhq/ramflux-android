@@ -1,0 +1,29 @@
+appId: org.ramflux.android
+---
+# Demo B step 04 (B4): attachment received from the peer, then a revoked attachment.
+# Peer preconditions (rf CLI peer, before this flow starts):
+#   rf conversation send-file --to <PHONE_USERNAME> --path <file named ${ATTACHMENT_NAME}>
+#   rf conversation send-file --to <PHONE_USERNAME> --path <file named ${REVOKED_ATTACHMENT_NAME}>
+#   rf attachment revoke --name ${REVOKED_ATTACHMENT_NAME}     (revoke BEFORE the phone imports it)
+# Recipient-side checks on the phone: the media renders; the revoked item shows unavailable and is not fetched.
+# Deletion-erases-bytes is checked with rf/DB output, not in Maestro.
+- runFlow: common/unlock.yaml
+- runFlow: common/open_conversation.yaml
+- extendedWaitUntil:
+    visible:
+      id: "message-attachment-${ATTACHMENT_NAME}"
+    timeout: 60000
+- tapOn:
+    id: "message-attachment-${ATTACHMENT_NAME}"
+- extendedWaitUntil:
+    visible:
+      id: "attachment-media-view"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "message-attachment-${REVOKED_ATTACHMENT_NAME}"
+    timeout: 60000
+- tapOn:
+    id: "message-attachment-${REVOKED_ATTACHMENT_NAME}"
+- assertVisible:
+    id: "attachment-unavailable"

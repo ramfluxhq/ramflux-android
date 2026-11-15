@@ -1,0 +1,24 @@
+appId: org.ramflux.android
+---
+# Demo B step 05 (B2): group with a rename.
+# Preconditions (rf CLI peer): the peer creates the group ${GROUP_NAME} with the phone as a member, sends one
+# group message, then renames it to ${RENAMED_GROUP} with `rf group rename` while this flow waits.
+# Recipient-side checks on the phone: the group appears, the rename arrives as a Service row and the header updates.
+# Peer-side checks (not in Maestro): all members share one order (device_sequence/HLC), rf group show.
+- runFlow: common/unlock.yaml
+- tapOn:
+    id: "tab-groups"
+- extendedWaitUntil:
+    visible:
+      id: "group-row-${GROUP_NAME}"
+    timeout: 60000
+- tapOn:
+    id: "group-row-${GROUP_NAME}"
+- extendedWaitUntil:
+    visible:
+      id: "group-service-row-rename"
+    timeout: 120000
+- assertVisible:
+    id: "group-title"
+- assertVisible:
+    text: ${RENAMED_GROUP}

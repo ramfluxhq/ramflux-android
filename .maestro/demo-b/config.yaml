@@ -1,0 +1,25 @@
+# Demo B Maestro suite. Run one flow with:
+#   maestro --device <UDID-or-serial> test .maestro/demo-b/<flow>.yaml -e PASSPHRASE=... -e PEER_USERNAME=...
+# or the whole folder in order (00 is destructive: it clears app state).
+# Secrets are never listed here: PASSPHRASE comes from the run command only.
+flows:
+  - "*.yaml"
+env:
+  # Required at run time with -e (never committed): PASSPHRASE, PEER_USERNAME, MESSAGE_TEXT,
+  # PEER_MESSAGE_TEXT, REPLY_TEXT, EDITED_TEXT, REACTION_TOKEN, RENAMED_GROUP, OFFLINE_PREFIX, SECOND_DEVICE_NAME.
+  DISPLAY_NAME: "Demo B Tester"
+  GROUP_NAME: "demo-b group"
+  ATTACHMENT_NAME: "demo-b-attachment.bin"
+  REVOKED_ATTACHMENT_NAME: "demo-b-revoked.bin"
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - 00_create_account.yaml
+    - 01_contact_request_accept.yaml
+    - 02_dm_send_receive.yaml
+    - 03_reply_edit_react_delete.yaml
+    - 04_attachment.yaml
+    - 05_group_rename.yaml
+    - 06_typing.yaml
+    - 07_offline_catchup.yaml
+    - 08_pair_second_device.yaml

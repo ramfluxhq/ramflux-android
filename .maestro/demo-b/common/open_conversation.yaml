@@ -1,0 +1,14 @@
+# Subflow: open the 1:1 conversation with ${PEER_USERNAME} from the messages tab.
+# Env: PEER_USERNAME.
+- tapOn:
+    id: "tab-messages"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-row-${PEER_USERNAME}"
+    timeout: 30000
+- tapOn:
+    id: "conversation-row-${PEER_USERNAME}"
+- extendedWaitUntil:
+    visible:
+      id: "chat-composer"
+    timeout: 15000

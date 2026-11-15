@@ -1,0 +1,54 @@
+appId: org.ramflux.android
+---
+# Demo B step 03 (B3): reply, reaction, edit, delete-for-everyone.
+# Preconditions:
+#   - step 02 finished: the peer message ${PEER_MESSAGE_TEXT} and the phone message ${MESSAGE_TEXT} exist.
+#   - during the reaction wait the peer runs `rf reaction add --message <id of ${MESSAGE_TEXT}> --token "${REACTION_TOKEN}"`.
+# Recipient-side checks on the phone: the reaction chip arrives on the phone's own message.
+# Peer-side checks (not in Maestro): reply references the target id; edit is revision 2; delete-for-everyone
+# leaves a tombstone on the peer; a conflicting edit is a typed conflict (rf output).
+- runFlow: common/unlock.yaml
+- runFlow: common/open_conversation.yaml
+- longPressOn:
+    text: ${PEER_MESSAGE_TEXT}
+- tapOn:
+    id: "message-action-reply"
+- tapOn:
+    id: "chat-draft"
+- inputText: ${REPLY_TEXT}
+- hideKeyboard
+- tapOn:
+    id: "chat-send"
+- extendedWaitUntil:
+    visible:
+      text: ${REPLY_TEXT}
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "message-reaction-chip"
+    timeout: 120000
+- assertVisible:
+    text: ${REACTION_TOKEN}
+- longPressOn:
+    text: ${MESSAGE_TEXT}
+- tapOn:
+    id: "message-action-edit"
+- eraseText: 200
+- inputText: ${EDITED_TEXT}
+- hideKeyboard
+- tapOn:
+    id: "chat-send"
+- extendedWaitUntil:
+    visible:
+      id: "message-edited-badge"
+    timeout: 20000
+- longPressOn:
+    text: ${EDITED_TEXT}
+- tapOn:
+    id: "message-action-delete-everyone"
+- tapOn:
+    id: "host-confirmation-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "message-tombstone"
+    timeout: 20000

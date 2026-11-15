@@ -1,0 +1,75 @@
+appId: org.ramflux.android
+---
+# Demo B step 00 (B0 prerequisite): create a fresh account on this device.
+# Preconditions: device booted, app installed. No peer needed.
+# Env: PASSPHRASE (required, from the run command, never committed), DISPLAY_NAME (optional).
+# Destructive: clearState wipes app data.
+# Recovery words are read with copyTextFrom into Maestro output memory only; never printed or written.
+# Suggested ids that do not exist yet are used on purpose (see the report's missing-ids table).
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "onboarding-window"
+    timeout: 30000
+- tapOn:
+    id: "onboarding-action-create"
+- tapOn:
+    id: "display-name"
+- inputText: ${DISPLAY_NAME}
+- hideKeyboard
+- tapOn:
+    id: "onboarding-action-prepare"
+- tapOn:
+    id: "onboarding-action-show-phrase"
+- extendedWaitUntil:
+    visible:
+      id: "recovery-phrase-words"
+    timeout: 20000
+- copyTextFrom:
+    id: "recovery-phrase-words"
+- evalScript: ${output.phraseWords = maestro.copiedText.trim().split(/\s+/)}
+- tapOn:
+    id: "onboarding-action-hide-phrase"
+- extendedWaitUntil:
+    visible:
+      id: "onboarding-challenge-position-0"
+    timeout: 15000
+- copyTextFrom:
+    id: "onboarding-challenge-position-0"
+- evalScript: ${output.pos0 = parseInt(maestro.copiedText.replace(/\D/g, ''), 10)}
+- copyTextFrom:
+    id: "onboarding-challenge-position-1"
+- evalScript: ${output.pos1 = parseInt(maestro.copiedText.replace(/\D/g, ''), 10)}
+- copyTextFrom:
+    id: "onboarding-challenge-position-2"
+- evalScript: ${output.pos2 = parseInt(maestro.copiedText.replace(/\D/g, ''), 10)}
+- tapOn:
+    id: "onboarding-action-continue-unlock"
+- tapOn:
+    id: "challenge-0"
+- inputText: ${output.phraseWords[output.pos0 - 1]}
+- tapOn:
+    id: "challenge-1"
+- inputText: ${output.phraseWords[output.pos1 - 1]}
+- tapOn:
+    id: "challenge-2"
+- inputText: ${output.phraseWords[output.pos2 - 1]}
+- tapOn:
+    id: "data-passphrase"
+- inputText: ${PASSPHRASE}
+- hideKeyboard
+- tapOn:
+    id: "confirm-account"
+- extendedWaitUntil:
+    visible:
+      id: "onboarding-action-done"
+    timeout: 60000
+- tapOn:
+    id: "onboarding-action-done"
+- extendedWaitUntil:
+    visible:
+      id: "app-shell"
+    timeout: 60000
+- assertVisible:
+    id: "tab-messages"
