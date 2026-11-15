@@ -10,8 +10,14 @@ out="${1:-$repo/core/sdk/build/generated/native}"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:?Set a persistent Cargo target directory}"
 # One rustc on the hosted runner. The packaged profile stays ffi-release:
 # opt-level 3, thin LTO, codegen-units=1. Local builds keep two jobs.
+# A restored incremental cache makes that thin-LTO link run past the job limit.
+# Incremental is only a compiler cache.
 if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
   export CARGO_BUILD_JOBS=1
+  export CARGO_INCREMENTAL=0
+  if [[ -d "$CARGO_TARGET_DIR" ]]; then
+    find "$CARGO_TARGET_DIR" -depth -type d -name incremental -exec rm -rf {} +
+  fi
 else
   export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}"
 fi
@@ -51,7 +57,7 @@ profile_args=()
 if [[ "$profile" == release ]]; then profile_args+=(--profile ffi-release); fi
 ndk_args=(-t arm64-v8a --platform 28)
 if [[ "$action" == build ]]; then ndk_args+=(-o "$out/jniLibs"); fi
-echo "native cargo jobs=${CARGO_BUILD_JOBS} profile=${profile}"
+echo "native cargo jobs=${CARGO_BUILD_JOBS} incremental=${CARGO_INCREMENTAL:-1} profile=${profile}"
 (cd "$core" && cargo ndk "${ndk_args[@]}" "$action" -p ramflux-sdk --lib --features c-abi --locked "${profile_args[@]}")
 if [[ "$action" == check ]]; then exit 0; fi
 cp "$CARGO_TARGET_DIR/include/ramflux_sdk.h" "$out/include/ramflux_sdk.h"
