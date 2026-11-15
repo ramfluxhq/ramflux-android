@@ -62,7 +62,7 @@ private fun PhraseWord(index: Int, theme: RFTheme, drawPhrase: (Int, (CharArray)
     }
 }
 
-/** Challenge secrets stay in these buffers. The footer reads [ready] and [take] without copying them into screen state. */
+/** Challenge secrets stay in these buffers. Confirm reads them once and erases them after the call returns. */
 internal class ChallengeEntry {
     val words: List<ErasableBuffer> = List(3) { ErasableBuffer() }
     val passphrase = ErasableBuffer()
@@ -76,15 +76,6 @@ internal class ChallengeEntry {
     fun ready(positionCount: Int): Boolean {
         val tick = revision
         return tick >= 0 && positionCount == words.size && words.none { it.isBlank() } && !passphrase.isEmpty()
-    }
-
-    fun take(): Pair<Array<CharArray>, CharArray> {
-        val owned = Array(words.size) { words[it].snapshot() }
-        val secret = passphrase.snapshot()
-        words.forEach { it.clear() }
-        passphrase.clear()
-        revision++
-        return owned to secret
     }
 }
 

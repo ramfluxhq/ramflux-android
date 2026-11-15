@@ -90,6 +90,7 @@
     <string name="ui_data_passphrase">数据口令</string>
     <string name="ui_data_passphrase_explanation">此口令用于在本机封存账户数据，与恢复短语无关。</string>
     <string name="ui_confirm_account">确认账户</string>
+    <string name="ui_enter_the_recovery_words_and_the_data_passphrase">请输入三个恢复词和数据口令。</string>
     <string name="ui_account_created_detail">账户已在本机解锁。</string>
     <string name="ui_continue_into_the_account">继续</string>
 </resources>

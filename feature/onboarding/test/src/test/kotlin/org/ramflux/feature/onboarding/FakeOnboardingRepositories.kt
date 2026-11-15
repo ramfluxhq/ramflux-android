@@ -86,6 +86,10 @@ class FakeAccountCeremony : AccountCeremonyRepository {
     var heldWords: Array<CharArray> = emptyArray()
     var beforePhrase: (() -> Unit)? = null
     var beginResult: ClientResult<CeremonyPending>? = null
+    var confirmations = 0
+    var confirmResult: suspend (Array<CharArray>, CharArray) -> ClientResult<String> = { _, _ ->
+        ClientResult.Ready("account-created")
+    }
     override suspend fun beginCreate(displayName: String, nodeId: String?): ClientResult<CeremonyPending> {
         begins++
         lastName = displayName
@@ -98,8 +102,10 @@ class FakeAccountCeremony : AccountCeremonyRepository {
         return ClientResult.Ready(RecoveryPhrase(heldWords))
     }
     override suspend fun challenge(): ClientResult<IntArray> = ClientResult.Ready(intArrayOf(2, 15, 24))
-    override suspend fun confirm(words: Array<CharArray>, passphrase: CharArray): ClientResult<String> =
-        ClientResult.Ready("account-created")
+    override suspend fun confirm(words: Array<CharArray>, passphrase: CharArray): ClientResult<String> {
+        confirmations++
+        return confirmResult(words, passphrase)
+    }
     override suspend fun cancel(): ClientResult<Unit> = ClientResult.Ready(Unit)
 }
 class FakeOnboardingSession : ClientSessionRepository {

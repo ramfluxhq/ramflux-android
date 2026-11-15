@@ -22,11 +22,23 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.*
 import java.net.URI
 import java.util.jar.JarFile
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.ramflux.data.ClientResult
 import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.feature.onboarding.impl.R
@@ -346,12 +358,112 @@ class OnboardingScreenTest {
         compose.onNodeWithTag("confirm-account").performClick()
         compose.waitForIdle()
         val action = actions.single() as OnboardingAction.ConfirmChallenge
-        assertEquals("alpha", String(action.words[0]))
-        assertEquals("bravo", String(action.words[1]))
-        assertEquals("charlie", String(action.words[2]))
-        assertEquals("seal", String(action.passphrase))
-        assertTrue(view.findTagged("challenge-0").isSecretEmpty())
-        assertTrue(view.findTagged("data-passphrase").isSecretEmpty())
+        assertBuffer(action.words[0], "alpha")
+        assertBuffer(action.words[1], "bravo")
+        assertBuffer(action.words[2], "charlie")
+        assertBuffer(action.passphrase, "seal")
+        assertFalse(view.findTagged("challenge-0").isSecretEmpty())
+        assertFalse(view.findTagged("data-passphrase").isSecretEmpty())
+    }
+
+    @Test fun losingFocusDoesNotClearTheSecretBuffer() {
+        var root: View? = null
+        compose.setContent {
+            root = LocalView.current
+            RamfluxTheme {
+                OnboardingScreen(
+                    OnboardingState(
+                        page = OnboardingPage.CHALLENGE,
+                        sessionReady = true,
+                        challengePositions = persistentListOf(2, 15, 24)
+                    ),
+                    {}
+                )
+            }
+        }
+        compose.waitForIdle()
+        val field = root!!.findTagged("data-passphrase")
+        compose.runOnIdle {
+            field.commit("seal")
+            assertTrue(field.requestFocus())
+            field.clearFocus()
+            assertFalse(field.isFocused)
+            assertFalse(field.isSecretEmpty())
+        }
+    }
+
+    @Test fun leavingTheSecretFieldClearsItsBuffer() {
+        val buffer = ErasableBuffer()
+        buffer.replace("seal".toCharArray())
+        var show by mutableStateOf(true)
+        compose.setContent {
+            if (show) {
+                RamfluxTheme {
+                    ErasableSecretField(buffer, "Data passphrase", "data-passphrase", true, true, 128) {}
+                }
+            }
+        }
+        compose.waitForIdle()
+        assertFalse(buffer.isEmpty())
+        show = false
+        compose.waitForIdle()
+        assertTrue(buffer.isEmpty())
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun confirmClickReadsLiveBuffersAndTheHandlerShowsTheCreatedAccount() = runTest(timeout = 5.seconds) {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val gate = CompletableDeferred<ClientResult<String>>()
+        val ceremony = FakeAccountCeremony()
+        var stillEntered = false
+        ceremony.confirmResult = { typed, secret ->
+            stillEntered = typed.size == 3 && typed.all { it.isNotEmpty() } && secret.isNotEmpty()
+            gate.await()
+        }
+        val vm = OnboardingViewModel(FakeAccountAccess(), FakeNodeSetup(), FakeOnboardingSession(), ceremony)
+        var root: View? = null
+        try {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
+            runCurrent()
+            compose.setContent {
+                root = LocalView.current
+                RamfluxTheme {
+                    OnboardingScreen(
+                        OnboardingState(
+                            page = OnboardingPage.CHALLENGE,
+                            sessionReady = true,
+                            challengePositions = persistentListOf(2, 15, 24)
+                        ),
+                        vm::onAction
+                    )
+                }
+            }
+            compose.waitForIdle()
+            val view = checkNotNull(root)
+            compose.runOnIdle {
+                view.findTagged("challenge-0").commit("alpha")
+                view.findTagged("challenge-1").commit("bravo")
+                view.findTagged("challenge-2").commit("charlie")
+                view.findTagged("data-passphrase").commit("seal")
+            }
+            compose.onNodeWithTag("confirm-account").performClick()
+            assertFalse(view.findTagged("challenge-0").isSecretEmpty())
+            assertFalse(view.findTagged("data-passphrase").isSecretEmpty())
+            runCurrent()
+            assertTrue(stillEntered)
+            assertTrue(vm.state.value.busy)
+            assertFalse(view.findTagged("challenge-0").isSecretEmpty())
+            gate.complete(ClientResult.Ready("account-created"))
+            runCurrent()
+            assertEquals(1, ceremony.confirmations)
+            assertEquals(OnboardingPage.CREATED, vm.state.value.page)
+            assertEquals("account-created", vm.state.value.createdAccountId)
+            assertTrue(view.findTagged("challenge-0").isSecretEmpty())
+            assertTrue(view.findTagged("data-passphrase").isSecretEmpty())
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     @Test fun challengeConfirmStaysInTheFooterAboveTheImeInset() {
@@ -415,6 +527,15 @@ private fun assertSecretInput(info: EditorInfo, view: ErasableSecretView) {
 private fun assertChars(actual: CharArray, expected: String) {
     assertEquals(expected.length, actual.size)
     for (index in expected.indices) assertEquals(expected[index], actual[index])
+}
+
+private fun assertBuffer(buffer: ErasableBuffer, expected: String) {
+    val owned = buffer.snapshot()
+    try {
+        assertChars(owned, expected)
+    } finally {
+        owned.fill('\u0000')
+    }
 }
 
 private fun assertNoImeContext(connection: BaseInputConnection) {

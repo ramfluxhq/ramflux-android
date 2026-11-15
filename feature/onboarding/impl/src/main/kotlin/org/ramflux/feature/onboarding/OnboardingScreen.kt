@@ -332,10 +332,7 @@ private fun OnboardingFooter(state: OnboardingState, challenge: ChallengeEntry, 
                 RFButtonKind.Primary,
                 theme,
                 disabled = state.busy || !challenge.ready(state.challengePositions.size),
-                onAction = {
-                    val (owned, secret) = challenge.take()
-                    onAction(OnboardingAction.ConfirmChallenge(owned, secret))
-                }
+                onAction = { onAction(OnboardingAction.ConfirmChallenge(challenge.words, challenge.passphrase)) }
             )
             OnboardingPage.CREATED -> RFActionButton(
                 "continue-created",

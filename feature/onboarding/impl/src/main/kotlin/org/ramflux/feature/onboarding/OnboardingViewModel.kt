@@ -84,7 +84,12 @@ class OnboardingViewModel @Inject constructor(
             }
             return
         }
-        if (session.status.value.phase != ClientPhase.OPEN || local.value.busy) return
+        if (session.status.value.phase != ClientPhase.OPEN || local.value.busy) {
+            if (action is OnboardingAction.ConfirmChallenge) {
+                logConfirm("confirm ignored phase=${session.status.value.phase} busy=${local.value.busy}")
+            }
+            return
+        }
         when (action) {
             OnboardingAction.Refresh -> read()
             is OnboardingAction.Address -> {
@@ -328,24 +333,80 @@ class OnboardingViewModel @Inject constructor(
 
     private fun confirmChallenge(action: OnboardingAction.ConfirmChallenge) {
         launch {
+            val words = Array(action.words.size) { action.words[it].snapshot() }
+            val passphrase = action.passphrase.snapshot()
             try {
-                when (val result = ceremony.confirm(action.words, action.passphrase)) {
-                    is ClientResult.Ready -> {
-                        checkCurrent()
-                        local.update {
-                            it.copy(
-                                page = OnboardingPage.CREATED,
-                                createdAccountId = result.value,
-                                challengePositions = kotlinx.collections.immutable.persistentListOf()
+                val blank = words.size != 3 || words.any { it.isEmpty() || it.all(Char::isWhitespace) } || passphrase.isEmpty()
+                if (blank) {
+                    logConfirm("confirm rejected empty words=${words.size} passLen=${passphrase.size}")
+                    local.update {
+                        it.copy(notice = OnboardingNotice(uiText(R.string.ui_enter_the_recovery_words_and_the_data_passphrase)))
+                    }
+                } else {
+                    when (val result = ceremony.confirm(words, passphrase)) {
+                        is ClientResult.Ready -> {
+                            logConfirm("confirm ready")
+                            local.update {
+                                it.copy(
+                                    page = OnboardingPage.CREATED,
+                                    createdAccountId = result.value,
+                                    challengePositions = kotlinx.collections.immutable.persistentListOf(),
+                                    notice = null
+                                )
+                            }
+                        }
+                        is ClientResult.Failed -> {
+                            logConfirm(
+                                "confirm failed code=${result.problem.code} name=${result.problem.statusName} " +
+                                    "outcome=${result.problem.outcome}"
                             )
+                            record(result)
+                        }
+                        is ClientResult.Unavailable -> {
+                            logConfirm("confirm unavailable ${result.reason}")
+                            record(result)
                         }
                     }
-                    else -> failure(result)
+                }
+            } catch (cancelled: CancellationException) {
+                logConfirm("confirm cancelled")
+                throw cancelled
+            } catch (error: Exception) {
+                logConfirm("confirm thrown ${error.javaClass.simpleName}")
+                local.update {
+                    it.copy(
+                        notice = OnboardingNotice(
+                            uiText(R.string.ui_the_outcome_is_unknown_refresh_the_current_state),
+                            OnboardingNoticeKind.UNKNOWN_OUTCOME
+                        )
+                    )
                 }
             } finally {
-                action.words.forEach { it.fill('\u0000') }
-                action.passphrase.fill('\u0000')
+                words.forEach { it.fill('\u0000') }
+                passphrase.fill('\u0000')
+                action.words.forEach { it.clear() }
+                action.passphrase.clear()
             }
+        }
+    }
+
+    /** Writes the confirm outcome before the session fence can drop it. */
+    private fun record(result: ClientResult<*>) {
+        local.update {
+            it.copy(
+                notice = result.notice() ?: OnboardingNotice(
+                    uiText(R.string.ui_this_setup_operation_is_unavailable),
+                    OnboardingNoticeKind.UNAVAILABLE
+                )
+            )
+        }
+    }
+
+    private fun logConfirm(message: String) {
+        try {
+            android.util.Log.e("RamfluxAbi", message)
+        } catch (_: RuntimeException) {
+            // The JVM android.jar stub throws. A device logger returns normally.
         }
     }
 
