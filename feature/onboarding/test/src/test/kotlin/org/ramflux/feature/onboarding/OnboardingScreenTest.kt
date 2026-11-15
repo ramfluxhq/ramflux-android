@@ -343,7 +343,7 @@ class OnboardingScreenTest {
         assertTrue(secretInfo.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0)
         assertFalse(word.masksInput())
         assertTrue(secret.masksInput())
-        compose.onNodeWithTag("confirm-account").performScrollTo().performClick()
+        compose.onNodeWithTag("confirm-account").performClick()
         compose.waitForIdle()
         val action = actions.single() as OnboardingAction.ConfirmChallenge
         assertEquals("alpha", String(action.words[0]))
@@ -352,6 +352,40 @@ class OnboardingScreenTest {
         assertEquals("seal", String(action.passphrase))
         assertTrue(view.findTagged("challenge-0").isSecretEmpty())
         assertTrue(view.findTagged("data-passphrase").isSecretEmpty())
+    }
+
+    @Test fun challengeConfirmStaysInTheFooterAboveTheImeInset() {
+        var imePixels = 0f
+        compose.setContent {
+            DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(400.dp, 700.dp))) {
+                val density = LocalDensity.current
+                imePixels = with(density) { 220.dp.toPx() }
+                CompositionLocalProvider(LocalDensity provides Density(density.density, 1.5f)) {
+                    RamfluxTheme {
+                        OnboardingScreen(
+                            OnboardingState(
+                                page = OnboardingPage.CHALLENGE,
+                                sessionReady = true,
+                                challengePositions = persistentListOf(2, 15, 24)
+                            ),
+                            {},
+                            contentWindowInsets = WindowInsets(bottom = 220.dp)
+                        )
+                    }
+                }
+            }
+        }
+        compose.onNodeWithTag("confirm-account").assertIsDisplayed()
+        val window = compose.onNodeWithTag("onboarding-window").fetchSemanticsNode().boundsInRoot
+        val footer = compose.onNodeWithTag("onboarding-footer").fetchSemanticsNode().boundsInRoot
+        val button = compose.onNodeWithTag("confirm-account").fetchSemanticsNode().boundsInRoot
+        assertEquals("IME padding is applied exactly once", window.bottom - imePixels, footer.bottom, 1f)
+        assertTrue(button.top >= footer.top - 1f)
+        assertTrue(button.bottom <= footer.bottom + 1f)
+        val header = compose.onNodeWithTag("onboarding-header").getUnclippedBoundsInRoot()
+        compose.onNodeWithTag("onboarding-body").performTouchInput { swipeUp() }
+        assertEquals(header, compose.onNodeWithTag("onboarding-header").getUnclippedBoundsInRoot())
+        compose.onNodeWithTag("confirm-account").assertIsDisplayed()
     }
 }
 

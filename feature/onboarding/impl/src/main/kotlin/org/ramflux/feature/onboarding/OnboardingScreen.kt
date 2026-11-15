@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -22,10 +23,11 @@ import org.ramflux.generated.*
 fun OnboardingScreen(
     state: OnboardingState,
     onAction: (OnboardingAction) -> Unit,
-    contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
+    contentWindowInsets: WindowInsets = WindowInsets.safeDrawing.union(WindowInsets.ime),
     drawPhrase: (Int, (CharArray) -> Unit) -> Unit = { _, _ -> }
 ) {
     val theme = LocalRFTheme.current
+    val challenge = remember { ChallengeEntry() }
     Scaffold(modifier = Modifier.testTag("onboarding-window"), contentWindowInsets = contentWindowInsets) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
@@ -248,7 +250,7 @@ fun OnboardingScreen(
                             OnboardingPage.CHECKING, OnboardingPage.SAVING -> Unit
                             OnboardingPage.CREATE -> CreateAccountPage(state, onAction)
                             OnboardingPage.PHRASE -> PhrasePage(state, drawPhrase)
-                            OnboardingPage.CHALLENGE -> ChallengePage(state, onAction)
+                            OnboardingPage.CHALLENGE -> ChallengePage(state, challenge)
                             OnboardingPage.CREATED -> CreatedAccountPage(state)
                             OnboardingPage.LOCAL_UNLOCK, OnboardingPage.PAIR, OnboardingPage.RECOVER -> {
                                 Text(
@@ -266,14 +268,14 @@ fun OnboardingScreen(
                         }
                     }
                 }
-                OnboardingFooter(state, onAction)
+                OnboardingFooter(state, challenge, onAction)
             }
         }
     }
 }
 
 @Composable
-private fun OnboardingFooter(state: OnboardingState, onAction: (OnboardingAction) -> Unit) {
+private fun OnboardingFooter(state: OnboardingState, challenge: ChallengeEntry, onAction: (OnboardingAction) -> Unit) {
     val theme = LocalRFTheme.current
     if (!state.sessionReady) return
     Column(
@@ -323,6 +325,17 @@ private fun OnboardingFooter(state: OnboardingState, onAction: (OnboardingAction
                 theme,
                 disabled = state.busy || state.phraseSlots == 0,
                 onAction = { onAction(OnboardingAction.PhraseSaved) }
+            )
+            OnboardingPage.CHALLENGE -> RFActionButton(
+                "confirm-account",
+                stringResource(R.string.ui_confirm_account),
+                RFButtonKind.Primary,
+                theme,
+                disabled = state.busy || !challenge.ready(state.challengePositions.size),
+                onAction = {
+                    val (owned, secret) = challenge.take()
+                    onAction(OnboardingAction.ConfirmChallenge(owned, secret))
+                }
             )
             OnboardingPage.CREATED -> RFActionButton(
                 "continue-created",

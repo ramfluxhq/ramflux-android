@@ -11,7 +11,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.nativeCanvas
@@ -21,8 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.feature.onboarding.impl.R
-import org.ramflux.generated.RFActionButton
-import org.ramflux.generated.RFButtonKind
 import org.ramflux.generated.RFTextField
 import org.ramflux.generated.RFTheme
 
@@ -65,52 +62,57 @@ private fun PhraseWord(index: Int, theme: RFTheme, drawPhrase: (Int, (CharArray)
     }
 }
 
+/** Challenge secrets stay in these buffers. The footer reads [ready] and [take] without copying them into screen state. */
+internal class ChallengeEntry {
+    val words: List<ErasableBuffer> = List(3) { ErasableBuffer() }
+    val passphrase = ErasableBuffer()
+    var revision by mutableIntStateOf(0)
+        private set
+
+    fun edited() {
+        revision++
+    }
+
+    fun ready(positionCount: Int): Boolean {
+        val tick = revision
+        return tick >= 0 && positionCount == words.size && words.none { it.isBlank() } && !passphrase.isEmpty()
+    }
+
+    fun take(): Pair<Array<CharArray>, CharArray> {
+        val owned = Array(words.size) { words[it].snapshot() }
+        val secret = passphrase.snapshot()
+        words.forEach { it.clear() }
+        passphrase.clear()
+        revision++
+        return owned to secret
+    }
+}
+
 @Composable
-internal fun ChallengePage(state: OnboardingState, onAction: (OnboardingAction) -> Unit) {
-    val theme = LocalRFTheme.current
-    var revision by remember { mutableIntStateOf(0) }
-    val words = remember { List(3) { ErasableBuffer() } }
-    val passphrase = remember { ErasableBuffer() }
-    val edited: () -> Unit = { revision++ }
+internal fun ChallengePage(state: OnboardingState, entry: ChallengeEntry) {
     Text(stringResource(R.string.ui_check_your_phrase))
     state.challengePositions.forEachIndexed { index, position ->
-        if (index < words.size) {
+        if (index < entry.words.size) {
             ErasableSecretField(
-                words[index],
+                entry.words[index],
                 stringResource(R.string.ui_recovery_word_position, position),
                 "challenge-$index",
                 enabled = !state.busy,
                 password = false,
                 limit = 64,
-                onEdited = edited
+                onEdited = entry::edited
             )
         }
     }
     Text(stringResource(R.string.ui_data_passphrase_explanation))
     ErasableSecretField(
-        passphrase,
+        entry.passphrase,
         stringResource(R.string.ui_data_passphrase),
         "data-passphrase",
         enabled = !state.busy,
         password = true,
         limit = 128,
-        onEdited = edited
-    )
-    val ready = revision >= 0 && state.challengePositions.size == 3 && words.none { it.isBlank() } && !passphrase.isEmpty()
-    RFActionButton(
-        "confirm-account",
-        stringResource(R.string.ui_confirm_account),
-        RFButtonKind.Primary,
-        theme,
-        disabled = state.busy || !ready,
-        onAction = {
-            val owned = Array(words.size) { words[it].snapshot() }
-            val secret = passphrase.snapshot()
-            words.forEach { it.clear() }
-            passphrase.clear()
-            revision++
-            onAction(OnboardingAction.ConfirmChallenge(owned, secret))
-        }
+        onEdited = entry::edited
     )
 }
 
