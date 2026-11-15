@@ -25,6 +25,14 @@ interface DevicesRepository {
     suspend fun revoke(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun syncExport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun syncImport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun transferAffirm(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun transferBegin(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun transferCancel(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun transferConfirm(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun transferJoin(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun transferPrepare(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun transferStatus(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
+    suspend fun transferTail_abandon(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
 }
 
 class DefaultDevicesRepository(transport: RepositoryTransport) : SdkRepository(transport), DevicesRepository {
@@ -72,4 +80,28 @@ class DefaultDevicesRepository(transport: RepositoryTransport) : SdkRepository(t
 
     override suspend fun syncImport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("device.sync.import", "device", context, body)
+
+    override suspend fun transferAffirm(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("device.transfer.affirm", "device", context, body)
+
+    override suspend fun transferBegin(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("device.transfer.begin", "device", context, body)
+
+    override suspend fun transferCancel(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("device.transfer.cancel", "device", context, body)
+
+    override suspend fun transferConfirm(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("device.transfer.confirm", "device", context, body)
+
+    override suspend fun transferJoin(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("device.transfer.join", "device", context, body)
+
+    override suspend fun transferPrepare(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("device.transfer.prepare", "device", context, body)
+
+    override suspend fun transferStatus(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
+        executeSecret("device.transfer.status", "device", context, SecretBody.publicJson("device.transfer.status", body))
+
+    override suspend fun transferTail_abandon(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("device.transfer.tail_abandon", "device", context, body)
 }

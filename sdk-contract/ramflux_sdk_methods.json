@@ -606,9 +606,14 @@
     },
     {
       "bridge_allowed": true,
-      "capability": "contact",
+      "capability": "contact.verify.cas",
+      "contract": "CONTACT-VERIFY-CAS-01",
       "key_export": false,
+      "message_descriptor_blake3": "8e1a7cc8be8a98c3c7fce27308fe0cd78616f18dcf9189965e42d93c2efd7ee5",
       "name": "contact.verify",
+      "product_pin": "77724f895764191b4482d82068bc32dc2e4207b2",
+      "request_type": "ramflux.message.v1.ContactSafetyVerifyRequest",
+      "response_type": "ramflux.message.v1.ContactSafetyVerifyResult",
       "secret_input": true,
       "secret_output": true,
       "show_once": false
@@ -807,6 +812,78 @@
       "capability": "device",
       "key_export": false,
       "name": "device.sync.import",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": true,
+      "capability": "device",
+      "key_export": false,
+      "name": "device.transfer.affirm",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": true,
+      "capability": "device",
+      "key_export": false,
+      "name": "device.transfer.begin",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": true,
+      "capability": "device",
+      "key_export": false,
+      "name": "device.transfer.cancel",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": true,
+      "capability": "device",
+      "key_export": false,
+      "name": "device.transfer.confirm",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": true,
+      "capability": "device",
+      "key_export": false,
+      "name": "device.transfer.join",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": true,
+      "capability": "device",
+      "key_export": false,
+      "name": "device.transfer.prepare",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": true,
+      "capability": "device",
+      "key_export": false,
+      "name": "device.transfer.status",
+      "secret_input": false,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": true,
+      "capability": "device",
+      "key_export": false,
+      "name": "device.transfer.tail_abandon",
       "secret_input": true,
       "secret_output": true,
       "show_once": false
@@ -1537,6 +1614,60 @@
       "key_export": false,
       "name": "object.transfer.status",
       "secret_input": false,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": false,
+      "capability": "search",
+      "key_export": false,
+      "name": "search.cancel",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": false,
+      "capability": "search",
+      "key_export": false,
+      "name": "search.cursor.close",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": false,
+      "capability": "search",
+      "key_export": false,
+      "name": "search.index.rebuild",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": false,
+      "capability": "search",
+      "key_export": false,
+      "name": "search.index.rebuild.cancel",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": false,
+      "capability": "search",
+      "key_export": false,
+      "name": "search.index.status",
+      "secret_input": true,
+      "secret_output": true,
+      "show_once": false
+    },
+    {
+      "bridge_allowed": false,
+      "capability": "search",
+      "key_export": false,
+      "name": "search.query",
+      "secret_input": true,
       "secret_output": true,
       "show_once": false
     },

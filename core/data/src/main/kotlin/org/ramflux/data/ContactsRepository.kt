@@ -95,5 +95,5 @@ class DefaultContactsRepository(transport: RepositoryTransport) : SdkRepository(
         executeSecret("contact.verification.status", "contact", context, SecretBody.publicJson("contact.verification.status", body))
 
     override suspend fun verify(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
-        executeSecret("contact.verify", "contact", context, body)
+        executeSecret("contact.verify", "contact.verify.cas", context, body)
 }
