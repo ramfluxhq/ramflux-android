@@ -119,7 +119,10 @@ fun ErasableSecretField(
     val edited by rememberUpdatedState(onEdited)
     val viewRef = remember { arrayOfNulls<ErasableSecretView>(1) }
     DisposableEffect(buffer) {
-        buffer.onCleared = { viewRef[0]?.forgetImeState() }
+        buffer.onCleared = {
+            viewRef[0]?.forgetImeState()
+            edited()
+        }
         onDispose {
             buffer.onCleared = null
             viewRef[0]?.forgetImeState()

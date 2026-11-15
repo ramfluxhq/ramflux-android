@@ -20,7 +20,8 @@ class OnboardingViewModel @Inject constructor(
     private val accounts: AccountAccessRepository,
     private val nodes: NodeSetupRepository,
     private val session: ClientSessionRepository,
-    private val ceremony: AccountCeremonyRepository = UnavailableAccountCeremonyRepository()
+    private val ceremony: AccountCeremonyRepository = UnavailableAccountCeremonyRepository(),
+    private val confirmTrace: ConfirmTrace = ConfirmTrace {}
 ) : ViewModel() {
     private val local = MutableStateFlow(OnboardingState())
     private val channel = Channel<OnboardingEvent>(Channel.BUFFERED)
@@ -341,8 +342,7 @@ class OnboardingViewModel @Inject constructor(
                 val blank = words.size != 3 || words.any { it.isEmpty() || it.all(Char::isWhitespace) } || passphrase.isEmpty()
                 if (blank) {
                     val count = words.size
-                    val length = passphrase.size
-                    logConfirm("confirm.rejected.$count.$length")
+                    logConfirm("confirm.rejected.$count")
                     local.update {
                         it.copy(notice = OnboardingNotice(uiText(R.string.ui_enter_the_recovery_words_and_the_data_passphrase)))
                     }
@@ -350,13 +350,19 @@ class OnboardingViewModel @Inject constructor(
                     when (val result = ceremony.confirm(words, passphrase)) {
                         is ClientResult.Ready -> {
                             logConfirm("confirm.ready")
-                            local.update {
-                                it.copy(
-                                    page = OnboardingPage.CREATED,
-                                    createdAccountId = result.value,
-                                    challengePositions = kotlinx.collections.immutable.persistentListOf(),
-                                    notice = null
-                                )
+                            try {
+                                checkCurrent()
+                                local.update {
+                                    it.copy(
+                                        page = OnboardingPage.CREATED,
+                                        createdAccountId = result.value,
+                                        challengePositions = kotlinx.collections.immutable.persistentListOf(),
+                                        notice = null
+                                    )
+                                }
+                            } catch (cancelled: CancellationException) {
+                                unknownOutcome()
+                                throw cancelled
                             }
                         }
                         is ClientResult.Failed -> {
@@ -379,14 +385,7 @@ class OnboardingViewModel @Inject constructor(
             } catch (error: Exception) {
                 val kind = error.javaClass.simpleName
                 logConfirm("confirm.thrown.$kind")
-                local.update {
-                    it.copy(
-                        notice = OnboardingNotice(
-                            uiText(R.string.ui_the_outcome_is_unknown_refresh_the_current_state),
-                            OnboardingNoticeKind.UNKNOWN_OUTCOME
-                        )
-                    )
-                }
+                unknownOutcome()
             } finally {
                 words.forEach { it.fill('\u0000') }
                 passphrase.fill('\u0000')
@@ -396,7 +395,7 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    /** Writes the confirm outcome before the session fence can drop it. */
+    /** A failed confirm writes its notice before the session fence. Success still has to pass the fence. */
     private fun record(result: ClientResult<*>) {
         local.update {
             it.copy(
@@ -409,10 +408,17 @@ class OnboardingViewModel @Inject constructor(
     }
 
     private fun logConfirm(message: String) {
-        try {
-            android.util.Log.e("ramflux.abi", message)
-        } catch (_: RuntimeException) {
-            // The JVM android.jar stub throws. A device logger returns normally.
+        confirmTrace.event(message)
+    }
+
+    private fun unknownOutcome() {
+        local.update {
+            it.copy(
+                notice = OnboardingNotice(
+                    uiText(R.string.ui_the_outcome_is_unknown_refresh_the_current_state),
+                    OnboardingNoticeKind.UNKNOWN_OUTCOME
+                )
+            )
         }
     }
 

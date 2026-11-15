@@ -111,6 +111,9 @@ class FakeAccountCeremony : AccountCeremonyRepository {
 class FakeOnboardingSession : ClientSessionRepository {
     override val status = MutableStateFlow(ClientSnapshot(ClientPhase.OPEN, 1))
     override suspend fun foreground() {}
+    fun advanceGeneration() {
+        status.value = status.value.copy(generation = status.value.generation + 1)
+    }
     fun retire() {
         status.value = status.value.copy(phase = ClientPhase.CLOSED)
     }

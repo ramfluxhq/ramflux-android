@@ -16,7 +16,10 @@ sealed interface OnboardingAction {
     data class DisplayName(val value: String) : OnboardingAction
     data object BeginCreate : OnboardingAction
     data object PhraseSaved : OnboardingAction
+
+    /** The confirm handler owns these buffers: it reads them once and erases them after the call returns. */
     class ConfirmChallenge(val words: List<ErasableBuffer>, val passphrase: ErasableBuffer) : OnboardingAction
+
     data object ContinueCreated : OnboardingAction
     data object Back : OnboardingAction
 }

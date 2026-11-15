@@ -4,6 +4,7 @@
 package org.ramflux.android
 
 import android.content.Context
+import android.util.Log
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -11,6 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 import org.ramflux.data.*
+import org.ramflux.feature.onboarding.ConfirmTrace
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -52,4 +54,10 @@ object ClientModule {
     fun osPermissions(@ApplicationContext context: Context): OsPermissionsRepository = AndroidOsPermissionsRepository(context)
 
     @Provides fun appearance(data: AndroidClientData): AppearanceRepository = data.appearance
+
+    @Provides fun confirmTrace(): ConfirmTrace = if (BuildConfig.DEBUG) {
+        ConfirmTrace { message -> Log.d("ramflux.abi", message) }
+    } else {
+        ConfirmTrace {}
+    }
 }

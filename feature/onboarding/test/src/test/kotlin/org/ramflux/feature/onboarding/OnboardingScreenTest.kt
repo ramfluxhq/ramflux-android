@@ -38,6 +38,9 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.ramflux.data.ClientFailureKind
+import org.ramflux.data.ClientOutcome
+import org.ramflux.data.ClientProblem
 import org.ramflux.data.ClientResult
 import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.designsystem.UiText
@@ -461,6 +464,59 @@ class OnboardingScreenTest {
             assertEquals("account-created", vm.state.value.createdAccountId)
             assertTrue(view.findTagged("challenge-0").isSecretEmpty())
             assertTrue(view.findTagged("data-passphrase").isSecretEmpty())
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun confirmFailureClearsTheFieldsAndDisablesTheButton() = runTest(timeout = 5.seconds) {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val ceremony = FakeAccountCeremony().apply {
+            confirmResult = { _, _ ->
+                ClientResult.Failed(
+                    ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE, statusName = "ValidationFailed")
+                )
+            }
+        }
+        val vm = OnboardingViewModel(FakeAccountAccess(), FakeNodeSetup(), FakeOnboardingSession(), ceremony)
+        var shown by mutableStateOf(
+            OnboardingState(
+                page = OnboardingPage.CHALLENGE,
+                sessionReady = true,
+                challengePositions = persistentListOf(2, 15, 24)
+            )
+        )
+        var root: View? = null
+        try {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                vm.state.collect { incoming -> shown = shown.copy(busy = incoming.busy, notice = incoming.notice) }
+            }
+            runCurrent()
+            compose.setContent {
+                root = LocalView.current
+                RamfluxTheme { OnboardingScreen(shown, vm::onAction) }
+            }
+            compose.waitForIdle()
+            val view = checkNotNull(root)
+            compose.runOnIdle {
+                view.findTagged("challenge-0").commit("alpha")
+                view.findTagged("challenge-1").commit("bravo")
+                view.findTagged("challenge-2").commit("charlie")
+                view.findTagged("data-passphrase").commit("seal")
+            }
+            compose.onNodeWithTag("confirm-account").assertIsEnabled()
+            compose.onNodeWithTag("confirm-account").performClick()
+            runCurrent()
+            compose.waitForIdle()
+            assertEquals(1, ceremony.confirmations)
+            assertEquals(OnboardingNoticeKind.ERROR, vm.state.value.notice?.kind)
+            assertFalse(vm.state.value.busy)
+            assertTrue(view.findTagged("challenge-0").isSecretEmpty())
+            assertTrue(view.findTagged("data-passphrase").isSecretEmpty())
+            compose.onNodeWithTag("confirm-account").assertIsNotEnabled()
+            compose.onNodeWithText("Unable to continue").assertIsDisplayed()
         } finally {
             Dispatchers.resetMain()
         }
