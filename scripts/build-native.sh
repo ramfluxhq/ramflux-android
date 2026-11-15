@@ -8,7 +8,13 @@ ndk="${ANDROID_NDK_HOME:?Set ANDROID_NDK_HOME to Android NDK r28 or newer}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 out="${1:-$repo/core/sdk/build/generated/native}"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:?Set a persistent Cargo target directory}"
-export CARGO_BUILD_JOBS=2
+# Two ffi-release thin-LTO rustc processes exhaust the GitHub runner and the
+# job dies mid-compile. Local builds keep two unless the caller set a value.
+if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+  export CARGO_BUILD_JOBS=1
+else
+  export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}"
+fi
 export ANDROID_NDK_HOME="$ndk"
 case "${2:-build}" in
   check) action=check ;;
