@@ -61,6 +61,38 @@ class WireContractTest {
         opened.value.close()
     }
 
+    @Test fun contactVerifyCasAnnotationMustMatchThePinnedContract() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi()
+        val original = abi.policyManifest()
+        val rows = (original.getValue("methods") as JsonArray).map { it as JsonObject }
+        suspend fun refused(name: String, row: JsonObject) {
+            val methods = JsonArray(rows.map { existing ->
+                if ((existing["name"] as JsonPrimitive).content == name) row else existing
+            })
+            abi.negotiatedPolicy = JsonObject(original + ("methods" to methods))
+            abi.opens = 0
+            val result = CoreClient.open(abi, "/test/policy", "a".repeat(64), StandardTestDispatcher(testScheduler))
+            assertTrue(result is CoreResult.Failure)
+            assertEquals(CoreError.MethodPolicyMismatch, (result as CoreResult.Failure).error)
+            assertEquals("fail before opening a native writer", 0, abi.opens)
+        }
+        val verify = rows.first { (it["name"] as JsonPrimitive).content == "contact.verify" }
+        val fields = listOf(
+            "contract" to ContactVerifyCas.CONTRACT,
+            "request_type" to ContactVerifyCas.REQUEST_TYPE,
+            "response_type" to ContactVerifyCas.RESPONSE_TYPE,
+            "message_descriptor_blake3" to ContactVerifyCas.MESSAGE_DESCRIPTOR,
+            "product_pin" to ContactVerifyCas.PRODUCT_PIN,
+        )
+        for ((field, value) in fields) {
+            refused("contact.verify", JsonObject(verify - field))
+            refused("contact.verify", JsonObject(verify + (field to JsonPrimitive(value + "x"))))
+        }
+        refused("contact.verify", JsonObject(verify + ("cas_capability" to JsonPrimitive("other"))))
+        val node = rows.first { (it["name"] as JsonPrimitive).content == "node.list" }
+        refused("node.list", JsonObject(node + ("contract" to JsonPrimitive(ContactVerifyCas.CONTRACT))))
+    }
+
     @Test fun negotiatedOperationCreditCannotExceedPreallocatedOwnershipCapacity() {
         val metadata = Json.parseToJsonElement(FakeAbi().negotiate().body.decodeToString()).jsonObject
         assertNotNull(CoreCapabilities.parse(metadata, "a".repeat(64)))

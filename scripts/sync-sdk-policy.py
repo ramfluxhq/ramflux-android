@@ -43,6 +43,21 @@ with tempfile.TemporaryDirectory(prefix='rf-descriptor-pin-') as directory:
 h = '// SPDX-License-Identifier: AGPL-3.0-or-later\n// Copyright (c) 2026 Span Brain\n// Generated from the pinned SDK method policy.\n\n'
 flags = ['secret_input', 'secret_output', 'show_once', 'key_export', 'bridge_allowed']
 rows = '\n'.join('        "' + m['name'] + '" to MethodPolicy(' + ', '.join(str(m[k]).lower() for k in flags) + ', "' + m['capability'] + '"),' for m in policy['methods'])
+verify = next(m for m in policy['methods'] if m['name'] == 'contact.verify')
+assert verify['capability'] == 'contact.verify.cas'
+cas_fields = (
+    ('CONTRACT', 'contract'),
+    ('REQUEST_TYPE', 'request_type'),
+    ('RESPONSE_TYPE', 'response_type'),
+    ('MESSAGE_DESCRIPTOR', 'message_descriptor_blake3'),
+    ('PRODUCT_PIN', 'product_pin'),
+)
+cas_rows = []
+for const, key in cas_fields:
+    value = verify[key]
+    assert isinstance(value, str) and value and '"' not in value and '\\' not in value
+    cas_rows.append('    const val ' + const + ' = "' + value + '"')
+cas = '\nobject ContactVerifyCas {\n' + '\n'.join(cas_rows) + '\n}\n'
 (root / 'core/sdk/src/main/kotlin/org/ramflux/sdk/MethodPolicy.kt').write_text(h + '''package org.ramflux.sdk
 
 data class MethodPolicy(val secretInput: Boolean, val secretOutput: Boolean, val showOnce: Boolean, val keyExport: Boolean, val bridgeAllowed: Boolean, val capability: String) {
@@ -51,7 +66,7 @@ data class MethodPolicy(val secretInput: Boolean, val secretOutput: Boolean, val
 
 object SdkMethodPolicy {
     val methods: Map<String, MethodPolicy> = mapOf(
-''' + rows + '\n    )\n}\n')
+''' + rows + '\n    )\n}\n' + cas)
 # All repository surfaces come from the same immutable method inventory.
 groups = {"Accounts": ["account", "identity"], "Nodes": ["node"], "Conversations": ["conversation", "message", "object", "stream"], "Contacts": ["contact"], "Groups": ["group"], "Agents": ["bot"], "Devices": ["device"], "Permissions": ["grant", "mcp"], "Tasks": ["task"], "Surfaces": ["surface", "a2i", "a2ui"], "Calls": ["call"], "Settings": ["sync"]}
 for name, prefixes in groups.items():

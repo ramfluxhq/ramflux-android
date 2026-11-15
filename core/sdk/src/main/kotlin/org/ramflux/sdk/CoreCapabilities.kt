@@ -11,6 +11,14 @@ import kotlinx.serialization.json.contentOrNull
 /** Negotiated against the host's build-time descriptor, never the core's self-reported value alone. */
 data class CoreCapabilities(val descriptorFingerprint: String, val methods: Set<String>) {
     companion object {
+        private val policyKeys = setOf(
+            "name", "capability", "bridge_allowed", "secret_input", "secret_output", "show_once", "key_export",
+        )
+        // Only contact.verify may carry the pinned CAS contract. Any other extra field refuses open.
+        private val contactVerifyKeys = policyKeys + setOf(
+            "contract", "request_type", "response_type", "message_descriptor_blake3", "product_pin",
+        )
+
         fun matchesPolicy(body: JsonObject): Boolean {
             val manifest = body["method_policy"] as? JsonObject ?: return false
             if (manifest.keys != setOf("abi_major", "policy_version", "methods") ||
@@ -20,18 +28,26 @@ data class CoreCapabilities(val descriptorFingerprint: String, val methods: Set<
             val seen = mutableSetOf<String>()
             for (entry in rows) {
                 val row = entry as? JsonObject ?: return false
-                if (row.keys != setOf("name", "capability", "bridge_allowed", "secret_input", "secret_output", "show_once", "key_export")) return false
                 val name = (row["name"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return false
+                if (row.keys != if (name == "contact.verify") contactVerifyKeys else policyKeys) return false
                 val policy = SdkMethodPolicy.methods[name] ?: return false
                 if (!seen.add(name) || row["capability"] != JsonPrimitive(policy.capability) ||
                     row["bridge_allowed"] != JsonPrimitive(policy.bridgeAllowed) ||
                     row["secret_input"] != JsonPrimitive(policy.secretInput) ||
                     row["secret_output"] != JsonPrimitive(policy.secretOutput) ||
                     row["show_once"] != JsonPrimitive(policy.showOnce) ||
-                    row["key_export"] != JsonPrimitive(policy.keyExport)) return false
+                    row["key_export"] != JsonPrimitive(policy.keyExport) ||
+                    (name == "contact.verify" && !contactVerifyPinned(row))) return false
             }
             return true
         }
+
+        private fun contactVerifyPinned(row: JsonObject): Boolean =
+            row["contract"] == JsonPrimitive(ContactVerifyCas.CONTRACT) &&
+                row["request_type"] == JsonPrimitive(ContactVerifyCas.REQUEST_TYPE) &&
+                row["response_type"] == JsonPrimitive(ContactVerifyCas.RESPONSE_TYPE) &&
+                row["message_descriptor_blake3"] == JsonPrimitive(ContactVerifyCas.MESSAGE_DESCRIPTOR) &&
+                row["product_pin"] == JsonPrimitive(ContactVerifyCas.PRODUCT_PIN)
 
         fun parse(body: JsonObject, expectedDescriptorFingerprint: String): CoreCapabilities? {
             fun text(key: String) = (body[key] as? JsonPrimitive)?.contentOrNull

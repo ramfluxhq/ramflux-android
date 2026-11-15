@@ -217,3 +217,11 @@ object SdkMethodPolicy {
         "task.update" to MethodPolicy(true, true, false, false, true, "task"),
     )
 }
+
+object ContactVerifyCas {
+    const val CONTRACT = "CONTACT-VERIFY-CAS-01"
+    const val REQUEST_TYPE = "ramflux.message.v1.ContactSafetyVerifyRequest"
+    const val RESPONSE_TYPE = "ramflux.message.v1.ContactSafetyVerifyResult"
+    const val MESSAGE_DESCRIPTOR = "8e1a7cc8be8a98c3c7fce27308fe0cd78616f18dcf9189965e42d93c2efd7ee5"
+    const val PRODUCT_PIN = "77724f895764191b4482d82068bc32dc2e4207b2"
+}

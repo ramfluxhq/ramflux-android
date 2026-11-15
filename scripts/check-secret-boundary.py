@@ -16,6 +16,19 @@ source = (root / 'core/sdk/src/main/kotlin/org/ramflux/sdk/MethodPolicy.kt').rea
 actual = {name: (a == 'true', b == 'true', c == 'true', d == 'true', e == 'true', capability) for name, a, b, c, d, e, capability in re.findall(r'"([^"]+)" to MethodPolicy\((true|false), (true|false), (true|false), (true|false), (true|false), "([^"]+)"\)', source)}
 expected = {m['name']: tuple(m[k] for k in ('secret_input','secret_output','show_once','key_export','bridge_allowed','capability')) for m in policy['methods']}
 assert actual == expected, 'Kotlin policy differs from the SDK artifact'
+verify = next(m for m in policy['methods'] if m['name'] == 'contact.verify')
+cas = {
+    'CONTRACT': 'contract',
+    'REQUEST_TYPE': 'request_type',
+    'RESPONSE_TYPE': 'response_type',
+    'MESSAGE_DESCRIPTOR': 'message_descriptor_blake3',
+    'PRODUCT_PIN': 'product_pin',
+}
+for const, key in cas.items():
+    assert f'const val {const} = "{verify[key]}"' in source, f'pinned contact.verify {key} drifted'
+caps = (root / 'core/sdk/src/main/kotlin/org/ramflux/sdk/CoreCapabilities.kt').read_text()
+for const in cas:
+    assert f'ContactVerifyCas.{const}' in caps, f'negotiation does not pin {const}'
 codec = (root / 'core/sdk/src/main/kotlin/org/ramflux/sdk/ReplyCodec.kt').read_text()
 secret_section = codec[codec.index('    fun decodeSecret'):codec.index('    private const val MAX_FRAME')]
 assert not any(x in secret_section for x in ('decodeToString', 'parseToJsonElement', '.toString(', 'String(')), 'secret decoder materializes immutable JSON/String data'

@@ -74,6 +74,13 @@ class FakeAbi : NativeCore {
             put("name", name); put("capability", policy.capability); put("bridge_allowed", policy.bridgeAllowed)
             put("secret_input", policy.secretInput); put("secret_output", policy.secretOutput)
             put("show_once", policy.showOnce); put("key_export", policy.keyExport)
+            if (name == "contact.verify") {
+                put("contract", ContactVerifyCas.CONTRACT)
+                put("request_type", ContactVerifyCas.REQUEST_TYPE)
+                put("response_type", ContactVerifyCas.RESPONSE_TYPE)
+                put("message_descriptor_blake3", ContactVerifyCas.MESSAGE_DESCRIPTOR)
+                put("product_pin", ContactVerifyCas.PRODUCT_PIN)
+            }
         } }))
     }
     override fun negotiate() = out(0, buildJsonObject {
