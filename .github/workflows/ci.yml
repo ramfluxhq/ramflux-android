@@ -46,7 +46,9 @@ jobs:
             feature/**/build/outputs/roborazzi/
   native-packaging:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A new SDK pin misses the exact native-target cache. ffi-release LTO then
+    # exceeds 30 minutes, which cancelled the assemble step with no test failure.
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: android
