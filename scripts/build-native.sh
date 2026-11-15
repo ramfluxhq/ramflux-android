@@ -8,10 +8,12 @@ ndk="${ANDROID_NDK_HOME:?Set ANDROID_NDK_HOME to Android NDK r28 or newer}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 out="${1:-$repo/core/sdk/build/generated/native}"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:?Set a persistent Cargo target directory}"
-# Two ffi-release thin-LTO rustc processes exhaust the GitHub runner and the
-# job dies mid-compile. Local builds keep two unless the caller set a value.
+# The hosted runner shuts down, with no compiler error, during codegen-units=1
+# thin LTO of the current SDK. CI keeps thin LTO and uses more codegen units.
+# Local release builds stay at the Cargo.toml profile.
 if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
   export CARGO_BUILD_JOBS=1
+  export CARGO_PROFILE_FFI_RELEASE_CODEGEN_UNITS=16
 else
   export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}"
 fi
@@ -50,6 +52,7 @@ profile_args=()
 if [[ "$profile" == release ]]; then profile_args+=(--profile ffi-release); fi
 ndk_args=(-t arm64-v8a --platform 28)
 if [[ "$action" == build ]]; then ndk_args+=(-o "$out/jniLibs"); fi
+echo "native cargo jobs=${CARGO_BUILD_JOBS} ffi-release codegen-units=${CARGO_PROFILE_FFI_RELEASE_CODEGEN_UNITS:-profile}"
 (cd "$core" && cargo ndk "${ndk_args[@]}" "$action" -p ramflux-sdk --lib --features c-abi --locked "${profile_args[@]}")
 if [[ "$action" == check ]]; then exit 0; fi
 cp "$CARGO_TARGET_DIR/include/ramflux_sdk.h" "$out/include/ramflux_sdk.h"
