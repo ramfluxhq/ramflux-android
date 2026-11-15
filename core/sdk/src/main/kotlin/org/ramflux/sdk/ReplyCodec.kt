@@ -6,6 +6,7 @@ package org.ramflux.sdk
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -14,12 +15,24 @@ internal object ReplyCodec {
         CoreResult.Failure(error(if (reply.code == 0) 16 else reply.code, Effect.NONE), operationId)
     } finally { reply.body.fill(0) }
 
-    private fun error(code: Int, effect: Effect): CoreError = when (code) {
-        1 -> CoreError.InvalidArgument(effect)
-        3 -> CoreError.UnsupportedVersion(effect)
-        12 -> CoreError.PermissionDenied(effect)
-        23 -> CoreError.SchemaResetRequired(effect)
-        else -> CoreError.Native(code, effect)
+    private fun error(code: Int, effect: Effect, statusName: String? = null): CoreError = when (code) {
+        1 -> CoreError.InvalidArgument(effect, statusName)
+        3 -> CoreError.UnsupportedVersion(effect, statusName)
+        12 -> CoreError.PermissionDenied(effect, statusName)
+        23 -> CoreError.SchemaResetRequired(effect, statusName)
+        else -> CoreError.Native(code, effect, statusName)
+    }
+
+    private fun namedEffect(chars: CharArray): Effect = when {
+        chars.contentEquals(charArrayOf('n', 'o', 'n', 'e')) -> Effect.NONE
+        chars.contentEquals(charArrayOf('r', 'e', 'f', 'u', 's', 'e', 'd')) -> Effect.REFUSED
+        else -> Effect.UNKNOWN
+    }
+
+    private fun namedEffect(text: String?): Effect = when (text) {
+        "none" -> Effect.NONE
+        "refused" -> Effect.REFUSED
+        else -> Effect.UNKNOWN
     }
 
     fun decodeSecret(reply: NativeReply, operationId: String?): CoreResult<SecretReply> = try {
@@ -34,15 +47,11 @@ internal object ReplyCodec {
                 CoreResult.Success(SecretReply(SecretBytes.take(parser.copy(body))))
             } else {
                 val effects = parser.field(envelope, "effects") ?: parser.field(envelope, "effect")
-                val effect = effects?.let { node ->
-                    val chars = parser.chars(node)
-                    try { when {
-                        chars.contentEquals(charArrayOf('n', 'o', 'n', 'e')) -> Effect.NONE
-                        chars.contentEquals(charArrayOf('r', 'e', 'f', 'u', 's', 'e', 'd')) -> Effect.REFUSED
-                        else -> Effect.UNKNOWN
-                    } } finally { chars.fill('\u0000') }
-                } ?: Effect.UNKNOWN
-                CoreResult.Failure(error(code, effect), operationId)
+                val effect = if (effects == null) Effect.NONE else {
+                    val chars = parser.chars(effects)
+                    try { namedEffect(chars) } finally { chars.fill('\u0000') }
+                }
+                CoreResult.Failure(error(code, effect, statusName(parser, envelope)), operationId)
             }
         }
     } catch (_: Exception) {
@@ -78,7 +87,7 @@ internal object ReplyCodec {
         val decoded = decode(reply, operationId)
         if (decoded !is CoreResult.Success) return decoded
         val envelope = decoded.value
-        val code = (envelope["code"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.toIntOrNull()
+        val code = (envelope["code"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
             ?: return CoreResult.Failure(CoreError.InvalidResponse(), operationId)
         val response = envelope["response"] as? JsonObject
         return if (code == 0 && response != null) CoreResult.Success(response)
@@ -95,24 +104,43 @@ internal object ReplyCodec {
                 BoundedJson.parseObject(reply.body)
                     ?: return CoreResult.Failure(CoreError.InvalidResponse(), operationId)
             if (reply.code == 0) CoreResult.Success(body) else {
-                val effect = when ((body["effects"] ?: body["effect"])?.jsonPrimitive?.contentOrNull) {
-                    "none" -> Effect.NONE
-                    "refused" -> Effect.REFUSED
-                    else -> Effect.UNKNOWN
-                }
-                val error = when (reply.code) {
-                    1 -> CoreError.InvalidArgument(effect)
-                    3 -> CoreError.UnsupportedVersion(effect)
-                    12 -> CoreError.PermissionDenied(effect)
-                    23 -> CoreError.SchemaResetRequired(effect)
-                    else -> CoreError.Native(reply.code, effect)
-                }
-                CoreResult.Failure(error, operationId, body)
+                val effects = body["effects"] ?: body["effect"]
+                val effect = if (effects == null) Effect.NONE else namedEffect(effects.jsonPrimitive.contentOrNull)
+                CoreResult.Failure(error(reply.code, effect, statusName(body)), operationId, body)
             }
         } catch (_: SerializationException) {
             CoreResult.Failure(CoreError.InvalidResponse(), operationId)
         } catch (_: IllegalArgumentException) {
             CoreResult.Failure(CoreError.InvalidResponse(), operationId)
         } finally { reply.body.fill(0) }
+    }
+
+    private fun statusName(parser: ByteJson, envelope: ByteJson.Node): String? {
+        return try {
+            val response = parser.field(envelope, "response") ?: return null
+            if (response.kind != 123) return null
+            val errorNode = parser.field(response, "error") ?: return null
+            if (errorNode.kind != 123) return null
+            val code = parser.field(errorNode, "code") ?: return null
+            if (code.kind != 34) return null
+            val chars = parser.chars(code)
+            try { identifier(chars) } finally { chars.fill('\u0000') }
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
+
+    private fun statusName(body: JsonObject): String? {
+        val response = body["response"] as? JsonObject ?: return null
+        val errorNode = response["error"] as? JsonObject ?: return null
+        val raw = (errorNode["code"] as? JsonPrimitive)?.contentOrNull ?: return null
+        val chars = raw.toCharArray()
+        return try { identifier(chars) } finally { chars.fill('\u0000') }
+    }
+
+    private fun identifier(chars: CharArray): String? {
+        if (chars.size !in 1..64) return null
+        val allowed = chars.all { char -> char in 'A'..'Z' || char in 'a'..'z' || char in '0'..'9' || char == '_' }
+        return if (allowed) String(chars) else null
     }
 }

@@ -400,12 +400,23 @@ private fun ClientResult<*>.notice(): OnboardingNotice? = when (this) {
         },
         OnboardingNoticeKind.UNAVAILABLE
     )
-    is ClientResult.Failed -> OnboardingNotice(
-        if (problem.outcome == ClientOutcome.UNKNOWN) {
-            uiText(R.string.ui_the_outcome_is_unknown_refresh_the_current_state)
-        } else {
-            uiText(R.string.ui_the_request_did_not_complete_code_value_refresh, UiText.Number(problem.code.toLong()))
-        },
-        if (problem.outcome == ClientOutcome.UNKNOWN) OnboardingNoticeKind.UNKNOWN_OUTCOME else OnboardingNoticeKind.ERROR
-    )
+    is ClientResult.Failed -> {
+        val name = problem.statusName
+        OnboardingNotice(
+            when {
+                problem.outcome == ClientOutcome.UNKNOWN ->
+                    uiText(R.string.ui_the_outcome_is_unknown_refresh_the_current_state)
+                name != null -> uiText(
+                    R.string.ui_the_request_did_not_complete_code_value_name,
+                    UiText.Number(problem.code.toLong()),
+                    UiText.Data(name)
+                )
+                else -> uiText(
+                    R.string.ui_the_request_did_not_complete_code_value_refresh,
+                    UiText.Number(problem.code.toLong())
+                )
+            },
+            if (problem.outcome == ClientOutcome.UNKNOWN) OnboardingNoticeKind.UNKNOWN_OUTCOME else OnboardingNoticeKind.ERROR
+        )
+    }
 }

@@ -23,16 +23,21 @@ enum class UnavailableCapability { LOCAL_SEARCH, AGENT_CONFIGURATION, STRANGER_R
 sealed interface CoreError {
     val code: Int
     val effect: Effect
+    val statusName: String? get() = null
     data class Unavailable(val capability: UnavailableCapability) : CoreError {
         override val code = 4
         override val effect = Effect.NONE
     }
-    data class InvalidArgument(override val effect: Effect) : CoreError { override val code = 1 }
-    data class UnsupportedVersion(override val effect: Effect) : CoreError { override val code = 3 }
-    data class PermissionDenied(override val effect: Effect) : CoreError { override val code = 12 }
-    data class SchemaResetRequired(override val effect: Effect) : CoreError { override val code = 23 }
+    data class InvalidArgument(override val effect: Effect, override val statusName: String? = null) : CoreError { override val code = 1 }
+    data class UnsupportedVersion(override val effect: Effect, override val statusName: String? = null) : CoreError {
+        override val code = 3
+    }
+    data class PermissionDenied(override val effect: Effect, override val statusName: String? = null) : CoreError { override val code = 12 }
+    data class SchemaResetRequired(override val effect: Effect, override val statusName: String? = null) : CoreError {
+        override val code = 23
+    }
     data class VaultUnavailable(override val effect: Effect = Effect.NONE) : CoreError { override val code = 7 }
-    data class Native(override val code: Int, override val effect: Effect) : CoreError {
+    data class Native(override val code: Int, override val effect: Effect, override val statusName: String? = null) : CoreError {
         val status: SdkStatus? get() = SdkStatus.entries.firstOrNull { it.code == code }
     }
     data object MethodPolicyMismatch : CoreError {

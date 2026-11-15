@@ -16,6 +16,8 @@ import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.ramflux.data.*
+import org.ramflux.designsystem.UiText
+import org.ramflux.feature.onboarding.impl.R
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OnboardingViewModelTest {
@@ -123,6 +125,26 @@ class OnboardingViewModelTest {
         vm.onAction(OnboardingAction.Confirm)
         runCurrent()
         assertEquals(1, nodes.confirmations)
+    }
+
+    @Test fun namedCreateFailureStaysAVisibleError() = runTest(timeout = 5.seconds) {
+        val ceremony = FakeAccountCeremony().apply {
+            beginResult = ClientResult.Failed(
+                ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE, statusName = "CustodySetupInvalid")
+            )
+        }
+        val vm = OnboardingViewModel(FakeAccountAccess(), FakeNodeSetup(), FakeOnboardingSession(), ceremony)
+        observe(vm)
+        runCurrent()
+        vm.onAction(OnboardingAction.Page(OnboardingPage.CREATE))
+        vm.onAction(OnboardingAction.DisplayName("Ada"))
+        vm.onAction(OnboardingAction.BeginCreate)
+        runCurrent()
+        assertEquals(OnboardingNoticeKind.ERROR, vm.state.value.notice?.kind)
+        val message = vm.state.value.notice?.message as UiText.Resource
+        assertEquals(R.string.ui_the_request_did_not_complete_code_value_name, message.id)
+        assertTrue(message.args.any { it is UiText.Number && it.value == 1L })
+        assertTrue(message.args.any { it is UiText.Data && it.value == "CustodySetupInvalid" })
     }
 
     @Test fun setupAndLockedSelectionAreTypedUnavailableWithoutFakeAccount() = runTest(timeout = 5.seconds) {

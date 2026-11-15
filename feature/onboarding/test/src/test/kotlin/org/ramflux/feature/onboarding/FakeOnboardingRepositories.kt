@@ -85,11 +85,12 @@ class FakeAccountCeremony : AccountCeremonyRepository {
     var lastNode: String? = null
     var heldWords: Array<CharArray> = emptyArray()
     var beforePhrase: (() -> Unit)? = null
+    var beginResult: ClientResult<CeremonyPending>? = null
     override suspend fun beginCreate(displayName: String, nodeId: String?): ClientResult<CeremonyPending> {
         begins++
         lastName = displayName
         lastNode = nodeId
-        return ClientResult.Ready(CeremonyPending("ceremony-1", 60_000))
+        return beginResult ?: ClientResult.Ready(CeremonyPending("ceremony-1", 60_000))
     }
     override suspend fun showPhrase(): ClientResult<RecoveryPhrase> {
         beforePhrase?.invoke()

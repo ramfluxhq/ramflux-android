@@ -68,6 +68,52 @@ class AccountCeremonyDataTest {
                 listOf("account.create.begin", "account.create.show_once", "account.create.show_once", "account.create.hidden_challenge", "account.create.confirm"),
                 abi.submitted.map { it.getValue("method").toString().trim('"') },
             )
+            assertTrue(abi.submitted.none { frame -> frame.containsKey("operation_id") })
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test fun ceremonyFramesCarryNoOperationId() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi()
+        val client = (CoreClient.open(abi, "/test/ceremony-opid", "a".repeat(64)) as CoreResult.Success).value
+        try {
+            val repo = DefaultAccountCeremonyRepository(SdkRepositoryTransport { client })
+            abi.completionBody = buildJsonObject {
+                put("ceremony", "pending"); put("ceremony_id", "ceremony-opid"); put("expires_in_ms", 1000)
+            }
+            assertTrue(repo.beginCreate("Ada", null) is ClientResult.Ready)
+            abi.completionBody = buildJsonObject { put("phrase", (1..24).joinToString(" ") { "w$it" }) }
+            val phrase = repo.showPhrase() as ClientResult.Ready
+            phrase.value.close()
+            abi.completionBody = buildJsonObject {
+                put("positions", buildJsonArray { add(JsonPrimitive(1)); add(JsonPrimitive(2)); add(JsonPrimitive(3)) })
+            }
+            assertTrue(repo.challenge() is ClientResult.Ready)
+            abi.completionBody = buildJsonObject { put("account_id", "account-1"); put("display_name", "Ada") }
+            val created = repo.confirm(
+                arrayOf("w1".toCharArray(), "w2".toCharArray(), "w3".toCharArray()),
+                "seal".toCharArray()
+            )
+            assertTrue(created is ClientResult.Ready)
+            abi.completionBody = buildJsonObject {
+                put("ceremony", "pending"); put("ceremony_id", "ceremony-opid-2"); put("expires_in_ms", 1000)
+            }
+            assertTrue(repo.beginCreate("Ada", null) is ClientResult.Ready)
+            abi.completionBody = buildJsonObject { put("cancelled", true) }
+            assertTrue(repo.cancel() is ClientResult.Ready)
+            assertEquals(
+                listOf(
+                    "account.create.begin",
+                    "account.create.show_once",
+                    "account.create.hidden_challenge",
+                    "account.create.confirm",
+                    "account.create.begin",
+                    "account.create.cancel"
+                ),
+                abi.submitted.map { it.getValue("method").toString().trim('"') },
+            )
+            assertTrue(abi.submitted.none { frame -> frame.containsKey("operation_id") })
         } finally {
             client.close()
         }

@@ -21,6 +21,31 @@ class SecretTransportTest {
         assertThrows(IllegalStateException::class.java) { result.value.useOnce {} }
     }
 
+    @Test fun omittedEffectsCarryCustodySetupInvalidInsteadOfUnknown() {
+        val source = (
+            """{"code":1,"response":{"kind":"error","method":"account.create.begin","ok":false,""" +
+                """"error":{"code":"CustodySetupInvalid","message":"not-shown"}}}"""
+            ).toByteArray()
+        val result = ReplyCodec.decodeSecret(NativeReply(0, source), null) as CoreResult.Failure
+        assertTrue(source.all { it == 0.toByte() })
+        val error = result.error
+        assertTrue(error is CoreError.InvalidArgument)
+        assertEquals(1, error.code)
+        assertEquals(Effect.NONE, error.effect)
+        assertEquals("CustodySetupInvalid", error.statusName)
+        assertFalse(error.toString().contains("not-shown"))
+    }
+
+    @Test fun explicitUnknownEffectsStayUnknown() {
+        val source = """{"code":1,"effects":"unknown","response":{"error":{"code":"CustodySetupInvalid"}}}""".toByteArray()
+        val secret = ReplyCodec.decodeSecret(NativeReply(0, source.copyOf()), null) as CoreResult.Failure
+        assertEquals(Effect.UNKNOWN, secret.error.effect)
+        assertEquals("CustodySetupInvalid", secret.error.statusName)
+        val ordinary = ReplyCodec.decode(NativeReply(1, source), null) as CoreResult.Failure
+        assertEquals(Effect.UNKNOWN, ordinary.error.effect)
+        assertEquals(1, ordinary.error.code)
+    }
+
     @Test fun closingWithoutConsumptionWipesOwnedAllocation() {
         val owned = byteArrayOf(123, 125)
         val holder = SecretReply(SecretBytes.take(owned))

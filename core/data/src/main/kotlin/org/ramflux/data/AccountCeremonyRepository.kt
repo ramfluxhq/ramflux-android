@@ -3,7 +3,6 @@
 
 package org.ramflux.data
 
-import java.util.UUID
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -156,7 +155,8 @@ class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : Account
         failed()
     }
 
-    private fun context() = RepositoryContext(null, UUID.randomUUID().toString())
+    // custody_setup rejects a frame operation_id. The in-memory ceremony id is the guard.
+    private fun context() = RepositoryContext(null)
     private fun <T> failed(): ClientResult<T> = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
     private fun <T> busy(): ClientResult<T> = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 5, ClientOutcome.NONE))
 
