@@ -147,6 +147,44 @@ class OnboardingViewModelTest {
         assertTrue(message.args.any { it is UiText.Data && it.value == "CustodySetupInvalid" })
     }
 
+    @Test fun confirmWordMismatchShowsThePositionAndNotTheWord() = runTest(timeout = 5.seconds) {
+        val ceremony = FakeAccountCeremony().apply {
+            confirmResult = { _, _ ->
+                ClientResult.Failed(
+                    ClientProblem(
+                        ClientFailureKind.FAILED,
+                        5,
+                        ClientOutcome.NONE,
+                        statusName = "CustodyConfirmationFailed",
+                        check = "word_8"
+                    )
+                )
+            }
+        }
+        val traced = mutableListOf<String>()
+        val vm = OnboardingViewModel(
+            FakeAccountAccess(),
+            FakeNodeSetup(),
+            FakeOnboardingSession(),
+            ceremony,
+            ConfirmTrace { traced.add(it) }
+        )
+        observe(vm)
+        runCurrent()
+        val words = challengeBuffers("alpha", "bravo", "delta")
+        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
+        runCurrent()
+        assertEquals(listOf("confirm.failed.5.CustodyConfirmationFailed.word_8.NONE"), traced)
+        val message = vm.state.value.notice?.message as UiText.Resource
+        assertEquals(R.string.ui_the_request_did_not_complete_code_value_name_check, message.id)
+        assertTrue(message.args.any { it is UiText.Data && it.value == "word_8" })
+        assertTrue(message.args.none { it is UiText.Data && it.value == "alpha" })
+        assertNotEquals(OnboardingPage.CREATED, vm.state.value.page)
+        assertTrue(words.all { it.isEmpty() })
+        assertTrue(passphrase.isEmpty())
+    }
+
     @Test fun setupAndLockedSelectionAreTypedUnavailableWithoutFakeAccount() = runTest(timeout = 5.seconds) {
         val accounts = FakeAccountAccess().apply {
             listing = { ClientResult.Ready(AccountCatalog(listOf(AccountSummary("a", "Work", false, "locked")), null)) }
@@ -582,7 +620,7 @@ class OnboardingViewModelTest {
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
         assertEquals(1, ceremony.confirmations)
-        assertEquals(listOf("confirm.failed.9.none.UNKNOWN"), traced)
+        assertEquals(listOf("confirm.failed.9.none.none.UNKNOWN"), traced)
         assertEquals(OnboardingNoticeKind.UNKNOWN_OUTCOME, vm.state.value.notice?.kind)
         val message = vm.state.value.notice?.message as UiText.Resource
         assertEquals(R.string.ui_the_outcome_is_unknown_refresh_the_current_state, message.id)

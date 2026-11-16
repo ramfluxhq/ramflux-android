@@ -33,7 +33,42 @@ class SecretTransportTest {
         assertEquals(1, error.code)
         assertEquals(Effect.NONE, error.effect)
         assertEquals("CustodySetupInvalid", error.statusName)
+        assertEquals(null, error.reasonCode)
         assertFalse(error.toString().contains("not-shown"))
+    }
+
+    @Test fun confirmReasonCodesReachTheTypedErrorAndDropSecretText() {
+        val reasons = listOf(
+            "passphrase_empty",
+            "passphrase_too_long",
+            "passphrase_not_utf8",
+            "display_name",
+            "operation_id",
+            "deadline",
+            "word_8",
+        )
+        for (reason in reasons) {
+            val status = when (reason) {
+                "word_8" -> "CustodyConfirmationFailed"
+                "deadline" -> "CustodyExpired"
+                else -> "CustodySetupInvalid"
+            }
+            val number = when (reason) {
+                "word_8" -> 5
+                "deadline" -> 16
+                else -> 1
+            }
+            val source = (
+                """{"code":$number,"response":{"kind":"error","error":{"code":"$status","reason_code":"$reason","message":"harbor"}}}"""
+            ).toByteArray()
+            val decoded = ReplyCodec.decode(NativeReply(number, source), null) as CoreResult.Failure
+            assertEquals(reason, decoded.error.reasonCode)
+            assertEquals(status, decoded.error.statusName)
+            assertFalse(decoded.error.toString().contains("harbor"))
+        }
+        val leaked = """{"code":1,"response":{"error":{"code":"CustodySetupInvalid","reason_code":"word harbor"}}}""".toByteArray()
+        val dropped = ReplyCodec.decode(NativeReply(1, leaked), null) as CoreResult.Failure
+        assertEquals(null, dropped.error.reasonCode)
     }
 
     @Test fun explicitUnknownEffectsStayUnknown() {

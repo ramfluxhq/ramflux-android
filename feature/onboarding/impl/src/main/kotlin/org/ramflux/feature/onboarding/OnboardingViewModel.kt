@@ -368,8 +368,9 @@ class OnboardingViewModel @Inject constructor(
                         is ClientResult.Failed -> {
                             val code = result.problem.code
                             val name = result.problem.statusName ?: "none"
+                            val check = result.problem.check ?: "none"
                             val outcome = result.problem.outcome
-                            logConfirm("confirm.failed.$code.$name.$outcome")
+                            logConfirm("confirm.failed.$code.$name.$check.$outcome")
                             record(result)
                         }
                         is ClientResult.Unavailable -> {
@@ -475,10 +476,17 @@ private fun ClientResult<*>.notice(): OnboardingNotice? = when (this) {
     )
     is ClientResult.Failed -> {
         val name = problem.statusName
+        val check = problem.check
         OnboardingNotice(
             when {
                 problem.outcome == ClientOutcome.UNKNOWN ->
                     uiText(R.string.ui_the_outcome_is_unknown_refresh_the_current_state)
+                name != null && check != null -> uiText(
+                    R.string.ui_the_request_did_not_complete_code_value_name_check,
+                    UiText.Number(problem.code.toLong()),
+                    UiText.Data(name),
+                    UiText.Data(check)
+                )
                 name != null -> uiText(
                     R.string.ui_the_request_did_not_complete_code_value_name,
                     UiText.Number(problem.code.toLong()),

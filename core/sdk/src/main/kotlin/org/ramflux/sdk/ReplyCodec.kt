@@ -15,12 +15,17 @@ internal object ReplyCodec {
         CoreResult.Failure(error(if (reply.code == 0) 16 else reply.code, Effect.NONE), operationId)
     } finally { reply.body.fill(0) }
 
-    private fun error(code: Int, effect: Effect, statusName: String? = null): CoreError = when (code) {
-        1 -> CoreError.InvalidArgument(effect, statusName)
-        3 -> CoreError.UnsupportedVersion(effect, statusName)
-        12 -> CoreError.PermissionDenied(effect, statusName)
-        23 -> CoreError.SchemaResetRequired(effect, statusName)
-        else -> CoreError.Native(code, effect, statusName)
+    private fun error(
+        code: Int,
+        effect: Effect,
+        statusName: String? = null,
+        reasonCode: String? = null,
+    ): CoreError = when (code) {
+        1 -> CoreError.InvalidArgument(effect, statusName, reasonCode)
+        3 -> CoreError.UnsupportedVersion(effect, statusName, reasonCode)
+        12 -> CoreError.PermissionDenied(effect, statusName, reasonCode)
+        23 -> CoreError.SchemaResetRequired(effect, statusName, reasonCode)
+        else -> CoreError.Native(code, effect, statusName, reasonCode)
     }
 
     private fun namedEffect(chars: CharArray): Effect = when {
@@ -51,7 +56,10 @@ internal object ReplyCodec {
                     val chars = parser.chars(effects)
                     try { namedEffect(chars) } finally { chars.fill('\u0000') }
                 }
-                CoreResult.Failure(error(code, effect, statusName(parser, envelope)), operationId)
+                CoreResult.Failure(
+                    error(code, effect, statusName(parser, envelope), reasonCode(parser, envelope)),
+                    operationId,
+                )
             }
         }
     } catch (_: Exception) {
@@ -106,7 +114,7 @@ internal object ReplyCodec {
             if (reply.code == 0) CoreResult.Success(body) else {
                 val effects = body["effects"] ?: body["effect"]
                 val effect = if (effects == null) Effect.NONE else namedEffect(effects.jsonPrimitive.contentOrNull)
-                CoreResult.Failure(error(reply.code, effect, statusName(body)), operationId, body)
+                CoreResult.Failure(error(reply.code, effect, statusName(body), reasonCode(body)), operationId, body)
             }
         } catch (_: SerializationException) {
             CoreResult.Failure(CoreError.InvalidResponse(), operationId)
@@ -116,12 +124,20 @@ internal object ReplyCodec {
     }
 
     private fun statusName(parser: ByteJson, envelope: ByteJson.Node): String? {
+        return namedErrorField(parser, envelope, "code")
+    }
+
+    private fun reasonCode(parser: ByteJson, envelope: ByteJson.Node): String? {
+        return namedErrorField(parser, envelope, "reason_code")
+    }
+
+    private fun namedErrorField(parser: ByteJson, envelope: ByteJson.Node, field: String): String? {
         return try {
             val response = parser.field(envelope, "response") ?: return null
             if (response.kind != 123) return null
             val errorNode = parser.field(response, "error") ?: return null
             if (errorNode.kind != 123) return null
-            val code = parser.field(errorNode, "code") ?: return null
+            val code = parser.field(errorNode, field) ?: return null
             if (code.kind != 34) return null
             val chars = parser.chars(code)
             try { identifier(chars) } finally { chars.fill('\u0000') }
@@ -130,10 +146,14 @@ internal object ReplyCodec {
         }
     }
 
-    private fun statusName(body: JsonObject): String? {
+    private fun statusName(body: JsonObject): String? = identifierField(body, "code")
+
+    private fun reasonCode(body: JsonObject): String? = identifierField(body, "reason_code")
+
+    private fun identifierField(body: JsonObject, field: String): String? {
         val response = body["response"] as? JsonObject ?: return null
         val errorNode = response["error"] as? JsonObject ?: return null
-        val raw = (errorNode["code"] as? JsonPrimitive)?.contentOrNull ?: return null
+        val raw = (errorNode[field] as? JsonPrimitive)?.contentOrNull ?: return null
         val chars = raw.toCharArray()
         return try { identifier(chars) } finally { chars.fill('\u0000') }
     }

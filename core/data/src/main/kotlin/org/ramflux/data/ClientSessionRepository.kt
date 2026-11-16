@@ -17,6 +17,7 @@ data class ClientProblem(
     val outcome: ClientOutcome,
     val reason: ClientFailureReason? = null,
     val statusName: String? = null,
+    val check: String? = null,
 )
 data class ClientSnapshot(val phase: ClientPhase = ClientPhase.CLOSED, val generation: Long = 0, val problem: ClientProblem? = null)
 enum class UnavailableReason { FEATURE_NOT_INSTALLED, UNSUPPORTED_BY_CORE, CUSTODY_PROVIDER_REQUIRED }
