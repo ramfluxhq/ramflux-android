@@ -3,16 +3,15 @@
 
 package org.ramflux.designsystem
 
-import android.graphics.Typeface
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.ramflux.designsystem.kit.RfFonts
 import org.ramflux.generated.*
 
 val LocalRFLayout = staticCompositionLocalOf { requireNotNull(ThemeCatalog.find("light")).layout }
@@ -24,8 +23,7 @@ fun RamfluxTheme(dark: Boolean = isSystemInDarkTheme(), themeId: String? = null,
     val theme = named?.tokens ?: if (dark) RFDesign.dark else RFDesign.light
     val isDark = named?.dark ?: dark
     val configuration = LocalConfiguration.current
-    val fontName = if (configuration.locales[0].language == "zh") theme.font else theme.font_latin
-    val family = remember(fontName) { FontFamily(Typeface.create(fontName, Typeface.NORMAL)) }
+    val family = if (configuration.locales[0].language == "zh") RfFonts.ui else RfFonts.latin
     fun style(size: Float) = TextStyle(fontFamily = family, fontSize = size.sp)
     val base = if (isDark) darkColorScheme() else lightColorScheme()
     val scheme = base.copy(

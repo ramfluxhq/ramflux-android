@@ -11,20 +11,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.*
+import org.ramflux.designsystem.kit.KitEmpty
+import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.feature.cards.impl.R
-import org.ramflux.generated.*
 @Composable
 fun CardsScreen(state: CardsState, onAction: (CardsAction) -> Unit) {
     val theme = LocalRFTheme.current
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
-                RFPageHeader(
+                KitPageHeader(
                     stringResource(R.string.cards_title),
-                    "",
-                    theme,
-                    leading = { TextButton(onClick = { onAction(CardsAction.Back) }) { Text(stringResource(R.string.cards_back)) } },
-                    trailing = {}
+                    onBack = { onAction(CardsAction.Back) }
                 )
                 LazyColumn(
                     Modifier.weight(1f).fillMaxWidth().padding(horizontal = theme.gap.dp),
@@ -33,18 +31,18 @@ fun CardsScreen(state: CardsState, onAction: (CardsAction) -> Unit) {
                     if (state.checking) {
                         item(
                             "checking"
-                        ) { RFStateBlock(stringResource(R.string.cards_checking), "", RFStateKind.Loading, theme, {}) }
+                        ) { KitEmpty("loader", stringResource(R.string.cards_checking), "") }
                     }
                     if (state.closed) item("closed") { Text(stringResource(R.string.cards_closed)) }
                     state.unavailable?.let {
                         item(
                             "unavailable"
-                        ) { RFStateBlock(stringResource(R.string.cards_unavailable), it.render(), RFStateKind.Empty, theme, {}) }
+                        ) { KitEmpty("inbox", stringResource(R.string.cards_unavailable), it.render()) }
                     }
                     state.problem?.let {
                         item(
                             "problem"
-                        ) { RFStateBlock(stringResource(R.string.cards_failed), it.render(), RFStateKind.Error, theme, {}) }
+                        ) { KitEmpty("circle-alert", stringResource(R.string.cards_failed), it.render()) }
                     }
                 }
                 TextButton(

@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DESIGN_SHA256 = "5af83dc4aafa883c1bfaa4a33c222be577567eb4327953ba80a7f0d78d680632"
-SOURCE = ROOT / "core/designsystem/src/main/kotlin/org/ramflux/generated/RFTokens.kt"
+SOURCE = ROOT / "core/designsystem/src/main/kotlin/org/ramflux/designsystem/RFTokens.kt"
 THEMES = ROOT / "core/designsystem/src/main/assets/ramflux/themes"
 
 
@@ -29,7 +29,8 @@ def argb(value):
 
 
 def theme_block(text, name):
-    match = re.search(rf"val {name} = RFTheme\((.*?)\)\n", text, re.S)
+    # The closing line of the call, not a Color(...) that ktlint leaves without a trailing comma.
+    match = re.search(rf"val {name} = RFTheme\((.*?)\n    \)\n", text, re.S)
     if not match:
         raise SystemExit(f"missing RFDesign.{name}")
     return match.group(1)

@@ -10,22 +10,24 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.ramflux.data.ContactOperation
 import org.ramflux.designsystem.*
+import org.ramflux.designsystem.kit.*
 import org.ramflux.feature.contacts.impl.R
-import org.ramflux.generated.*
 
 @Composable
 fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
     val theme = LocalRFTheme.current
+    val subtitle = state.accountLabel?.takeIf { it.isNotEmpty() }
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.fillMaxSize().widthIn(max = theme.column_max.dp)) {
-                RFPageHeader(
+                KitPageHeader(
                     stringResource(
                         when (state.page) {
                             ContactsPage.LIST -> R.string.contacts_title
@@ -36,31 +38,30 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
                             ContactsPage.BATCH -> R.string.contacts_batch
                         }
                     ),
-                    state.accountLabel.orEmpty(),
-                    theme,
-                    leading = { TextButton(onClick = { onAction(ContactsAction.Back) }) { Text(stringResource(R.string.contacts_back)) } },
-                    trailing = {
-                        TextButton(
-                            enabled = !state.loading,
-                            onClick = { onAction(ContactsAction.Refresh) }
-                        ) { Text(stringResource(R.string.contacts_refresh)) }
-                    }
+                    subtitle = subtitle,
+                    onBack = { onAction(ContactsAction.Back) },
+                    actionLabel = stringResource(R.string.contacts_refresh),
+                    onAction = { if (!state.loading) onAction(ContactsAction.Refresh) }
                 )
+                if (subtitle != null) Text(subtitle, color = theme.secondary)
                 if (state.page == ContactsPage.LIST) {
                     FlowRow(Modifier.fillMaxWidth().padding(horizontal = theme.gap.dp)) {
                         for (tab in ContactsTab.entries) {
-                            RFChip(
-                                "tab:" + tab.name,
-                                stringResource(
-                                    when (tab) {
-                                        ContactsTab.CONTACTS -> R.string.contacts_tab_contacts
-                                        ContactsTab.STRANGERS -> R.string.contacts_tab_strangers
-                                        ContactsTab.SENT -> R.string.contacts_tab_sent
-                                    }
-                                ),
-                                state.tab == tab,
-                                theme,
-                                onAction = { onAction(ContactsAction.Tab(tab)) }
+                            FilterChip(
+                                selected = state.tab == tab,
+                                onClick = { onAction(ContactsAction.Tab(tab)) },
+                                label = {
+                                    Text(
+                                        stringResource(
+                                            when (tab) {
+                                                ContactsTab.CONTACTS -> R.string.contacts_tab_contacts
+                                                ContactsTab.STRANGERS -> R.string.contacts_tab_strangers
+                                                ContactsTab.SENT -> R.string.contacts_tab_sent
+                                            }
+                                        )
+                                    )
+                                },
+                                modifier = Modifier.testTag("tab:" + tab.name)
                             )
                         }
                     }
@@ -71,72 +72,51 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
                 ) {
                     if (state.loading) {
                         item("loading") {
-                            RFStateBlock(
-                                stringResource(
-                                    R.string.contacts_loading
-                                ),
-                                stringResource(R.string.contacts_reading),
-                                RFStateKind.Loading,
-                                theme,
-                                action = {
-                                }
+                            KitEmpty(
+                                "loader",
+                                stringResource(R.string.contacts_loading),
+                                stringResource(R.string.contacts_reading)
                             )
                         }
                     }
                     state.problem?.let { message ->
                         item("error") {
-                            RFStateBlock(stringResource(R.string.contacts_error), message.render(), RFStateKind.Error, theme, action = {})
+                            KitEmpty("circle-alert", stringResource(R.string.contacts_error), message.render())
                         }
                     }
                     state.operationNotice?.let { notice -> item("operation-notice") { Text(notice.render()) } }
                     items(state.uncertain.indices.toList(), key = { "uncertain:" + it }) { index -> Text(state.uncertain[index].render()) }
                     state.unavailable?.let { message ->
                         item("unavailable") {
-                            RFStateBlock(
-                                stringResource(R.string.contacts_unavailable),
-                                message.render(),
-                                RFStateKind.Empty,
-                                theme,
-                                action = {}
-                            )
+                            KitEmpty("inbox", stringResource(R.string.contacts_unavailable), message.render())
                         }
                     }
                     if (state.accountRequired) {
                         item("account") {
-                            RFStateBlock(
-                                stringResource(
-                                    R.string.contacts_account_required
-                                ),
+                            KitEmpty(
+                                "inbox",
+                                stringResource(R.string.contacts_account_required),
                                 stringResource(R.string.contacts_account_explanation),
-                                RFStateKind.Empty,
-                                theme,
-                                action = {
-                                    TextButton(
-                                        onClick = { onAction(ContactsAction.SetupAccount) }
-                                    ) { Text(stringResource(R.string.contacts_account_action)) }
-                                }
+                                action = stringResource(R.string.contacts_account_action),
+                                onAction = { onAction(ContactsAction.SetupAccount) }
                             )
                         }
                     }
                     when (state.page) {
                         ContactsPage.LIST -> {
                             item("search") {
-                                RFSearchField(
-                                    "contacts-search",
-                                    stringResource(
-                                        R.string.contacts_search
-                                    ),
+                                KitSearchField(
                                     state.query,
-                                    theme,
-                                    onValueChange = {
-                                        onAction(ContactsAction.Query(it))
-                                    }
+                                    { onAction(ContactsAction.Query(it)) },
+                                    stringResource(R.string.contacts_search),
+                                    tag = "contacts-search"
                                 )
                             }
                             val rows = state.rows
                             if (state.loaded && rows.isEmpty()) {
                                 item("empty") {
-                                    RFStateBlock(
+                                    KitEmpty(
+                                        "inbox",
                                         stringResource(
                                             when {
                                                 state.query.isNotBlank() -> R.string.contacts_no_matches
@@ -144,35 +124,30 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
                                                 else -> R.string.contacts_requests_empty
                                             }
                                         ),
-                                        stringResource(R.string.contacts_empty_explanation),
-                                        RFStateKind.Empty,
-                                        theme,
-                                        action = {}
+                                        stringResource(R.string.contacts_empty_explanation)
                                     )
                                 }
                             }
                             items(rows, key = { "person:" + it.id }, contentType = { "identity" }) { row ->
-                                RFListRow(
-                                    row.id,
+                                KitRow(
                                     row.label,
-                                    row.principal,
-                                    theme,
-                                    leading = { RFAvatar(row.label.take(1), RFAvatarKind.Person, theme) },
-                                    trailing = { Text(row.status.render()) },
-                                    onAction = { onAction(ContactsAction.Select(row.id)) }
+                                    { onAction(ContactsAction.Select(row.id)) },
+                                    value = row.principal,
+                                    leading = { KitAvatar(row.label.take(1), 36f, KitAvatarKind.Person) },
+                                    trailingContent = { Text(row.status.render()) },
+                                    testTag = row.id
                                 )
                             }
                         }
                         ContactsPage.DETAIL, ContactsPage.SAFETY, ContactsPage.DECLINE -> state.selected?.let { row ->
                             item("identity") {
-                                RFListRow(
-                                    row.id,
+                                KitRow(
                                     row.label,
-                                    row.principal,
-                                    theme,
-                                    leading = { RFAvatar(row.label.take(1), RFAvatarKind.Person, theme) },
-                                    trailing = {},
-                                    onAction = {}
+                                    {},
+                                    value = row.principal,
+                                    leading = { KitAvatar(row.label.take(1), 36f, KitAvatarKind.Person) },
+                                    trailing = KitRowTrailing.None,
+                                    testTag = row.id
                                 )
                                 Text(row.status.render())
                                 row.note?.let { Text(it) }
@@ -185,16 +160,10 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
                                         Text(safety.number)
                                         Text(stringResource(R.string.contacts_fingerprint, safety.fingerprint))
                                     }
-                                    RFTrustBanner(
-                                        stringResource(
-                                            R.string.contacts_safety
-                                        ),
+                                    KitSecurityWarning(
+                                        stringResource(R.string.contacts_safety),
                                         stringResource(R.string.contacts_safety_explanation),
-                                        false,
-                                        theme,
-                                        icon = {
-                                        },
-                                        action = {}
+                                        KitWarningTone.Warning
                                     )
                                     OperationButton(R.string.contacts_verify, ContactOperation.VERIFY, state.loading, onAction)
                                     OperationButton(R.string.contacts_scan, ContactOperation.SCAN, state.loading, onAction)
@@ -206,9 +175,9 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
                                     OperationButton(R.string.contacts_report, ContactOperation.REPORT, state.loading, onAction)
                                 }
                                 else -> item("details") {
-                                    TextButton(
-                                        onClick = { onAction(ContactsAction.Page(ContactsPage.SAFETY)) }
-                                    ) { Text(stringResource(R.string.contacts_safety)) }
+                                    TextButton(onClick = { onAction(ContactsAction.Page(ContactsPage.SAFETY)) }) {
+                                        Text(stringResource(R.string.contacts_safety))
+                                    }
                                     if (row.inbound) Text(stringResource(R.string.contacts_stranger_explanation))
                                     if (row.request && !row.inbound) Text(stringResource(R.string.contacts_sent_explanation))
                                 }
@@ -259,21 +228,21 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
                 }
                 if (state.page == ContactsPage.LIST) {
                     Row(Modifier.padding(theme.gap.dp)) {
-                        TextButton(
-                            onClick = { onAction(ContactsAction.Page(ContactsPage.ADD)) }
-                        ) { Text(stringResource(R.string.contacts_add)) }
+                        TextButton(onClick = { onAction(ContactsAction.Page(ContactsPage.ADD)) }) {
+                            Text(stringResource(R.string.contacts_add))
+                        }
                         if (state.tab == ContactsTab.STRANGERS) {
-                            TextButton(onClick = {
-                                onAction(ContactsAction.Page(ContactsPage.BATCH))
-                            }) { Text(stringResource(R.string.contacts_batch)) }
+                            TextButton(onClick = { onAction(ContactsAction.Page(ContactsPage.BATCH)) }) {
+                                Text(stringResource(R.string.contacts_batch))
+                            }
                         }
                     }
                 }
                 if (state.page == ContactsPage.DETAIL && state.selected?.inbound == true) {
                     Row(Modifier.fillMaxWidth().padding(theme.gap.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        TextButton(
-                            onClick = { onAction(ContactsAction.Page(ContactsPage.DECLINE)) }
-                        ) { Text(stringResource(R.string.contacts_decline)) }
+                        TextButton(onClick = { onAction(ContactsAction.Page(ContactsPage.DECLINE)) }) {
+                            Text(stringResource(R.string.contacts_decline))
+                        }
                         OperationButton(R.string.contacts_reply, ContactOperation.REPLY, state.loading, onAction)
                         OperationButton(R.string.contacts_accept, ContactOperation.ACCEPT, state.loading, onAction)
                     }
@@ -283,12 +252,13 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
     }
     state.approval?.let { approval ->
         HostConfirmationDialog(onDismissRequest = { onAction(ContactsAction.Deny) }) {
-            RFDialogShell(stringResource(R.string.contacts_confirm), approval.operation.render(), theme, content = {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                Text(stringResource(R.string.contacts_confirm), color = theme.text)
+                Text(approval.operation.render())
                 Text(stringResource(R.string.contacts_confirm_account, approval.account))
                 LazyColumn(Modifier.heightIn(max = (theme.gap * 20).dp)) {
                     items(approval.targets) { target -> Text(target) }
                 }
-            }, actions = {
                 HostConfirmationActions(
                     approval,
                     stringResource(R.string.contacts_deny),
@@ -297,7 +267,7 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit) {
                     onDeny = { onAction(ContactsAction.Deny) },
                     onConfirm = { onAction(ContactsAction.Confirm) }
                 )
-            })
+            }
         }
     }
 }

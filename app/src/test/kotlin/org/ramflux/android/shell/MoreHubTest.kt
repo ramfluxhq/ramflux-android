@@ -3,6 +3,7 @@
 
 package org.ramflux.android.shell
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -23,12 +24,33 @@ class MoreHubTest {
         var opened = ""
         compose.setContent {
             RamfluxTheme {
-                MoreHub(DEFAULT_SHELL_ORDER, "tasks", { opened = it }, {})
+                MoreHub(DEFAULT_SHELL_ORDER, "tasks", { opened = it }, {}, {})
             }
         }
         compose.onNodeWithText("Tasks").assertDoesNotExist()
         compose.onNodeWithText("Contacts").performClick()
         compose.runOnIdle { assertEquals("contacts", opened) }
         compose.onNodeWithText("Edit navigation").assertExists()
+    }
+
+    @Test fun noticesOpenFromTheMoreHub() {
+        var opened = false
+        val showNotices = mutableStateOf(false)
+        compose.setContent {
+            RamfluxTheme {
+                if (showNotices.value) {
+                    OpenSourceNotices({})
+                } else {
+                    MoreHub(DEFAULT_SHELL_ORDER, "", {}, {}, {
+                        opened = true
+                        showNotices.value = true
+                    })
+                }
+            }
+        }
+        compose.onNodeWithText("Open-source notices").performClick()
+        compose.runOnIdle { assertEquals(true, opened) }
+        compose.onNodeWithText("Open-source notices").assertExists()
+        compose.onNodeWithText("SIL", substring = true).assertExists()
     }
 }

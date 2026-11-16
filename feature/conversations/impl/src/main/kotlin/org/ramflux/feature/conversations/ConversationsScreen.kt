@@ -12,7 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.ramflux.designsystem.ExactConversationRow
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitAvatar
@@ -20,9 +19,9 @@ import org.ramflux.designsystem.kit.KitAvatarKind
 import org.ramflux.designsystem.kit.KitConversationRow
 import org.ramflux.designsystem.kit.KitEmpty
 import org.ramflux.designsystem.kit.KitPageHeader
+import org.ramflux.designsystem.kit.KitSearchField
 import org.ramflux.designsystem.render
 import org.ramflux.feature.conversations.impl.R
-import org.ramflux.generated.*
 
 @Composable
 fun ConversationsScreen(
@@ -40,34 +39,29 @@ fun ConversationsScreen(
                 LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("conversations-list")) {
                     item("permission-banner") { permissionBanner() }
                     item("search") {
-                        RFSearchField(
-                            "conversation-search",
-                            stringResource(R.string.ui_search_conversations),
+                        KitSearchField(
                             "",
-                            theme,
-                            disabled = true,
-                            onValueChange = {}
+                            {},
+                            stringResource(R.string.ui_search_conversations),
+                            enabled = false,
+                            tag = "conversation-search"
                         )
                     }
                     if (state.loading) {
                         item("loading") {
-                            RFStateBlock(
+                            KitEmpty(
+                                "loader",
                                 stringResource(R.string.ui_loading_conversations),
-                                stringResource(R.string.ui_reading_private_data),
-                                RFStateKind.Loading,
-                                theme,
-                                action = {}
+                                stringResource(R.string.ui_reading_private_data)
                             )
                         }
                     }
                     state.problem?.let { problem ->
                         item("error") {
-                            RFStateBlock(
+                            KitEmpty(
+                                "circle-alert",
                                 stringResource(R.string.ui_unable_to_continue),
-                                problem.render(),
-                                RFStateKind.Error,
-                                theme,
-                                action = {}
+                                problem.render()
                             )
                         }
                     }
@@ -126,27 +120,17 @@ private fun ConversationsHeader(state: ConversationsState, onAction: (Conversati
             tag = "conversations-header"
         )
     } else {
-        Box(Modifier.testTag("conversations-header")) {
-            MaterialTheme(
-                typography = MaterialTheme.typography.copy(
-                    titleLarge = MaterialTheme.typography.titleLarge.copy(fontSize = theme.size_mobile_large_title.sp)
-                )
-            ) {
-                RFPageHeader(
-                    stringResource(R.string.ui_conversations),
-                    state.accountLabel ?: stringResource(R.string.ui_account_state_unavailable),
-                    theme,
-                    leading = {
-                        TextButton(onClick = { onAction(ConversationsAction.Back) }) { Text(stringResource(R.string.ui_back)) }
-                    },
-                    trailing = {
-                        TextButton(
-                            enabled = !state.loading,
-                            onClick = { onAction(ConversationsAction.Refresh) }
-                        ) { Text(stringResource(R.string.ui_refresh)) }
-                    }
-                )
-            }
+        val subtitle = state.accountLabel ?: stringResource(R.string.ui_account_state_unavailable)
+        Column {
+            KitPageHeader(
+                stringResource(R.string.ui_conversations),
+                subtitle = subtitle.takeIf { it.isNotEmpty() },
+                onBack = { onAction(ConversationsAction.Back) },
+                actionLabel = stringResource(R.string.ui_refresh),
+                onAction = { if (!state.loading) onAction(ConversationsAction.Refresh) },
+                tag = "conversations-header"
+            )
+            if (subtitle.isNotEmpty()) Text(subtitle, color = theme.secondary)
         }
     }
 }
@@ -163,17 +147,12 @@ private fun ConversationsAccount(onAction: (ConversationsAction) -> Unit, rooted
             tag = "conversations-account"
         )
     } else {
-        val theme = LocalRFTheme.current
-        RFStateBlock(
+        KitEmpty(
+            "inbox",
             stringResource(R.string.ui_open_an_account),
             stringResource(R.string.ui_an_unlocked_active_account_is_required),
-            RFStateKind.Empty,
-            theme,
-            action = {
-                TextButton(onClick = { onAction(ConversationsAction.SetupAccount) }) {
-                    Text(stringResource(R.string.ui_set_up_your_account))
-                }
-            }
+            action = stringResource(R.string.ui_set_up_your_account),
+            onAction = { onAction(ConversationsAction.SetupAccount) }
         )
     }
 }
@@ -188,12 +167,10 @@ private fun ConversationsEmpty(rooted: Boolean) {
             tag = "conversations-empty"
         )
     } else {
-        RFStateBlock(
+        KitEmpty(
+            "inbox",
             stringResource(R.string.ui_no_conversations),
-            stringResource(R.string.ui_conversations_will_appear_here_when_available),
-            RFStateKind.Empty,
-            LocalRFTheme.current,
-            action = {}
+            stringResource(R.string.ui_conversations_will_appear_here_when_available)
         )
     }
 }

@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.ramflux.core.designsystem.R
 
-/** RFConversationRow geometry with a host-owned exact count/manual-unread trailing presentation.
+/** Conversation row geometry with a host-owned exact count and manual-unread trailing presentation.
  * The generated row accepts UInt, so it cannot represent the SDK's complete unsigned64 domain.
  */
 @Composable

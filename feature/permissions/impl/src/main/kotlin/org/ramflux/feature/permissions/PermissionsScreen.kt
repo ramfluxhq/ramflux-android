@@ -16,9 +16,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.ramflux.data.*
 import org.ramflux.designsystem.*
+import org.ramflux.designsystem.kit.*
 import org.ramflux.feature.permissions.api.PermissionEntry
 import org.ramflux.feature.permissions.impl.R
-import org.ramflux.generated.*
 
 @Composable
 fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> Unit) {
@@ -27,20 +27,11 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
-                RFPageHeader(
+                KitPageHeader(
                     stringResource(R.string.permissions_title),
-                    "",
-                    theme,
-                    leading = {
-                        TextButton(
-                            onClick = { onAction(PermissionsAction.Back) }
-                        ) { Text(stringResource(R.string.permissions_back)) }
-                    },
-                    trailing = {
-                        TextButton(enabled = !state.loading, onClick = { onAction(PermissionsAction.Refresh) }) {
-                            Text(stringResource(R.string.permissions_refresh))
-                        }
-                    }
+                    onBack = { onAction(PermissionsAction.Back) },
+                    actionLabel = stringResource(R.string.permissions_refresh),
+                    onAction = { if (!state.loading) onAction(PermissionsAction.Refresh) }
                 )
                 if (state.problem == PermissionsProblem.BATTERY_SETTINGS_UNAVAILABLE) {
                     Text(stringResource(R.string.permissions_battery_settings_unavailable))
@@ -52,25 +43,21 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                     if (state.waiting) Text(stringResource(R.string.permissions_waiting))
                     if (state.unavailable) Text(stringResource(R.string.permissions_media_help))
                     if (state.needed) {
-                        RFStateBlock(
+                        KitEmpty(
+                            "inbox",
                             stringResource(R.string.permissions_needed),
-                            stringResource(R.string.permissions_needed_help),
-                            RFStateKind.Empty,
-                            theme,
-                            action = {}
+                            stringResource(R.string.permissions_needed_help)
                         )
                     }
                     if (state.entry == PermissionEntry.SETTINGS) {
                         for (row in state.rows) {
-                            RFSettingsRow(
-                                row.permission.name,
+                            KitRow(
                                 stringResource(permissionLabel(row.permission)),
-                                stringResource(statusLabel(row.status)),
-                                theme,
-                                disabled = state.waiting || state.loading,
-                                leading = {},
-                                trailing = {},
-                                onAction = { onAction(PermissionsAction.Select(row.permission)) }
+                                { onAction(PermissionsAction.Select(row.permission)) },
+                                value = stringResource(statusLabel(row.status)),
+                                enabled = !state.waiting && !state.loading,
+                                trailing = KitRowTrailing.None,
+                                testTag = row.permission.name
                             )
                             when (row.permission) {
                                 OsPermission.MICROPHONE, OsPermission.INCOMING_CALL -> Text(stringResource(R.string.permissions_media_help))
@@ -82,33 +69,29 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                     }
                     if (state.entry == PermissionEntry.ATTACHMENTS) {
                         Text(stringResource(R.string.permissions_picker_help))
-                        RFActionButton(
-                            "pick-photo",
+                        KitButton(
                             stringResource(R.string.permissions_photos),
-                            RFButtonKind.Secondary,
-                            theme,
-                            disabled = state.waiting,
-                            onAction = { onAction(PermissionsAction.Pick(true)) }
+                            { onAction(PermissionsAction.Pick(true)) },
+                            kind = KitButtonKind.Secondary,
+                            enabled = !state.waiting,
+                            tag = "pick-photo"
                         )
-                        RFActionButton(
-                            "pick-file",
+                        KitButton(
                             stringResource(R.string.permissions_files),
-                            RFButtonKind.Secondary,
-                            theme,
-                            disabled = state.waiting,
-                            onAction = { onAction(PermissionsAction.Pick(false)) }
+                            { onAction(PermissionsAction.Pick(false)) },
+                            kind = KitButtonKind.Secondary,
+                            enabled = !state.waiting,
+                            tag = "pick-file"
                         )
                         Text(stringResource(R.string.permissions_camera_unavailable))
                         if (state.selected) Text(stringResource(R.string.permissions_selection))
                     }
                 }
-                RFActionButton(
-                    "open-permission-settings",
+                KitButton(
                     stringResource(R.string.permissions_settings),
-                    RFButtonKind.Primary,
-                    theme,
-                    disabled = state.waiting,
-                    onAction = { onAction(PermissionsAction.Settings) }
+                    { onAction(PermissionsAction.Settings) },
+                    enabled = !state.waiting,
+                    tag = "open-permission-settings"
                 )
             }
         }
@@ -141,14 +124,19 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                 Modifier.heightIn(max = dialogMaxHeight)
                     .verticalScroll(rememberScrollState())
             ) {
-                RFSheetShell(title, why, theme, content = {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                    Text(title, color = theme.text)
+                    Text(why)
                     Text(without)
                     if (permission != OsPermission.BATTERY) Text(stringResource(R.string.permissions_prompt_help))
-                }, actions = {
                     HostConfirmationActions(
                         permission,
                         stringResource(
-                            if (permission == OsPermission.NOTIFICATIONS) R.string.permissions_not_now else R.string.permissions_cancel
+                            if (permission == OsPermission.NOTIFICATIONS) {
+                                R.string.permissions_not_now
+                            } else {
+                                R.string.permissions_cancel
+                            }
                         ),
                         stringResource(R.string.permissions_continue),
                         description,
@@ -156,7 +144,7 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                         onDeny = { onAction(PermissionsAction.Cancel) },
                         onConfirm = { onAction(PermissionsAction.Continue) }
                     )
-                })
+                }
             }
         }
     }

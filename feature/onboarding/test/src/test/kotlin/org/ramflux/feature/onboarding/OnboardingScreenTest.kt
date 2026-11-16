@@ -64,7 +64,8 @@ class OnboardingScreenTest {
                 )
             }
         }
-        compose.onNodeWithTag("operator-key").performScrollTo().performTextInput("trusted-operator-key")
+        compose.onNodeWithTag("operator-key").performScrollTo()
+        compose.onNodeWithTag("operator-key").onChildren().filterToOne(hasSetTextAction()).performTextInput("trusted-operator-key")
         compose.runOnIdle {
             assertEquals(listOf(OnboardingAction.OperatorKey("trusted-operator-key")), actions)
             actions.clear()

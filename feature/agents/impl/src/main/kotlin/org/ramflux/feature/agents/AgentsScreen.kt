@@ -16,7 +16,6 @@ import org.ramflux.designsystem.*
 import org.ramflux.designsystem.kit.KitEmpty
 import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.feature.agents.impl.R
-import org.ramflux.generated.*
 @Composable
 fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, rooted: Boolean = false) {
     val theme = LocalRFTheme.current
@@ -33,20 +32,15 @@ fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, rooted: B
                         tag = "agents-header"
                     )
                 } else {
-                    RFPageHeader(
+                    val subtitle = stringResource(R.string.agents_title)
+                    KitPageHeader(
                         stringResource(state.mode.label()),
-                        stringResource(R.string.agents_title),
-                        theme,
-                        leading = {
-                            TextButton(onClick = { onAction(AgentsAction.Back) }) { Text(stringResource(R.string.agents_back)) }
-                        },
-                        trailing = {
-                            TextButton(
-                                enabled = !state.loading,
-                                onClick = { onAction(AgentsAction.Refresh) }
-                            ) { Text(stringResource(R.string.agents_retry)) }
-                        }
+                        subtitle = subtitle,
+                        onBack = { onAction(AgentsAction.Back) },
+                        actionLabel = stringResource(R.string.agents_retry),
+                        onAction = { if (!state.loading) onAction(AgentsAction.Refresh) }
                     )
+                    if (subtitle.isNotEmpty()) Text(subtitle, color = theme.secondary)
                 }
                 LazyColumn(
                     Modifier.weight(1f).fillMaxWidth().padding(horizontal = theme.gap.dp),
@@ -55,12 +49,12 @@ fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, rooted: B
                     if (state.loading) {
                         item(
                             "loading"
-                        ) { RFStateBlock(stringResource(R.string.agents_loading), "", RFStateKind.Loading, theme, {}) }
+                        ) { KitEmpty("loader", stringResource(R.string.agents_loading), "") }
                     }
                     state.problem?.let {
                         item(
                             "error"
-                        ) { RFStateBlock(stringResource(R.string.agents_unavailable), it.render(), RFStateKind.Error, theme, {}) }
+                        ) { KitEmpty("circle-alert", stringResource(R.string.agents_unavailable), it.render()) }
                     }
                     if (state.accountRequired) {
                         item("account") {
@@ -70,12 +64,10 @@ fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, rooted: B
                     }
                     if (state.unavailable) {
                         item("unavailable") {
-                            RFStateBlock(
+                            KitEmpty(
+                                "inbox",
                                 stringResource(R.string.agents_unavailable),
-                                stringResource(R.string.agents_explanation),
-                                RFStateKind.Empty,
-                                theme,
-                                {}
+                                stringResource(R.string.agents_explanation)
                             )
                         }
                     }

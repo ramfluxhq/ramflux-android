@@ -6,6 +6,8 @@
     <string name="shell_more_contacts_detail">Existing relationships and safety numbers</string>
     <string name="shell_more_navigation">Edit navigation</string>
     <string name="shell_more_navigation_detail">Arrange shortcuts</string>
+    <string name="shell_more_notices">Open-source notices</string>
+    <string name="shell_more_notices_detail">Hanken Grotesk and JetBrains Mono</string>
     <string name="shell_more_permissions">Permissions and access</string>
     <string name="shell_more_permissions_detail">This device, group roles, and this operation</string>
     <string name="shell_more_settings">Settings</string>
@@ -22,6 +24,7 @@
     <string name="shell_nav_restore">Restore default</string>
     <string name="shell_nav_title">Edit navigation</string>
     <string name="shell_nav_up">Move up</string>
+    <string name="shell_notices_title">Open-source notices</string>
     <string name="shell_tab_agents">Agents</string>
     <string name="shell_tab_groups">Groups</string>
     <string name="shell_tab_messages">Messages</string>

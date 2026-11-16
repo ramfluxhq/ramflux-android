@@ -21,91 +21,85 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.*
+import org.ramflux.designsystem.kit.KitAvatar
+import org.ramflux.designsystem.kit.KitAvatarKind
+import org.ramflux.designsystem.kit.KitEmpty
+import org.ramflux.designsystem.kit.KitPageHeader
+import org.ramflux.designsystem.kit.KitRow
+import org.ramflux.designsystem.kit.KitRowTrailing
 import org.ramflux.feature.calls.impl.R
-import org.ramflux.generated.*
 @Composable
 fun CallsScreen(state: CallsState, onAction: (CallsAction) -> Unit) {
     val theme = LocalRFTheme.current
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
-                RFPageHeader(
+                val subtitle = state.account.orEmpty()
+                KitPageHeader(
                     stringResource(if (state.selected == null) R.string.calls_history else R.string.calls_call),
-                    state.account.orEmpty(),
-                    theme,
-                    leading = { TextButton(onClick = { onAction(CallsAction.Back) }) { Text(stringResource(R.string.calls_back)) } },
-                    trailing = {
-                        TextButton(enabled = !state.loading && !state.busy, onClick = {
-                            onAction(CallsAction.Refresh)
-                        }) { Text(stringResource(R.string.calls_refresh)) }
-                    }
+                    subtitle = subtitle.takeIf { it.isNotEmpty() },
+                    onBack = { onAction(CallsAction.Back) },
+                    actionLabel = stringResource(R.string.calls_refresh),
+                    onAction = { if (!state.loading && !state.busy) onAction(CallsAction.Refresh) }
                 )
+                if (subtitle.isNotEmpty()) Text(subtitle, color = theme.secondary)
                 LazyColumn(
                     Modifier.weight(1f).fillMaxWidth().padding(theme.gap.dp),
                     verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
                 ) {
                     if (state.loading || state.busy) {
                         item("loading") {
-                            RFStateBlock(stringResource(R.string.calls_loading), "", RFStateKind.Loading, theme, action = {})
+                            KitEmpty("loader", stringResource(R.string.calls_loading), "")
                         }
                     }
                     state.problem?.let {
                         item(
                             "problem"
-                        ) { RFStateBlock(stringResource(R.string.calls_error), it.render(), RFStateKind.Error, theme, action = {}) }
+                        ) { KitEmpty("circle-alert", stringResource(R.string.calls_error), it.render()) }
                     }
                     state.unavailable?.let {
                         item(
                             "unavailable"
                         ) {
-                            RFStateBlock(
+                            KitEmpty(
+                                "inbox",
                                 stringResource(R.string.calls_unavailable_title),
-                                it.render(),
-                                RFStateKind.Empty,
-                                theme,
-                                action = {}
+                                it.render()
                             )
                         }
                     }
                     state.pending?.let { item("pending") { Text(stringResource(R.string.calls_pending, it)) } }
                     if (state.accountRequired) {
                         item("account") {
-                            RFStateBlock(
-                                stringResource(
-                                    R.string.calls_account_needed
-                                ),
+                            KitEmpty(
+                                "inbox",
+                                stringResource(R.string.calls_account_needed),
                                 stringResource(R.string.calls_account_help),
-                                RFStateKind.Empty,
-                                theme,
-                                action = {
-                                    TextButton(
-                                        onClick = { onAction(CallsAction.SetupAccount) }
-                                    ) { Text(stringResource(R.string.calls_account_action)) }
-                                }
+                                action = stringResource(R.string.calls_account_action),
+                                onAction = { onAction(CallsAction.SetupAccount) }
                             )
                         }
                     }
                     if (state.selected == null) {
                         if (state.loaded && state.rows.isEmpty()) {
                             item("empty") {
-                                RFStateBlock(
+                                KitEmpty(
+                                    "inbox",
                                     stringResource(R.string.calls_empty),
-                                    stringResource(R.string.calls_empty_help),
-                                    RFStateKind.Empty,
-                                    theme,
-                                    action = {}
+                                    stringResource(R.string.calls_empty_help)
                                 )
                             }
                         }
                         items(state.rows, key = { it.id }) { row ->
-                            RFListRow(
-                                row.id,
+                            val detail = row.reason?.render() ?: row.phase.render()
+                            KitRow(
                                 row.peer,
-                                row.reason?.render() ?: row.phase.render(),
-                                theme,
-                                leading = { RFAvatar(row.peer.take(1), RFAvatarKind.Person, theme) },
-                                trailing = { Text(row.time.render()) },
-                                onAction = { onAction(CallsAction.Select(row.id)) }
+                                { onAction(CallsAction.Select(row.id)) },
+                                value = detail.takeIf { it.isNotEmpty() },
+                                leading = { KitAvatar(row.peer.take(1), 36f, KitAvatarKind.Person) },
+                                trailing = KitRowTrailing.None,
+                                trailingContent = { Text(row.time.render()) },
+                                testTag = row.id
                             )
                         }
                     } else {
@@ -116,7 +110,7 @@ fun CallsScreen(state: CallsState, onAction: (CallsAction) -> Unit) {
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
                                 ) {
-                                    RFAvatar(row.peer.take(1), RFAvatarKind.Person, theme)
+                                    KitAvatar(row.peer.take(1), 36f, KitAvatarKind.Person)
                                     Text(row.peer, style = MaterialTheme.typography.headlineMedium)
                                     Text(row.phase.render(), style = MaterialTheme.typography.titleMedium)
                                     Text(stringResource(R.string.calls_no_audio))

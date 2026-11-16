@@ -1,7 +1,7 @@
 # Mobile kit
 
 Hand-written Compose components for the mobile design. Tokens live in
-`src/main/kotlin/org/ramflux/generated/RFTokens.kt` and are checked by
+`src/main/kotlin/org/ramflux/designsystem/RFTokens.kt` and are checked by
 `scripts/check-mobile-tokens.py`.
 
 ## Fonts

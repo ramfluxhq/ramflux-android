@@ -17,9 +17,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.ramflux.data.Appearance
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.kit.KitButton
+import org.ramflux.designsystem.kit.KitEmpty
+import org.ramflux.designsystem.kit.KitPageHeader
+import org.ramflux.designsystem.kit.KitRow
+import org.ramflux.designsystem.kit.KitRowTrailing
 import org.ramflux.designsystem.render
 import org.ramflux.feature.app_shell.impl.R
-import org.ramflux.generated.*
 
 /** Pure presentation: all business policy, I/O and unavailable decisions live in the state holder/data layer. */
 @Composable
@@ -31,51 +35,51 @@ fun AppShellScreen(state: AppShellState, onAction: (AppShellAction) -> Unit) {
                 Modifier.widthIn(max = theme.column_max.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(theme.gap.dp),
                 verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
             ) {
-                RFPageHeader(stringResource(R.string.ui_ramflux), state.status.render(), theme, leading = {}, trailing = {})
+                val status = state.status.render()
+                KitPageHeader(stringResource(R.string.ui_ramflux), subtitle = status.takeIf { it.isNotEmpty() })
+                if (status.isNotEmpty()) Text(status, color = theme.secondary)
                 if (state.loading) {
-                    RFStateBlock(
+                    KitEmpty(
+                        "loader",
                         stringResource(R.string.ui_please_wait),
-                        state.status.render(),
-                        RFStateKind.Loading,
-                        theme,
-                        action = {}
+                        status
                     )
                 }
-                state.error?.let { RFStateBlock(it.title.render(), it.description.render(), RFStateKind.Error, theme, action = {}) }
+                state.error?.let {
+                    KitEmpty("circle-alert", it.title.render(), it.description.render())
+                }
                 if (state.canRetry) {
-                    RFActionButton(
-                        "retry",
+                    KitButton(
                         stringResource(R.string.ui_try_again),
-                        RFButtonKind.Primary,
-                        theme,
-                        onAction = { onAction(AppShellAction.Retry) }
+                        { onAction(AppShellAction.Retry) },
+                        tag = "retry"
                     )
                 }
-                RFSectionHeader(stringResource(R.string.ui_get_started), theme, trailing = {})
+                Row {
+                    Text(stringResource(R.string.ui_get_started), Modifier.weight(1f), color = theme.secondary)
+                }
                 for (destination in (listOf(state.onboarding, state.conversations, state.contacts, state.settings) + state.additional)) {
-                    RFListRow(
-                        destination.feature.id,
+                    KitRow(
                         destination.title.render(),
-                        "",
-                        theme,
-                        disabled = !state.ready,
-                        leading = {},
-                        trailing = { Text(stringResource(R.string.ui_)) },
-                        onAction = { onAction(AppShellAction.Open(destination.feature)) }
+                        { onAction(AppShellAction.Open(destination.feature)) },
+                        enabled = state.ready,
+                        trailing = KitRowTrailing.None,
+                        trailingContent = { Text(stringResource(R.string.ui_)) },
+                        testTag = destination.feature.id
                     )
                 }
                 state.notice?.let { notice ->
-                    RFStateBlock(
+                    KitEmpty(
+                        if (notice.kind == ShellNoticeKind.UNAVAILABLE) "inbox" else "circle-alert",
                         notice.title.render(),
                         notice.description.render(),
-                        if (notice.kind == ShellNoticeKind.UNAVAILABLE) RFStateKind.Empty else RFStateKind.Error,
-                        theme,
-                        action = {
-                            TextButton(onClick = { onAction(AppShellAction.DismissNotice) }) { Text(stringResource(R.string.ui_dismiss)) }
-                        }
+                        action = stringResource(R.string.ui_dismiss),
+                        onAction = { onAction(AppShellAction.DismissNotice) }
                     )
                 }
-                RFSectionHeader(stringResource(R.string.ui_appearance), theme, trailing = {})
+                Row {
+                    Text(stringResource(R.string.ui_appearance), Modifier.weight(1f), color = theme.secondary)
+                }
                 Column(Modifier.selectableGroup()) {
                     ThemeOption(
                         stringResource(R.string.ui_use_device_setting),

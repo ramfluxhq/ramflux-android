@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.permissions
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.res.stringResource
@@ -9,22 +10,22 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.*
 import org.ramflux.data.*
-import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.kit.KitSecurityWarning
+import org.ramflux.designsystem.kit.KitWarningTone
 import org.ramflux.feature.permissions.api.PermissionEntry
 import org.ramflux.feature.permissions.impl.R
-import org.ramflux.generated.RFTrustBanner
 
 @Composable
 fun NotificationPermissionBanner(denied: Boolean, onSettings: () -> Unit) {
     if (denied) {
-        RFTrustBanner(
-            stringResource(R.string.permissions_notifications),
-            stringResource(R.string.permissions_notifications_off),
-            false,
-            LocalRFTheme.current,
-            icon = {},
-            action = { TextButton(onClick = onSettings) { Text(stringResource(R.string.permissions_settings)) } }
-        )
+        Column {
+            KitSecurityWarning(
+                stringResource(R.string.permissions_notifications),
+                stringResource(R.string.permissions_notifications_off),
+                KitWarningTone.Warning
+            )
+            TextButton(onClick = onSettings) { Text(stringResource(R.string.permissions_settings)) }
+        }
     }
 }
 

@@ -7,12 +7,13 @@ import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalogsExtension
+import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.getByType
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
 class AndroidAppPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
-        listOf("com.android.application", "org.jetbrains.kotlin.android", "org.jetbrains.kotlin.plugin.compose", "com.google.devtools.ksp", "com.google.dagger.hilt.android", "org.jlleitschuh.gradle.ktlint").forEach { pluginManager.apply(it) }
+        listOf("com.android.application", "org.jetbrains.kotlin.android", "org.jetbrains.kotlin.plugin.compose", "com.google.devtools.ksp", "com.google.dagger.hilt.android", "org.jlleitschuh.gradle.ktlint", "io.github.takahirom.roborazzi").forEach { pluginManager.apply(it) }
         val release = ReleaseVersion.of(target)
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
         extensions.getByType<ApplicationExtension>().apply {
@@ -34,6 +35,10 @@ class AndroidAppPlugin : Plugin<Project> {
         dependencies.add("implementation", dependencies.platform(libs.findLibrary("compose-bom").get()))
         listOf("activity-compose", "compose-material", "lifecycle-process", "hilt-android", "hilt-compose", "navigation-runtime", "navigation-ui", "lifecycle-compose", "lifecycle-viewmodel").forEach { dependencies.add("implementation", libs.findLibrary(it).get()) }
         dependencies.add("ksp", libs.findLibrary("hilt-compiler").get())
+        listOf("roborazzi", "roborazzi-compose").forEach { dependencies.add("testImplementation", libs.findLibrary(it).get()) }
+        tasks.withType(Test::class.java).configureEach {
+            if (System.getenv("CI") != "true") exclude("**/*ScreenshotTest*")
+        }
         Unit
     }
 }

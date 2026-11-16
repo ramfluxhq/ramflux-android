@@ -47,6 +47,18 @@ jobs:
           path: |
             core/designsystem/build/outputs/roborazzi/
             core/designsystem/build/outputs/kit-compare/
+      - name: Record shell screenshots and compare board frames
+        run: |
+          CI=true ./gradlew :app:recordRoborazziDebug --tests org.ramflux.android.shell.ShellBoardScreenshotTest --console=plain
+          python3 scripts/compare-kit-previews.py app/src/test/resources/shell-previews app/build/outputs/shell-roborazzi app/build/outputs/shell-compare
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-shell-screenshots
+          if-no-files-found: error
+          path: |
+            app/build/outputs/shell-roborazzi/
+            app/build/outputs/shell-compare/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

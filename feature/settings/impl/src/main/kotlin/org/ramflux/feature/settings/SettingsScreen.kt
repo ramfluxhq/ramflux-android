@@ -18,12 +18,13 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import org.ramflux.data.AppLanguage
 import org.ramflux.designsystem.*
+import org.ramflux.designsystem.kit.*
 import org.ramflux.feature.settings.impl.R
-import org.ramflux.generated.*
 
 @Composable
 fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
     val theme = LocalRFTheme.current
+    val subtitle = state.accountLabel?.takeIf { it.isNotEmpty() }
     val title = stringResource(
         when (state.page) {
             SettingsPage.GENERAL -> R.string.settings_settings
@@ -36,137 +37,94 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
-                RFPageHeader(
+                KitPageHeader(
                     title,
-                    state.accountLabel ?: "",
-                    theme,
-                    leading = { TextButton(onClick = { onAction(SettingsAction.Back) }) { Text(stringResource(R.string.settings_back)) } },
-                    trailing = {
-                        TextButton(
-                            enabled = !state.loading,
-                            onClick = { onAction(SettingsAction.Refresh) }
-                        ) { Text(stringResource(R.string.settings_refresh)) }
-                    }
+                    subtitle = subtitle,
+                    onBack = { onAction(SettingsAction.Back) },
+                    actionLabel = stringResource(R.string.settings_refresh),
+                    onAction = { if (!state.loading) onAction(SettingsAction.Refresh) }
                 )
+                if (subtitle != null) Text(subtitle, color = theme.secondary)
                 LazyColumn(
                     Modifier.weight(1f).fillMaxWidth().padding(horizontal = theme.gap.dp),
                     verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
                 ) {
                     if (state.loading) {
                         item("loading") {
-                            RFStateBlock(
-                                stringResource(R.string.settings_loading),
-                                "",
-                                RFStateKind.Loading,
-                                theme,
-                                action = {}
-                            )
+                            KitEmpty("loader", stringResource(R.string.settings_loading), "")
                         }
                     }
                     state.problem?.let { message ->
                         item("error") {
-                            RFStateBlock(
-                                stringResource(R.string.settings_error),
-                                message.render(),
-                                RFStateKind.Error,
-                                theme,
-                                action = {}
-                            )
+                            KitEmpty("circle-alert", stringResource(R.string.settings_error), message.render())
                         }
                     }
                     state.unavailable?.let { message ->
                         item("unavailable") {
-                            RFStateBlock(
-                                stringResource(R.string.settings_unavailable),
-                                message.render(),
-                                RFStateKind.Empty,
-                                theme,
-                                action = {}
-                            )
+                            KitEmpty("inbox", stringResource(R.string.settings_unavailable), message.render())
                         }
                     }
                     if (state.accountRequired && state.page in setOf(SettingsPage.GENERAL, SettingsPage.DEVICES)) {
                         item("account-required") {
-                            RFStateBlock(
+                            KitEmpty(
+                                "inbox",
                                 stringResource(R.string.settings_account),
                                 stringResource(R.string.settings_account_needed),
-                                RFStateKind.Empty,
-                                theme,
-                                action = {
-                                    TextButton(
-                                        onClick = { onAction(SettingsAction.OpenAccount) }
-                                    ) { Text(stringResource(R.string.settings_open_account)) }
-                                }
+                                action = stringResource(R.string.settings_open_account),
+                                onAction = { onAction(SettingsAction.OpenAccount) }
                             )
                         }
                     }
                     when (state.page) {
                         SettingsPage.GENERAL -> {
                             item("permissions") {
-                                RFSettingsRow(
-                                    "permissions",
+                                KitRow(
                                     stringResource(R.string.settings_permissions),
-                                    stringResource(R.string.settings_permissions_help),
-                                    theme,
-                                    leading = {},
-                                    trailing = {},
-                                    onAction = { onAction(SettingsAction.Permissions) }
+                                    { onAction(SettingsAction.Permissions) },
+                                    value = stringResource(R.string.settings_permissions_help),
+                                    trailing = KitRowTrailing.None,
+                                    testTag = "permissions"
                                 )
                             }
-
                             item("appearance") {
-                                RFSettingsRow(
-                                    "appearance",
+                                KitRow(
                                     stringResource(R.string.settings_appearance),
-                                    "",
-                                    theme,
-                                    leading = {},
-                                    trailing = {},
-                                    onAction = { onAction(SettingsAction.Page(SettingsPage.APPEARANCE)) }
+                                    { onAction(SettingsAction.Page(SettingsPage.APPEARANCE)) },
+                                    trailing = KitRowTrailing.None,
+                                    testTag = "appearance"
                                 )
                             }
                             item("language") {
-                                RFSettingsRow(
-                                    "language",
+                                KitRow(
                                     stringResource(R.string.settings_language),
-                                    "",
-                                    theme,
-                                    leading = {},
-                                    trailing = {},
-                                    onAction = { onAction(SettingsAction.Page(SettingsPage.LANGUAGE)) }
+                                    { onAction(SettingsAction.Page(SettingsPage.LANGUAGE)) },
+                                    trailing = KitRowTrailing.None,
+                                    testTag = "language"
                                 )
                             }
                             item("devices") {
-                                RFSettingsRow(
-                                    "devices",
+                                KitRow(
                                     stringResource(R.string.settings_devices),
-                                    "",
-                                    theme,
-                                    leading = {},
-                                    trailing = {},
-                                    onAction = { onAction(SettingsAction.Page(SettingsPage.DEVICES)) }
+                                    { onAction(SettingsAction.Page(SettingsPage.DEVICES)) },
+                                    trailing = KitRowTrailing.None,
+                                    testTag = "devices"
                                 )
                             }
                             item("backup") {
-                                RFSettingsRow(
-                                    "backup",
+                                KitRow(
                                     stringResource(R.string.settings_backup),
-                                    "",
-                                    theme,
-                                    leading = {},
-                                    trailing = {},
-                                    onAction = { onAction(SettingsAction.Page(SettingsPage.BACKUP)) }
+                                    { onAction(SettingsAction.Page(SettingsPage.BACKUP)) },
+                                    trailing = KitRowTrailing.None,
+                                    testTag = "backup"
                                 )
                             }
                             item("connections") {
-                                RFSettingsRow(
-                                    "connections",
+                                KitRow(
                                     stringResource(R.string.settings_connections),
-                                    stringResource(R.string.settings_manage_connections),
-                                    theme,
-                                    leading = {},
-                                    trailing = {},
-                                    onAction = { onAction(SettingsAction.Connections) }
+                                    { onAction(SettingsAction.Connections) },
+                                    value = stringResource(R.string.settings_manage_connections),
+                                    trailing = KitRowTrailing.None,
+                                    testTag = "connections"
                                 )
                             }
                             state.statusProblem?.let { problem -> item("status-error") { Text(problem.render()) } }
@@ -223,25 +181,24 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
                         SettingsPage.DEVICES -> {
                             state.deviceProblem?.let { problem -> item("device-error") { Text(problem.render()) } }
                             if (state.devicesLoaded && state.devices.isEmpty()) {
-                                item(
-                                    "no-devices"
-                                ) { Text(stringResource(R.string.settings_empty_devices)) }
+                                item("no-devices") { Text(stringResource(R.string.settings_empty_devices)) }
                             }
                             items(state.devices, key = { "device:" + it.id }, contentType = { "device" }) { device ->
-                                RFIdentityRow(
+                                KitRow(
                                     device.id,
-                                    device.id,
-                                    stringResource(if (device.local) R.string.settings_current_device else R.string.settings_other_device),
-                                    theme,
-                                    avatar = { RFAvatar(device.id.take(1), RFAvatarKind.Person, theme) },
-                                    badge = {},
-                                    trailing = {
+                                    {},
+                                    value = stringResource(
+                                        if (device.local) R.string.settings_current_device else R.string.settings_other_device
+                                    ),
+                                    leading = { KitAvatar(device.id.take(1), 36f, KitAvatarKind.Person) },
+                                    trailingContent = {
                                         if (!device.local) {
-                                            TextButton(
-                                                onClick = { onAction(SettingsAction.Revoke(device.id)) }
-                                            ) { Text(stringResource(R.string.settings_revoke)) }
+                                            TextButton(onClick = { onAction(SettingsAction.Revoke(device.id)) }) {
+                                                Text(stringResource(R.string.settings_revoke))
+                                            }
                                         }
-                                    }
+                                    },
+                                    testTag = device.id
                                 )
                             }
                         }

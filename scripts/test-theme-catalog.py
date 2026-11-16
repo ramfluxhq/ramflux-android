@@ -24,14 +24,14 @@ class ThemeCatalogTest(unittest.TestCase):
             data = json.loads((themes / 'dark.json').read_text())
             data.update(id='contrast', names={'en': 'High contrast', 'zh-CN': '高对比度'})
             (themes / 'contrast.json').write_text(json.dumps(data))
-            compiler.compile_catalog(themes, ROOT / 'core/designsystem/src/main/kotlin/org/ramflux/generated/RFTokens.kt', base / 'java', base / 'res')
+            compiler.compile_catalog(themes, ROOT / 'core/designsystem/src/main/kotlin/org/ramflux/designsystem/RFTokens.kt', base / 'java', base / 'res')
             binding = (base / 'java/org/ramflux/designsystem/generated/ThemeTokenFiles.kt').read_text()
             self.assertIn('NamedThemeTokens("contrast", R.string.theme_contrast', binding)
             self.assertIn('高对比度', (base / 'res/values-zh-rCN/theme_names.xml').read_text())
             del data['names']['zh-CN']
             (themes / 'contrast.json').write_text(json.dumps(data))
             with self.assertRaises(ValueError):
-                compiler.compile_catalog(themes, ROOT / 'core/designsystem/src/main/kotlin/org/ramflux/generated/RFTokens.kt', base / 'java', base / 'res')
+                compiler.compile_catalog(themes, ROOT / 'core/designsystem/src/main/kotlin/org/ramflux/designsystem/RFTokens.kt', base / 'java', base / 'res')
 
     def test_shipped_text_and_control_token_pairs_meet_contrast(self):
         def luminance(token):

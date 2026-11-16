@@ -14,9 +14,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.kit.*
 import org.ramflux.designsystem.render
 import org.ramflux.feature.onboarding.impl.R
-import org.ramflux.generated.*
 
 /** Rendering only. State and all actions are supplied by the feature owner. */
 @Composable
@@ -38,18 +38,17 @@ fun OnboardingScreen(
         Box(frame, contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 Box(Modifier.testTag("onboarding-header")) {
-                    RFPageHeader(
-                        state.page.title.render(),
-                        stringResource(R.string.ui_your_identity_your_connections),
-                        theme,
-                        leading = { TextButton(onClick = { onAction(OnboardingAction.Back) }) { Text(stringResource(R.string.ui_back)) } },
-                        trailing = {
-                            TextButton(
-                                enabled = !state.busy && state.sessionReady,
-                                onClick = { onAction(OnboardingAction.Refresh) }
-                            ) { Text(stringResource(R.string.ui_refresh)) }
-                        }
-                    )
+                    val subtitle = stringResource(R.string.ui_your_identity_your_connections)
+                    Column {
+                        KitPageHeader(
+                            state.page.title.render(),
+                            subtitle = subtitle,
+                            onBack = { onAction(OnboardingAction.Back) },
+                            actionLabel = stringResource(R.string.ui_refresh),
+                            onAction = { if (!state.busy && state.sessionReady) onAction(OnboardingAction.Refresh) }
+                        )
+                        Text(subtitle, color = theme.secondary)
+                    }
                 }
                 Column(
                     Modifier.weight(1f).fillMaxWidth().testTag("onboarding-body")
@@ -57,30 +56,21 @@ fun OnboardingScreen(
                     verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
                 ) {
                     if (state.busy) {
-                        RFStateBlock(
-                            stringResource(
-                                R.string.ui_please_wait
-                            ),
-                            stringResource(R.string.ui_checking_the_current_state),
-                            RFStateKind.Loading,
-                            theme,
-                            action = {
-                            }
+                        KitEmpty(
+                            "loader",
+                            stringResource(R.string.ui_please_wait),
+                            stringResource(R.string.ui_checking_the_current_state)
                         )
                     }
                     state.notice?.let { notice ->
-                        RFStateBlock(
+                        KitEmpty(
+                            if (notice.kind == OnboardingNoticeKind.UNAVAILABLE) "inbox" else "circle-alert",
                             if (notice.kind == OnboardingNoticeKind.UNAVAILABLE) {
-                                stringResource(
-                                    R.string.ui_not_available_yet
-                                )
+                                stringResource(R.string.ui_not_available_yet)
                             } else {
                                 stringResource(R.string.ui_unable_to_continue)
                             },
-                            notice.message.render(),
-                            if (notice.kind == OnboardingNoticeKind.UNAVAILABLE) RFStateKind.Empty else RFStateKind.Error,
-                            theme,
-                            action = {}
+                            notice.message.render()
                         )
                     }
                     if (state.sessionReady) {
@@ -91,78 +81,72 @@ fun OnboardingScreen(
                                     style = MaterialTheme.typography.headlineMedium
                                 )
                                 Text(stringResource(R.string.ui_connect_to_a_node_then_create_or_open))
-                                RFActionButton(
-                                    "connect",
+                                KitButton(
                                     stringResource(R.string.ui_set_up_a_connection),
-                                    RFButtonKind.Primary,
-                                    theme,
-                                    disabled = state.busy,
-                                    onAction = { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) }
+                                    { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) },
+                                    enabled = !state.busy,
+                                    tag = "connect"
                                 )
                                 if (state.accountsLoaded && state.accounts.isEmpty()) {
                                     Text(
                                         stringResource(R.string.ui_no_accounts_are_saved_on_this_device)
                                     )
                                 }
-                                for (account in state.accounts) RFIdentityRow(
-                                    account.id,
-                                    account.label,
-                                    account.subtitle.render(),
-                                    theme,
-                                    avatar = { RFAvatar(account.label.take(1), RFAvatarKind.Person, theme) },
-                                    badge = {},
-                                    trailing = {
-                                        TextButton(
-                                            enabled = !state.busy,
-                                            onClick = { onAction(OnboardingAction.SelectAccount(account.id)) }
-                                        ) {
-                                            Text(
-                                                if (account.unlocked) {
-                                                    stringResource(
-                                                        R.string.ui_open
-                                                    )
-                                                } else {
-                                                    stringResource(R.string.ui_unlock)
-                                                }
-                                            )
-                                        }
-                                    }
-                                )
+                                for (account in state.accounts) {
+                                    KitRow(
+                                        account.label,
+                                        {},
+                                        value = account.subtitle.render(),
+                                        leading = { KitAvatar(account.label.take(1), 36f, KitAvatarKind.Person) },
+                                        trailingContent = {
+                                            TextButton(
+                                                enabled = !state.busy,
+                                                onClick = { onAction(OnboardingAction.SelectAccount(account.id)) }
+                                            ) {
+                                                Text(
+                                                    if (account.unlocked) {
+                                                        stringResource(R.string.ui_open)
+                                                    } else {
+                                                        stringResource(R.string.ui_unlock)
+                                                    }
+                                                )
+                                            }
+                                        },
+                                        testTag = account.id
+                                    )
+                                }
                                 for ((target, label) in listOf(
                                     OnboardingPage.CREATE to stringResource(R.string.ui_create_account),
                                     OnboardingPage.PAIR to stringResource(R.string.ui_link_device),
                                     OnboardingPage.RECOVER to stringResource(R.string.ui_recover_account)
                                 )) {
-                                    RFActionButton(
-                                        target.name,
+                                    KitButton(
                                         label,
-                                        RFButtonKind.Secondary,
-                                        theme,
-                                        disabled = state.busy,
-                                        onAction = { onAction(OnboardingAction.Page(target)) }
+                                        { onAction(OnboardingAction.Page(target)) },
+                                        kind = KitButtonKind.Secondary,
+                                        enabled = !state.busy,
+                                        tag = target.name
                                     )
                                 }
                             }
                             OnboardingPage.CONNECTION, OnboardingPage.REPAIR -> {
-                                RFSectionHeader(stringResource(R.string.ui_saved_nodes), theme, trailing = {})
+                                Text(stringResource(R.string.ui_saved_nodes))
                                 if (state.nodesLoaded && state.nodes.isEmpty()) Text(stringResource(R.string.ui_no_saved_nodes))
-                                for (node in state.nodes) RFListRow(
-                                    node.id,
-                                    node.id,
-                                    node.url,
-                                    theme,
-                                    disabled = state.busy,
-                                    leading = {},
-                                    trailing = { if (node.isDefault) RFBadge(stringResource(R.string.ui_default), theme) },
-                                    onAction = { onAction(OnboardingAction.ChooseNode(node.id)) }
-                                )
-                                RFActionButton(
-                                    "add-node",
+                                for (node in state.nodes) {
+                                    KitRow(
+                                        node.id,
+                                        { onAction(OnboardingAction.ChooseNode(node.id)) },
+                                        value = node.url,
+                                        enabled = !state.busy,
+                                        trailingContent = { if (node.isDefault) Text(stringResource(R.string.ui_default)) },
+                                        testTag = node.id
+                                    )
+                                }
+                                KitButton(
                                     stringResource(R.string.ui_add_a_node),
-                                    RFButtonKind.Primary,
-                                    theme,
-                                    disabled = state.busy,
-                                    onAction = { onAction(OnboardingAction.Page(OnboardingPage.ADDRESS)) }
+                                    { onAction(OnboardingAction.Page(OnboardingPage.ADDRESS)) },
+                                    enabled = !state.busy,
+                                    tag = "add-node"
                                 )
                             }
                             OnboardingPage.DEFAULT_NODE -> state.selectedNode?.let { node ->
@@ -173,13 +157,11 @@ fun OnboardingScreen(
                                         stringResource(R.string.ui_this_node_cannot_be_selected_review_its_identity)
                                     )
                                 }
-                                RFActionButton(
-                                    "use-node",
+                                KitButton(
                                     stringResource(R.string.ui_use_this_node),
-                                    RFButtonKind.Primary,
-                                    theme,
-                                    disabled = state.busy || node.keyChanged || !node.enabled,
-                                    onAction = { onAction(OnboardingAction.UseNode) }
+                                    { onAction(OnboardingAction.UseNode) },
+                                    enabled = !state.busy && !node.keyChanged && node.enabled,
+                                    tag = "use-node"
                                 )
                             }
                             OnboardingPage.ADDRESS, OnboardingPage.CONNECTION_FAILED, OnboardingPage.OFFLINE, OnboardingPage.REFUSED -> {
@@ -197,32 +179,27 @@ fun OnboardingScreen(
                                     )
                                 }
                                 Text(stringResource(R.string.ui_operator_key_explanation))
-                                RFTextField(
-                                    "operator-key",
-                                    stringResource(R.string.ui_operator_key),
+                                KitTextField(
                                     state.operatorKey,
-                                    theme,
-                                    disabled = state.busy,
-                                    onValueChange = { onAction(OnboardingAction.OperatorKey(it)) }
+                                    { onAction(OnboardingAction.OperatorKey(it)) },
+                                    stringResource(R.string.ui_operator_key),
+                                    enabled = !state.busy,
+                                    tag = "operator-key"
                                 )
-                                RFTextField(
-                                    "node-address",
-                                    stringResource(R.string.ui_node_address),
+                                KitTextField(
                                     state.address,
-                                    theme,
-                                    disabled = state.busy,
-                                    onValueChange = { onAction(OnboardingAction.Address(it)) }
+                                    { onAction(OnboardingAction.Address(it)) },
+                                    stringResource(R.string.ui_node_address),
+                                    enabled = !state.busy,
+                                    tag = "node-address"
                                 )
                             }
                             OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED ->
                                 state.identity?.let { identity ->
-                                    RFTrustBanner(
+                                    KitSecurityWarning(
                                         stringResource(R.string.ui_compare_the_node_fingerprint),
                                         stringResource(R.string.ui_compare_this_fingerprint_with_your_node_operator_a),
-                                        identity.keyChanged,
-                                        theme,
-                                        icon = {},
-                                        action = {}
+                                        if (identity.keyChanged) KitWarningTone.Danger else KitWarningTone.Warning
                                     )
                                     Text(identity.id)
                                     Text(identity.url)
@@ -237,21 +214,18 @@ fun OnboardingScreen(
                             }
                             OnboardingPage.SAVED -> {
                                 Text(stringResource(R.string.ui_node_saved_choose_it_from_your_saved_nodes))
-                                RFActionButton(
-                                    "choose-saved",
+                                KitButton(
                                     stringResource(R.string.ui_choose_a_saved_node),
-                                    RFButtonKind.Primary,
-                                    theme,
-                                    onAction = { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) }
+                                    { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) },
+                                    tag = "choose-saved"
                                 )
                             }
-                            OnboardingPage.SAVE_FAILED -> RFActionButton(
-                                "review-nodes",
+                            OnboardingPage.SAVE_FAILED -> KitButton(
                                 stringResource(R.string.ui_review_saved_nodes),
-                                RFButtonKind.Secondary,
-                                theme,
-                                disabled = state.busy,
-                                onAction = { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) }
+                                { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) },
+                                kind = KitButtonKind.Secondary,
+                                enabled = !state.busy,
+                                tag = "review-nodes"
                             )
                             OnboardingPage.CHECKING, OnboardingPage.SAVING, OnboardingPage.CREATE -> Unit
                             OnboardingPage.PHRASE -> PhrasePage(state, drawPhrase)
@@ -273,13 +247,12 @@ fun OnboardingScreen(
                                 Text(
                                     stringResource(R.string.ui_secure_setup_is_unavailable_no_account_phrase_or)
                                 )
-                                RFActionButton(
-                                    "return-start",
+                                KitButton(
                                     stringResource(R.string.ui_return_to_start),
-                                    RFButtonKind.Secondary,
-                                    theme,
-                                    disabled = state.busy,
-                                    onAction = { onAction(OnboardingAction.Page(OnboardingPage.START)) }
+                                    { onAction(OnboardingAction.Page(OnboardingPage.START)) },
+                                    kind = KitButtonKind.Secondary,
+                                    enabled = !state.busy,
+                                    tag = "return-start"
                                 )
                             }
                         }
@@ -306,72 +279,57 @@ private fun OnboardingFooter(
     ) {
         when (state.page) {
             OnboardingPage.ADDRESS, OnboardingPage.CONNECTION_FAILED, OnboardingPage.OFFLINE, OnboardingPage.REFUSED ->
-                RFActionButton(
-                    "review-address",
+                KitButton(
                     stringResource(R.string.ui_verify_node),
-                    RFButtonKind.Primary,
-                    theme,
-                    disabled = state.busy || state.address.isBlank(),
-                    onAction = { onAction(OnboardingAction.ReviewAddress) }
+                    { onAction(OnboardingAction.ReviewAddress) },
+                    enabled = !state.busy && state.address.isNotBlank(),
+                    tag = "review-address"
                 )
             OnboardingPage.CONFIRM -> {
-                RFActionButton(
-                    "verify-origin",
+                KitButton(
                     stringResource(R.string.ui_verify_this_address),
-                    RFButtonKind.Primary,
-                    theme,
-                    disabled = state.busy || state.normalizedOrigin == null,
-                    onAction = { onAction(OnboardingAction.Discover) }
+                    { onAction(OnboardingAction.Discover) },
+                    enabled = !state.busy && state.normalizedOrigin != null,
+                    tag = "verify-origin"
                 )
-                RFActionButton(
-                    "edit-address",
+                KitButton(
                     stringResource(R.string.ui_return_to_edit),
-                    RFButtonKind.Secondary,
-                    theme,
-                    disabled = state.busy,
-                    onAction = { onAction(OnboardingAction.Page(OnboardingPage.ADDRESS)) }
+                    { onAction(OnboardingAction.Page(OnboardingPage.ADDRESS)) },
+                    kind = KitButtonKind.Secondary,
+                    enabled = !state.busy,
+                    tag = "edit-address"
                 )
             }
-            OnboardingPage.PHRASE -> RFActionButton(
-                "phrase-saved",
+            OnboardingPage.PHRASE -> KitButton(
                 stringResource(R.string.ui_i_have_saved_the_phrase),
-                RFButtonKind.Primary,
-                theme,
-                disabled = state.busy || state.phraseSlots == 0,
-                onAction = { onAction(OnboardingAction.PhraseSaved) }
+                { onAction(OnboardingAction.PhraseSaved) },
+                enabled = !state.busy && state.phraseSlots != 0,
+                tag = "phrase-saved"
             )
-            OnboardingPage.CHALLENGE -> RFActionButton(
-                "confirm-account",
+            OnboardingPage.CHALLENGE -> KitButton(
                 stringResource(R.string.ui_confirm_account),
-                RFButtonKind.Primary,
-                theme,
-                disabled = state.busy || !challenge.ready(state.challengePositions.size),
-                onAction = { onAction(OnboardingAction.ConfirmChallenge(challenge.words, challenge.passphrase)) }
+                { onAction(OnboardingAction.ConfirmChallenge(challenge.words, challenge.passphrase)) },
+                enabled = !state.busy && challenge.ready(state.challengePositions.size),
+                tag = "confirm-account"
             )
-            OnboardingPage.LOCAL_UNLOCK -> RFActionButton(
-                "unlock-account",
+            OnboardingPage.LOCAL_UNLOCK -> KitButton(
                 stringResource(R.string.ui_unlock),
-                RFButtonKind.Primary,
-                theme,
-                disabled = state.busy,
-                onAction = { onAction(OnboardingAction.SubmitUnlock(unlockPassphrase)) }
+                { onAction(OnboardingAction.SubmitUnlock(unlockPassphrase)) },
+                enabled = !state.busy,
+                tag = "unlock-account"
             )
-            OnboardingPage.CREATED -> RFActionButton(
-                "continue-created",
+            OnboardingPage.CREATED -> KitButton(
                 stringResource(R.string.ui_continue_into_the_account),
-                RFButtonKind.Primary,
-                theme,
-                disabled = state.busy || state.createdAccountId == null,
-                onAction = { onAction(OnboardingAction.ContinueCreated) }
+                { onAction(OnboardingAction.ContinueCreated) },
+                enabled = !state.busy && state.createdAccountId != null,
+                tag = "continue-created"
             )
             OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED ->
-                RFActionButton(
-                    "confirm-node",
+                KitButton(
                     stringResource(R.string.ui_save_this_node),
-                    RFButtonKind.Primary,
-                    theme,
-                    disabled = state.busy || state.identity == null || state.identity.keyChanged,
-                    onAction = { onAction(OnboardingAction.Confirm) }
+                    { onAction(OnboardingAction.Confirm) },
+                    enabled = !state.busy && state.identity != null && !state.identity.keyChanged,
+                    tag = "confirm-node"
                 )
             else -> Unit
         }

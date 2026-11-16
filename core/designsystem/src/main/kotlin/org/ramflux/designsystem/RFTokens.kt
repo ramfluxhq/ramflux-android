@@ -94,7 +94,7 @@ data class RFTheme(
     val text: Color,
     val tooltip: Color,
     val warning: Color,
-    val warning_bg: Color,
+    val warning_bg: Color
 )
 object RFDesign {
     val light = RFTheme(
@@ -185,7 +185,7 @@ object RFDesign {
         text = Color(0xFF161616),
         tooltip = Color(0xFF222224),
         warning = Color(0xFF9A5800),
-        warning_bg = Color(0xFFFBF0DE),
+        warning_bg = Color(0xFFFBF0DE)
     )
     val dark = RFTheme(
         accent = Color(0xFFEBEBEB),
@@ -275,6 +275,6 @@ object RFDesign {
         text = Color(0xFFEBEBEB),
         tooltip = Color(0xFFEBEBEB),
         warning = Color(0xFFF2B94B),
-        warning_bg = Color(0xFF2B2210),
+        warning_bg = Color(0xFF2B2210)
     )
 }

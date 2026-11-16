@@ -18,7 +18,7 @@ import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.kit.KitRow
 
 @Composable
-internal fun MoreHub(order: String, hidden: String, onOpen: (String) -> Unit, onEditNavigation: () -> Unit) {
+internal fun MoreHub(order: String, hidden: String, onOpen: (String) -> Unit, onEditNavigation: () -> Unit, onNotices: () -> Unit) {
     val theme = LocalRFTheme.current
     Column(Modifier.fillMaxSize().background(theme.bg).statusBarsPadding()) {
         KitPageHeader(stringResource(R.string.shell_tab_more), large = true, tag = "shell-more-header")
@@ -35,6 +35,15 @@ internal fun MoreHub(order: String, hidden: String, onOpen: (String) -> Unit, on
                     icon = "sliders-horizontal",
                     value = stringResource(R.string.shell_more_navigation_detail),
                     testTag = "shell-more-navigation"
+                )
+            }
+            item("notices") {
+                KitRow(
+                    stringResource(R.string.shell_more_notices),
+                    onNotices,
+                    icon = "file-text",
+                    value = stringResource(R.string.shell_more_notices_detail),
+                    testTag = "shell-more-notices"
                 )
             }
         }

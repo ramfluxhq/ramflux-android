@@ -32,7 +32,7 @@ class AndroidDesignSystemPlugin : Plugin<Project> {
         pluginManager.apply("ramflux.android.compose")
         val catalog = tasks.register<ThemeCatalogTask>("generateThemeCatalog") {
             themes.set(layout.projectDirectory.dir("src/main/assets/ramflux/themes"))
-            schema.set(layout.projectDirectory.file("src/main/kotlin/org/ramflux/generated/RFTokens.kt"))
+            schema.set(layout.projectDirectory.file("src/main/kotlin/org/ramflux/designsystem/RFTokens.kt"))
             compiler.set(rootProject.layout.projectDirectory.file("scripts/build-theme-catalog.py"))
             javaOutput.set(layout.buildDirectory.dir("generated/themeCatalog/java"))
             resourcesOutput.set(layout.buildDirectory.dir("generated/themeCatalog/res"))

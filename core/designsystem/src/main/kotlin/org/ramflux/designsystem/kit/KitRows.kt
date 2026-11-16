@@ -70,6 +70,8 @@ fun KitRow(
     enabled: Boolean = true,
     locked: Boolean = false,
     divider: Boolean = true,
+    leading: (@Composable () -> Unit)? = null,
+    trailingContent: (@Composable () -> Unit)? = null,
     testTag: String? = null
 ) {
     val theme = LocalRFTheme.current
@@ -89,7 +91,11 @@ fun KitRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.rowGap))
     ) {
-        if (icon != null) KitIconTile(icon)
+        if (leading != null) {
+            leading()
+        } else if (icon != null) {
+            KitIconTile(icon)
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.labelGap))) {
             Text(
                 label,
@@ -116,16 +122,20 @@ fun KitRow(
                 Text(tagLabel, style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.warning, RfMetrics.lineMetaRow()))
             }
         }
-        when (trailing) {
-            KitRowTrailing.Chevron -> if (locked) {
-                Box(Modifier.alpha(RfMetrics.disabledAlpha)) {
+        if (trailingContent != null) {
+            trailingContent()
+        } else {
+            when (trailing) {
+                KitRowTrailing.Chevron -> if (locked) {
+                    Box(Modifier.alpha(RfMetrics.disabledAlpha)) {
+                        KitIcon("chevron-right", RfMetrics.chevron, theme.control)
+                    }
+                } else {
                     KitIcon("chevron-right", RfMetrics.chevron, theme.control)
                 }
-            } else {
-                KitIcon("chevron-right", RfMetrics.chevron, theme.control)
+                KitRowTrailing.Check -> KitIcon("circle-check", RfMetrics.chevron, theme.text)
+                KitRowTrailing.None -> Unit
             }
-            KitRowTrailing.Check -> KitIcon("circle-check", RfMetrics.chevron, theme.text)
-            KitRowTrailing.None -> Unit
         }
     }
 }

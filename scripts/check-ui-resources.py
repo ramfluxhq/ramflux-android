@@ -46,8 +46,8 @@ def validate(root):
                 raise ValueError(f'Invalid translation/format: {module.relative_to(root)}:{key}')
         total += len(english)
         for source in (module / 'src/main').glob('**/*.kt'):
-            if 'generated' in source.parts:
-                continue
+            if 'generated' in source.parts or source.name == 'RFTokens.kt':
+                continue  # Token schema is checked by check-mobile-tokens.py, not as host copy.
             text = source.read_text()
             if re.search(r'\bText\(\s*(?:text\s*=\s*)?"[^"]+"|contentDescription\s*=\s*"[^"]+"|UiText.Data\("[^"]+"', text):
                 raise ValueError(f'Hard-coded direct host text: {source.relative_to(root)}')

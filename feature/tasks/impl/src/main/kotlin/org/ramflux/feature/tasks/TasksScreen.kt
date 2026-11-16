@@ -13,49 +13,44 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.ramflux.data.TaskDecision
 import org.ramflux.designsystem.*
+import org.ramflux.designsystem.kit.*
 import org.ramflux.feature.tasks.impl.R
-import org.ramflux.generated.*
+
 @Composable
 fun TasksScreen(state: TasksState, onAction: (TasksAction) -> Unit) {
     val theme = LocalRFTheme.current
+    val subtitle = state.conversation?.takeIf { it.isNotEmpty() }
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
-                RFPageHeader(
+                KitPageHeader(
                     stringResource(R.string.tasks_title),
-                    state.conversation ?: "",
-                    theme,
-                    leading = { TextButton(onClick = { onAction(TasksAction.Back) }) { Text(stringResource(R.string.tasks_back)) } },
-                    trailing = {
-                        TextButton(enabled = !state.loading && !state.busy, onClick = {
-                            onAction(TasksAction.Refresh)
-                        }) { Text(stringResource(R.string.tasks_refresh)) }
-                    }
+                    subtitle = subtitle,
+                    onBack = { onAction(TasksAction.Back) },
+                    actionLabel = stringResource(R.string.tasks_refresh),
+                    onAction = { if (!state.loading && !state.busy) onAction(TasksAction.Refresh) }
                 )
+                if (subtitle != null) Text(subtitle, color = theme.secondary)
                 LazyColumn(
                     Modifier.weight(1f).fillMaxWidth().padding(horizontal = theme.gap.dp),
                     verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
                 ) {
                     if (state.loading || state.busy) {
                         item("loading") {
-                            RFStateBlock(stringResource(R.string.tasks_loading), "", RFStateKind.Loading, theme, {})
+                            KitEmpty("loader", stringResource(R.string.tasks_loading), "")
                         }
                     }
                     if (!state.fresh) item("stale") { Text(stringResource(R.string.tasks_stale)) }
                     state.problem?.let {
-                        item(
-                            "error"
-                        ) { RFStateBlock(stringResource(R.string.tasks_error), it.render(), RFStateKind.Error, theme, {}) }
+                        item("error") { KitEmpty("circle-alert", stringResource(R.string.tasks_error), it.render()) }
                     }
                     state.notice?.let { item("notice") { Text(it.render()) } }
                     if (state.unavailable) {
                         item("unavailable") {
-                            RFStateBlock(
+                            KitEmpty(
+                                "inbox",
                                 stringResource(R.string.tasks_unavailable),
-                                stringResource(R.string.tasks_unavailable_detail),
-                                RFStateKind.Empty,
-                                theme,
-                                {}
+                                stringResource(R.string.tasks_unavailable_detail)
                             )
                         }
                     }
@@ -79,21 +74,27 @@ fun TasksScreen(state: TasksState, onAction: (TasksAction) -> Unit) {
                             item("context") { Text(stringResource(R.string.tasks_context)) }
                             if (state.loaded && state.contexts.isEmpty()) item("empty") { Text(stringResource(R.string.tasks_no_contexts)) }
                             items(state.contexts, key = { it.id }) { row ->
-                                RFListRow(row.id, row.title, "", theme, false, {}, {}, { onAction(TasksAction.Conversation(row.id)) })
+                                KitRow(
+                                    row.title,
+                                    { onAction(TasksAction.Conversation(row.id)) },
+                                    trailing = KitRowTrailing.None,
+                                    testTag = row.id
+                                )
                             }
-                            item(
-                                "create"
-                            ) {
-                                TextButton(
-                                    onClick = { onAction(TasksAction.Unavailable) }
-                                ) { Text(stringResource(R.string.tasks_create)) }
+                            item("create") {
+                                TextButton(onClick = { onAction(TasksAction.Unavailable) }) { Text(stringResource(R.string.tasks_create)) }
                             }
                         }
                         TasksPage.LIST -> {
                             if (state.loaded && state.rows.isEmpty()) item("empty") { Text(stringResource(R.string.tasks_empty)) }
                             items(state.rows, key = { it.id }) { row ->
-                                RFListRow(row.id, row.title, row.status.render(), theme, false, {
-                                }, { Text(UiText.Unsigned(row.version).render()) }, { onAction(TasksAction.Select(row.id)) })
+                                KitRow(
+                                    row.title,
+                                    { onAction(TasksAction.Select(row.id)) },
+                                    value = row.status.render(),
+                                    trailingContent = { Text(UiText.Unsigned(row.version).render()) },
+                                    testTag = row.id
+                                )
                             }
                         }
                         TasksPage.DETAIL -> state.selected?.let { row ->
@@ -101,25 +102,20 @@ fun TasksScreen(state: TasksState, onAction: (TasksAction) -> Unit) {
                                 Text(row.title, style = MaterialTheme.typography.headlineSmall)
                                 Text(row.status.render())
                             }
-                            item(
-                                "facts"
-                            ) {
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy((theme.gap / 2).dp)
-                                ) { for (fact in row.facts) Text(fact.render()) }
+                            item("facts") {
+                                Column(verticalArrangement = Arrangement.spacedBy((theme.gap / 2).dp)) {
+                                    for (fact in row.facts) Text(fact.render())
+                                }
                             }
                             if (row.stalled) item("stalled") { Text(stringResource(R.string.tasks_stalled)) }
                             if (row.pendingResolution) item("resolution") { Text(stringResource(R.string.tasks_pending_resolution)) }
                             items(row.steps, key = { "step:" + it.id }) { step ->
-                                RFListRow(
-                                    step.id,
+                                KitRow(
                                     step.title,
-                                    step.status.render(),
-                                    theme,
-                                    false,
-                                    {},
-                                    {},
-                                    { onAction(TasksAction.Unavailable) }
+                                    { onAction(TasksAction.Unavailable) },
+                                    value = step.status.render(),
+                                    trailing = KitRowTrailing.None,
+                                    testTag = step.id
                                 )
                                 if (step.intervention) Text(stringResource(R.string.tasks_intervention))
                             }
@@ -129,20 +125,15 @@ fun TasksScreen(state: TasksState, onAction: (TasksAction) -> Unit) {
                         TasksPage.PERMISSIONS -> {
                             item("readonly") { Text(stringResource(R.string.tasks_readonly)) }
                             if (state.loaded && state.permissions.isEmpty()) {
-                                item(
-                                    "empty"
-                                ) { Text(stringResource(R.string.tasks_no_permissions)) }
+                                item("empty") { Text(stringResource(R.string.tasks_no_permissions)) }
                             }
                             items(state.permissions, key = { it.id }) { row ->
-                                RFListRow(
-                                    row.id,
+                                KitRow(
                                     row.title ?: row.kind.render(),
-                                    row.kind.render(),
-                                    theme,
-                                    false,
-                                    {},
-                                    {},
-                                    { onAction(TasksAction.Permission(row.id)) }
+                                    { onAction(TasksAction.Permission(row.id)) },
+                                    value = row.kind.render(),
+                                    trailing = KitRowTrailing.None,
+                                    testTag = row.id
                                 )
                             }
                         }
@@ -152,7 +143,9 @@ fun TasksScreen(state: TasksState, onAction: (TasksAction) -> Unit) {
                                 Text(row.kind.render())
                                 Text(stringResource(R.string.tasks_readonly))
                             }
-                            items(row.facts.indices.toList(), key = { "permission-fact:$it" }) { index -> Text(row.facts[index].render()) }
+                            items(row.facts.indices.toList(), key = { "permission-fact:" + it }) { index ->
+                                Text(row.facts[index].render())
+                            }
                         }
                     }
                     if (state.canMore) {
@@ -200,20 +193,19 @@ fun TasksScreen(state: TasksState, onAction: (TasksAction) -> Unit) {
                     }
                 }
                 if (state.page == TasksPage.PERMISSION) {
-                    TextButton(onClick = {
-                        onAction(TasksAction.Unavailable)
-                    }) { Text(stringResource(R.string.tasks_review_step)) }
+                    TextButton(onClick = { onAction(TasksAction.Unavailable) }) { Text(stringResource(R.string.tasks_review_step)) }
                 }
             }
         }
     }
     state.confirmation?.let { facts ->
         HostConfirmationDialog(onDismissRequest = { onAction(TasksAction.Deny) }) {
-            RFDialogShell(stringResource(R.string.tasks_review), facts.operation.render(), theme, content = {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                Text(stringResource(R.string.tasks_review), color = theme.text)
+                Text(facts.operation.render())
                 LazyColumn(Modifier.heightIn(max = (theme.gap * 20).dp)) {
                     items(facts.facts.indices.toList()) { index -> Text(facts.facts[index].render()) }
                 }
-            }, actions = {
                 HostConfirmationActions(
                     facts,
                     stringResource(R.string.tasks_deny),
@@ -223,7 +215,7 @@ fun TasksScreen(state: TasksState, onAction: (TasksAction) -> Unit) {
                     onDeny = { onAction(TasksAction.Deny) },
                     onConfirm = { onAction(TasksAction.Confirm(facts.id)) }
                 )
-            })
+            }
         }
     }
 }

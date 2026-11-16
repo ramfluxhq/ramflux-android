@@ -14,8 +14,10 @@ import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.*
 import org.ramflux.designsystem.kit.KitEmpty
 import org.ramflux.designsystem.kit.KitPageHeader
+import org.ramflux.designsystem.kit.KitRow
+import org.ramflux.designsystem.kit.KitRowTrailing
+import org.ramflux.designsystem.kit.KitSearchField
 import org.ramflux.feature.groups.impl.R
-import org.ramflux.generated.*
 
 @Composable
 fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: Boolean = false) {
@@ -39,19 +41,15 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                 } else if (rooted) {
                     KitPageHeader(title, onBack = { onAction(GroupsAction.Back) }, tag = "groups-header")
                 } else {
-                    RFPageHeader(
+                    val subtitle = state.account.orEmpty()
+                    KitPageHeader(
                         title,
-                        state.account.orEmpty(),
-                        theme,
-                        leading = {
-                            TextButton(onClick = { onAction(GroupsAction.Back) }) { Text(stringResource(R.string.groups_back)) }
-                        },
-                        trailing = {
-                            TextButton(enabled = !state.loading && !state.busy, onClick = {
-                                onAction(GroupsAction.Refresh)
-                            }) { Text(stringResource(R.string.groups_refresh)) }
-                        }
+                        subtitle = subtitle.takeIf { it.isNotEmpty() },
+                        onBack = { onAction(GroupsAction.Back) },
+                        actionLabel = stringResource(R.string.groups_refresh),
+                        onAction = { if (!state.loading && !state.busy) onAction(GroupsAction.Refresh) }
                     )
+                    if (subtitle.isNotEmpty()) Text(subtitle, color = theme.secondary)
                 }
                 LazyColumn(
                     Modifier.weight(1f).fillMaxWidth().padding(theme.gap.dp),
@@ -59,13 +57,13 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                 ) {
                     if (state.loading || state.busy) {
                         item("loading") {
-                            RFStateBlock(stringResource(R.string.groups_loading), "", RFStateKind.Loading, theme, action = {})
+                            KitEmpty("loader", stringResource(R.string.groups_loading), "")
                         }
                     }
                     state.problem?.let {
                         item(
                             "problem"
-                        ) { RFStateBlock(stringResource(R.string.groups_error), it.render(), RFStateKind.Error, theme, action = {}) }
+                        ) { KitEmpty("circle-alert", stringResource(R.string.groups_error), it.render()) }
                     }
                     state.notice?.let { item("notice") { Text(it.render()) } }
                     state.pending?.let { id -> item("pending") { Text(stringResource(R.string.groups_pending, id)) } }
@@ -81,16 +79,12 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                                     tag = "groups-account"
                                 )
                             } else {
-                                RFStateBlock(
+                                KitEmpty(
+                                    "inbox",
                                     stringResource(R.string.groups_account_needed),
                                     stringResource(R.string.groups_account_help),
-                                    RFStateKind.Empty,
-                                    theme,
-                                    action = {
-                                        TextButton(onClick = { onAction(GroupsAction.SetupAccount) }) {
-                                            Text(stringResource(R.string.groups_account_action))
-                                        }
-                                    }
+                                    action = stringResource(R.string.groups_account_action),
+                                    onAction = { onAction(GroupsAction.SetupAccount) }
                                 )
                             }
                         }
@@ -98,12 +92,11 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                     when (state.page) {
                         GroupsPage.LIST -> {
                             item("search") {
-                                RFSearchField(
-                                    "group-search",
-                                    stringResource(R.string.groups_filter),
+                                KitSearchField(
                                     state.query,
-                                    theme,
-                                    onValueChange = { onAction(GroupsAction.Query(it)) }
+                                    { onAction(GroupsAction.Query(it)) },
+                                    stringResource(R.string.groups_filter),
+                                    tag = "group-search"
                                 )
                             }
                             if (state.loaded && state.groups.isEmpty()) {
@@ -116,37 +109,39 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                                             tag = "groups-empty"
                                         )
                                     } else {
-                                        RFStateBlock(
+                                        KitEmpty(
+                                            "inbox",
                                             stringResource(R.string.groups_empty),
-                                            stringResource(R.string.groups_empty_help),
-                                            RFStateKind.Empty,
-                                            theme,
-                                            action = {}
+                                            stringResource(R.string.groups_empty_help)
                                         )
                                     }
                                 }
                             }
                             items(state.groups, key = { "group:" + it.id }) { row ->
-                                RFListRow(
-                                    row.id,
+                                KitRow(
                                     row.title,
-                                    row.count.render(),
-                                    theme,
-                                    leading = {},
-                                    trailing = {},
-                                    onAction = { onAction(GroupsAction.Page(GroupsPage.DETAIL, row.id)) }
+                                    { onAction(GroupsAction.Page(GroupsPage.DETAIL, row.id)) },
+                                    value = row.count.render().takeIf { it.isNotEmpty() },
+                                    trailing = KitRowTrailing.None,
+                                    testTag = row.id
                                 )
                             }
-                            item("invitations-title") { RFSectionHeader(stringResource(R.string.groups_invitations), theme, trailing = {}) }
+                            item("invitations-title") {
+                                Row {
+                                    Text(
+                                        stringResource(R.string.groups_invitations),
+                                        Modifier.weight(1f),
+                                        color = theme.secondary
+                                    )
+                                }
+                            }
                             items(state.invitations, key = { "invite:" + it.id }) { row ->
-                                RFListRow(
-                                    row.id,
+                                KitRow(
                                     row.title,
-                                    row.expiry.render(),
-                                    theme,
-                                    leading = {},
-                                    trailing = {},
-                                    onAction = { onAction(GroupsAction.Page(GroupsPage.INVITATION, row.id)) }
+                                    { onAction(GroupsAction.Page(GroupsPage.INVITATION, row.id)) },
+                                    value = row.expiry.render().takeIf { it.isNotEmpty() },
+                                    trailing = KitRowTrailing.None,
+                                    testTag = row.id
                                 )
                             }
                         }
@@ -209,7 +204,11 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                                 }
                             }
                             if (state.canManage) {
-                                item("add-title") { RFSectionHeader(stringResource(R.string.groups_add), theme, trailing = {}) }
+                                item("add-title") {
+                                    Row {
+                                        Text(stringResource(R.string.groups_add), Modifier.weight(1f), color = theme.secondary)
+                                    }
+                                }
                                 items(state.contacts, key = { "contact:" + it.id }) { contact ->
                                     TextButton(
                                         enabled = !state.busy && state.pending == null,
@@ -261,11 +260,12 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
     }
     state.confirmation?.let { facts ->
         HostConfirmationDialog(onDismissRequest = { onAction(GroupsAction.Deny) }) {
-            RFDialogShell(stringResource(R.string.groups_review), facts.operation.render(), theme, content = {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                Text(stringResource(R.string.groups_review), color = theme.text)
+                Text(facts.operation.render())
                 LazyColumn(Modifier.heightIn(max = (theme.gap * 20).dp)) {
                     items(facts.values.indices.toList()) { index -> Text(facts.values[index].render()) }
                 }
-            }, actions = {
                 HostConfirmationActions(
                     facts,
                     stringResource(R.string.groups_deny),
@@ -275,7 +275,7 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                     onDeny = { onAction(GroupsAction.Deny) },
                     onConfirm = { onAction(GroupsAction.Confirm) }
                 )
-            })
+            }
         }
     }
 }

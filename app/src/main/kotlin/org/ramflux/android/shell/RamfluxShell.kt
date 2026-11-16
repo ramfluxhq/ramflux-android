@@ -39,9 +39,14 @@ fun RamfluxShell(navigate: (NavKey) -> Unit) {
     val theme = LocalRFTheme.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var editing by rememberSaveable { mutableStateOf(false) }
+    var notices by rememberSaveable { mutableStateOf(false) }
     var order by rememberSaveable { mutableStateOf(DEFAULT_SHELL_ORDER) }
     var hidden by rememberSaveable { mutableStateOf("") }
     var atRoot by rememberSaveable { mutableStateOf(true) }
+    if (notices) {
+        OpenSourceNotices { notices = false }
+        return
+    }
     if (editing) {
         NavigationEditor(order, hidden, { order = it }, { hidden = it }, { editing = false })
         return
@@ -72,7 +77,7 @@ fun RamfluxShell(navigate: (NavKey) -> Unit) {
                 )
                 else -> {
                     SideEffect { atRoot = true }
-                    MoreHub(order, hidden, { openMore(it, navigate) }, { editing = true })
+                    MoreHub(order, hidden, { openMore(it, navigate) }, { editing = true }, { notices = true })
                 }
             }
         }
