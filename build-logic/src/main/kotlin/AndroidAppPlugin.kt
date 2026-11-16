@@ -13,11 +13,12 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 class AndroidAppPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         listOf("com.android.application", "org.jetbrains.kotlin.android", "org.jetbrains.kotlin.plugin.compose", "com.google.devtools.ksp", "com.google.dagger.hilt.android", "org.jlleitschuh.gradle.ktlint").forEach { pluginManager.apply(it) }
+        val release = ReleaseVersion.of(target)
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
         extensions.getByType<ApplicationExtension>().apply {
             namespace = "org.ramflux.android"
             compileSdk = 36
-            defaultConfig { applicationId = "org.ramflux.android"; minSdk = 28; targetSdk = 36; versionCode = 1; versionName = "0.1.0"; ndk.abiFilters.add("arm64-v8a") }
+            defaultConfig { applicationId = "org.ramflux.android"; minSdk = 28; targetSdk = 36; versionCode = release.code; versionName = release.name; ndk.abiFilters.add("arm64-v8a") }
             defaultConfig.testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
             buildFeatures.compose = true
             buildFeatures.buildConfig = true

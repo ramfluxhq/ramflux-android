@@ -10,6 +10,7 @@ import org.gradle.kotlin.dsl.getByType
 class AndroidPackagingPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("com.android.application")
+        val release = ReleaseVersion.of(target)
         extensions.getByType<ApplicationExtension>().apply {
             namespace = "org.ramflux.bridge.packaging"
             compileSdk = 36
@@ -17,8 +18,8 @@ class AndroidPackagingPlugin : Plugin<Project> {
                 applicationId = "org.ramflux.bridge.packaging"
                 minSdk = 28
                 targetSdk = 36
-                versionCode = 1
-                versionName = "0.1"
+                versionCode = release.code
+                versionName = release.name
                 ndk.abiFilters.add("arm64-v8a")
             }
             packaging.jniLibs.useLegacyPackaging = false
