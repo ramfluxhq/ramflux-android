@@ -57,8 +57,8 @@ profile_args=()
 if [[ "$profile" == release ]]; then profile_args+=(--profile ffi-release); fi
 ndk_args=(-t arm64-v8a --platform 28)
 if [[ "$action" == build ]]; then ndk_args+=(-o "$out/jniLibs"); fi
-echo "native cargo jobs=${CARGO_BUILD_JOBS} incremental=${CARGO_INCREMENTAL:-1} profile=${profile}"
-(cd "$core" && cargo ndk "${ndk_args[@]}" "$action" -p ramflux-sdk --lib --features c-abi --locked "${profile_args[@]}")
+echo "native cargo jobs=${CARGO_BUILD_JOBS} incremental=${CARGO_INCREMENTAL:-1} profile=${profile} codegen-units=${CARGO_PROFILE_FFI_RELEASE_CODEGEN_UNITS:-default}"
+(cd "$core" && cargo ndk "${ndk_args[@]}" "$action" --jobs "$CARGO_BUILD_JOBS" -p ramflux-sdk --lib --features c-abi --locked "${profile_args[@]}")
 if [[ "$action" == check ]]; then exit 0; fi
 cp "$CARGO_TARGET_DIR/include/ramflux_sdk.h" "$out/include/ramflux_sdk.h"
 cmake_bin="${ANDROID_HOME:?Set ANDROID_HOME}/cmake/3.22.1/bin/cmake"

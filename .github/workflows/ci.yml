@@ -77,9 +77,18 @@ jobs:
             feature/**/build/outputs/roborazzi/
   native-packaging:
     runs-on: ubuntu-latest
-    # A new SDK pin misses the exact native-target cache. ffi-release LTO then
-    # exceeds 30 minutes, which cancelled the assemble step with no test failure.
+    # 60 minutes is enough wall clock. The 11d31e4 failure was not this limit:
+    # rustc of ramflux-sdk was SIGKILL'd about 14 minutes in (signal 9), and the
+    # runner then shut the step down with exit 143. Hosted runners have no swap,
+    # and ffi-release codegen-units=1 holds that crate in one LLVM module.
     timeout-minutes: 60
+    env:
+      # Two jobs compile neighbors during thin LTO and raise the peak. Stay at one.
+      CARGO_BUILD_JOBS: "1"
+      # Opt-level 3 and thin LTO stay. More codegen units keep each LLVM module
+      # smaller so the hosted runner does not kill rustc. Line tables stay on in
+      # build-native.sh so the symbol artifact still has them.
+      CARGO_PROFILE_FFI_RELEASE_CODEGEN_UNITS: "16"
     defaults:
       run:
         working-directory: android
@@ -125,6 +134,24 @@ jobs:
           restore-keys: native-release-symbols-v1-${{ runner.os }}-
       - name: Exercise ELF guard regressions with real ARM fixtures
         run: python3 scripts/test-packaged-elf-guard.py
+      - name: Add swap so thin LTO can exceed RAM without SIGKILL
+        run: |
+          free -h
+          df -h /
+          avail_kb=$(df -Pk / | awk 'NR==2 {print $4}')
+          reserve_kb=$((4 * 1024 * 1024))
+          cap_kb=$((8 * 1024 * 1024))
+          swap_kb=$((avail_kb - reserve_kb))
+          if (( swap_kb > cap_kb )); then swap_kb=$cap_kb; fi
+          if (( swap_kb < 2 * 1024 * 1024 )); then
+            echo "Only ${avail_kb}KB free after reserving 4GB; refusing to add swap"
+            exit 1
+          fi
+          sudo fallocate -l "${swap_kb}K" /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
       - name: Link the shipping native library alone
         env:
           RAMFLUX_CORE_DIR: ${{ github.workspace }}/sdk
