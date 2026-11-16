@@ -246,4 +246,55 @@ class ChatViewModelTest {
         assertFalse(vm.state.value.canSend)
         assertNotNull(vm.state.value.problem)
     }
+
+    @Test fun submittedSendClearsDraftAndDoesNotLeakIt() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        val events = mutableListOf<ChatEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(ChatAction.Draft("Private draft"))
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        assertEquals("", vm.state.value.draft)
+        assertEquals(listOf(ChatEvent.Sent), events)
+        assertEquals(1, history.sends)
+        assertFalse(history.sentOperation.isNullOrEmpty())
+        assertFalse(vm.state.value.toString().contains("Private draft"))
+    }
+
+    @Test fun failedSendKeepsDraft() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            sendResult = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.NONE))
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Draft("Private draft"))
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        assertEquals("Private draft", vm.state.value.draft)
+        assertNotNull(vm.state.value.problem)
+        assertEquals(1, history.sends)
+    }
+
+    @Test fun editPassesTheObservedRevision() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(MessageSummary("m", "me", true, false, "approved", 10, 4))) }
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Select("m"))
+        vm.onAction(ChatAction.Edit)
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        assertEquals(4L, history.editedRevision)
+        assertEquals("", vm.state.value.draft)
+    }
 }

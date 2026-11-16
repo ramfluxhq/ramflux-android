@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.chat
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,9 +10,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.render
 import org.ramflux.feature.chat.impl.R
 import org.ramflux.generated.*
@@ -40,25 +43,18 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
                     verticalArrangement = Arrangement.spacedBy((theme.gap * .75f).dp)
                 ) {
                     if (state.loading) {
-                        item(
-                            "loading"
-                        ) {
+                        item("loading") {
                             RFStateBlock(
-                                stringResource(
-                                    R.string.ui_loading_messages
-                                ),
+                                stringResource(R.string.ui_loading_messages),
                                 stringResource(R.string.ui_reading_private_data),
                                 RFStateKind.Loading,
                                 theme,
-                                action = {
-                                }
+                                action = {}
                             )
                         }
                     }
                     state.problem?.let { problem ->
-                        item(
-                            "error"
-                        ) {
+                        item("error") {
                             RFStateBlock(
                                 stringResource(R.string.ui_unable_to_continue),
                                 problem.render(),
@@ -72,14 +68,11 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
                     if (state.loaded && state.rows.isEmpty()) {
                         item("empty") {
                             RFStateBlock(
-                                stringResource(
-                                    R.string.ui_no_messages
-                                ),
+                                stringResource(R.string.ui_no_messages),
                                 stringResource(R.string.ui_this_conversation_has_no_messages),
                                 RFStateKind.Empty,
                                 theme,
-                                action = {
-                                }
+                                action = {}
                             )
                         }
                     }
@@ -89,45 +82,108 @@ fun ChatScreen(state: ChatState, onAction: (ChatAction) -> Unit) {
                                 Text(stringResource(R.string.ui_call_record_unavailable))
                                 Text(row.time.render(), style = MaterialTheme.typography.labelSmall)
                             }
-                            is MessageItem -> Box(
+                            is MessageItem -> Column(
                                 Modifier.fillMaxWidth(),
-                                contentAlignment = if (row.own && state.groupId == null) Alignment.CenterEnd else Alignment.CenterStart
+                                horizontalAlignment = if (row.own && state.groupId == null) {
+                                    Alignment.End
+                                } else {
+                                    Alignment.Start
+                                }
                             ) {
-                                RFMessageBubble(
-                                    row.id,
-                                    if (row.own && state.groupId == null) RFBubbleKind.Own else RFBubbleKind.Peer,
-                                    row.sender,
-                                    theme,
-                                    content = { Text(row.content.render()) },
-                                    quote = {},
-                                    attachment = {},
-                                    footer = { Text(row.time.render(), style = MaterialTheme.typography.labelSmall) }
-                                )
+                                Box(
+                                    Modifier.fillMaxWidth().pointerInput(row.id) {
+                                        detectTapGestures { onAction(ChatAction.Select(row.id)) }
+                                    },
+                                    contentAlignment = if (row.own && state.groupId == null) Alignment.CenterEnd else Alignment.CenterStart
+                                ) {
+                                    RFMessageBubble(
+                                        row.id,
+                                        if (row.own && state.groupId == null) RFBubbleKind.Own else RFBubbleKind.Peer,
+                                        row.sender,
+                                        theme,
+                                        content = { Text(row.content.render()) },
+                                        quote = { row.replyPreview?.let { Text(it.render()) } },
+                                        attachment = {},
+                                        footer = {
+                                            Text(row.time.render(), style = MaterialTheme.typography.labelSmall)
+                                            if (row.edited) {
+                                                Text(stringResource(R.string.ui_edited), style = MaterialTheme.typography.labelSmall)
+                                            }
+                                            row.receipt?.let { Text(it.render(), style = MaterialTheme.typography.labelSmall) }
+                                            row.reaction?.let { Text(it.render(), style = MaterialTheme.typography.labelSmall) }
+                                        }
+                                    )
+                                }
+                                if (state.selectedId == row.id) MessageActions(row, theme.gap, onAction)
                             }
                         }
                     }
                 }
+                if (state.peerTyping) Text(stringResource(R.string.ui_peer_typing), Modifier.padding(horizontal = theme.gap.dp))
+                state.typingProblem?.let { Text(it.render(), Modifier.padding(horizontal = theme.gap.dp)) }
+                state.deliveryNotice?.let { Text(it.render(), Modifier.padding(horizontal = theme.gap.dp)) }
                 state.unavailable?.let { Text(it.render(), Modifier.padding(theme.gap.dp)) }
-                RFComposerShell("composer", theme, mode = {}, quote = {}, attachment = {}, editor = {
-                    OutlinedTextField(
-                        state.draft,
-                        onValueChange = { onAction(ChatAction.Draft(it)) },
-                        label = { Text(stringResource(R.string.ui_message)) },
-                        enabled = !state.sending,
-                        modifier = Modifier.fillMaxWidth(),
-                        maxLines = 4
-                    )
-                }, actions = {
-                    TextButton(
-                        enabled = !state.loading && !state.sending,
-                        onClick = { onAction(ChatAction.Attachments) }
-                    ) { Text(stringResource(R.string.ui_attach)) }
-                    TextButton(
-                        enabled = state.canSend && !state.sending && state.draft.isNotBlank(),
-                        onClick = { onAction(ChatAction.Send) }
-                    ) { Text(stringResource(R.string.ui_send)) }
-                })
+                RFComposerShell(
+                    "composer",
+                    theme,
+                    mode = {},
+                    quote = {},
+                    attachment = {},
+                    editor = {
+                        OutlinedTextField(
+                            state.draft,
+                            onValueChange = { onAction(ChatAction.Draft(it)) },
+                            label = { Text(stringResource(composerLabel(state.composer))) },
+                            enabled = !state.sending,
+                            modifier = Modifier.fillMaxWidth(),
+                            maxLines = 4
+                        )
+                    },
+                    actions = {
+                        if (state.composer != ComposerMode.SEND) {
+                            TextButton(onClick = { onAction(ChatAction.CancelComposer) }) {
+                                Text(stringResource(R.string.ui_cancel))
+                            }
+                        }
+                        TextButton(
+                            enabled = !state.loading && !state.sending,
+                            onClick = { onAction(ChatAction.Attachments) }
+                        ) { Text(stringResource(R.string.ui_attach)) }
+                        TextButton(
+                            enabled = state.canSend && !state.sending && state.draft.isNotBlank(),
+                            onClick = { onAction(ChatAction.Send) }
+                        ) { Text(stringResource(R.string.ui_send)) }
+                    }
+                )
             }
         }
     }
+}
+
+@Composable
+private fun MessageActions(row: MessageItem, gap: Float, onAction: (ChatAction) -> Unit) {
+    val editable = row.own && !row.deleted && !row.placeholder && !row.service && row.content is UiText.Data
+    Column(verticalArrangement = Arrangement.spacedBy(gap.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(gap.dp)) {
+            if (!row.deleted && !row.placeholder) {
+                TextButton(onClick = { onAction(ChatAction.Reply) }) { Text(stringResource(R.string.ui_reply)) }
+            }
+            if (editable) TextButton(onClick = { onAction(ChatAction.Edit) }) { Text(stringResource(R.string.ui_edit)) }
+            if (!row.deleted) TextButton(onClick = { onAction(ChatAction.React) }) { Text(stringResource(R.string.ui_react)) }
+        }
+        if (!row.deleted) {
+            Row(horizontalArrangement = Arrangement.spacedBy(gap.dp)) {
+                TextButton(onClick = { onAction(ChatAction.DeleteForMe) }) { Text(stringResource(R.string.ui_delete_for_me)) }
+                TextButton(onClick = { onAction(ChatAction.DeleteForEveryone) }) {
+                    Text(stringResource(R.string.ui_delete_for_everyone))
+                }
+            }
+        }
+    }
+}
+
+private fun composerLabel(mode: ComposerMode) = when (mode) {
+    ComposerMode.REPLY -> R.string.ui_replying
+    ComposerMode.EDIT -> R.string.ui_editing
+    ComposerMode.SEND -> R.string.ui_message
 }

@@ -8,10 +8,11 @@ import kotlinx.serialization.json.*
 import org.junit.Assert.*
 import org.junit.Test
 import org.ramflux.sdk.*
+
 class MessageHistoryDataTest {
-    @Test fun mixedNativeReplyAndDirectoryCarryCallTitleAndDeletedTime() = runTest(timeout = 5.seconds) {
-        val abi = FakeAbi().apply { completionBody = Json.parseToJsonElement("""{"messages":[{"message_id":"one","conversation_id":"c","created_at":10,"is_own":false,"deleted":false,"body_utf8":"approved"},{"message_id":"call","conversation_id":"c","kind":"call","created_at":11,"call":{"call_id":"call"},"duration_seconds":null,"missed":true},{"message_id":"deleted","conversation_id":"c","created_at":12,"is_own":true,"deleted":true,"sender_id":"must-hide","body_utf8":"must-hide"}]}""").jsonObject }
-        val client = (CoreClient.open(abi, "/test/mixed", "a".repeat(64)) as CoreResult.Success).value
+    @Test fun mixedNativeReplyReversesNewestFirstAndReadsTheGenerationOneModel() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi().apply { completionBody = page(tombstone(12), call(11), message("one", 10, """"text":"approved"""")) }
+        val client = open(abi, "/test/mixed")
         try {
             val repo = DefaultMessageHistoryRepository(SdkRepositoryTransport { client })
             val rows = (repo.read("a", "c") as ClientResult.Ready).value
@@ -19,34 +20,135 @@ class MessageHistoryDataTest {
             assertTrue(rows[1] is CallSummary)
             assertEquals(12L, rows[2].createdAt)
             assertNull((rows[2] as MessageSummary).text)
-            abi.completionBody = Json.parseToJsonElement("""{"conversations":[{"id":"c","title":"Actual title","unread_count":0,"is_unread":false,"archived":false,"hidden":false}],"next_cursor":null}""").jsonObject
-            assertEquals("Actual title", (repo.header("a", "c") as ClientResult.Ready).value.title)
-            assertEquals("conversation.directory", abi.submitted.last()["method"]?.jsonPrimitive?.content)
-            assertEquals("a", abi.submitted.last()["account_id"]?.jsonPrimitive?.content)
-        } finally { client.close() }
-    }
-
-    @Test fun realBridgeReadHasExactAccountConversationAndNoLowLevelSendFallback() = runTest(timeout = 5.seconds) {
-        val abi = FakeAbi().apply { completionBody = buildJsonObject { put("messages", buildJsonArray { add(buildJsonObject {
-            put("message_id", "m"); put("conversation_id", "c"); put("is_own", false); put("deleted", false); put("sender_id", "peer"); put("body_utf8", "approved")
-        }) }) } }
-        val client = (CoreClient.open(abi, "/test/history", "a".repeat(64)) as CoreResult.Success).value
-        try {
-            val repo = DefaultMessageHistoryRepository(SdkRepositoryTransport { client })
-            assertEquals("approved", (repo.read("a", "c") as ClientResult.Ready).value.single().let { (it as MessageSummary).text })
-            assertTrue(repo.send("a", "c", "Draft") is ClientResult.Unavailable)
-            assertTrue(repo.sendAvailability() is ClientResult.Unavailable)
             val request = abi.submitted.single()
             assertEquals("message.list", request["method"]?.jsonPrimitive?.content)
             assertEquals("a", request["account_id"]?.jsonPrimitive?.content)
-            assertEquals("c", request["body"]?.jsonObject?.get("conversation_id")?.jsonPrimitive?.content)
+            val body = request["body"]?.jsonObject
+            assertEquals("c", body?.get("conversation_id")?.jsonPrimitive?.content)
+            assertEquals(true, body?.get("read_model")?.jsonPrimitive?.boolean)
+            assertEquals(100, body?.get("limit")?.jsonPrimitive?.int)
+            abi.completionBody = Json.parseToJsonElement(
+                """{"conversations":[{"id":"c","title":"Actual title","unread_count":0,""" +
+                    """"is_unread":false,"archived":false,"hidden":false}],"next_cursor":null}""",
+            ).jsonObject
+            assertEquals("Actual title", (repo.header("a", "c") as ClientResult.Ready).value.title)
             assertTrue(repo.read("a", "other") is ClientResult.Failed)
         } finally { client.close() }
     }
+
+    @Test fun sendEditReactAndDeleteUseConversationMethodsAndRetainUncertainSends() = runTest(timeout = 5.seconds) {
+        var partial = false
+        val abi = FakeAbi().apply {
+            completionBody = page(message("m", 10, """"text":"approved","is_own":true,"revision":4"""))
+            onSubmitted = { frame ->
+                completionBody = when (frame["method"]?.jsonPrimitive?.content) {
+                    "conversation.delete" -> delivery("local")
+                    "conversation.send" -> if (partial) partialDelivery() else delivery("submitted")
+                    else -> delivery("submitted")
+                }
+            }
+        }
+        val client = open(abi, "/test/send")
+        try {
+            val repo = DefaultMessageHistoryRepository(SdkRepositoryTransport { client })
+            assertTrue(repo.sendAvailability() is ClientResult.Ready)
+            val sent = repo.send("a", "c", "hello", "op-1") as ClientResult.Ready
+            assertEquals("m", sent.value.messageId)
+            val send = abi.submitted.last()
+            assertEquals("conversation.send", send["method"]?.jsonPrimitive?.content)
+            assertEquals("op-1", send["operation_id"]?.jsonPrimitive?.content)
+            assertEquals("hello", send["body"]?.jsonObject?.get("text")?.jsonPrimitive?.content)
+            val before = sends(abi)
+            val again = repo.send("a", "c", "hello", "op-2") as ClientResult.Ready
+            assertEquals(before, sends(abi))
+            assertEquals(sent.value.messageId, again.value.messageId)
+            assertTrue(repo.send("a", "c", "next", "op-3") is ClientResult.Ready)
+            assertEquals(before + 1, sends(abi))
+            val edited = repo.edit("a", "c", "m", "next-text", 4, "edit-1")
+            assertTrue(edited is ClientResult.Ready)
+            val edit = abi.submitted.last()
+            assertEquals("conversation.edit", edit["method"]?.jsonPrimitive?.content)
+            assertEquals(4, edit["body"]?.jsonObject?.get("expected_revision")?.jsonPrimitive?.int)
+            assertTrue(repo.react("a", "c", "m", ChatReaction.ACK, false, "react-1") is ClientResult.Ready)
+            val react = abi.submitted.last()["body"]?.jsonObject
+            assertEquals(ChatReaction.ACK, react?.get("token")?.jsonPrimitive?.content)
+            assertNull(react?.get("remove"))
+            assertTrue(repo.delete("a", "c", "m", MessageDeleteScope.EVERYONE, "delete-1") is ClientResult.Ready)
+            assertEquals("everyone", abi.submitted.last()["body"]?.jsonObject?.get("scope")?.jsonPrimitive?.content)
+            partial = true
+            val unknown = repo.send("a", "c", "split", "op-4") as ClientResult.Failed
+            assertEquals(ClientOutcome.UNKNOWN, unknown.problem.outcome)
+            val retried = sends(abi)
+            repo.send("a", "c", "split", "op-5")
+            assertEquals(retried + 1, sends(abi))
+            assertEquals("op-4", abi.submitted.last()["operation_id"]?.jsonPrimitive?.content)
+        } finally { client.close() }
+    }
+
+    @Test fun unknownKindDoesNotFailTheThreadAndTypingReachesFocusAndSubmit() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi().apply {
+            completionBody = page(
+                """{"id":"future","conversation_id":"c","kind":"future-kind","hlc_ms":11,"text":"hidden-kind"}""",
+                message("one", 10, """"text":"approved""""),
+            )
+            onSubmitted = { frame ->
+                if (frame["method"]?.jsonPrimitive?.content != "message.list") completionBody = buildJsonObject { }
+            }
+        }
+        val client = open(abi, "/test/typing")
+        try {
+            val repo = DefaultMessageHistoryRepository(SdkRepositoryTransport { client })
+            val rows = (repo.read("a", "c") as ClientResult.Ready).value
+            assertEquals("approved", (rows[0] as MessageSummary).text)
+            assertTrue((rows[1] as MessageSummary).placeholder)
+            assertNull((rows[1] as MessageSummary).text)
+            assertTrue(repo.setTyping("a", "c", true) is ClientResult.Ready)
+            val methods = abi.submitted.map { it["method"]?.jsonPrimitive?.content }
+            assertEquals(listOf("message.list", "message.focus", "message.submit"), methods)
+            val submit = abi.submitted.last()["body"]?.jsonObject
+            val typing = submit?.get("send")?.jsonObject?.get("content")?.jsonObject?.get("typing")?.jsonObject
+            assertEquals(true, typing?.get("active")?.jsonPrimitive?.boolean)
+            assertTrue(repo.setTyping("a", "c", false) is ClientResult.Ready)
+            assertEquals("message.submit", abi.submitted[abi.submitted.lastIndex - 1]["method"]?.jsonPrimitive?.content)
+            assertEquals(JsonNull, abi.submitted.last()["body"]?.jsonObject?.get("conversation_id"))
+        } finally { client.close() }
+    }
+
     @Test fun malformedReadDoesNotReturnInventedEmptyHistory() = runTest(timeout = 5.seconds) {
         val abi = FakeAbi()
-        val client = (CoreClient.open(abi, "/test/history-invalid", "a".repeat(64)) as CoreResult.Success).value
-        try { assertTrue(DefaultMessageHistoryRepository(SdkRepositoryTransport { client }).read("a", "c") is ClientResult.Failed) }
-        finally { client.close() }
+        val client = open(abi, "/test/history-invalid")
+        try {
+            val repo = DefaultMessageHistoryRepository(SdkRepositoryTransport { client })
+            assertTrue(repo.read("a", "c") is ClientResult.Failed)
+            val count = abi.submitted.size
+            assertTrue(repo.send("", "c", "hello", "op") is ClientResult.Failed)
+            assertEquals(count, abi.submitted.size)
+        } finally { client.close() }
     }
+
+    private suspend fun open(abi: FakeAbi, root: String) =
+        (CoreClient.open(abi, root, "a".repeat(64)) as CoreResult.Success).value
+
+    private fun sends(abi: FakeAbi) = abi.submitted.count { it["method"]?.jsonPrimitive?.content == "conversation.send" }
+
+    private fun page(vararg rows: String) = Json.parseToJsonElement(
+        """{"schema":"ramflux.message.read_model.v1","conversation_id":"c","messages":[${rows.joinToString(",")}]}""",
+    ).jsonObject
+
+    private fun message(id: String, hlc: Long, extra: String) =
+        """{"id":"$id","conversation_id":"c","kind":"message","state":"content",""" +
+            """"hlc_ms":$hlc,"device_sequence":"00000000000000000001",$extra}"""
+
+    private fun call(hlc: Long) = """{"id":"call","conversation_id":"c","kind":"call","hlc_ms":$hlc}"""
+
+    private fun tombstone(hlc: Long) =
+        """{"id":"deleted","conversation_id":"c","kind":"message","state":"tombstone","is_own":true,"hlc_ms":$hlc,"text":"must-hide"}"""
+
+    private fun delivery(state: String) = Json.parseToJsonElement(
+        """{"message_id":"m","conversation_id":"c","target_message_id":"m","delivery_state":"$state"}""",
+    ).jsonObject
+
+    private fun partialDelivery() = Json.parseToJsonElement(
+        """{"message_id":"m","conversation_id":"c","delivery_state":"submitted","deliveries":[{"state":"submitted"},{"state":"failed"}]}""",
+    ).jsonObject
 }

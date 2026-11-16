@@ -29,6 +29,7 @@ interface RepositoryTransport {
     suspend fun execute(request: CoreRequest): CoreResult<JsonObject>
     suspend fun executeSecret(request: SecretRequest): CoreResult<SecretReply>
     fun updates(filter: SubscriptionFilter): Flow<CoreUpdate>
+    suspend fun resetEvents(generation: ULong): CoreResult<JsonObject> = CoreResult.Failure(CoreError.Closed())
 }
 
 /** Resolve the current host generation for every call and every new collection. */
@@ -51,6 +52,10 @@ class SdkRepositoryTransport internal constructor(private val currentClient: () 
         val client = currentClient()
         if (client == null) emit(CoreUpdate.Failure(CoreError.Closed()))
         else emitAll(client.updates(filter))
+    }
+    override suspend fun resetEvents(generation: ULong): CoreResult<JsonObject> {
+        val client = currentClient() ?: return CoreResult.Failure(CoreError.Closed())
+        return client.resetEventsAfterSnapshot(generation)
     }
 }
 

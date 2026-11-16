@@ -9,7 +9,7 @@ outcomes explicitly. It must retain the original operation ID for reconciliation
 | --- | --- |
 | Startup, nodes, identity create/recover/unlock | Accounts and Nodes; SDK-owned creation/recovery ceremonies |
 | Conversation list/history/send/receipts, attachments | Conversations; object transfers retain SDK bounds and ownership |
-| Message edit/reaction/reply | Requires the SDK's unified message operations before activation |
+| Message send/edit/reaction/reply/delete and typing | Message repository through the conversation ABI |
 | Group directory, membership, governance | Groups; channel/thread/post flows are deferred |
 | Agent roster, tasks, permissions and connected services | Agents, Tasks, Permissions; SDK authority is decisive |
 | Dedicated Agent create/configure | AgentConfiguration returns typed unavailable |

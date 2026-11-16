@@ -31,4 +31,26 @@
     <string name="ui_time_unavailable">时间不可用</string>
     <string name="ui_call_record_unavailable">通话记录 · 详情不可用</string>
     <string name="ui_attach">添加附件</string>
+    <string name="ui_delivery_submitted">已提交</string>
+    <string name="ui_delivery_failed">投递失败</string>
+    <string name="ui_edited">已编辑</string>
+    <string name="ui_reply">回复</string>
+    <string name="ui_edit">编辑</string>
+    <string name="ui_react">确认</string>
+    <string name="ui_delete_for_me">仅为我删除</string>
+    <string name="ui_delete_for_everyone">为所有人删除</string>
+    <string name="ui_message_placeholder">无法显示此消息。</string>
+    <string name="ui_service_message">服务消息</string>
+    <string name="ui_peer_typing">对方正在输入。</string>
+    <string name="ui_typing_unavailable">输入状态不可用。</string>
+    <string name="ui_action_failed_code_value">操作失败（代码 %1$s）。</string>
+    <string name="ui_action_failed_status_value">操作失败（%1$s，代码 %2$s）。</string>
+    <string name="ui_cancel">取消</string>
+    <string name="ui_receipt_sent">已发送</string>
+    <string name="ui_receipt_delivered">已送达</string>
+    <string name="ui_receipt_read">已读</string>
+    <string name="ui_replying">正在回复</string>
+    <string name="ui_editing">正在编辑</string>
+    <string name="ui_reaction_ack">已确认</string>
+    <string name="ui_the_message_was_not_sent_status_value">消息未发送（%1$s，代码 %2$s）。</string>
 </resources>

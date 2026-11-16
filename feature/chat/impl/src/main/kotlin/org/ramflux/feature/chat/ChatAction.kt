@@ -9,4 +9,11 @@ sealed interface ChatAction {
     data object Send : ChatAction
     data object Attachments : ChatAction
     data object Back : ChatAction
+    data class Select(val id: String) : ChatAction
+    data object Reply : ChatAction
+    data object Edit : ChatAction
+    data object React : ChatAction
+    data object DeleteForMe : ChatAction
+    data object DeleteForEveryone : ChatAction
+    data object CancelComposer : ChatAction
 }

@@ -77,6 +77,11 @@ class SecretFields internal constructor() : Closeable {
         writeChars(name.toCharArray()); put(58)
         value.toString().forEach { put(it.code) }
     }
+    fun publicFlag(name: String, value: Boolean) {
+        if (fields++ > 0) put(44)
+        writeChars(name.toCharArray()); put(58)
+        (if (value) "true" else "false").forEach { put(it.code) }
+    }
     private fun writeChars(value: CharArray) {
         put(34)
         val encoder = Charsets.UTF_8.newEncoder().onMalformedInput(CodingErrorAction.REPORT)

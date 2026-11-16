@@ -19,9 +19,29 @@ class FakeChatHistory : MessageHistoryRepository {
         UnavailableReason.UNSUPPORTED_BY_CORE
     )
     override suspend fun sendAvailability(): ClientResult<Unit> = capability
-    override suspend fun send(account: String, conversation: String, text: String): ClientResult<Unit> {
+    var sendResult: ClientResult<SendReceipt>? = null
+    var sentOperation: String? = null
+    var editedRevision: Long? = null
+    override suspend fun send(account: String, conversation: String, text: String, operationId: String): ClientResult<SendReceipt> {
         sends++
-        return sendAvailability()
+        sentOperation = operationId
+        sendResult?.let { return it }
+        return when (val availability = sendAvailability()) {
+            is ClientResult.Ready -> ClientResult.Ready(SendReceipt("sent"))
+            is ClientResult.Failed -> availability
+            is ClientResult.Unavailable -> availability
+        }
+    }
+    override suspend fun edit(
+        account: String,
+        conversation: String,
+        message: String,
+        text: String,
+        expectedRevision: Long,
+        operationId: String
+    ): ClientResult<Unit> {
+        editedRevision = expectedRevision
+        return ClientResult.Ready(Unit)
     }
 }
 class FakeChatAccounts : AccountAccessRepository {

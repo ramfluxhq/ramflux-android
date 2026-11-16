@@ -12,13 +12,22 @@ import org.ramflux.designsystem.UiText
 
 @Immutable data class CallItem(override val id: String, override val time: UiText) : TimelineItem
 
+enum class ComposerMode { SEND, REPLY, EDIT }
+
 @Immutable data class MessageItem(
     override val id: String,
     val sender: String,
     val own: Boolean,
     val deleted: Boolean,
     val content: UiText,
-    override val time: UiText = UiText.Empty
+    override val time: UiText = UiText.Empty,
+    val revision: Long = 0,
+    val edited: Boolean = false,
+    val replyPreview: UiText? = null,
+    val placeholder: Boolean = false,
+    val service: Boolean = false,
+    val receipt: UiText? = null,
+    val reaction: UiText? = null
 ) : TimelineItem {
     override fun toString() = "MessageItem(<redacted>)"
 }
@@ -35,7 +44,14 @@ import org.ramflux.designsystem.UiText
     val draft: String = "",
     val canSend: Boolean = false,
     val problem: UiText? = null,
-    val unavailable: UiText? = null
+    val unavailable: UiText? = null,
+    val composer: ComposerMode = ComposerMode.SEND,
+    val actionTarget: String? = null,
+    val expectedRevision: Long = 0,
+    val selectedId: String? = null,
+    val peerTyping: Boolean = false,
+    val deliveryNotice: UiText? = null,
+    val typingProblem: UiText? = null
 ) {
     override fun toString() = "ChatState(<redacted>)"
 }

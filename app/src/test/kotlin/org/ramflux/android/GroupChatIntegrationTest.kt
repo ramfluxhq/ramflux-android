@@ -53,7 +53,8 @@ class GroupChatIntegrationTest {
             override suspend fun header(account: String, conversation: String): ClientResult<ConversationHeader> =
                 error("must use group header")
             override suspend fun sendAvailability(): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CHAT)
-            override suspend fun send(account: String, conversation: String, text: String) = sendAvailability()
+            override suspend fun send(account: String, conversation: String, text: String, operationId: String): ClientResult<SendReceipt> =
+                ClientResult.Unavailable(ClientFeature.CHAT)
         }
         val chat = ChatViewModel(history, accounts, session)
         var rendered by mutableStateOf(ChatState())

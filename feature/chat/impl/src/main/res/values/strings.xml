@@ -31,4 +31,26 @@
     <string name="ui_time_unavailable">Time unavailable</string>
     <string name="ui_call_record_unavailable">Call record · details unavailable</string>
     <string name="ui_attach">Attach</string>
+    <string name="ui_delivery_submitted">Submitted</string>
+    <string name="ui_delivery_failed">Delivery failed</string>
+    <string name="ui_edited">Edited</string>
+    <string name="ui_reply">Reply</string>
+    <string name="ui_edit">Edit</string>
+    <string name="ui_react">Acknowledge</string>
+    <string name="ui_delete_for_me">Delete for me</string>
+    <string name="ui_delete_for_everyone">Delete for everyone</string>
+    <string name="ui_message_placeholder">This message cannot be displayed.</string>
+    <string name="ui_service_message">Service message</string>
+    <string name="ui_peer_typing">The other person is typing.</string>
+    <string name="ui_typing_unavailable">Typing is unavailable.</string>
+    <string name="ui_action_failed_code_value">Action failed (code %1$s).</string>
+    <string name="ui_action_failed_status_value">Action failed (%1$s, code %2$s).</string>
+    <string name="ui_cancel">Cancel</string>
+    <string name="ui_receipt_sent">Sent</string>
+    <string name="ui_receipt_delivered">Delivered</string>
+    <string name="ui_receipt_read">Read</string>
+    <string name="ui_replying">Replying</string>
+    <string name="ui_editing">Editing</string>
+    <string name="ui_reaction_ack">Acknowledged</string>
+    <string name="ui_the_message_was_not_sent_status_value">The message was not sent (%1$s, code %2$s).</string>
 </resources>

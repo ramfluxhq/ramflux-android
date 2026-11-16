@@ -65,6 +65,20 @@ internal class DisplayFields(raw: ByteArray) {
         require(value.kind in listOf(116, 102))
         return value.kind == 116
     }
+    fun optionalBoolean(row: ByteJson.Node, key: String): Boolean? {
+        val value = field(row, key) ?: return null
+        if (value.kind == 110) return null
+        require(value.kind in listOf(116, 102))
+        return value.kind == 116
+    }
+    /** Absent and null are absent. Values above [Long.MAX_VALUE] are not a timestamp. */
+    fun optionalUnsigned(row: ByteJson.Node, key: String): Long? {
+        val value = field(row, key) ?: return null
+        if (value.kind == 110) return null
+        val number = unsigned(row, key)
+        if (number > Long.MAX_VALUE.toULong()) return null
+        return number.toLong()
+    }
     fun rowsAt(row: ByteJson.Node, key: String, bound: Int): List<ByteJson.Node> {
         val value = requireNotNull(field(row, key))
         require(value.kind == 91 && value.children.size <= bound)
