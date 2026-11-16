@@ -139,14 +139,21 @@ jobs:
         run: |
           free -h
           df -h /
-          # Some hosted images already swap on /swapfile (3GB here). fallocate of
-          # that live file returns "Text file busy" and the step exits before link.
-          # Keep the existing file. Add the rest of an 8GB cap on a separate path.
+          # Hosted images already swap on /swapfile. fallocate of that live file
+          # returns "Text file busy". Never swapoff or remove /swapfile. Add the
+          # rest of an 8GB cap at /mnt/rf-swap. A later run that finds this path
+          # already active leaves both files alone.
+          swapfile=/mnt/rf-swap
+          if awk 'NR>1 {print $1}' /proc/swaps | grep -Fxq "$swapfile"; then
+            echo "$swapfile already active"
+            free -h
+            exit 0
+          fi
           existing_kb=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
           target_kb=$((8 * 1024 * 1024))
           need_kb=$((target_kb - existing_kb))
           if (( need_kb < 512 * 1024 )); then
-            echo "swap already ${existing_kb}KB"
+            echo "swap already ${existing_kb}KB; keeping the runner swapfile"
             exit 0
           fi
           avail_kb=$(df -Pk / | awk 'NR==2 {print $4}')
@@ -161,8 +168,9 @@ jobs:
             echo "Only ${avail_kb}KB free after reserving 4GB and no usable swap"
             exit 1
           fi
-          swapfile=/mnt/ramflux-swap
-          sudo rm -f "$swapfile"
+          if [[ -e "$swapfile" ]]; then
+            sudo rm -f "$swapfile"
+          fi
           sudo fallocate -l "${swap_kb}K" "$swapfile"
           sudo chmod 600 "$swapfile"
           sudo mkswap "$swapfile"
