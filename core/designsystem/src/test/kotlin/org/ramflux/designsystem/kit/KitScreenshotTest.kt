@@ -6,6 +6,7 @@ package org.ramflux.designsystem.kit
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
@@ -18,6 +19,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.RamfluxTheme
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -238,7 +240,7 @@ class KitScreenshotTest {
     @Test fun qrDark() = shot("qr-placeholder--default--dark", dark = true) { KitQrPlaceholder(tag = "shot") }
 
     @Test fun darkMasters() = batch {
-        shot("avatar--person--dark", dark = true) { KitAvatar("A", 28f, KitAvatarKind.Person, tag = "shot") }
+        shot("avatar--person--dark", dark = true) { KitAvatar("\u6797", 28f, KitAvatarKind.Person, tag = "shot") }
         shot("avatar--agent--dark", dark = true) { KitAvatar("", 28f, KitAvatarKind.Agent, tag = "shot") }
         shot("bubble--own--dark", 393.dp, dark = true) {
             KitBubble(
@@ -269,7 +271,7 @@ class KitScreenshotTest {
         }
         shot("button--secondary--dark", 361.dp, dark = true) { KitButton("\u6309\u94ae", {}, kind = KitButtonKind.Secondary, tag = "shot") }
         shot("button--text--dark", 361.dp, dark = true) {
-            KitButton("\u6587\u5b57\u6309\u94ae", {}, kind = KitButtonKind.Text, tag = "shot")
+            KitButton("\u8f93\u5165\u914d\u5bf9\u7801", {}, kind = KitButtonKind.Text, tag = "shot")
         }
         shot("chat-header--default--dark", 393.dp, dark = true) {
             KitChatHeader(
@@ -289,7 +291,14 @@ class KitScreenshotTest {
         shot("date-chip--default--dark", 361.dp, dark = true) { KitDateChip("\u4eca\u5929", tag = "shot") }
         shot("home-indicator--default--dark", dark = true) { KitHomeIndicator(tag = "shot") }
         shot("list-row-conversation--default--dark", 393.dp, dark = true) {
-            KitConversationRow("\u6807\u9898", "\u9884\u89c8", "9:41", { KitAvatar("A", 52f, KitAvatarKind.Person) }, {}, tag = "shot")
+            KitConversationRow(
+                "\u6797\u60a6",
+                "\u597d\u7684\uff0c\u9644\u4ef6\u91cc\u7684\u7248\u672c\u8bf4\u660e\u4e5f\u8bf7\u4e00\u8d77\u770b\u3002",
+                "10:24",
+                { KitAvatar("\u6797", 52f, KitAvatarKind.Person) },
+                {},
+                tag = "shot"
+            )
         }
         shot("mono-block--default--dark", 361.dp, dark = true) { KitMonoBlock("abc123", {}, tag = "shot") }
         shot("page-header--default--dark", 393.dp, dark = true) {
@@ -308,10 +317,10 @@ class KitScreenshotTest {
         }
         shot("row--default--dark", 361.dp, dark = true) {
             KitRow(
-                "\u6807\u9898",
+                "\u540d\u79f0\u3001\u5934\u50cf\u4e0e\u804c\u8d23",
                 {},
-                icon = "user-round",
-                value = "\u8bf4\u660e",
+                icon = "pencil",
+                value = "\u53ef\u5728\u624b\u673a\u4e0a\u7f16\u8f91",
                 testTag = "shot"
             )
         }
@@ -323,11 +332,13 @@ class KitScreenshotTest {
         shot("status-bar--default--dark", 393.dp, dark = true) { KitStatusBar("9:41", tag = "shot") }
         shot("status-hero--default--dark", dark = true) { KitStatusHero("loader-circle", tag = "shot") }
         shot("tab-bar--default--dark", 393.dp, dark = true) { MessagesTabBar() }
-        shot("text-field--default--dark", 361.dp, dark = true) { KitTextField("\u503c", {}, "\u6807\u7b7e", tag = "shot") }
+        shot("text-field--default--dark", 361.dp, dark = true) { KitTextField("Luma", {}, "\u540d\u79f0", tag = "shot") }
         shot("tip-bar--default--dark", 361.dp, dark = true) {
             KitTipBar("\u63d0\u793a", "wifi-off", action = "\u91cd\u8bd5", onAction = {}, tag = "shot")
         }
-        shot("unread-divider--default--dark", 361.dp, dark = true) { KitUnreadDivider("\u672a\u8bfb\u6d88\u606f", tag = "shot") }
+        shot("unread-divider--default--dark", 361.dp, dark = true) {
+            KitUnreadDivider("\u4ee5\u4e0b\u4e3a\u672a\u8bfb\u6d88\u606f", tag = "shot")
+        }
     }
 
     @Test fun englishAndChineseSamples() = batch {
@@ -440,8 +451,11 @@ class KitScreenshotTest {
         compose.setContent {
             val item = items[step.intValue]
             RamfluxTheme(item.dark) {
+                val theme = LocalRFTheme.current
                 val frame = if (item.width == null) Modifier else Modifier.width(item.width)
-                Box(frame) { item.body() }
+                CompositionLocalProvider(LocalKitBackdrop provides theme.bg) {
+                    Box(frame) { item.body() }
+                }
             }
         }
         items.forEachIndexed { index, item ->

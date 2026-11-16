@@ -77,6 +77,7 @@ fun KitButton(
                 .fillMaxWidth()
                 .height(dp(height))
                 .alpha(pressedAlpha * disabledAlpha)
+                .kitBackdrop()
                 .background(fill, shape)
                 .then(if (stroke == null) Modifier else Modifier.border(dp(RfMetrics.stroke), stroke, shape))
                 .then(if (focused) Modifier.border(dp(RfMetrics.focusRing), focusColor, shape) else Modifier)

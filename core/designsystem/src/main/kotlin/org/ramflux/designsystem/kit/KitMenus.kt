@@ -127,6 +127,7 @@ fun KitReactionBar(
     Row(
         modifier
             .height(dp(RfMetrics.reaction))
+            .kitBackdrop()
             .border(dp(RfMetrics.stroke), theme.overlay_border, shape)
             .background(theme.overlay, shape)
             .kitTag(tag)
@@ -175,7 +176,7 @@ fun KitReactionBar(
 @Composable
 fun KitDateChip(label: String, modifier: Modifier = Modifier, tag: String? = null) {
     val theme = LocalRFTheme.current
-    Box(modifier.fillMaxWidth().kitTag(tag).padding(vertical = dp(RfMetrics.datePadV)), contentAlignment = Alignment.Center) {
+    Box(modifier.fillMaxWidth().kitBackdrop().kitTag(tag).padding(vertical = dp(RfMetrics.datePadV)), contentAlignment = Alignment.Center) {
         Box(
             Modifier.background(
                 theme.surface,
@@ -191,7 +192,7 @@ fun KitDateChip(label: String, modifier: Modifier = Modifier, tag: String? = nul
 fun KitUnreadDivider(label: String, modifier: Modifier = Modifier, tag: String? = null) {
     val theme = LocalRFTheme.current
     Row(
-        modifier.fillMaxWidth().height(dp(RfMetrics.unread)).kitTag(tag),
+        modifier.fillMaxWidth().height(dp(RfMetrics.unread)).kitBackdrop().kitTag(tag),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.unreadGap))
     ) {

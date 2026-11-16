@@ -38,6 +38,7 @@ fun KitAvatar(
     Box(
         modifier
             .size(dp(size))
+            .kitBackdrop()
             .clip(shape)
             .background(fill)
             .then(if (ring) Modifier.border(dp(RfMetrics.emphasis), theme.text, shape) else Modifier)

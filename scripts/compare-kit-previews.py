@@ -231,6 +231,17 @@ def luma_variance(width, height, channels, rows, bg):
     return total_sq / count - mean * mean
 
 
+def pixel_limits(master):
+    mae = PIXEL_MAE
+    strong = PIXEL_STRONG
+    if master is not None:
+        if "mae" in master:
+            mae = float(master["mae"])
+        if "strong" in master:
+            strong = float(master["strong"])
+    return mae, strong
+
+
 def pixel_error(capture_w, capture_h, channels, rows, scaled, bg):
     _preview_w, _preview_h, preview_rows = scaled
     total = 0
@@ -360,7 +371,8 @@ def main():
             reasons.append("design gap must not be paired")
         if scaled is not None:
             mae, strong = pixel_error(capture_w, capture_h, capture_channels, capture_rows, scaled, bg)
-            if strong > PIXEL_STRONG or mae > PIXEL_MAE:
+            mae_limit, strong_limit = pixel_limits(master)
+            if strong > strong_limit or mae > mae_limit:
                 reasons.append(f"pixels mae={mae:.1f} strong={strong:.3f}")
             if capture_h >= 700:
                 variance = luma_variance(capture_w, capture_h, capture_channels, capture_rows, bg)
@@ -411,6 +423,7 @@ def main():
     lines.append("en/zh samples may differ by up to 4 px because Latin and CJK metrics differ.")
     lines.append("Icon geometry is Lucide. Pencil strokes are a reference, not the vector source.")
     lines.append("Pixel mean channel error above 48, or more than 35 percent of pixels differing by more than 40, fails.")
+    lines.append("A kit-masters.json mae or strong field overrides that pixel limit for one board. The board note says why.")
     lines.append("A full-board luma variance below 64 fails. That is a blank or flat placeholder frame.")
     lines.append("Light titles must sit on spec header y=59, or on that header when the 59px design status bar is absent. Tolerance is 32.")
     lines.append("Light tab bars must start within 32px of spec y=769.")

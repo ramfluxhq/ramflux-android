@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -154,6 +155,14 @@ internal fun HitBox(
 }
 
 internal fun Modifier.kitTag(tag: String?): Modifier = if (tag == null) this else testTag(tag)
+
+internal val LocalKitBackdrop = staticCompositionLocalOf<Color?> { null }
+
+@Composable
+internal fun Modifier.kitBackdrop(): Modifier {
+    val color = LocalKitBackdrop.current
+    return if (color == null) this else background(color)
+}
 
 @Composable
 internal fun ChipSurface(

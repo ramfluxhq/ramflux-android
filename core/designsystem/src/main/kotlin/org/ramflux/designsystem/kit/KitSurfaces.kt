@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import org.ramflux.designsystem.LocalRFTheme
-import org.ramflux.generated.RFDesign
 
 enum class KitWarningTone { Warning, Danger }
 
@@ -140,7 +139,7 @@ fun KitSecurityWarning(
 fun KitStatusHero(icon: String, modifier: Modifier = Modifier, tint: Color? = null, tag: String? = null) {
     val theme = LocalRFTheme.current
     Box(
-        modifier.size(dp(RfMetrics.hero)).clip(shapeOf(RfMetrics.heroRadius)).background(theme.surface).kitTag(tag),
+        modifier.size(dp(RfMetrics.hero)).kitBackdrop().clip(shapeOf(RfMetrics.heroRadius)).background(theme.surface).kitTag(tag),
         contentAlignment = Alignment.Center
     ) {
         KitIcon(icon, RfMetrics.heroGlyph, tint ?: theme.secondary)
@@ -259,14 +258,16 @@ fun KitPairingCode(code: String, modifier: Modifier = Modifier, tag: String? = n
 
 @Composable
 fun KitQrPlaceholder(modifier: Modifier = Modifier, tag: String? = null) {
-    val ink = RFDesign.light.text
-    val tile = RFDesign.light.surface_white
-    val stroke = RFDesign.light.line_strong
+    val theme = LocalRFTheme.current
+    val ink = theme.text
+    val tile = theme.surface_white
+    val stroke = theme.line_strong
     Box(
         modifier
             .size(dp(RfMetrics.qr))
-            .border(dp(RfMetrics.stroke), stroke, shapeOf(RFDesign.light.radius_md))
-            .background(tile, shapeOf(RFDesign.light.radius_md))
+            .kitBackdrop()
+            .border(dp(RfMetrics.stroke), stroke, shapeOf(theme.radius_md))
+            .background(tile, shapeOf(theme.radius_md))
             .kitTag(tag),
         contentAlignment = Alignment.Center
     ) {

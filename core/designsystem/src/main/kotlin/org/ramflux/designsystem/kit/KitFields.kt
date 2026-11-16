@@ -51,7 +51,7 @@ fun KitTextField(
     }
     val borderWidth = if (activeFocus) RfMetrics.focusRing else RfMetrics.stroke
     Column(
-        modifier.fillMaxWidth().alpha(if (enabled) 1f else RfMetrics.fieldDisabledAlpha).kitTag(tag),
+        modifier.fillMaxWidth().alpha(if (enabled) 1f else RfMetrics.fieldDisabledAlpha).kitBackdrop().kitTag(tag),
         verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.fieldGap))
     ) {
         Text(label, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))

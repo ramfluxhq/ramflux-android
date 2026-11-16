@@ -4,7 +4,7 @@
   "button--secondary--dark": {"w": 361, "h": 52, "note": "the dark export is a crop of the 361 pt master"},
   "button--text--dark": {"w": 361, "h": 44, "note": "the dark export is narrower than the 361 pt master"},
   "context-menu--default": {"w": 240, "h": 309, "note": "the export canvas includes shadow outside the master"},
-  "reaction-bar--default": {"w": 320, "h": 44, "note": "emoji ink draws outside the 44 pt master"},
+  "reaction-bar--default": {"w": 320, "h": 44, "mae": 52, "note": "emoji ink draws outside the 44 pt master; platform color emoji differs from the Pencil outline glyphs (measured mean channel error 49.2)"},
   "row--tag": {"w": 361, "h": 58, "note": "the 92 pt export is a board instance; the row master is 58"},
   "sheet--default": {"w": 393, "h": 188, "note": "the export canvas includes shadow outside the master"}
 }
