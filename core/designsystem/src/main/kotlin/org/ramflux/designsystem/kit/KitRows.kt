@@ -68,20 +68,23 @@ fun KitRow(
     tagLabel: String? = null,
     trailing: KitRowTrailing = KitRowTrailing.Chevron,
     enabled: Boolean = true,
+    locked: Boolean = false,
+    divider: Boolean = true,
     testTag: String? = null
 ) {
     val theme = LocalRFTheme.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    val tappable = enabled && !locked
     Row(
         modifier
             .fillMaxWidth()
             .height(dp(RfMetrics.row))
             .alpha(if (enabled) 1f else RfMetrics.disabledAlpha)
-            .background(if (pressed && enabled) theme.selected else androidx.compose.ui.graphics.Color.Transparent)
-            .kitHairline(theme.line)
+            .background(if (pressed && tappable) theme.selected else androidx.compose.ui.graphics.Color.Transparent)
+            .then(if (divider) Modifier.kitHairline(theme.line) else Modifier)
             .kitTag(testTag)
-            .clickableNoRipple(interaction, enabled, onClick)
+            .clickableNoRipple(interaction, tappable, onClick)
             .padding(horizontal = dp(RfMetrics.gutter), vertical = dp(RfMetrics.rowPadV)),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.rowGap))
@@ -114,7 +117,13 @@ fun KitRow(
             }
         }
         when (trailing) {
-            KitRowTrailing.Chevron -> KitIcon("chevron-right", RfMetrics.chevron, theme.control)
+            KitRowTrailing.Chevron -> if (locked) {
+                Box(Modifier.alpha(RfMetrics.disabledAlpha)) {
+                    KitIcon("chevron-right", RfMetrics.chevron, theme.control)
+                }
+            } else {
+                KitIcon("chevron-right", RfMetrics.chevron, theme.control)
+            }
             KitRowTrailing.Check -> KitIcon("circle-check", RfMetrics.chevron, theme.text)
             KitRowTrailing.None -> Unit
         }

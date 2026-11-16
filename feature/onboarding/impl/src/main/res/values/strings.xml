@@ -95,4 +95,11 @@
     <string name="ui_enter_the_data_passphrase">Enter the data passphrase.</string>
     <string name="ui_account_created_detail">The account is unlocked on this device.</string>
     <string name="ui_continue_into_the_account">Continue</string>
+    <string name="ui_n01_header">Create account</string>
+    <string name="ui_n01_button">Create account</string>
+    <string name="ui_n01_name_helper">This name is used for the new account. You can change it later.</string>
+    <string name="ui_n01_nodes">Nodes</string>
+    <string name="ui_n01_official_node">Ramflux official node</string>
+    <string name="ui_n01_selected_node">Selected node</string>
+    <string name="ui_n01_phrase_note">Your recovery phrase is generated on this phone and shown only once. Get paper and a pen ready.</string>
 </resources>

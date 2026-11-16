@@ -555,6 +555,53 @@ class OnboardingScreenTest {
         assertEquals(header, compose.onNodeWithTag("onboarding-header").getUnclippedBoundsInRoot())
         compose.onNodeWithTag("confirm-account").assertIsDisplayed()
     }
+
+    @Test fun createAccountStepShowsTheDisplayNameBoard() {
+        val actions = mutableListOf<OnboardingAction>()
+        var state by mutableStateOf(OnboardingState(page = OnboardingPage.CREATE, sessionReady = true))
+        compose.setContent {
+            RamfluxTheme { OnboardingScreen(state, { actions.add(it) }) }
+        }
+        compose.onAllNodesWithText("Create account").assertCountEquals(2)
+        compose.onNodeWithText("Create an account").assertDoesNotExist()
+        compose.onNodeWithText("Create the account").assertDoesNotExist()
+        compose.onNodeWithText("Display name").assertExists()
+        compose.onNodeWithText("This name is used for the new account. You can change it later.").assertExists()
+        compose.onNodeWithText("Nodes").assertExists()
+        compose.onNodeWithText("Ramflux official node").assertExists()
+        compose.onNodeWithText("Selected node").assertExists()
+        compose.onNodeWithText("Your recovery phrase is generated on this phone and shown only once. Get paper and a pen ready.")
+            .assertExists()
+        compose.onNodeWithText("\u6797\u6f88").assertDoesNotExist()
+        compose.onNodeWithTag("begin-create").assertIsNotEnabled()
+        compose.onNodeWithTag("n01-node").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("chevron-left").performClick()
+        compose.runOnIdle { assertEquals(OnboardingAction.Back, actions.single()) }
+        compose.onNode(hasSetTextAction()).performTextInput("Ada")
+        compose.runOnIdle {
+            assertTrue(actions.filterIsInstance<OnboardingAction.DisplayName>().any { it.value.trim() == "Ada" })
+            state = state.copy(displayName = "Ada")
+        }
+        compose.onNodeWithTag("begin-create").assertIsEnabled().performClick()
+        compose.runOnIdle { assertTrue(actions.contains(OnboardingAction.BeginCreate)) }
+    }
+
+    @Test fun createAccountStepShowsTheChosenNodeAddress() {
+        compose.setContent {
+            RamfluxTheme {
+                OnboardingScreen(
+                    OnboardingState(
+                        page = OnboardingPage.CREATE,
+                        sessionReady = true,
+                        selectedNode = NodeItem("node-1", "https://node.example", false, false, true)
+                    ),
+                    {}
+                )
+            }
+        }
+        compose.onNodeWithText("https://node.example").assertExists()
+        compose.onNodeWithText("Ramflux official node").assertDoesNotExist()
+    }
 }
 
 private fun ErasableSecretView.commit(text: String) {

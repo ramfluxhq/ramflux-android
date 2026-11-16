@@ -95,4 +95,11 @@
     <string name="ui_enter_the_data_passphrase">请输入数据口令。</string>
     <string name="ui_account_created_detail">账户已在本机解锁。</string>
     <string name="ui_continue_into_the_account">继续</string>
+    <string name="ui_n01_header">创建账号</string>
+    <string name="ui_n01_button">创建账号</string>
+    <string name="ui_n01_name_helper">此名称用于新账号，之后可以修改。</string>
+    <string name="ui_n01_nodes">节点</string>
+    <string name="ui_n01_official_node">Ramflux 官方节点</string>
+    <string name="ui_n01_selected_node">已选择的节点</string>
+    <string name="ui_n01_phrase_note">恢复短语在这部手机上生成，并且只显示一次。请先准备好纸和笔。</string>
 </resources>

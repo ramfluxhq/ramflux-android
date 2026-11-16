@@ -30,7 +30,12 @@ fun OnboardingScreen(
     val challenge = remember { ChallengeEntry() }
     val unlockPassphrase = remember { ErasableBuffer() }
     Scaffold(modifier = Modifier.testTag("onboarding-window"), contentWindowInsets = contentWindowInsets) { insets ->
-        Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
+        val frame = Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)
+        if (state.page == OnboardingPage.CREATE) {
+            CreateAccountPage(state, onAction, frame)
+            return@Scaffold
+        }
+        Box(frame, contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 Box(Modifier.testTag("onboarding-header")) {
                     RFPageHeader(
@@ -248,8 +253,7 @@ fun OnboardingScreen(
                                 disabled = state.busy,
                                 onAction = { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) }
                             )
-                            OnboardingPage.CHECKING, OnboardingPage.SAVING -> Unit
-                            OnboardingPage.CREATE -> CreateAccountPage(state, onAction)
+                            OnboardingPage.CHECKING, OnboardingPage.SAVING, OnboardingPage.CREATE -> Unit
                             OnboardingPage.PHRASE -> PhrasePage(state, drawPhrase)
                             OnboardingPage.CHALLENGE -> ChallengePage(state, challenge)
                             OnboardingPage.CREATED -> CreatedAccountPage(state)
@@ -328,14 +332,6 @@ private fun OnboardingFooter(
                     onAction = { onAction(OnboardingAction.Page(OnboardingPage.ADDRESS)) }
                 )
             }
-            OnboardingPage.CREATE -> RFActionButton(
-                "begin-create",
-                stringResource(R.string.ui_begin_account_creation),
-                RFButtonKind.Primary,
-                theme,
-                disabled = state.busy || state.displayName.isBlank(),
-                onAction = { onAction(OnboardingAction.BeginCreate) }
-            )
             OnboardingPage.PHRASE -> RFActionButton(
                 "phrase-saved",
                 stringResource(R.string.ui_i_have_saved_the_phrase),

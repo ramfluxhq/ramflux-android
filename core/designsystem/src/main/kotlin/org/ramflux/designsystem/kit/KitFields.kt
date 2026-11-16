@@ -35,6 +35,7 @@ fun KitTextField(
     modifier: Modifier = Modifier,
     placeholder: String = "",
     error: String? = null,
+    helper: String? = null,
     enabled: Boolean = true,
     focused: Boolean = false,
     tag: String? = null
@@ -85,6 +86,8 @@ fun KitTextField(
         )
         if (error != null) {
             Text(error, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.danger, RfMetrics.lineSecondary))
+        } else if (helper != null) {
+            Text(helper, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
         }
     }
 }
