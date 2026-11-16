@@ -12,35 +12,47 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.*
+import org.ramflux.designsystem.kit.KitEmpty
+import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.feature.groups.impl.R
 import org.ramflux.generated.*
 
 @Composable
-fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit) {
+fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: Boolean = false) {
     val theme = LocalRFTheme.current
-    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    val title = stringResource(
+        when (state.page) {
+            GroupsPage.LIST -> R.string.groups_title
+            GroupsPage.CREATE -> R.string.groups_create
+            GroupsPage.DETAIL -> R.string.groups_detail
+            GroupsPage.MEMBERS -> R.string.groups_members
+            GroupsPage.REQUESTS -> R.string.groups_requests
+            GroupsPage.INVITATION -> R.string.groups_invitation
+        }
+    )
+    val bars = if (rooted) WindowInsets.statusBars else WindowInsets.safeDrawing
+    Scaffold(contentWindowInsets = bars) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
-                RFPageHeader(
-                    stringResource(
-                        when (state.page) {
-                            GroupsPage.LIST -> R.string.groups_title
-                            GroupsPage.CREATE -> R.string.groups_create
-                            GroupsPage.DETAIL -> R.string.groups_detail
-                            GroupsPage.MEMBERS -> R.string.groups_members
-                            GroupsPage.REQUESTS -> R.string.groups_requests
-                            GroupsPage.INVITATION -> R.string.groups_invitation
+                if (rooted && state.page == GroupsPage.LIST) {
+                    KitPageHeader(title, large = true, subtitle = state.account, tag = "groups-header")
+                } else if (rooted) {
+                    KitPageHeader(title, onBack = { onAction(GroupsAction.Back) }, tag = "groups-header")
+                } else {
+                    RFPageHeader(
+                        title,
+                        state.account.orEmpty(),
+                        theme,
+                        leading = {
+                            TextButton(onClick = { onAction(GroupsAction.Back) }) { Text(stringResource(R.string.groups_back)) }
+                        },
+                        trailing = {
+                            TextButton(enabled = !state.loading && !state.busy, onClick = {
+                                onAction(GroupsAction.Refresh)
+                            }) { Text(stringResource(R.string.groups_refresh)) }
                         }
-                    ),
-                    state.account.orEmpty(),
-                    theme,
-                    leading = { TextButton(onClick = { onAction(GroupsAction.Back) }) { Text(stringResource(R.string.groups_back)) } },
-                    trailing = {
-                        TextButton(enabled = !state.loading && !state.busy, onClick = {
-                            onAction(GroupsAction.Refresh)
-                        }) { Text(stringResource(R.string.groups_refresh)) }
-                    }
-                )
+                    )
+                }
                 LazyColumn(
                     Modifier.weight(1f).fillMaxWidth().padding(theme.gap.dp),
                     verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
@@ -59,19 +71,28 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit) {
                     state.pending?.let { id -> item("pending") { Text(stringResource(R.string.groups_pending, id)) } }
                     if (state.accountRequired) {
                         item("account") {
-                            RFStateBlock(
-                                stringResource(
-                                    R.string.groups_account_needed
-                                ),
-                                stringResource(R.string.groups_account_help),
-                                RFStateKind.Empty,
-                                theme,
-                                action = {
-                                    TextButton(
-                                        onClick = { onAction(GroupsAction.SetupAccount) }
-                                    ) { Text(stringResource(R.string.groups_account_action)) }
-                                }
-                            )
+                            if (rooted) {
+                                KitEmpty(
+                                    "user-round",
+                                    stringResource(R.string.groups_account_needed),
+                                    stringResource(R.string.groups_account_help),
+                                    action = stringResource(R.string.groups_account_action),
+                                    onAction = { onAction(GroupsAction.SetupAccount) },
+                                    tag = "groups-account"
+                                )
+                            } else {
+                                RFStateBlock(
+                                    stringResource(R.string.groups_account_needed),
+                                    stringResource(R.string.groups_account_help),
+                                    RFStateKind.Empty,
+                                    theme,
+                                    action = {
+                                        TextButton(onClick = { onAction(GroupsAction.SetupAccount) }) {
+                                            Text(stringResource(R.string.groups_account_action))
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                     when (state.page) {
@@ -87,13 +108,22 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit) {
                             }
                             if (state.loaded && state.groups.isEmpty()) {
                                 item("empty") {
-                                    RFStateBlock(
-                                        stringResource(R.string.groups_empty),
-                                        stringResource(R.string.groups_empty_help),
-                                        RFStateKind.Empty,
-                                        theme,
-                                        action = {}
-                                    )
+                                    if (rooted) {
+                                        KitEmpty(
+                                            "users-round",
+                                            stringResource(R.string.groups_empty),
+                                            stringResource(R.string.groups_empty_help),
+                                            tag = "groups-empty"
+                                        )
+                                    } else {
+                                        RFStateBlock(
+                                            stringResource(R.string.groups_empty),
+                                            stringResource(R.string.groups_empty_help),
+                                            RFStateKind.Empty,
+                                            theme,
+                                            action = {}
+                                        )
+                                    }
                                 }
                             }
                             items(state.groups, key = { "group:" + it.id }) { row ->

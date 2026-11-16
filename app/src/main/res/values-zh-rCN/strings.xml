@@ -1,3 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<resources><string name="app_name">Ramflux</string></resources>
+<resources>
+    <string name="app_name">Ramflux</string>
+    <string name="shell_more_contacts">联系人</string>
+    <string name="shell_more_contacts_detail">现有关系与安全号码</string>
+    <string name="shell_more_navigation">编辑导航</string>
+    <string name="shell_more_navigation_detail">整理快捷入口</string>
+    <string name="shell_more_permissions">权限与访问</string>
+    <string name="shell_more_permissions_detail">本设备、群组角色和本次操作</string>
+    <string name="shell_more_settings">设置</string>
+    <string name="shell_more_settings_detail">账号、服务和本机偏好</string>
+    <string name="shell_more_tasks">任务</string>
+    <string name="shell_more_tasks_detail">查看任务与待处理事项</string>
+    <string name="shell_nav_add">添加快捷入口</string>
+    <string name="shell_nav_core_note">消息、群组、Agent 可调整顺序，不能移除。</string>
+    <string name="shell_nav_done">完成</string>
+    <string name="shell_nav_down">下移</string>
+    <string name="shell_nav_lock">已锁定</string>
+    <string name="shell_nav_note">修改即时生效 · 完成后关闭</string>
+    <string name="shell_nav_remove">移除</string>
+    <string name="shell_nav_restore">恢复默认</string>
+    <string name="shell_nav_title">编辑移动导航</string>
+    <string name="shell_nav_up">上移</string>
+    <string name="shell_tab_agents">Agents</string>
+    <string name="shell_tab_groups">群组</string>
+    <string name="shell_tab_messages">消息</string>
+    <string name="shell_tab_more">更多</string>
+</resources>

@@ -65,7 +65,9 @@ class KitScreenshotTest {
 
     @Test fun checkboxOff() = shot("checkbox--off") { KitCheckbox(false, {}, tag = "shot") }
 
-    @Test fun segmented() = shot("segmented--default", 361.dp) { KitSegmented(listOf("\u6d88\u606f", "\u7fa4\u7ec4"), 0, {}, tag = "shot") }
+    @Test fun segmented() = shot("segmented--default", 361.dp) {
+        KitSegmented(listOf("\u626b\u63cf\u4e8c\u7ef4\u7801", "\u5bf9\u6bd4\u53f7\u7801"), 0, {}, tag = "shot")
+    }
 
     @Test fun statusBar() = shot("status-bar--default", 393.dp) { KitStatusBar("9:41", tag = "shot") }
 
@@ -118,7 +120,7 @@ class KitScreenshotTest {
     }
 
     @Test fun row() = shot("row--default", 361.dp) {
-        KitRow("\u6807\u9898", {}, icon = "user-round", value = "\u8bf4\u660e", tagLabel = "\u7f51\u9875", testTag = "shot")
+        KitRow("\u6807\u9898", {}, icon = "user-round", value = "\u8bf4\u660e", testTag = "shot")
     }
 
     @Test fun rowTag() = shot("row--tag", 361.dp) {
@@ -163,7 +165,7 @@ class KitScreenshotTest {
         )
     }
 
-    @Test fun composer() = shot("composer--default", 393.dp) { KitComposer("", {}, "\u6d88\u606f", {}, {}, tag = "shot") }
+    @Test fun composer() = shot("composer--default", 393.dp) { KitComposer("", {}, "\u53d1\u6d88\u606f\u2026", {}, {}, tag = "shot") }
 
     @Test fun dateChip() = shot("date-chip--default", 361.dp) { KitDateChip("\u4eca\u5929", tag = "shot") }
 
@@ -280,7 +282,7 @@ class KitScreenshotTest {
                 tag = "shot"
             )
         }
-        shot("composer--default--dark", 393.dp, dark = true) { KitComposer("", {}, "\u6d88\u606f", {}, {}, tag = "shot") }
+        shot("composer--default--dark", 393.dp, dark = true) { KitComposer("", {}, "\u53d1\u6d88\u606f\u2026", {}, {}, tag = "shot") }
         shot("context-menu--default--dark", dark = true) {
             KitContextMenu(menuEntries(), {}, tag = "shot")
         }
@@ -291,7 +293,7 @@ class KitScreenshotTest {
         }
         shot("mono-block--default--dark", 361.dp, dark = true) { KitMonoBlock("abc123", {}, tag = "shot") }
         shot("page-header--default--dark", 393.dp, dark = true) {
-            KitPageHeader("\u9875\u9762\u6807\u9898", onBack = {}, onInfo = {}, tag = "shot")
+            KitPageHeader("Luma \u6863\u6848", onBack = {}, onInfo = {}, tag = "shot")
         }
         shot("page-header--large-title--dark", 393.dp, dark = true) {
             KitPageHeader("\u6d88\u606f", large = true, subtitle = "\u526f\u6807\u9898", tag = "shot")
@@ -310,12 +312,13 @@ class KitScreenshotTest {
                 {},
                 icon = "user-round",
                 value = "\u8bf4\u660e",
-                tagLabel = "\u7f51\u9875",
                 testTag = "shot"
             )
         }
         shot("search-field--default--dark", 361.dp, dark = true) { KitSearchField("", {}, "\u641c\u7d22", tag = "shot") }
-        shot("segmented--default--dark", 361.dp, dark = true) { KitSegmented(listOf("\u6d88\u606f", "\u7fa4\u7ec4"), 0, {}, tag = "shot") }
+        shot("segmented--default--dark", 361.dp, dark = true) {
+            KitSegmented(listOf("\u626b\u63cf\u4e8c\u7ef4\u7801", "\u5bf9\u6bd4\u53f7\u7801"), 0, {}, tag = "shot")
+        }
         shot("sheet--default--dark", 393.dp, dark = true) { KitSheet("\u6807\u9898", "\u6b63\u6587", "\u5173\u95ed", {}, tag = "shot") }
         shot("status-bar--default--dark", 393.dp, dark = true) { KitStatusBar("9:41", tag = "shot") }
         shot("status-hero--default--dark", dark = true) { KitStatusHero("loader-circle", tag = "shot") }
@@ -342,7 +345,6 @@ class KitScreenshotTest {
                 {},
                 icon = "user-round",
                 value = "\u8bf4\u660e",
-                tagLabel = "\u7f51\u9875",
                 testTag = "shot"
             )
         }
@@ -352,7 +354,6 @@ class KitScreenshotTest {
                 {},
                 icon = "user-round",
                 value = "\u8bf4\u660e",
-                tagLabel = "\u7f51\u9875",
                 testTag = "shot"
             )
         }
@@ -368,7 +369,9 @@ class KitScreenshotTest {
     }
 
     @Test fun ruledStates() = batch {
-        shot("text-field--focused", 361.dp) { KitTextField("\u503c", {}, "\u6807\u7b7e", focused = true, tag = "shot") }
+        shot("text-field--focused", 361.dp) {
+            KitTextField("\u00b7 ".repeat(16).trim(), {}, "\u518d\u6b21\u8f93\u5165\u6570\u636e\u53e3\u4ee4", focused = true, tag = "shot")
+        }
         shot("text-field--disabled", 361.dp) { KitTextField("\u503c", {}, "\u6807\u7b7e", enabled = false, tag = "shot") }
         shot("search-field--focused", 361.dp) { KitSearchField("", {}, "\u641c\u7d22", focused = true, tag = "shot") }
         shot("button--primary--loading", 361.dp) { KitButton("\u6309\u94ae", {}, loading = true, tag = "shot") }
@@ -380,7 +383,6 @@ class KitScreenshotTest {
                 {},
                 icon = "user-round",
                 value = "\u8bf4\u660e",
-                tagLabel = "\u7f51\u9875",
                 testTag = "shot"
             )
         }

@@ -9,6 +9,7 @@
     <string name="ui_chat">Chat</string>
     <string name="ui_conversation">Conversation</string>
     <string name="ui_conversations">Conversations</string>
+    <string name="ui_messages">Messages</string>
     <string name="ui_conversations_will_appear_here_when_available">Conversations will appear here when available.</string>
     <string name="ui_load_more">Load more</string>
     <string name="ui_loading_conversations">Loading conversations</string>

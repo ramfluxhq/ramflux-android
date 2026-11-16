@@ -104,7 +104,7 @@ fun KitPageHeader(
                     style = if (large) {
                         kitStyle(theme.size_mobile_large_title, FontWeight.Bold, theme.text, RfMetrics.lineTight)
                     } else {
-                        kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
+                        kitStyle(theme.size_title, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
                     }
                 )
             }
@@ -243,6 +243,29 @@ fun KitTabBar(tabs: List<KitTab>, selected: Int, onSelect: (Int) -> Unit, modifi
             }
         }
         Spacer(Modifier.height(dp(RfMetrics.tabInset - (RfMetrics.hit - RfMetrics.tab))))
+    }
+}
+
+@Composable
+fun KitIconButton(
+    icon: String,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    tag: String? = null
+) {
+    val theme = LocalRFTheme.current
+    val tint = if (enabled) theme.text else theme.control
+    if (enabled) {
+        IconHit(icon, RfMetrics.iconAction, tint, onClick, label, tag)
+    } else {
+        Box(
+            modifier.size(dp(RfMetrics.iconButton)).semantics { contentDescription = label }.kitTag(tag),
+            contentAlignment = Alignment.Center
+        ) {
+            KitIcon(icon, RfMetrics.iconAction, tint)
+        }
     }
 }
 

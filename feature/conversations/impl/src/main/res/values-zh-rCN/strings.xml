@@ -9,6 +9,7 @@
     <string name="ui_chat">聊天</string>
     <string name="ui_conversation">会话</string>
     <string name="ui_conversations">会话</string>
+    <string name="ui_messages">消息</string>
     <string name="ui_conversations_will_appear_here_when_available">有会话时将在此处显示。</string>
     <string name="ui_load_more">加载更多</string>
     <string name="ui_loading_conversations">正在加载会话</string>

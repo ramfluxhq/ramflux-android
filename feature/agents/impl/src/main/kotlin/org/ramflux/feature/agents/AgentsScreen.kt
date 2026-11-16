@@ -13,26 +13,41 @@ import androidx.compose.ui.unit.dp
 import org.ramflux.data.AgentAvatar
 import org.ramflux.data.AgentCapability
 import org.ramflux.designsystem.*
+import org.ramflux.designsystem.kit.KitEmpty
+import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.feature.agents.impl.R
 import org.ramflux.generated.*
 @Composable
-fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit) {
+fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, rooted: Boolean = false) {
     val theme = LocalRFTheme.current
-    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    val bars = if (rooted) WindowInsets.statusBars else WindowInsets.safeDrawing
+    Scaffold(contentWindowInsets = bars) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
-                RFPageHeader(
-                    stringResource(state.mode.label()),
-                    stringResource(R.string.agents_title),
-                    theme,
-                    leading = { TextButton(onClick = { onAction(AgentsAction.Back) }) { Text(stringResource(R.string.agents_back)) } },
-                    trailing = {
-                        TextButton(
-                            enabled = !state.loading,
-                            onClick = { onAction(AgentsAction.Refresh) }
-                        ) { Text(stringResource(R.string.agents_retry)) }
-                    }
-                )
+                if (rooted && state.mode == AgentCapability.DIRECTORY) {
+                    KitPageHeader(stringResource(R.string.agents_shell_title), large = true, tag = "agents-header")
+                } else if (rooted) {
+                    KitPageHeader(
+                        stringResource(state.mode.label()),
+                        onBack = { onAction(AgentsAction.Back) },
+                        tag = "agents-header"
+                    )
+                } else {
+                    RFPageHeader(
+                        stringResource(state.mode.label()),
+                        stringResource(R.string.agents_title),
+                        theme,
+                        leading = {
+                            TextButton(onClick = { onAction(AgentsAction.Back) }) { Text(stringResource(R.string.agents_back)) }
+                        },
+                        trailing = {
+                            TextButton(
+                                enabled = !state.loading,
+                                onClick = { onAction(AgentsAction.Refresh) }
+                            ) { Text(stringResource(R.string.agents_retry)) }
+                        }
+                    )
+                }
                 LazyColumn(
                     Modifier.weight(1f).fillMaxWidth().padding(horizontal = theme.gap.dp),
                     verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
@@ -65,21 +80,36 @@ fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit) {
                         }
                     }
                     if (state.mode == AgentCapability.DIRECTORY) {
-                        item("navigation") {
-                            TextButton(
-                                onClick = { onAction(AgentsAction.Mode(AgentCapability.CREATE)) }
-                            ) { Text(stringResource(R.string.agents_create)) }
-                            for (mode in listOf(
-                                AgentCapability.PROFILE,
-                                AgentCapability.MANAGE,
-                                AgentCapability.COLLABORATION,
-                                AgentCapability.HIDE
-                            )) {
-                                TextButton(onClick = { onAction(AgentsAction.Mode(mode)) }) { Text(stringResource(mode.label())) }
+                        item("desktop") { Text(stringResource(R.string.agents_create_on_desktop)) }
+                        if (!rooted) {
+                            item("navigation") {
+                                for (mode in listOf(
+                                    AgentCapability.PROFILE,
+                                    AgentCapability.MANAGE,
+                                    AgentCapability.COLLABORATION,
+                                    AgentCapability.HIDE
+                                )) {
+                                    TextButton(onClick = { onAction(AgentsAction.Mode(mode)) }) {
+                                        Text(stringResource(mode.label()))
+                                    }
+                                }
+                            }
+                        } else if (!state.loading && !state.accountRequired && state.problem == null) {
+                            item("empty") {
+                                KitEmpty(
+                                    "bot",
+                                    stringResource(R.string.agents_empty_title),
+                                    if (state.unavailable) {
+                                        stringResource(R.string.agents_explanation)
+                                    } else {
+                                        stringResource(R.string.agents_empty_body)
+                                    },
+                                    tag = "agents-empty"
+                                )
                             }
                         }
                     }
-                    if (state.mode in setOf(AgentCapability.CREATE, AgentCapability.EDIT, AgentCapability.GOAL)) {
+                    if (!rooted && state.mode in setOf(AgentCapability.CREATE, AgentCapability.EDIT, AgentCapability.GOAL)) {
                         item("draft-note") { Text(stringResource(R.string.agents_draft_only)) }
                         if (state.mode == AgentCapability.CREATE) {
                             item("avatar") {
@@ -144,7 +174,7 @@ fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit) {
                         }
                     }
                 }
-                if (state.mode == AgentCapability.CREATE) {
+                if (!rooted && state.mode == AgentCapability.CREATE) {
                     Button(
                         onClick = { onAction(AgentsAction.Create) },
                         enabled = !state.loading && !state.accountRequired,

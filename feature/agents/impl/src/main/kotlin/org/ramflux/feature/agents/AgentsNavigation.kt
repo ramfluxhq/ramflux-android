@@ -8,12 +8,20 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.ramflux.data.AgentCapability
 @Composable
-fun AgentsNavigation(onBack: () -> Unit, onSetupAccount: () -> Unit, vm: AgentsViewModel = hiltViewModel()) {
+fun AgentsNavigation(
+    onBack: () -> Unit,
+    onSetupAccount: () -> Unit,
+    vm: AgentsViewModel = hiltViewModel(),
+    rooted: Boolean = false,
+    onAtRoot: (Boolean) -> Unit = {}
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val setup by rememberUpdatedState(onSetupAccount)
-    BackHandler { vm.onAction(AgentsAction.Back) }
+    SideEffect { onAtRoot(!rooted || state.mode == AgentCapability.DIRECTORY) }
+    BackHandler(enabled = !rooted || state.mode != AgentCapability.DIRECTORY) { vm.onAction(AgentsAction.Back) }
     DisposableEffect(vm) {
         vm.onAction(AgentsAction.Visible(true))
         onDispose { vm.onAction(AgentsAction.Visible(false)) }
@@ -27,5 +35,5 @@ fun AgentsNavigation(onBack: () -> Unit, onSetupAccount: () -> Unit, vm: AgentsV
             }
         }
     }
-    AgentsScreen(state, vm::onAction)
+    AgentsScreen(state, vm::onAction, rooted)
 }

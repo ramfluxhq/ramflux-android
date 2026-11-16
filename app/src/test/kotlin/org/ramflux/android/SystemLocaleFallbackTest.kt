@@ -4,8 +4,9 @@
 package org.ramflux.android
 
 import android.content.Context
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -37,8 +38,8 @@ class UnsupportedSystemLocaleTest {
     @Test fun freshSystemSettingOnAnUnsupportedLocaleShowsEnglish() {
         compose.waitUntil(5_000) { !compose.activity.language.language.value.loading }
         assertEquals(AppLanguage.SYSTEM, compose.activity.language.language.value.value)
-        compose.onNodeWithText("Get started").assertExists()
-        compose.onNodeWithText("开始使用").assertDoesNotExist()
+        compose.onAllNodesWithText("Messages").assertCountEquals(2)
+        compose.onAllNodesWithText("消息").assertCountEquals(0)
     }
 }
 
@@ -54,7 +55,7 @@ class SupportedSystemLocaleTest {
     @Test fun freshSystemSettingOnChineseShowsChinese() {
         compose.waitUntil(5_000) { !compose.activity.language.language.value.loading }
         assertEquals(AppLanguage.SYSTEM, compose.activity.language.language.value.value)
-        compose.onNodeWithText("开始使用").assertExists()
-        compose.onNodeWithText("Get started").assertDoesNotExist()
+        compose.onAllNodesWithText("消息").assertCountEquals(2)
+        compose.onAllNodesWithText("Messages").assertCountEquals(0)
     }
 }

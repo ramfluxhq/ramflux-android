@@ -21,6 +21,6 @@ Licenses are in `NOTICE` and `third_party/`.
 - The QR tile and its glyph stay on the light-theme white and ink in dark mode.
 - Radio, origin display, and charts are not in this kit.
 
-Pushed page titles are 17/600. The page-header preview still shows the spec size 20. Large titles are 32/700. Row chevrons are 14pt in the control color. Conversation rows are 72pt. Bubble width is at most min(300pt, 78% of the parent).
+Pushed page titles are 20/600. Large titles are 32/700. Chat header titles stay 17/600. Row chevrons are 14pt in the control color. Conversation rows are 72pt. Bubble width is at most min(300pt, 78% of the parent).
 
 `scripts/compare-kit-previews.py` writes `{name}--pair.png`, `{name}--diff.png`, and `checklist.tsv`. The checklist measures the master frame. `kit-masters.json` supplies that frame when the export canvas is a crop or includes a shadow. `scripts/check-mobile-tokens.py` pins the design token file at SHA-256 `5af83dc4aafa883c1bfaa4a33c222be577567eb4327953ba80a7f0d78d680632`.

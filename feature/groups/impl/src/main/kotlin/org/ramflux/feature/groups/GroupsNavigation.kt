@@ -13,13 +13,16 @@ fun GroupsNavigation(
     onBack: () -> Unit,
     onSetupAccount: () -> Unit,
     onChat: (String, String, String) -> Unit,
-    vm: GroupsViewModel = hiltViewModel()
+    vm: GroupsViewModel = hiltViewModel(),
+    rooted: Boolean = false,
+    onAtRoot: (Boolean) -> Unit = {}
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val setup by rememberUpdatedState(onSetupAccount)
     val chat by rememberUpdatedState(onChat)
-    BackHandler { vm.onAction(GroupsAction.Back) }
+    SideEffect { onAtRoot(!rooted || state.page == GroupsPage.LIST) }
+    BackHandler(enabled = !rooted || state.page != GroupsPage.LIST) { vm.onAction(GroupsAction.Back) }
     DisposableEffect(vm) {
         vm.onAction(GroupsAction.Visible(true))
         onDispose { vm.onAction(GroupsAction.Visible(false)) }
@@ -34,5 +37,5 @@ fun GroupsNavigation(
             }
         }
     }
-    GroupsScreen(state, vm::onAction)
+    GroupsScreen(state, vm::onAction, rooted)
 }

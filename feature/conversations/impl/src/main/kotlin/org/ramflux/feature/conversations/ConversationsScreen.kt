@@ -15,41 +15,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.ramflux.designsystem.ExactConversationRow
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.kit.KitAvatar
+import org.ramflux.designsystem.kit.KitAvatarKind
+import org.ramflux.designsystem.kit.KitConversationRow
+import org.ramflux.designsystem.kit.KitEmpty
+import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.render
 import org.ramflux.feature.conversations.impl.R
 import org.ramflux.generated.*
 
 @Composable
-fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsAction) -> Unit, permissionBanner: @Composable () -> Unit = {}) {
+fun ConversationsScreen(
+    state: ConversationsState,
+    onAction: (ConversationsAction) -> Unit,
+    permissionBanner: @Composable () -> Unit = {},
+    rooted: Boolean = false
+) {
     val theme = LocalRFTheme.current
-    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    val bars = if (rooted) WindowInsets.statusBars else WindowInsets.safeDrawing
+    Scaffold(contentWindowInsets = bars) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
-                Box(Modifier.testTag("conversations-header")) {
-                    MaterialTheme(
-                        typography = MaterialTheme.typography.copy(
-                            titleLarge =
-                            MaterialTheme.typography.titleLarge.copy(fontSize = theme.size_mobile_large_title.sp)
-                        )
-                    ) {
-                        RFPageHeader(
-                            stringResource(R.string.ui_conversations),
-                            state.accountLabel ?: stringResource(R.string.ui_account_state_unavailable),
-                            theme,
-                            leading = {
-                                TextButton(
-                                    onClick = { onAction(ConversationsAction.Back) }
-                                ) { Text(stringResource(R.string.ui_back)) }
-                            },
-                            trailing = {
-                                TextButton(
-                                    enabled = !state.loading,
-                                    onClick = { onAction(ConversationsAction.Refresh) }
-                                ) { Text(stringResource(R.string.ui_refresh)) }
-                            }
-                        )
-                    }
-                }
+                ConversationsHeader(state, onAction, rooted)
                 LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("conversations-list")) {
                     item("permission-banner") { permissionBanner() }
                     item("search") {
@@ -86,41 +73,33 @@ fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsActio
                     }
                     state.unavailable?.let { message -> item("unavailable") { Text(message.render(), Modifier.padding(theme.gap.dp)) } }
                     if (state.accountRequired) {
-                        item("account-required") {
-                            RFStateBlock(
-                                stringResource(R.string.ui_open_an_account),
-                                stringResource(R.string.ui_an_unlocked_active_account_is_required),
-                                RFStateKind.Empty,
-                                theme,
-                                action = {
-                                    TextButton(
-                                        onClick = { onAction(ConversationsAction.SetupAccount) }
-                                    ) { Text(stringResource(R.string.ui_set_up_your_account)) }
-                                }
-                            )
-                        }
+                        item("account-required") { ConversationsAccount(onAction, rooted) }
                     }
                     if (state.loaded && state.rows.isEmpty()) {
-                        item("empty") {
-                            RFStateBlock(
-                                stringResource(R.string.ui_no_conversations),
-                                stringResource(R.string.ui_conversations_will_appear_here_when_available),
-                                RFStateKind.Empty,
-                                theme,
-                                action = {}
-                            )
-                        }
+                        item("empty") { ConversationsEmpty(rooted) }
                     }
                     items(state.rows, key = { "conversation:" + it.id }, contentType = { "conversation" }) { row ->
-                        ExactConversationRow(
-                            row.id,
-                            row.title,
-                            row.summary.render(),
-                            row.timestamp.render(),
-                            row.unread,
-                            row.hasUnread,
-                            onSelect = { onAction(ConversationsAction.Open(it)) }
-                        )
+                        if (rooted) {
+                            KitConversationRow(
+                                row.title,
+                                row.summary.render(),
+                                row.timestamp.render(),
+                                { KitAvatar(row.title.take(1), 52f, KitAvatarKind.Person) },
+                                { onAction(ConversationsAction.Open(row.id)) },
+                                badge = row.unread.takeIf { row.hasUnread },
+                                tag = "conversation-" + row.id
+                            )
+                        } else {
+                            ExactConversationRow(
+                                row.id,
+                                row.title,
+                                row.summary.render(),
+                                row.timestamp.render(),
+                                row.unread,
+                                row.hasUnread,
+                                onSelect = { onAction(ConversationsAction.Open(it)) }
+                            )
+                        }
                     }
                     if (state.hasMore) {
                         item("more") {
@@ -133,5 +112,88 @@ fun ConversationsScreen(state: ConversationsState, onAction: (ConversationsActio
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ConversationsHeader(state: ConversationsState, onAction: (ConversationsAction) -> Unit, rooted: Boolean) {
+    val theme = LocalRFTheme.current
+    if (rooted) {
+        KitPageHeader(
+            stringResource(R.string.ui_messages),
+            large = true,
+            subtitle = state.accountLabel,
+            tag = "conversations-header"
+        )
+    } else {
+        Box(Modifier.testTag("conversations-header")) {
+            MaterialTheme(
+                typography = MaterialTheme.typography.copy(
+                    titleLarge = MaterialTheme.typography.titleLarge.copy(fontSize = theme.size_mobile_large_title.sp)
+                )
+            ) {
+                RFPageHeader(
+                    stringResource(R.string.ui_conversations),
+                    state.accountLabel ?: stringResource(R.string.ui_account_state_unavailable),
+                    theme,
+                    leading = {
+                        TextButton(onClick = { onAction(ConversationsAction.Back) }) { Text(stringResource(R.string.ui_back)) }
+                    },
+                    trailing = {
+                        TextButton(
+                            enabled = !state.loading,
+                            onClick = { onAction(ConversationsAction.Refresh) }
+                        ) { Text(stringResource(R.string.ui_refresh)) }
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConversationsAccount(onAction: (ConversationsAction) -> Unit, rooted: Boolean) {
+    if (rooted) {
+        KitEmpty(
+            "user-round",
+            stringResource(R.string.ui_open_an_account),
+            stringResource(R.string.ui_an_unlocked_active_account_is_required),
+            action = stringResource(R.string.ui_set_up_your_account),
+            onAction = { onAction(ConversationsAction.SetupAccount) },
+            tag = "conversations-account"
+        )
+    } else {
+        val theme = LocalRFTheme.current
+        RFStateBlock(
+            stringResource(R.string.ui_open_an_account),
+            stringResource(R.string.ui_an_unlocked_active_account_is_required),
+            RFStateKind.Empty,
+            theme,
+            action = {
+                TextButton(onClick = { onAction(ConversationsAction.SetupAccount) }) {
+                    Text(stringResource(R.string.ui_set_up_your_account))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun ConversationsEmpty(rooted: Boolean) {
+    if (rooted) {
+        KitEmpty(
+            "messages-square",
+            stringResource(R.string.ui_no_conversations),
+            stringResource(R.string.ui_conversations_will_appear_here_when_available),
+            tag = "conversations-empty"
+        )
+    } else {
+        RFStateBlock(
+            stringResource(R.string.ui_no_conversations),
+            stringResource(R.string.ui_conversations_will_appear_here_when_available),
+            RFStateKind.Empty,
+            LocalRFTheme.current,
+            action = {}
+        )
     }
 }

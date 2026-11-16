@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import org.ramflux.android.shell.RamfluxShell
 import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
 import org.ramflux.feature.agents.AgentsNavigation
@@ -52,20 +53,23 @@ class MainActivity : ComponentActivity() {
         setContent {
             val locale by language.language.collectAsStateWithLifecycle()
             AppLanguageProvider(locale.value.tag) {
-                AppShellNavigation(routeForFeature = {
-                    when (it) {
-                        "onboarding" -> OnboardingRoute
-                        "conversations" -> ConversationsRoute
-                        "settings" -> SettingsRoute
-                        "contacts" -> ContactsRoute
-                        "groups" -> GroupsRoute
-                        "calls" -> CallsRoute
-                        "agents" -> AgentsRoute
-                        "tasks" -> TasksRoute
-                        "cards" -> CardsRoute
-                        else -> FeatureRoute(it)
-                    }
-                }) { onBack, navigate ->
+                AppShellNavigation(
+                    routeForFeature = {
+                        when (it) {
+                            "onboarding" -> OnboardingRoute
+                            "conversations" -> ConversationsRoute
+                            "settings" -> SettingsRoute
+                            "contacts" -> ContactsRoute
+                            "groups" -> GroupsRoute
+                            "calls" -> CallsRoute
+                            "agents" -> AgentsRoute
+                            "tasks" -> TasksRoute
+                            "cards" -> CardsRoute
+                            else -> FeatureRoute(it)
+                        }
+                    },
+                    home = { navigate -> RamfluxShell(navigate) }
+                ) { onBack, navigate ->
                     entry<CallsRoute> { CallsNavigation(onBack, { navigate(OnboardingRoute) }) }
                     entry<CardsRoute> { CardsNavigation(onBack) }
                     entry<TasksRoute> { TasksNavigation(onBack, { navigate(OnboardingRoute) }) }

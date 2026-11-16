@@ -36,7 +36,8 @@ class LanguageStartupTest(private val initial: AppLanguage) {
         compose.waitUntil(5_000) { !compose.activity.language.language.value.loading }
         fun assertShell(language: AppLanguage) {
             compose.waitUntil(5_000) { compose.activity.language.language.value.value == language }
-            compose.onNodeWithText(if (language == AppLanguage.SIMPLIFIED_CHINESE) "开始使用" else "Get started").assertExists()
+            val label = if (language == AppLanguage.SIMPLIFIED_CHINESE) "消息" else "Messages"
+            compose.onAllNodesWithText(label).assertCountEquals(2)
         }
         runBlocking { withTimeout(5_000) { assertTrue(compose.activity.language.setLanguage(initial) is ClientResult.Ready) } }
         compose.activityRule.scenario.recreate()

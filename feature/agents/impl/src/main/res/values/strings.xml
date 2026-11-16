@@ -3,6 +3,10 @@
     <string name="agents_title">Agents</string>
     <string name="agents_directory">Your Agents</string>
     <string name="agents_create">Create Agent</string>
+    <string name="agents_create_on_desktop">Create agents on your desktop</string>
+    <string name="agents_empty_body">Agents you create on your desktop appear here.</string>
+    <string name="agents_empty_title">No agents</string>
+    <string name="agents_shell_title">Agents</string>
     <string name="agents_profile">Profile</string>
     <string name="agents_advanced">Advanced settings</string>
     <string name="agents_chat">Private conversation</string>

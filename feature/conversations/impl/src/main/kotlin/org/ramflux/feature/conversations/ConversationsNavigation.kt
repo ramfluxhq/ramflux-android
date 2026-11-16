@@ -15,13 +15,16 @@ fun ConversationsNavigation(
     onSetupAccount: () -> Unit,
     onOpenChat: (String, String) -> Unit,
     permissionBanner: @Composable () -> Unit = {},
-    vm: ConversationsViewModel = hiltViewModel()
+    vm: ConversationsViewModel = hiltViewModel(),
+    rooted: Boolean = false,
+    onAtRoot: (Boolean) -> Unit = {}
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val setup by rememberUpdatedState(onSetupAccount)
     val chat by rememberUpdatedState(onOpenChat)
-    BackHandler { vm.onAction(ConversationsAction.Back) }
+    SideEffect { onAtRoot(true) }
+    BackHandler(enabled = !rooted) { vm.onAction(ConversationsAction.Back) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(ConversationsAction.Refresh) }
     LaunchedEffect(vm) {
         vm.events.collect { event ->
@@ -32,5 +35,5 @@ fun ConversationsNavigation(
             }
         }
     }
-    ConversationsScreen(state, vm::onAction, permissionBanner)
+    ConversationsScreen(state, vm::onAction, permissionBanner, rooted)
 }

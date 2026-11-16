@@ -23,6 +23,7 @@ import org.ramflux.feature.appshell.api.*
 fun AppShellNavigation(
     vm: AppShellViewModel = hiltViewModel(),
     routeForFeature: (String) -> NavKey = { FeatureRoute(it) },
+    home: (@Composable (navigate: (NavKey) -> Unit) -> Unit)? = null,
     featureEntries: EntryProviderScope<NavKey>.(onBack: () -> Unit, navigate: (NavKey) -> Unit) -> Unit = { _, _ -> }
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -41,7 +42,9 @@ fun AppShellNavigation(
             }
         }
     }
+    val activity = LocalActivity.current
     val currentRoute by rememberUpdatedState(routeForFeature)
+    val shellHome = home
     LaunchedEffect(vm) {
         vm.events.collect { event ->
             when (event) {
@@ -52,11 +55,20 @@ fun AppShellNavigation(
     RamfluxTheme(dark, themeId = state.namedTheme) {
         NavDisplay(
             backStack = stack,
-            onBack = { if (stack.size > 1) stack.removeLastOrNull() },
+            onBack = {
+                if (stack.size > 1) {
+                    stack.removeLastOrNull()
+                } else if (shellHome != null) {
+                    activity?.finish()
+                }
+            },
             entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), rememberViewModelStoreNavEntryDecorator()),
             entryProvider = entryProvider {
                 featureEntries({ if (stack.size > 1) stack.removeLastOrNull() }, { stack.add(it) })
-                entry<ShellHome> { AppShellScreen(state, vm::onAction) }
+                entry<ShellHome> {
+                    val open = shellHome
+                    if (open != null) open { stack.add(it) } else AppShellScreen(state, vm::onAction)
+                }
                 // Uninstalled destinations are refused by Data; the app installs supported public routes.
                 entry<FeatureRoute> { AppShellScreen(state, vm::onAction) }
             }

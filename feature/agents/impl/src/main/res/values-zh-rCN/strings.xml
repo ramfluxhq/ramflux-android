@@ -3,6 +3,10 @@
     <string name="agents_title">Agent</string>
     <string name="agents_directory">我的 Agent</string>
     <string name="agents_create">创建 Agent</string>
+    <string name="agents_create_on_desktop">请在桌面端创建 Agent</string>
+    <string name="agents_empty_body">在桌面端创建的 Agent 会显示在这里。</string>
+    <string name="agents_empty_title">暂无 Agent</string>
+    <string name="agents_shell_title">Agents</string>
     <string name="agents_profile">档案</string>
     <string name="agents_advanced">高级设置</string>
     <string name="agents_chat">私人会话</string>

@@ -1,3 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<resources><string name="app_name">Ramflux</string></resources>
+<resources>
+    <string name="app_name">Ramflux</string>
+    <string name="shell_more_contacts">Contacts</string>
+    <string name="shell_more_contacts_detail">Existing relationships and safety numbers</string>
+    <string name="shell_more_navigation">Edit navigation</string>
+    <string name="shell_more_navigation_detail">Arrange shortcuts</string>
+    <string name="shell_more_permissions">Permissions and access</string>
+    <string name="shell_more_permissions_detail">This device, group roles, and this operation</string>
+    <string name="shell_more_settings">Settings</string>
+    <string name="shell_more_settings_detail">Account, services, and device preferences</string>
+    <string name="shell_more_tasks">Tasks</string>
+    <string name="shell_more_tasks_detail">View tasks and pending items</string>
+    <string name="shell_nav_add">Add shortcut</string>
+    <string name="shell_nav_core_note">Messages, Groups, and Agents can be reordered and cannot be removed.</string>
+    <string name="shell_nav_done">Done</string>
+    <string name="shell_nav_down">Move down</string>
+    <string name="shell_nav_lock">Locked</string>
+    <string name="shell_nav_note">Changes apply immediately. Close when you are done.</string>
+    <string name="shell_nav_remove">Remove</string>
+    <string name="shell_nav_restore">Restore default</string>
+    <string name="shell_nav_title">Edit navigation</string>
+    <string name="shell_nav_up">Move up</string>
+    <string name="shell_tab_agents">Agents</string>
+    <string name="shell_tab_groups">Groups</string>
+    <string name="shell_tab_messages">Messages</string>
+    <string name="shell_tab_more">More</string>
+</resources>
