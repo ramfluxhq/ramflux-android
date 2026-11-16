@@ -71,6 +71,41 @@ class SecretTransportTest {
         assertEquals(null, dropped.error.reasonCode)
     }
 
+    @Test fun debugTraceRecordsSdkTextAndVariantWithoutPublishingThem() {
+        val lines = mutableListOf<String>()
+        installSdkDebugTrace { lines.add(it) }
+        try {
+            val source = (
+                """{"code":1,"response":{"error":{"code":"ValidationFailed","variant":"Storage",""" +
+                    """"message":"storage error: mismatch"}}}"""
+                ).toByteArray()
+            val decoded = ReplyCodec.decode(NativeReply(1, source), null) as CoreResult.Failure
+            assertEquals("ValidationFailed", decoded.error.statusName)
+            assertFalse(decoded.error.toString().contains("mismatch"))
+            assertFalse(decoded.error.toString().contains("Storage"))
+            assertEquals("sdk.failed.1.ValidationFailed.NONE variant=Storage text=storage error: mismatch", lines.single())
+            val secret = (
+                """{"code":1,"response":{"error":{"code":"ValidationFailed","message":"storage error: mismatch"}}}"""
+                ).toByteArray()
+            lines.clear()
+            val hidden = ReplyCodec.decodeSecret(NativeReply(0, secret), null) as CoreResult.Failure
+            assertEquals("ValidationFailed", hidden.error.statusName)
+            assertFalse(hidden.error.toString().contains("mismatch"))
+            assertEquals("sdk.failed.1.ValidationFailed.NONE variant=- text=storage error: mismatch", lines.single())
+        } finally {
+            installSdkDebugTrace(null)
+        }
+    }
+
+    @Test fun unsetDebugTraceDropsSdkText() {
+        installSdkDebugTrace(null)
+        val source = """{"code":1,"response":{"error":{"code":"ValidationFailed","message":"storage error: mismatch","variant":"Storage"}}}""".toByteArray()
+        val decoded = ReplyCodec.decodeSecret(NativeReply(0, source), null) as CoreResult.Failure
+        assertEquals("ValidationFailed", decoded.error.statusName)
+        assertFalse(decoded.error.toString().contains("mismatch"))
+        assertFalse(decoded.error.toString().contains("Storage"))
+    }
+
     @Test fun explicitUnknownEffectsStayUnknown() {
         val source = """{"code":1,"effects":"unknown","response":{"error":{"code":"CustodySetupInvalid"}}}""".toByteArray()
         val secret = ReplyCodec.decodeSecret(NativeReply(0, source.copyOf()), null) as CoreResult.Failure
