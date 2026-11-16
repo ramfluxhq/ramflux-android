@@ -35,6 +35,7 @@ class ChatViewModel @Inject constructor(
     private var watch: Job? = null
     private var watchTarget: Target? = null
     private var typingJob: Job? = null
+    private var typingExpiry: Job? = null
     private var typingActive = false
     private var needsRefresh = false
     private var ticket = 0L
@@ -43,6 +44,7 @@ class ChatViewModel @Inject constructor(
             request?.cancel()
             watch?.cancel()
             watchTarget = null
+            clearPeerTypingClock()
             stopTyping()
             ticket++
             local.value = ChatState()
@@ -61,6 +63,7 @@ class ChatViewModel @Inject constructor(
                     request?.cancel()
                     watch?.cancel()
                     watchTarget = null
+                    clearPeerTypingClock()
                     stopTyping()
                     ticket++
                     target = next
@@ -83,6 +86,7 @@ class ChatViewModel @Inject constructor(
                 request?.cancel()
                 watch?.cancel()
                 watchTarget = null
+                clearPeerTypingClock()
                 stopTyping()
                 ticket++
                 local.value = ChatState()
@@ -374,7 +378,7 @@ class ChatViewModel @Inject constructor(
                 history.updates(current.account).collect { result ->
                     if (target != current || session.status.value.phase != ClientPhase.OPEN) return@collect
                     if (result is ClientResult.Ready) {
-                        result.value.peerTyping?.let { typing -> local.update { it.copy(peerTyping = typing) } }
+                        result.value.peerTyping?.let { typing -> applyPeerTyping(current, typing) }
                         if (result.value.refresh) {
                             if (request?.isActive == true) needsRefresh = true else read()
                         }
@@ -384,6 +388,28 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
+    private fun applyPeerTyping(current: Target, typing: PeerTyping) {
+        if (typing.conversationId != current.conversation) return
+        val now = System.currentTimeMillis()
+        val visible = typing.active && now < typing.expiresAtMs
+        local.update { it.copy(peerTyping = visible) }
+        typingExpiry?.cancel()
+        if (!visible) {
+            typingExpiry = null
+            return
+        }
+        val wait = typing.expiresAtMs - now
+        typingExpiry = viewModelScope.launch {
+            delay(wait)
+            if (target == current) local.update { it.copy(peerTyping = false) }
+        }
+    }
+
+    private fun clearPeerTypingClock() {
+        typingExpiry?.cancel()
+        typingExpiry = null
+    }
+
     private fun syncTyping(active: Boolean) {
         val current = target ?: return
         if (typingActive == active) return

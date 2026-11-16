@@ -11,7 +11,7 @@ import org.ramflux.sdk.*
 
 class MessageHistoryDataTest {
     @Test fun mixedNativeReplyReversesNewestFirstAndReadsTheGenerationOneModel() = runTest(timeout = 5.seconds) {
-        val abi = FakeAbi().apply { completionBody = page(tombstone(12), call(11), message("one", 10, """"text":"approved"""")) }
+        val abi = FakeAbi().apply { completionBody = page(tombstone(12_000), call(11_000), message("one", 10_000, """"text":"approved"""")) }
         val client = open(abi, "/test/mixed")
         try {
             val repo = DefaultMessageHistoryRepository(SdkRepositoryTransport { client })
@@ -41,9 +41,12 @@ class MessageHistoryDataTest {
         val abi = FakeAbi().apply {
             completionBody = page(message("m", 10, """"text":"approved","is_own":true,"revision":4"""))
             onSubmitted = { frame ->
-                completionBody = when (frame["method"]?.jsonPrimitive?.content) {
-                    "conversation.delete" -> delivery("local")
-                    "conversation.send" -> if (partial) partialDelivery() else delivery("submitted")
+                val method = frame["method"]?.jsonPrimitive?.content
+                val operation = frame["operation_id"]?.jsonPrimitive?.content
+                completionBody = when {
+                    method == "conversation.delete" -> delivery("local")
+                    method == "conversation.send" && operation == "op-fail" -> delivery("failed")
+                    method == "conversation.send" && partial -> partialDelivery()
                     else -> delivery("submitted")
                 }
             }
@@ -60,10 +63,17 @@ class MessageHistoryDataTest {
             assertEquals("hello", send["body"]?.jsonObject?.get("text")?.jsonPrimitive?.content)
             val before = sends(abi)
             val again = repo.send("a", "c", "hello", "op-2") as ClientResult.Ready
-            assertEquals(before, sends(abi))
-            assertEquals(sent.value.messageId, again.value.messageId)
-            assertTrue(repo.send("a", "c", "next", "op-3") is ClientResult.Ready)
             assertEquals(before + 1, sends(abi))
+            assertEquals("op-2", abi.submitted.last()["operation_id"]?.jsonPrimitive?.content)
+            assertEquals("m", again.value.messageId)
+            val cached = repo.send("a", "c", "hello", "op-1") as ClientResult.Ready
+            assertEquals(before + 1, sends(abi))
+            assertEquals(sent.value.messageId, cached.value.messageId)
+            val mismatched = repo.send("a", "c", "other", "op-1") as ClientResult.Failed
+            assertEquals(1, mismatched.problem.code)
+            assertEquals(before + 1, sends(abi))
+            assertTrue(repo.send("a", "c", "next", "op-3") is ClientResult.Ready)
+            assertEquals(before + 2, sends(abi))
             val edited = repo.edit("a", "c", "m", "next-text", 4, "edit-1")
             assertTrue(edited is ClientResult.Ready)
             val edit = abi.submitted.last()
@@ -75,13 +85,31 @@ class MessageHistoryDataTest {
             assertNull(react?.get("remove"))
             assertTrue(repo.delete("a", "c", "m", MessageDeleteScope.EVERYONE, "delete-1") is ClientResult.Ready)
             assertEquals("everyone", abi.submitted.last()["body"]?.jsonObject?.get("scope")?.jsonPrimitive?.content)
+            val repliesBefore = replies(abi)
+            assertTrue(repo.reply("a", "c", "m", "same", "reply-1") is ClientResult.Ready)
+            assertTrue(repo.reply("a", "c", "m", "same", "reply-2") is ClientResult.Ready)
+            assertEquals(repliesBefore + 2, replies(abi))
+            assertTrue(repo.reply("a", "c", "m", "same", "reply-1") is ClientResult.Ready)
+            assertEquals(repliesBefore + 2, replies(abi))
+            assertEquals("reply-2", abi.submitted.last {
+                it["method"]?.jsonPrimitive?.content == "conversation.reply"
+            }["operation_id"]?.jsonPrimitive?.content)
+            val failed = repo.send("a", "c", "nope", "op-fail") as ClientResult.Failed
+            assertEquals(ClientOutcome.NONE, failed.problem.outcome)
+            val failedSends = sends(abi)
+            assertTrue(repo.send("a", "c", "nope", "op-fail") is ClientResult.Failed)
+            assertEquals(failedSends, sends(abi))
             partial = true
             val unknown = repo.send("a", "c", "split", "op-4") as ClientResult.Failed
             assertEquals(ClientOutcome.UNKNOWN, unknown.problem.outcome)
             val retried = sends(abi)
-            repo.send("a", "c", "split", "op-5")
+            val retry = repo.send("a", "c", "split", "op-4") as ClientResult.Failed
+            assertEquals(ClientOutcome.UNKNOWN, retry.problem.outcome)
             assertEquals(retried + 1, sends(abi))
             assertEquals("op-4", abi.submitted.last()["operation_id"]?.jsonPrimitive?.content)
+            assertTrue(repo.send("a", "c", "split", "op-5") is ClientResult.Failed)
+            assertEquals(retried + 2, sends(abi))
+            assertEquals("op-5", abi.submitted.last()["operation_id"]?.jsonPrimitive?.content)
         } finally { client.close() }
     }
 
@@ -130,6 +158,8 @@ class MessageHistoryDataTest {
         (CoreClient.open(abi, root, "a".repeat(64)) as CoreResult.Success).value
 
     private fun sends(abi: FakeAbi) = abi.submitted.count { it["method"]?.jsonPrimitive?.content == "conversation.send" }
+
+    private fun replies(abi: FakeAbi) = abi.submitted.count { it["method"]?.jsonPrimitive?.content == "conversation.reply" }
 
     private fun page(vararg rows: String) = Json.parseToJsonElement(
         """{"schema":"ramflux.message.read_model.v1","conversation_id":"c","messages":[${rows.joinToString(",")}]}""",

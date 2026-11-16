@@ -38,6 +38,11 @@ data class CallHistoryEntry(
 ) : TimelineMetadata {
     override fun toString() = "CallHistoryEntry(<redacted>)"
 }
+/** One peer typing indicator. `active` is false when the protobuf flag is omitted or the deadline has passed. */
+data class PeerTyping(val conversationId: String, val active: Boolean, val expiresAtMs: Long) {
+    override fun toString() = "PeerTyping(<redacted>)"
+}
+
 data class MessageDelivery(
     val conversationId: String,
     val messageId: String,
@@ -100,12 +105,15 @@ object MessageHistoryMetadataReader {
         reply.close()
     }
 
-    /** Null when the frame is not a typing indicator. Never fails the subscription. */
-    fun peerTyping(reply: SecretReply): Boolean? = try {
+    /** Null when the frame is not a typing indicator for one conversation. Never fails the subscription. */
+    fun peerTyping(reply: SecretReply, nowMs: Long): PeerTyping? = try {
         reply.useOnce { raw ->
             val fields = DisplayFields(raw)
             val typing = findTyping(fields, fields.root, 0) ?: return@useOnce null
-            fields.optionalBoolean(typing, "active")
+            val conversation = conversationOf(fields) ?: return@useOnce null
+            val expiresAtMs = expiresMillis(fields, typing)
+            val active = fields.optionalBoolean(typing, "active") == true && expiresAtMs > nowMs
+            PeerTyping(conversation, active, expiresAtMs)
         }
     } catch (_: Exception) {
         null
@@ -122,7 +130,7 @@ object MessageHistoryMetadataReader {
     ): TimelineMetadata {
         val id = requireNotNull(fields.text(row, "id", true))
         val own = fields.optionalBoolean(row, "is_own") == true
-        val createdAt = displaySeconds(fields.optionalUnsigned(row, "hlc_ms"))
+        val createdAt = displaySeconds(fields, row)
         val erasure = fields.field(row, "erasure")?.takeIf { it.kind == 123 }
         val state = fields.text(row, "state")
         if (state == "tombstone" || erasure != null) return deleted(id, conversation, own, createdAt)
@@ -267,11 +275,32 @@ object MessageHistoryMetadataReader {
         return null
     }
 
-    private fun displaySeconds(raw: Long?): Long? {
-        raw ?: return null
-        if (raw < 0 || raw > MAX_MS) return null
-        val seconds = if (raw > 10_000_000_000L) raw / 1000 else raw
-        return seconds.takeIf { it in 0..MAX_SECONDS }
+    /** `hlc_ms` is milliseconds. A present value that is not a millisecond integer fails the page. */
+    private fun displaySeconds(fields: DisplayFields, row: ByteJson.Node): Long? {
+        val value = fields.field(row, "hlc_ms") ?: return null
+        if (value.kind == 110) return null
+        if (value.kind !in 48..57) throw IllegalArgumentException("hlc_ms")
+        val raw = fields.optionalUnsigned(row, "hlc_ms") ?: throw IllegalArgumentException("hlc_ms")
+        if (raw < 0 || raw > MAX_MS) throw IllegalArgumentException("hlc_ms")
+        val seconds = raw / 1000
+        if (seconds !in 0..MAX_SECONDS) throw IllegalArgumentException("hlc_ms")
+        return seconds
+    }
+
+    private fun conversationOf(fields: DisplayFields): String? {
+        val identity = fields.field(fields.root, "identity")?.takeIf { it.kind == 123 }
+        val raw = identity?.let { fields.text(it, "conversationId") }
+            ?: fields.text(fields.root, "conversationId")
+            ?: fields.text(fields.root, "conversation_id")
+        return raw?.takeIf { it.isNotEmpty() && it.toByteArray(Charsets.UTF_8).size <= 256 }
+    }
+
+    private fun expiresMillis(fields: DisplayFields, typing: ByteJson.Node): Long {
+        val seconds = fields.optionalUnsigned(typing, "expiresAt")
+            ?: fields.optionalUnsigned(typing, "expires_at")
+            ?: return 0L
+        if (seconds <= 0 || seconds > MAX_SECONDS) return 0L
+        return seconds * 1000
     }
 
     internal fun normalize(value: String) = value.replace('+', '-').replace('/', '_').replace("=", "")

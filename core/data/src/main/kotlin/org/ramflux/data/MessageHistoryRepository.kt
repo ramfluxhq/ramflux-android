@@ -39,7 +39,14 @@ data class ConversationHeader(val title: String?, val groupId: String? = null) {
 data class SendReceipt(val messageId: String) {
     override fun toString() = "SendReceipt(<redacted>)"
 }
-data class ChatSignal(val refresh: Boolean, val peerTyping: Boolean? = null, val resubscribe: Boolean = false)
+data class PeerTyping(val conversationId: String, val active: Boolean, val expiresAtMs: Long) {
+    override fun toString() = "PeerTyping(<redacted>)"
+}
+data class ChatSignal(
+    val refresh: Boolean,
+    val peerTyping: PeerTyping? = null,
+    val resubscribe: Boolean = false,
+)
 enum class MessageDeleteScope { LOCAL, EVERYONE }
 
 /** One grapheme the conversation.react intent accepts. The UI label stays in resources. */

@@ -8,9 +8,9 @@ import org.junit.Test
 class MessageHistoryMetadataTest {
     @Test fun publishedMixedTimelinePreservesOrderAndConvertsDisplayTime() {
         val raw = page(
-            message("one", 10, """"text":"approved","author":{"device_id":"peer"}"""),
-            call(11),
-            tombstone(12),
+            message("one", 10_000, """"text":"approved","author":{"device_id":"peer"}"""),
+            call(11_000),
+            tombstone(12_000),
         )
         val rows = read(raw)
         assertEquals(listOf("one", "call", "deleted"), rows.map { it.id })
@@ -106,11 +106,43 @@ class MessageHistoryMetadataTest {
         val delivery = (decoded as CoreResult.Success).value
         assertTrue(delivery.partial)
         assertTrue(partial.all { it == 0.toByte() })
-        val frame = """{"send":{"content":{"typing":{"active":true}}}}""".toByteArray()
-        assertEquals(true, MessageHistoryMetadataReader.peerTyping(SecretReply(SecretBytes.take(frame))))
+        val now = 1_700_000_000_000L
+        val frame = typing("c", active = true, expiresAt = "1700000005").toByteArray()
+        val shown = MessageHistoryMetadataReader.peerTyping(SecretReply(SecretBytes.take(frame)), now)
+        assertEquals("c", shown?.conversationId)
+        assertEquals(true, shown?.active)
+        assertEquals(1_700_000_005_000L, shown?.expiresAtMs)
         assertTrue(frame.all { it == 0.toByte() })
+        val stopped = typing("c", active = null, expiresAt = "1700000005").toByteArray()
+        val omitted = MessageHistoryMetadataReader.peerTyping(SecretReply(SecretBytes.take(stopped)), now)
+        assertEquals(false, omitted?.active)
+        val expired = MessageHistoryMetadataReader.peerTyping(
+            SecretReply(SecretBytes.take(typing("c", active = true, expiresAt = "1699999999").toByteArray())),
+            now,
+        )
+        assertEquals(false, expired?.active)
+        val elsewhere = MessageHistoryMetadataReader.peerTyping(
+            SecretReply(SecretBytes.take(typing("other", active = true, expiresAt = "1700000005").toByteArray())),
+            now,
+        )
+        assertEquals("other", elsewhere?.conversationId)
+        val bare = """{"send":{"content":{"typing":{"active":true}}}}""".toByteArray()
+        assertNull(MessageHistoryMetadataReader.peerTyping(SecretReply(SecretBytes.take(bare)), now))
         val other = """{"kind":"message"}""".toByteArray()
-        assertNull(MessageHistoryMetadataReader.peerTyping(SecretReply(SecretBytes.take(other))))
+        assertNull(MessageHistoryMetadataReader.peerTyping(SecretReply(SecretBytes.take(other)), now))
+    }
+
+    @Test fun earlyEpochMillisStayMillisecondsAndAQuotedTimestampFailsClosed() {
+        val early = page(message("one", 1000, """"text":"approved","author":{"device_id":"peer"}"""))
+        assertEquals(1L, read(early).single().createdAt)
+        val quoted = (
+            """{"schema":"ramflux.message.read_model.v1","conversation_id":"c","messages":[""" +
+                """{"id":"one","conversation_id":"c","kind":"message","state":"content","hlc_ms":"1000","text":"x"}]}"""
+            ).toByteArray()
+        assertTrue(MessageHistoryMetadataReader.read(SecretReply(SecretBytes.take(quoted))) is CoreResult.Failure)
+        assertTrue(quoted.all { it == 0.toByte() })
+        val huge = page(message("one", 253_402_300_799_001, """"text":"approved""""))
+        assertTrue(MessageHistoryMetadataReader.read(SecretReply(SecretBytes.take(huge))) is CoreResult.Failure)
     }
 
     private fun read(raw: ByteArray) =
@@ -127,4 +159,11 @@ class MessageHistoryMetadataTest {
     private fun tombstone(hlc: Long) =
         """{"id":"deleted","conversation_id":"c","kind":"message","state":"tombstone","is_own":true,""" +
             """"hlc_ms":$hlc,"text":"must-hide","author":{"device_id":"must-hide"}}"""
+
+    private fun typing(conversation: String, active: Boolean?, expiresAt: String?): String {
+        val fields = ArrayList<String>()
+        if (active != null) fields.add("\"active\":$active")
+        if (expiresAt != null) fields.add("\"expiresAt\":\"$expiresAt\"")
+        return """{"identity":{"conversationId":"$conversation"},"content":{"typing":{${fields.joinToString(",")}}}}"""
+    }
 }

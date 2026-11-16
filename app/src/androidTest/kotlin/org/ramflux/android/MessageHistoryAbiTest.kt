@@ -33,12 +33,27 @@ class MessageHistoryAbiTest {
                 val client = (opened as CoreResult.Success).value
                 try {
                     val repo = DefaultMessageHistoryRepository(client)
-                    val read = repo.read("account", "conversation")
-                    val sent = repo.send("account", "conversation", "ping", "op-1")
-                    assertTrue(read is ClientResult.Failed)
-                    assertTrue(sent is ClientResult.Failed)
-                    assertFalse(read is ClientResult.Unavailable)
-                    assertFalse(sent is ClientResult.Unavailable)
+                    val results = listOf(
+                        repo.read("account", "conversation"),
+                        repo.send("account", "conversation", "ping", "op-send"),
+                        repo.reply("account", "conversation", "message", "ping", "op-reply"),
+                        repo.edit("account", "conversation", "message", "ping", 0, "op-edit"),
+                        repo.react("account", "conversation", "message", "+", false, "op-react"),
+                        repo.delete("account", "conversation", "message", org.ramflux.data.MessageDeleteScope.LOCAL, "op-me"),
+                        repo.delete(
+                            "account",
+                            "conversation",
+                            "message",
+                            org.ramflux.data.MessageDeleteScope.EVERYONE,
+                            "op-all"
+                        )
+                    )
+                    for (result in results) {
+                        val failed = result as? ClientResult.Failed
+                        assertNotNull(failed)
+                        assertEquals(1, failed?.problem?.code)
+                        assertEquals(org.ramflux.data.ClientFailureKind.FAILED, failed?.problem?.kind)
+                    }
                 } finally {
                     client.close()
                 }

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.chat
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.ramflux.data.*
 class FakeChatHistory : MessageHistoryRepository {
@@ -43,6 +44,12 @@ class FakeChatHistory : MessageHistoryRepository {
         editedRevision = expectedRevision
         return ClientResult.Ready(Unit)
     }
+    private val signals = MutableSharedFlow<ClientResult<ChatSignal>>(extraBufferCapacity = 4)
+    override fun updates(account: String) = signals
+    fun signal(value: ChatSignal) {
+        signals.tryEmit(ClientResult.Ready(value))
+    }
+    fun peer(conversation: String, active: Boolean, expiresAtMs: Long) = PeerTyping(conversation, active, expiresAtMs)
 }
 class FakeChatAccounts : AccountAccessRepository {
     var active = "a"

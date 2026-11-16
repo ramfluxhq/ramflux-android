@@ -26,8 +26,8 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
     constructor(client: org.ramflux.sdk.CoreClient) : this(SdkRepositoryTransport { client })
     private val source = DefaultConversationsRepository(transport)
     private val groups = DefaultGroupDirectoryRepository(transport)
-    private val sends = HashMap<String, Attempt<SendReceipt>>()
-    private val mutations = HashMap<String, Attempt<Unit>>()
+    private val sends = linkedMapOf<String, Attempt<SendReceipt>>()
+    private val mutations = linkedMapOf<String, Attempt<Unit>>()
 
     override suspend fun groupHeader(account: String, group: String, conversation: String): ClientResult<ConversationHeader> {
         if (!identity(account) || !identity(group) || !identity(conversation)) return invalid()
@@ -197,8 +197,11 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
         source.updates(filter).collect { update ->
             when (update) {
                 is CoreUpdate.Events -> {
-                    val typing = MessageHistoryMetadataReader.peerTyping(update.body)
-                    emit(ClientResult.Ready(ChatSignal(refresh = true, peerTyping = typing)))
+                    val typing = MessageHistoryMetadataReader.peerTyping(update.body, System.currentTimeMillis())
+                    emit(ClientResult.Ready(ChatSignal(
+                        refresh = true,
+                        peerTyping = typing?.let { PeerTyping(it.conversationId, it.active, it.expiresAtMs) },
+                    )))
                 }
                 is CoreUpdate.Failure -> emit(ClientResult.Failed(update.error.appProblem()))
                 is CoreUpdate.Terminal -> {
@@ -293,49 +296,46 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
         store: MutableMap<String, Attempt<T>>,
         call: suspend (String) -> ClientResult<T>,
     ): ClientResult<T> {
-        val existing = synchronized(store) { store[scope] }
+        val key = scope + "\u0000" + operationId
+        val existing = synchronized(store) { store[key] }
         if (existing != null) {
-            if (existing.fingerprint != fingerprint) {
-                val stored = existing.result
-                val blocking = stored == null ||
-                    (stored is ClientResult.Failed && stored.problem.outcome == ClientOutcome.UNKNOWN)
-                if (blocking) return unknown()
-                synchronized(store) { if (store[scope] === existing) store.remove(scope) }
-            } else {
-                val stored = existing.result
-                if (stored == null) return unknown()
-                if (stored is ClientResult.Ready) return stored
-                if (stored is ClientResult.Failed && stored.problem.outcome == ClientOutcome.UNKNOWN) {
-                    val again = call(existing.operationId)
-                    if (again !is ClientResult.Failed || again.problem.outcome != ClientOutcome.UNKNOWN) {
-                        synchronized(store) { existing.result = again }
-                    }
-                    return again
+            if (existing.fingerprint != fingerprint) return invalid()
+            val stored = existing.result
+            if (stored == null) return unknown()
+            if (stored is ClientResult.Ready) return stored
+            if (stored is ClientResult.Failed && stored.problem.outcome == ClientOutcome.UNKNOWN) {
+                val again = call(existing.operationId)
+                if (again !is ClientResult.Failed || again.problem.outcome != ClientOutcome.UNKNOWN) {
+                    synchronized(store) { existing.result = again }
                 }
-                synchronized(store) { if (store[scope] === existing) store.remove(scope) }
-                return stored
+                return again
             }
+            return stored
         }
         val attempt = Attempt<T>(operationId, fingerprint, null)
         synchronized(store) {
-            if (store.containsKey(scope)) return unknown()
-            store[scope] = attempt
+            if (store.containsKey(key)) return unknown()
+            store[key] = attempt
+            prune(store)
         }
         return try {
             val result = call(operationId)
-            synchronized(store) {
-                if (result is ClientResult.Ready ||
-                    (result is ClientResult.Failed && result.problem.outcome == ClientOutcome.UNKNOWN)
-                ) {
-                    attempt.result = result
-                } else if (store[scope] === attempt) {
-                    store.remove(scope)
-                }
-            }
+            synchronized(store) { attempt.result = result }
             result
         } catch (cancelled: CancellationException) {
-            synchronized(store) { if (store[scope] === attempt) store.remove(scope) }
+            synchronized(store) { if (store[key] === attempt) store.remove(key) }
             throw cancelled
+        }
+    }
+
+    private fun <T> prune(store: MutableMap<String, Attempt<T>>) {
+        while (store.size > 64) {
+            val drop = store.entries.firstOrNull { entry ->
+                val result = entry.value.result
+                result is ClientResult.Ready ||
+                    (result is ClientResult.Failed && result.problem.outcome != ClientOutcome.UNKNOWN)
+            }?.key ?: return
+            store.remove(drop)
         }
     }
 

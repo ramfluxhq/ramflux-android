@@ -297,4 +297,43 @@ class ChatViewModelTest {
         assertEquals(4L, history.editedRevision)
         assertEquals("", vm.state.value.draft)
     }
+
+    @Test fun incomingRefreshDoesNotRequireTypingAndOtherConversationsStayQuiet() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertEquals(1, history.reads)
+        assertFalse(vm.state.value.peerTyping)
+        history.signal(ChatSignal(refresh = true))
+        runCurrent()
+        assertEquals(2, history.reads)
+        assertFalse(vm.state.value.peerTyping)
+        val until = System.currentTimeMillis() + 60_000
+        history.signal(ChatSignal(refresh = false, peerTyping = history.peer("other", true, until)))
+        runCurrent()
+        assertFalse(vm.state.value.peerTyping)
+        history.signal(ChatSignal(refresh = false, peerTyping = history.peer("c", true, until)))
+        runCurrent()
+        assertTrue(vm.state.value.peerTyping)
+        history.signal(ChatSignal(refresh = false, peerTyping = history.peer("c", false, until)))
+        runCurrent()
+        assertFalse(vm.state.value.peerTyping)
+    }
+
+    @Test fun lostTypingStopClearsWhenTheIndicatorDeadlinePasses() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        val until = System.currentTimeMillis() + 60_000
+        history.signal(ChatSignal(refresh = false, peerTyping = history.peer("c", true, until)))
+        runCurrent()
+        assertTrue(vm.state.value.peerTyping)
+        advanceTimeBy(60_000)
+        runCurrent()
+        assertFalse(vm.state.value.peerTyping)
+    }
 }
