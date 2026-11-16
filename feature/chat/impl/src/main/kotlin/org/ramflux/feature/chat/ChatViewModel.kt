@@ -39,6 +39,7 @@ class ChatViewModel @Inject constructor(
     private var typingActive = false
     private var needsRefresh = false
     private var ticket = 0L
+    private var pendingSend: PendingSend? = null
     private val lifecycle = viewModelScope.launch {
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect { (phase, _) ->
             request?.cancel()
@@ -47,6 +48,7 @@ class ChatViewModel @Inject constructor(
             clearPeerTypingClock()
             stopTyping()
             ticket++
+            pendingSend = null
             local.value = ChatState()
             val openTarget = target
             if (phase == ClientPhase.OPEN && openTarget != null) {
@@ -66,6 +68,7 @@ class ChatViewModel @Inject constructor(
                     clearPeerTypingClock()
                     stopTyping()
                     ticket++
+                    pendingSend = null
                     target = next
                     local.value = ChatState(conversationId = next.conversation)
                     ensureWatch(next)
@@ -89,6 +92,7 @@ class ChatViewModel @Inject constructor(
                 clearPeerTypingClock()
                 stopTyping()
                 ticket++
+                pendingSend = null
                 local.value = ChatState()
                 target = null
                 viewModelScope.launch { channel.send(ChatEvent.Back) }
@@ -255,7 +259,11 @@ class ChatViewModel @Inject constructor(
         val messageId = local.value.actionTarget
         val revision = local.value.expectedRevision
         if (mode != ComposerMode.SEND && messageId == null) return
-        val operation = UUID.randomUUID().toString()
+        val operation = if (mode == ComposerMode.SEND) {
+            sendOperation(currentTarget.account, currentTarget.conversation, text)
+        } else {
+            UUID.randomUUID().toString()
+        }
         val expected = ++ticket
         val generation = session.status.value.generation
         local.update { it.copy(sending = true, problem = null) }
@@ -310,9 +318,24 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
+    private fun sendOperation(account: String, conversation: String, text: String): String {
+        val fingerprint = buildString {
+            append(account)
+            append('\u0000')
+            append(conversation)
+            append('\u0000')
+            append(text)
+        }
+        val pending = pendingSend
+        if (pending != null && pending.fingerprint == fingerprint) return pending.operation
+        val created = UUID.randomUUID().toString()
+        pendingSend = PendingSend(created, fingerprint)
+        return created
+    }
     private suspend fun applySend(result: ClientResult<SendReceipt>) {
         when (result) {
             is ClientResult.Ready -> {
+                pendingSend = null
                 local.update {
                     it.copy(
                         draft = "",
@@ -325,11 +348,15 @@ class ChatViewModel @Inject constructor(
                 channel.send(ChatEvent.Sent)
                 needsRefresh = true
             }
-            is ClientResult.Unavailable -> local.update {
-                it.copy(unavailable = uiText(R.string.ui_sending_unavailable_draft_kept))
+            is ClientResult.Unavailable -> {
+                pendingSend = null
+                local.update { it.copy(unavailable = uiText(R.string.ui_sending_unavailable_draft_kept)) }
             }
-            is ClientResult.Failed -> local.update {
-                it.copy(problem = sendFailure(result.problem), deliveryNotice = failedNotice(result.problem))
+            is ClientResult.Failed -> {
+                if (result.problem.outcome != ClientOutcome.UNKNOWN) pendingSend = null
+                local.update {
+                    it.copy(problem = sendFailure(result.problem), deliveryNotice = failedNotice(result.problem))
+                }
             }
         }
     }
@@ -466,6 +493,8 @@ class ChatViewModel @Inject constructor(
         }
     }
 }
+
+private data class PendingSend(val operation: String, val fingerprint: String)
 
 private fun receiptLabel(receipts: List<MessageReceipt>): UiText? {
     val state = receipts.maxByOrNull { rank(it.state) }?.state ?: return null

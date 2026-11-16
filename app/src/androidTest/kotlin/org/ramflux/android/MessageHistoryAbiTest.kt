@@ -18,7 +18,10 @@ import org.ramflux.sdk.CoreResult
 import org.ramflux.sdk.JniCore
 import org.ramflux.sdk.vault.HostCustodyBridge
 
-/** Repository calls reach the packaged C ABI. A fresh root has no conversation to send on. */
+/**
+ * Repository calls reach the packaged C ABI and fail closed on an empty root.
+ * A positive send needs the vault create ceremony plus a node conversation, which this process cannot open.
+ */
 @RunWith(AndroidJUnit4::class)
 class MessageHistoryAbiTest {
     @Test fun freshRootReadAndSendFailInTheSdkInsteadOfStayingUnavailable(): Unit = runBlocking {

@@ -287,12 +287,12 @@ object MessageHistoryMetadataReader {
         return seconds
     }
 
+    /** The bus event carries the update in `body`. Identity is not a root field of that frame. */
     private fun conversationOf(fields: DisplayFields): String? {
-        val identity = fields.field(fields.root, "identity")?.takeIf { it.kind == 123 }
-        val raw = identity?.let { fields.text(it, "conversationId") }
-            ?: fields.text(fields.root, "conversationId")
-            ?: fields.text(fields.root, "conversation_id")
-        return raw?.takeIf { it.isNotEmpty() && it.toByteArray(Charsets.UTF_8).size <= 256 }
+        val body = fields.field(fields.root, "body")?.takeIf { it.kind == 123 } ?: return null
+        val identity = fields.field(body, "identity")?.takeIf { it.kind == 123 } ?: return null
+        val raw = fields.text(identity, "conversationId") ?: return null
+        return raw.takeIf { it.isNotEmpty() && it.toByteArray(Charsets.UTF_8).size <= 256 }
     }
 
     private fun expiresMillis(fields: DisplayFields, typing: ByteJson.Node): Long {

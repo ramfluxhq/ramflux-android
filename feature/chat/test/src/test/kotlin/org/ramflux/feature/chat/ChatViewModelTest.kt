@@ -281,6 +281,36 @@ class ChatViewModelTest {
         assertEquals(1, history.sends)
     }
 
+    @Test fun unknownSendRetriesTheSameOperationAndALaterEqualTextIsNew() = runTest(timeout = 5.seconds) {
+        val unknown = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.UNKNOWN))
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            sendResult = unknown
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Draft("same"))
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        val first = history.sentOperations.single()
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        assertEquals(listOf(first, first), history.sentOperations)
+        assertEquals("same", vm.state.value.draft)
+        history.sendResult = ClientResult.Ready(SendReceipt("sent"))
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        assertEquals(listOf(first, first, first), history.sentOperations)
+        assertEquals("", vm.state.value.draft)
+        vm.onAction(ChatAction.Draft("same"))
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        assertEquals(4, history.sentOperations.size)
+        assertNotEquals(first, history.sentOperations.last())
+    }
+
     @Test fun editPassesTheObservedRevision() = runTest(timeout = 5.seconds) {
         val history = FakeChatHistory().apply {
             capability = ClientResult.Ready(Unit)

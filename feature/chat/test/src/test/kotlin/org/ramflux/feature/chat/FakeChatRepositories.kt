@@ -22,10 +22,12 @@ class FakeChatHistory : MessageHistoryRepository {
     override suspend fun sendAvailability(): ClientResult<Unit> = capability
     var sendResult: ClientResult<SendReceipt>? = null
     var sentOperation: String? = null
+    val sentOperations = mutableListOf<String>()
     var editedRevision: Long? = null
     override suspend fun send(account: String, conversation: String, text: String, operationId: String): ClientResult<SendReceipt> {
         sends++
         sentOperation = operationId
+        sentOperations.add(operationId)
         sendResult?.let { return it }
         return when (val availability = sendAvailability()) {
             is ClientResult.Ready -> ClientResult.Ready(SendReceipt("sent"))

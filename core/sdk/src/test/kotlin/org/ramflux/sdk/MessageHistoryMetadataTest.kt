@@ -106,30 +106,28 @@ class MessageHistoryMetadataTest {
         val delivery = (decoded as CoreResult.Success).value
         assertTrue(delivery.partial)
         assertTrue(partial.all { it == 0.toByte() })
+    }
+
+    @Test fun transientEventUsesBodyConversationAndFiltersAccountGeneration() {
         val now = 1_700_000_000_000L
-        val frame = typing("c", active = true, expiresAt = "1700000005").toByteArray()
-        val shown = MessageHistoryMetadataReader.peerTyping(SecretReply(SecretBytes.take(frame)), now)
+        val shown = typingOf("acct", 7u, "c", active = true, expiresAt = "1700000005", now)
         assertEquals("c", shown?.conversationId)
         assertEquals(true, shown?.active)
         assertEquals(1_700_000_005_000L, shown?.expiresAtMs)
-        assertTrue(frame.all { it == 0.toByte() })
-        val stopped = typing("c", active = null, expiresAt = "1700000005").toByteArray()
-        val omitted = MessageHistoryMetadataReader.peerTyping(SecretReply(SecretBytes.take(stopped)), now)
-        assertEquals(false, omitted?.active)
-        val expired = MessageHistoryMetadataReader.peerTyping(
-            SecretReply(SecretBytes.take(typing("c", active = true, expiresAt = "1699999999").toByteArray())),
-            now,
-        )
-        assertEquals(false, expired?.active)
-        val elsewhere = MessageHistoryMetadataReader.peerTyping(
-            SecretReply(SecretBytes.take(typing("other", active = true, expiresAt = "1700000005").toByteArray())),
-            now,
-        )
-        assertEquals("other", elsewhere?.conversationId)
-        val bare = """{"send":{"content":{"typing":{"active":true}}}}""".toByteArray()
+        assertNull(filtered("acct", 7u, "other", 7u))
+        assertNull(filtered("acct", 7u, "acct", 8u))
+        assertEquals(false, typingOf("acct", 7u, "c", active = null, expiresAt = "1700000005", now)?.active)
+        assertEquals(false, typingOf("acct", 7u, "c", active = true, expiresAt = "1699999999", now)?.active)
+        assertEquals("other", typingOf("acct", 7u, "other", active = true, expiresAt = "1700000005", now)?.conversationId)
+        val guessed = event("acct", "7", update("c", true, "1700000005"), "guess")
+        val accepted = ReplyCodec.decodeEvent(NativeReply(0, guessed), "acct", 7u) as CoreResult.Success
+        val secret = checkNotNull(accepted.value)
+        assertEquals("c", MessageHistoryMetadataReader.peerTyping(secret, now)?.conversationId)
+        val bare = update("c", true, "1700000005").toByteArray()
         assertNull(MessageHistoryMetadataReader.peerTyping(SecretReply(SecretBytes.take(bare)), now))
-        val other = """{"kind":"message"}""".toByteArray()
-        assertNull(MessageHistoryMetadataReader.peerTyping(SecretReply(SecretBytes.take(other)), now))
+        val message = event("acct", "7", """{"identity":{"conversationId":"c"},"content":{"message":{"text":"hi"}}}""")
+        val delivered = ReplyCodec.decodeEvent(NativeReply(0, message), "acct", 7u) as CoreResult.Success
+        assertNull(MessageHistoryMetadataReader.peerTyping(checkNotNull(delivered.value), now))
     }
 
     @Test fun earlyEpochMillisStayMillisecondsAndAQuotedTimestampFailsClosed() {
@@ -160,10 +158,45 @@ class MessageHistoryMetadataTest {
         """{"id":"deleted","conversation_id":"c","kind":"message","state":"tombstone","is_own":true,""" +
             """"hlc_ms":$hlc,"text":"must-hide","author":{"device_id":"must-hide"}}"""
 
-    private fun typing(conversation: String, active: Boolean?, expiresAt: String?): String {
+    private fun typingOf(
+        account: String,
+        generation: ULong,
+        conversation: String,
+        active: Boolean?,
+        expiresAt: String?,
+        now: Long,
+    ): PeerTyping? {
+        val decoded = ReplyCodec.decodeEvent(
+            NativeReply(0, event(account, generation.toString(), update(conversation, active, expiresAt))),
+            account,
+            generation
+        )
+        val secret = (decoded as CoreResult.Success).value
+        return MessageHistoryMetadataReader.peerTyping(checkNotNull(secret), now)
+    }
+
+    private fun filtered(account: String, generation: ULong, caller: String, callerGeneration: ULong): SecretReply? {
+        val decoded = ReplyCodec.decodeEvent(
+            NativeReply(0, event(account, generation.toString(), update("c", true, "1700000005"))),
+            caller,
+            callerGeneration
+        )
+        return (decoded as CoreResult.Success).value
+    }
+
+    private fun update(conversation: String, active: Boolean?, expiresAt: String?): String {
         val fields = ArrayList<String>()
         if (active != null) fields.add("\"active\":$active")
         if (expiresAt != null) fields.add("\"expiresAt\":\"$expiresAt\"")
         return """{"identity":{"conversationId":"$conversation"},"content":{"typing":{${fields.joinToString(",")}}}}"""
+    }
+
+    private fun event(account: String, generation: String, body: String, rootConversation: String? = null): ByteArray {
+        val extra = if (rootConversation == null) "" else ""","conversationId":"$rootConversation""""
+        return (
+            """{"bus_protocol":"ramflux.local_bus.v1","frame_id":"transient","kind":"event","request_id":"",""" +
+                """"account_id":"$account","sdk_api":"message","method":"message.transient","body":$body$extra,""" +
+                """"subscription_generation":"$generation"}"""
+            ).toByteArray()
     }
 }
