@@ -45,4 +45,29 @@ class ConversationDirectoryDataTest {
         assertTrue(repo.page("account", null) is ClientResult.Failed)
         client.close(); assertTrue(repo.page("account", null) is ClientResult.Failed)
     }
+    @Test fun emptyDirectTwinCollapsesAndALoneDirectOrGroupStays() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi().apply { completionBody = buildJsonObject {
+            put("conversations", buildJsonArray {
+                add(directoryRow("empty", null, null, listOf("peer", "self")))
+                add(directoryRow("live", "direct", 1700000000, listOf("self", "peer")))
+                add(directoryRow("alone", "direct", null, listOf("self", "other")))
+                add(directoryRow("room", "group", null, listOf("self", "peer")))
+            })
+            put("next_cursor", JsonNull)
+        } }
+        val client = (CoreClient.open(abi, "/test/directory-collapse", "a".repeat(64)) as CoreResult.Success).value
+        try {
+            val repo = DefaultConversationDirectoryRepository(SdkRepositoryTransport { client })
+            val page = (repo.page("account", null) as ClientResult.Ready).value
+            assertEquals(listOf("live", "alone", "room"), page.rows.map { it.id })
+            assertEquals(1700000000L, page.rows.first().lastActivity)
+        } finally { client.close() }
+    }
+    private fun directoryRow(id: String, kind: String?, activity: Long?, people: List<String>) = buildJsonObject {
+        put("id", id); put("title", id); put("unread_count", 0); put("is_unread", false)
+        put("archived", false); put("hidden", false)
+        put("last_activity", activity?.let { JsonPrimitive(it) } ?: JsonNull)
+        put("kind", kind?.let { JsonPrimitive(it) } ?: JsonNull)
+        put("participants", buildJsonArray { people.forEach { add(JsonPrimitive(it)) } })
+    }
 }

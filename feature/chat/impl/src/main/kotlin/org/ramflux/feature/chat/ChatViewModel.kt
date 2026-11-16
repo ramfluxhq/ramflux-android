@@ -37,6 +37,7 @@ class ChatViewModel @Inject constructor(
     private var typingJob: Job? = null
     private var typingExpiry: Job? = null
     private var typingActive = false
+    private var typingRefused = false
     private var needsRefresh = false
     private var ticket = 0L
     private var pendingSend: PendingSend? = null
@@ -47,6 +48,7 @@ class ChatViewModel @Inject constructor(
             watchTarget = null
             clearPeerTypingClock()
             stopTyping()
+            typingRefused = false
             ticket++
             pendingSend = null
             local.value = ChatState()
@@ -67,6 +69,7 @@ class ChatViewModel @Inject constructor(
                     watchTarget = null
                     clearPeerTypingClock()
                     stopTyping()
+                    typingRefused = false
                     ticket++
                     pendingSend = null
                     target = next
@@ -156,9 +159,17 @@ class ChatViewModel @Inject constructor(
                 return false
             }
         }
-        val valid = value.activeId == expectedTarget.account &&
-            value.accounts.any { it.id == expectedTarget.account && it.unlocked }
-        if (!valid) local.value = ChatState(problem = uiText(R.string.ui_the_active_account_changed_return_to_conversations))
+        val selected = value.accounts.find { it.id == expectedTarget.account }
+        val valid = value.activeId == expectedTarget.account && selected?.unlocked == true
+        if (!valid) {
+            val onlyLockedAccount = selected != null && !selected.unlocked && value.activeId == null
+            val notice = if (onlyLockedAccount) {
+                R.string.ui_private_data_is_closed
+            } else {
+                R.string.ui_the_active_account_changed_return_to_conversations
+            }
+            local.value = ChatState(problem = uiText(notice))
+        }
         return valid
     }
     private fun read() {
@@ -439,12 +450,16 @@ class ChatViewModel @Inject constructor(
 
     private fun syncTyping(active: Boolean) {
         val current = target ?: return
-        if (typingActive == active) return
+        if (typingRefused || typingActive == active) return
         typingActive = active
         typingJob?.cancel()
         typingJob = viewModelScope.launch {
             val result = history.setTyping(current.account, current.conversation, active)
             if (target != current || session.status.value.phase != ClientPhase.OPEN) return@launch
+            if (result !is ClientResult.Ready) {
+                typingRefused = true
+                typingActive = false
+            }
             local.update { it.copy(typingProblem = typingNotice(result)) }
         }
     }
@@ -454,7 +469,7 @@ class ChatViewModel @Inject constructor(
         typingActive = false
         typingJob?.cancel()
         typingJob = null
-        if (wasActive && current != null) {
+        if (wasActive && current != null && !typingRefused) {
             val account = current.account
             val conversation = current.conversation
             viewModelScope.launch { history.setTyping(account, conversation, false) }
@@ -541,8 +556,7 @@ private fun failedNotice(problem: ClientProblem): UiText? =
 
 private fun typingNotice(result: ClientResult<Unit>): UiText? = when (result) {
     is ClientResult.Ready -> null
-    is ClientResult.Unavailable -> uiText(R.string.ui_typing_unavailable)
-    is ClientResult.Failed -> actionFailure(result.problem)
+    is ClientResult.Unavailable, is ClientResult.Failed -> uiText(R.string.ui_typing_unavailable)
 }
 
 private fun coded(problem: ClientProblem, codeOnly: Int, withStatus: Int): UiText {

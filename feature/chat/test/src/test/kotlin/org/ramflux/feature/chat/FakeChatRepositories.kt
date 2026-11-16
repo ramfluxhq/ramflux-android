@@ -52,12 +52,24 @@ class FakeChatHistory : MessageHistoryRepository {
         signals.tryEmit(ClientResult.Ready(value))
     }
     fun peer(conversation: String, active: Boolean, expiresAtMs: Long) = PeerTyping(conversation, active, expiresAtMs)
+    var typingCalls = 0
+    var typingResult: ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)
+    override suspend fun setTyping(account: String, conversation: String, active: Boolean): ClientResult<Unit> {
+        typingCalls++
+        return typingResult
+    }
 }
 class FakeChatAccounts : AccountAccessRepository {
     var active = "a"
+    var unlocked = true
+    var followActive = true
+    var reportedActive: String? = null
     var failure: ClientResult<AccountCatalog>? = null
     override suspend fun list(): ClientResult<AccountCatalog> = failure ?: ClientResult.Ready(
-        AccountCatalog(listOf(AccountSummary(active, "Work", true, "unlocked")), active)
+        AccountCatalog(
+            listOf(AccountSummary(active, "Work", unlocked, if (unlocked) "unlocked" else "locked")),
+            if (followActive) active else reportedActive
+        )
     )
     override suspend fun select(id: String): ClientResult<Unit> {
         active = id

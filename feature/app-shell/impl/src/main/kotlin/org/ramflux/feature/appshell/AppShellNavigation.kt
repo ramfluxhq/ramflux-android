@@ -24,6 +24,8 @@ fun AppShellNavigation(
     vm: AppShellViewModel = hiltViewModel(),
     routeForFeature: (String) -> NavKey = { FeatureRoute(it) },
     home: (@Composable (navigate: (NavKey) -> Unit) -> Unit)? = null,
+    shellReady: Boolean = true,
+    isAccountRoute: (NavKey) -> Boolean = { false },
     featureEntries: EntryProviderScope<NavKey>.(onBack: () -> Unit, navigate: (NavKey) -> Unit) -> Unit = { _, _ -> }
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -51,6 +53,11 @@ fun AppShellNavigation(
                 is AppShellEvent.Navigate -> stack.add(currentRoute(event.featureId))
             }
         }
+    }
+    LaunchedEffect(shellReady) {
+        if (shellReady) return@LaunchedEffect
+        val kept = routesWhileLocked(stack.toList(), false, isAccountRoute)
+        stack.toList().filterNot { it in kept }.forEach { stack.remove(it) }
     }
     RamfluxTheme(dark, themeId = state.namedTheme) {
         NavDisplay(

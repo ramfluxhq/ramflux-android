@@ -25,4 +25,13 @@ class ConversationDirectoryMetadataTest {
         assertEquals(0uL, row.unread); assertTrue(row.isUnread); assertEquals(-1L, row.lastActivity)
         assertTrue(raw.all { it == 0.toByte() })
     }
+
+    @Test fun kindAndParticipantsAreKeptAndRoutingSecretsStayOut() {
+        val raw = """{"conversations":[{"id":"c","unread_count":0,"is_unread":false,"archived":false,"hidden":false,"kind":"direct","participants":["self","peer"],"direct_route":{"key":"do-not-copy"}}],"next_cursor":null}""".toByteArray()
+        val row = (ConversationDirectoryMetadataReader.read(SecretReply(SecretBytes.take(raw))) as CoreResult.Success).value.rows.single()
+        assertEquals("direct", row.kind)
+        assertEquals(listOf("self", "peer"), row.participants)
+        assertFalse(row.toString().contains("do-not-copy"))
+        assertTrue(raw.all { it == 0.toByte() })
+    }
 }

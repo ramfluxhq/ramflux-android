@@ -366,4 +366,53 @@ class ChatViewModelTest {
         runCurrent()
         assertFalse(vm.state.value.peerTyping)
     }
+
+    @Test fun refusedTypingUsesCatalogCopyAndDoesNotRepeat() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            typingResult = ClientResult.Failed(
+                ClientProblem(ClientFailureKind.AUTHORIZATION, 12, ClientOutcome.REFUSED)
+            )
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Draft("hello"))
+        runCurrent()
+        assertEquals(uiText(R.string.ui_typing_unavailable), vm.state.value.typingProblem)
+        assertEquals(1, history.typingCalls)
+        vm.onAction(ChatAction.Draft("hello again"))
+        runCurrent()
+        assertEquals(1, history.typingCalls)
+    }
+
+    @Test fun oneLockedAccountClosesPrivateDataInsteadOfSayingTheAccountChanged() = runTest(timeout = 5.seconds) {
+        val accounts = FakeChatAccounts().apply {
+            unlocked = false
+            followActive = false
+        }
+        val history = FakeChatHistory()
+        val vm = ChatViewModel(history, accounts, FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertEquals(uiText(R.string.ui_private_data_is_closed), vm.state.value.problem)
+        assertNotEquals(
+            uiText(R.string.ui_the_active_account_changed_return_to_conversations),
+            vm.state.value.problem
+        )
+        assertEquals(0, history.reads)
+    }
+
+    @Test fun aDifferentUnlockedAccountStillSaysTheAccountChanged() = runTest(timeout = 5.seconds) {
+        val accounts = FakeChatAccounts().apply { active = "other" }
+        val vm = ChatViewModel(FakeChatHistory(), accounts, FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertEquals(
+            uiText(R.string.ui_the_active_account_changed_return_to_conversations),
+            vm.state.value.problem
+        )
+    }
 }

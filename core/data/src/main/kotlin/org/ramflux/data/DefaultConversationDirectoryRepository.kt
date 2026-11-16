@@ -16,9 +16,12 @@ internal class DefaultConversationDirectoryRepository(transport: RepositoryTrans
             is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
             is CoreResult.Success -> when (val decoded = ConversationDirectoryMetadataReader.read(result.value)) {
                 is CoreResult.Failure -> ClientResult.Failed(decoded.error.appProblem())
-                is CoreResult.Success -> ClientResult.Ready(ConversationPage(decoded.value.rows.filterNot { it.hidden }.map {
-                    ConversationSummary(it.id, it.title ?: it.id, it.unread, it.archived, it.isUnread, it.lastActivity)
-                }, decoded.value.nextCursor))
+                is CoreResult.Success -> {
+                    val visible = collapseDirectPeers(decoded.value.rows.filterNot { it.hidden })
+                    ClientResult.Ready(ConversationPage(visible.map {
+                        ConversationSummary(it.id, it.title ?: it.id, it.unread, it.archived, it.isUnread, it.lastActivity)
+                    }, decoded.value.nextCursor))
+                }
             }
         }
     }

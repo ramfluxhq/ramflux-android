@@ -10,11 +10,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import org.ramflux.android.shell.OpenSourceNotices
 import org.ramflux.android.shell.StartupHost
+import org.ramflux.android.shell.StartupModel
+import org.ramflux.android.shell.StartupPlace
 import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
 import org.ramflux.feature.agents.AgentsNavigation
@@ -55,7 +58,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             val locale by language.language.collectAsStateWithLifecycle()
             AppLanguageProvider(locale.value.tag) {
+                val startup: StartupModel = hiltViewModel()
+                val startupUi by startup.ui.collectAsStateWithLifecycle()
                 AppShellNavigation(
+                    shellReady = startupUi.place == StartupPlace.SHELL,
+                    isAccountRoute = { it is ChatRoute },
                     routeForFeature = {
                         when (it) {
                             "onboarding" -> OnboardingRoute()
