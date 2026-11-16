@@ -45,6 +45,7 @@ interface ConversationsRepository {
     suspend fun objectPutChunk(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun objectPutFinish(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun objectPutStatus(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
+    suspend fun objectRevoke(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun objectShare(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun objectTransferResume(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun objectTransferStatus(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
@@ -156,6 +157,9 @@ class DefaultConversationsRepository(transport: RepositoryTransport) : SdkReposi
 
     override suspend fun objectPutStatus(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("object.put.status", "object", context, SecretBody.publicJson("object.put.status", body))
+
+    override suspend fun objectRevoke(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("object.revoke", "object", context, body)
 
     override suspend fun objectShare(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("object.share", "object", context, body)

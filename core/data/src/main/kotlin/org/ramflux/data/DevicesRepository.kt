@@ -10,7 +10,6 @@ import org.ramflux.sdk.SecretBody
 import org.ramflux.sdk.SecretReply
 
 interface DevicesRepository {
-    suspend fun activate(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun authorize(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun list(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun migrate(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -24,7 +23,6 @@ interface DevicesRepository {
     suspend fun refresh(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun revoke(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun syncExport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
-    suspend fun syncImport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun transferAffirm(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun transferBegin(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun transferCancel(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -36,9 +34,6 @@ interface DevicesRepository {
 }
 
 class DefaultDevicesRepository(transport: RepositoryTransport) : SdkRepository(transport), DevicesRepository {
-    override suspend fun activate(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
-        executeSecret("device.activate", "device", context, body)
-
     override suspend fun authorize(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("device.authorize", "device", context, body)
 
@@ -77,9 +72,6 @@ class DefaultDevicesRepository(transport: RepositoryTransport) : SdkRepository(t
 
     override suspend fun syncExport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("device.sync.export", "device", context, body)
-
-    override suspend fun syncImport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
-        executeSecret("device.sync.import", "device", context, body)
 
     override suspend fun transferAffirm(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("device.transfer.affirm", "device", context, body)
