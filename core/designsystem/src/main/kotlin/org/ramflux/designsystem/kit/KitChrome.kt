@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import kotlin.math.max
 import org.ramflux.designsystem.LocalRFTheme
 
 data class KitHeaderAction(val icon: String, val label: String = icon, val onClick: () -> Unit)
@@ -274,6 +275,46 @@ internal fun IconHit(
             constraints.copy(minWidth = hitPx, maxWidth = hitPx, minHeight = hitPx, maxHeight = hitPx)
         )
         layout(slotPx, slotPx) { placeable.place((slotPx - hitPx) / 2, (slotPx - hitPx) / 2) }
+    }
+}
+
+/** Reports the drawn slot and places a hit target at least 48 dp on each side. */
+@Composable
+internal fun HitOverlap(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    slotWidth: Float? = null,
+    slotHeight: Float? = null,
+    enabled: Boolean = true,
+    label: String? = null,
+    tag: String? = null,
+    content: @Composable () -> Unit
+) {
+    val hit = dp(RfMetrics.hit)
+    val width = slotWidth?.let { dp(it) }
+    val height = slotHeight?.let { dp(it) }
+    Layout(modifier = modifier, content = {
+        Box(
+            Modifier
+                .semantics {
+                    if (label != null) contentDescription = label
+                }
+                .clickableNoRipple(enabled, onClick)
+                .kitTag(tag),
+            contentAlignment = Alignment.Center
+        ) {
+            content()
+        }
+    }) { measurables, constraints ->
+        val hitPx = hit.roundToPx()
+        val slotW = width?.roundToPx() ?: constraints.maxWidth
+        val slotH = height?.roundToPx() ?: constraints.maxHeight
+        val hitW = max(slotW, hitPx)
+        val hitH = max(slotH, hitPx)
+        val placeable = measurables[0].measure(
+            constraints.copy(minWidth = hitW, maxWidth = hitW, minHeight = hitH, maxHeight = hitH)
+        )
+        layout(slotW, slotH) { placeable.place((slotW - hitW) / 2, (slotH - hitH) / 2) }
     }
 }
 

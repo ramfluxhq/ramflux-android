@@ -135,23 +135,39 @@ fun KitReactionBar(
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.reactionGap))
     ) {
         reactions.forEachIndexed { index, reaction ->
+            HitOverlap(
+                { onReaction(index) },
+                slotWidth = RfMetrics.reactionCell,
+                slotHeight = RfMetrics.reaction,
+                label = reaction,
+                tag = if (tag == null) null else tag + "-" + index.toString()
+            ) {
+                Box(
+                    Modifier
+                        .size(dp(RfMetrics.reactionCell), dp(RfMetrics.reaction))
+                        .kitTag(if (tag == null) null else tag + "-cell-" + index.toString()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(reaction, style = kitStyle(theme.size_page, FontWeight.Normal, theme.text, RfMetrics.lineTitle))
+                }
+            }
+        }
+        HitOverlap(
+            onMore,
+            slotWidth = RfMetrics.reactionCell,
+            slotHeight = RfMetrics.reaction,
+            label = "plus",
+            tag = if (tag == null) null else tag + "-more"
+        ) {
             Box(
                 Modifier
                     .size(dp(RfMetrics.reactionCell), dp(RfMetrics.reaction))
-                    .clickableNoRipple(true, { onReaction(index) }),
+                    .background(theme.surface, shapeOf(theme.radius_xs))
+                    .kitTag(if (tag == null) null else tag + "-more-cell"),
                 contentAlignment = Alignment.Center
             ) {
-                Text(reaction, style = kitStyle(theme.size_page, FontWeight.Normal, theme.text, RfMetrics.lineTitle))
+                KitIcon("plus", RfMetrics.moreIcon, theme.text)
             }
-        }
-        Box(
-            Modifier.size(
-                dp(RfMetrics.reactionCell),
-                dp(RfMetrics.reaction)
-            ).background(theme.surface, shapeOf(theme.radius_xs)).clickableNoRipple(true, onMore),
-            contentAlignment = Alignment.Center
-        ) {
-            KitIcon("plus", RfMetrics.moreIcon, theme.text)
         }
     }
 }

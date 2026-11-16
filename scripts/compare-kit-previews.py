@@ -5,10 +5,12 @@
 
 Usage: compare-kit-previews.py <previews-dir> <captures-dir> <output-dir>
 
-Design exports are twice the design size. The checklist measures the master
-frame from kit-masters.json when the export canvas is not that frame, and
-the untrimmed preview frame otherwise. It does not measure trimmed ink.
-A capture edge more than 2 design pixels from the master is OVER.
+Design exports are twice the design size. Transparent preview pixels are
+composited onto rf-bg (light #FCFBF9, dark #171716) before the pair and the
+diff. The checklist measures the master frame from kit-masters.json when the
+export canvas is not that frame, and the untrimmed preview frame otherwise.
+It does not measure trimmed ink. A capture edge more than 2 design pixels
+from the master is OVER.
 """
 
 import json
@@ -19,6 +21,8 @@ from pathlib import Path
 
 SCALE = 2
 LIMIT = 2.0
+LIGHT_BG = (0xFC, 0xFB, 0xF9)
+DARK_BG = (0x17, 0x17, 0x16)
 SKIP_PREFIXES = ("chart--", "radio--", "origin-display--")
 STATE_SUFFIXES = ("--pressed", "--focused", "--loading", "--en", "--zh")
 ROOT = Path(__file__).resolve().parent.parent
@@ -102,14 +106,30 @@ def write_png(path, width, height, rgb_rows):
     path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", compressed) + chunk(b"IEND", b""))
 
 
-def scale_half(width, height, channels, rows):
+def board_bg(name):
+    return DARK_BG if "--dark" in name else LIGHT_BG
+
+
+def over_bg(red, green, blue, alpha, bg):
+    if alpha >= 255:
+        return red, green, blue
+    scale = alpha / 255.0
+    return (
+        int(round(red * scale + bg[0] * (1.0 - scale))),
+        int(round(green * scale + bg[1] * (1.0 - scale))),
+        int(round(blue * scale + bg[2] * (1.0 - scale))),
+    )
+
+
+def scale_half(width, height, channels, rows, bg):
     out_w = width // SCALE
     out_h = height // SCALE
     scaled = []
     for y in range(out_h):
         row = bytearray()
         for x in range(out_w):
-            red, green, blue, _alpha = pixel(rows, channels, x * SCALE, y * SCALE)
+            red, green, blue, alpha = pixel(rows, channels, x * SCALE, y * SCALE)
+            red, green, blue = over_bg(red, green, blue, alpha, bg)
             row.extend((red, green, blue))
         scaled.append(row)
     return out_w, out_h, scaled
@@ -179,10 +199,11 @@ def main():
         preview_path, borrowed = preview_for(previews, name)
         preview_label = "none"
         scaled = None
+        bg = board_bg(name)
         if preview_path is not None:
             preview_w, preview_h, channels, rows = read_png(preview_path)
             preview_label = f"{preview_w / SCALE:g}x{preview_h / SCALE:g}"
-            scaled = scale_half(preview_w, preview_h, channels, rows)
+            scaled = scale_half(preview_w, preview_h, channels, rows, bg)
         master = lookup_master(name)
         note = ""
         if master is not None:
@@ -217,8 +238,8 @@ def main():
             f"{name}\t{capture_w}x{capture_h}\t{master_w:g}x{master_h:g}\t{preview_label}\t{dw_text}\t{delta_h:.1f}\t{flag}\t{note}"
         )
         if scaled is not None:
-            write_pair(output / f"{name}--pair.png", capture_w, capture_h, capture_channels, capture_rows, scaled)
-            write_diff(output / f"{name}--diff.png", capture_w, capture_h, capture_channels, capture_rows, scaled)
+            write_pair(output / f"{name}--pair.png", capture_w, capture_h, capture_channels, capture_rows, scaled, bg)
+            write_diff(output / f"{name}--diff.png", capture_w, capture_h, capture_channels, capture_rows, scaled, bg)
     lines.append("")
     lines.append("notes")
     lines.append("Pushed page titles are 17/600. The page-header spec title token is 20. The ruling overrides that spec.")
@@ -233,34 +254,36 @@ def main():
     return 1 if over else 0
 
 
-def capture_rgb(width, height, channels, rows):
+def capture_rgb(width, height, channels, rows, bg):
     rgb = []
     for y in range(height):
         row = bytearray()
         for x in range(width):
-            red, green, blue, _alpha = pixel(rows, channels, x, y)
+            red, green, blue, alpha = pixel(rows, channels, x, y)
+            red, green, blue = over_bg(red, green, blue, alpha, bg)
             row.extend((red, green, blue))
         rgb.append(row)
     return rgb
 
 
-def write_pair(path, capture_w, capture_h, channels, rows, scaled):
+def write_pair(path, capture_w, capture_h, channels, rows, scaled, bg):
     preview_w, preview_h, preview_rows = scaled
     gap = 8
     width = capture_w + gap + preview_w
     height = max(capture_h, preview_h)
-    canvas = blank(width, height, (255, 255, 255))
-    blit(canvas, capture_rgb(capture_w, capture_h, channels, rows), 0, 0)
+    canvas = blank(width, height, bg)
+    blit(canvas, capture_rgb(capture_w, capture_h, channels, rows, bg), 0, 0)
     blit(canvas, preview_rows, capture_w + gap, 0)
     write_png(path, width, height, canvas)
 
 
-def write_diff(path, capture_w, capture_h, channels, rows, scaled):
+def write_diff(path, capture_w, capture_h, channels, rows, scaled, bg):
     preview_w, preview_h, preview_rows = scaled
-    canvas = blank(capture_w, capture_h, (230, 230, 230))
+    canvas = blank(capture_w, capture_h, bg)
     for y in range(capture_h):
         for x in range(capture_w):
-            red, green, blue, _alpha = pixel(rows, channels, x, y)
+            red, green, blue, alpha = pixel(rows, channels, x, y)
+            red, green, blue = over_bg(red, green, blue, alpha, bg)
             if y < preview_h and x < preview_w:
                 other = preview_rows[y][x * 3 : x * 3 + 3]
                 delta = max(abs(red - other[0]), abs(green - other[1]), abs(blue - other[2]))

@@ -169,15 +169,24 @@ fun KitComposer(
                         }
                     }
                 )
-                Box(
-                    Modifier
-                        .size(dp(RfMetrics.send))
-                        .clip(shapeOf(theme.radius_xl))
-                        .background(if (sendActive) theme.accent else androidx.compose.ui.graphics.Color.Transparent)
-                        .clickableNoRipple(sendActive, onSend),
-                    contentAlignment = Alignment.Center
+                HitOverlap(
+                    onSend,
+                    slotWidth = RfMetrics.send,
+                    slotHeight = RfMetrics.send,
+                    enabled = sendActive,
+                    label = "send",
+                    tag = if (tag == null) null else tag + "-send"
                 ) {
-                    KitIcon("arrow-up", RfMetrics.sendIcon, if (sendActive) theme.on_accent else theme.control)
+                    Box(
+                        Modifier
+                            .size(dp(RfMetrics.send))
+                            .clip(shapeOf(theme.radius_xl))
+                            .background(if (sendActive) theme.accent else androidx.compose.ui.graphics.Color.Transparent)
+                            .kitTag(if (tag == null) null else tag + "-send-icon"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        KitIcon("arrow-up", RfMetrics.sendIcon, if (sendActive) theme.on_accent else theme.control)
+                    }
                 }
             }
         }

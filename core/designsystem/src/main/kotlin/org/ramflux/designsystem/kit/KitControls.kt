@@ -114,23 +114,30 @@ fun KitSegmented(
     ) {
         labels.forEachIndexed { index, label ->
             val on = index == selected
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .then(if (on) Modifier.background(theme.surface_white, shapeOf(theme.radius_sm)) else Modifier)
-                    .clickableNoRipple(enabled, { onSelect(index) }),
-                contentAlignment = Alignment.Center
+            HitOverlap(
+                { onSelect(index) },
+                Modifier.weight(1f).fillMaxHeight(),
+                enabled = enabled,
+                label = label,
+                tag = if (tag == null) null else tag + "-" + index.toString()
             ) {
-                Text(
-                    label,
-                    style = kitStyle(
-                        theme.size_secondary,
-                        if (on) FontWeight.SemiBold else FontWeight.Normal,
-                        if (on) theme.text else theme.secondary,
-                        RfMetrics.lineSecondary
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(dp(RfMetrics.segmented - RfMetrics.segmentedPad * 2))
+                        .then(if (on) Modifier.background(theme.surface_white, shapeOf(theme.radius_sm)) else Modifier),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        label,
+                        style = kitStyle(
+                            theme.size_secondary,
+                            if (on) FontWeight.SemiBold else FontWeight.Normal,
+                            if (on) theme.text else theme.secondary,
+                            RfMetrics.lineSecondary
+                        )
                     )
-                )
+                }
             }
         }
     }
