@@ -10,3 +10,8 @@ ramfluxhq/ramflux repository.
 The native build statically links OpenSSL 3.6.3 for the SDK's SQLCipher backend.
 OpenSSL is licensed under Apache-2.0; its license is included in the SDK AAR.
 The reused Keystore helper retains its BSD-3-Clause SPDX header.
+
+Bundled UI fonts, both under the SIL Open Font License 1.1:
+- Hanken Grotesk, Copyright 2021 The Hanken Grotesk Project Authors. See third_party/hanken-grotesk/OFL.txt.
+- JetBrains Mono, Copyright 2020 The JetBrains Mono Project Authors. See third_party/jetbrains-mono/OFL.txt.
+Chinese text uses the platform Noto Sans CJK font and is not bundled.
