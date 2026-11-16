@@ -79,8 +79,9 @@ jobs:
     runs-on: ubuntu-latest
     # 60 minutes is enough wall clock. The 11d31e4 failure was not this limit:
     # rustc of ramflux-sdk was SIGKILL'd about 14 minutes in (signal 9), and the
-    # runner then shut the step down with exit 143. Hosted runners have no swap,
-    # and ffi-release codegen-units=1 holds that crate in one LLVM module.
+    # runner then shut the step down with exit 143. Some hosted images now
+    # already swap on /swapfile; the swap step must not fallocate that live file.
+    # ffi-release codegen-units=1 holds that crate in one LLVM module.
     timeout-minutes: 60
     env:
       # Two jobs compile neighbors during thin LTO and raise the peak. Stay at one.
@@ -138,19 +139,34 @@ jobs:
         run: |
           free -h
           df -h /
+          # Some hosted images already swap on /swapfile (3GB here). fallocate of
+          # that live file returns "Text file busy" and the step exits before link.
+          # Keep the existing file. Add the rest of an 8GB cap on a separate path.
+          existing_kb=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
+          target_kb=$((8 * 1024 * 1024))
+          need_kb=$((target_kb - existing_kb))
+          if (( need_kb < 512 * 1024 )); then
+            echo "swap already ${existing_kb}KB"
+            exit 0
+          fi
           avail_kb=$(df -Pk / | awk 'NR==2 {print $4}')
           reserve_kb=$((4 * 1024 * 1024))
-          cap_kb=$((8 * 1024 * 1024))
           swap_kb=$((avail_kb - reserve_kb))
-          if (( swap_kb > cap_kb )); then swap_kb=$cap_kb; fi
-          if (( swap_kb < 2 * 1024 * 1024 )); then
-            echo "Only ${avail_kb}KB free after reserving 4GB; refusing to add swap"
+          if (( swap_kb > need_kb )); then swap_kb=$need_kb; fi
+          if (( swap_kb < 512 * 1024 )); then
+            if (( existing_kb >= 2 * 1024 * 1024 )); then
+              echo "keeping existing swap ${existing_kb}KB; no room for more"
+              exit 0
+            fi
+            echo "Only ${avail_kb}KB free after reserving 4GB and no usable swap"
             exit 1
           fi
-          sudo fallocate -l "${swap_kb}K" /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          swapfile=/mnt/ramflux-swap
+          sudo rm -f "$swapfile"
+          sudo fallocate -l "${swap_kb}K" "$swapfile"
+          sudo chmod 600 "$swapfile"
+          sudo mkswap "$swapfile"
+          sudo swapon "$swapfile"
           free -h
       - name: Link the shipping native library alone
         env:
