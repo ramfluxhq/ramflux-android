@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (c) 2026 Span Brain
+"""Compare hand-written RFTokens with the mobile kit token file."""
+import json
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+TOKENS = ROOT / "core/designsystem/mobile-kit-tokens.json"
+SOURCE = ROOT / "core/designsystem/src/main/kotlin/org/ramflux/generated/RFTokens.kt"
+THEMES = ROOT / "core/designsystem/src/main/assets/ramflux/themes"
+
+
+def argb(value):
+    raw = value.removeprefix("#")
+    if len(raw) == 6:
+        return int(raw, 16) | 0xFF000000
+    if len(raw) == 8:
+        return int(raw[6:8] + raw[0:6], 16)
+    raise ValueError(f"bad color {value}")
+
+
+def theme_block(text, name):
+    match = re.search(rf"val {name} = RFTheme\((.*?)\)\n", text, re.S)
+    if not match:
+        raise SystemExit(f"missing RFDesign.{name}")
+    return match.group(1)
+
+
+def field_map(block):
+    found = {}
+    for match in re.finditer(r"(\w+)\s*=\s*(Color\(0x([0-9A-Fa-f]+)\)|(-?\d+(?:\.\d+)?)f|\"([^\"]*)\")", block):
+        name = match.group(1)
+        if match.group(3):
+            found[name] = int(match.group(3), 16)
+        elif match.group(4):
+            found[name] = float(match.group(4))
+        else:
+            found[name] = match.group(5)
+    return found
+
+
+def component_hex(node):
+    parts = node["components"]
+    alpha = node.get("alpha", 1)
+    channels = [int(round(float(part) * 255)) for part in parts]
+    alpha_byte = int(round(float(alpha) * 255))
+    return (alpha_byte << 24) | (channels[0] << 16) | (channels[1] << 8) | channels[2]
+
+
+def main():
+    token_path = Path(sys.argv[1]) if len(sys.argv) > 1 else TOKENS
+    spec = json.loads(token_path.read_text())
+    if len(sys.argv) > 2:
+        other = json.loads(Path(sys.argv[2]).read_text())
+        if other["color"]["values"] != spec["color"]["values"]:
+            raise SystemExit("vendored color tokens differ from the design token file")
+        if other["typography"]["sizesPx"]["values"] != spec["typography"]["sizesPx"]["values"]:
+            raise SystemExit("vendored type sizes differ from the design token file")
+        if other["radii"]["variables"] != spec["radii"]["variables"]:
+            raise SystemExit("vendored radii differ from the design token file")
+        if other["dimensions"]["variables"] != spec["dimensions"]["variables"]:
+            raise SystemExit("vendored dimensions differ from the design token file")
+        if other["typography"]["families"] != spec["typography"]["families"]:
+            raise SystemExit("vendored font families differ from the design token file")
+    text = SOURCE.read_text()
+    light = field_map(theme_block(text, "light"))
+    dark = field_map(theme_block(text, "dark"))
+    errors = []
+    for key, modes in spec["color"]["values"].items():
+        field = key.removeprefix("rf-").replace("-", "_")
+        for mode, block in (("light", light), ("dark", dark)):
+            expected = argb(modes[mode])
+            actual = block.get(field)
+            if actual != expected:
+                errors.append(f"{mode} {field}: {actual} != {expected:#010x}")
+    numbers = {}
+    numbers.update({key.removeprefix("rf-").replace("-", "_"): float(value) for key, value in spec["typography"]["sizesPx"]["values"].items()})
+    numbers.update({key.removeprefix("rf-").replace("-", "_"): float(value) for key, value in spec["radii"]["variables"].items()})
+    numbers.update({key.removeprefix("rf-").replace("-", "_"): float(value) for key, value in spec["dimensions"]["variables"].items()})
+    for field, expected in numbers.items():
+        if light.get(field) != expected or dark.get(field) != expected:
+            errors.append(f"{field}: light {light.get(field)} dark {dark.get(field)} != {expected}")
+    families = {
+        "font": spec["typography"]["families"]["rf-font"],
+        "font_latin": spec["typography"]["families"]["rf-font-latin"],
+        "font_serif": spec["typography"]["families"]["rf-font-serif"],
+        "font_mono": spec["typography"]["families"]["rf-font-mono"],
+    }
+    for field, expected in families.items():
+        if light.get(field) != expected or dark.get(field) != expected:
+            errors.append(f"{field}: {light.get(field)}/{dark.get(field)} != {expected}")
+    for name in ("light", "dark"):
+        theme = json.loads((THEMES / f"{name}.json").read_text())["tokens"]
+        block = light if name == "light" else dark
+        for field, value in block.items():
+            token = theme.get(field.replace("_", "-"))
+            if token is None:
+                errors.append(f"theme {name} missing {field}")
+                continue
+            kind = token["$type"]
+            if kind == "color":
+                actual = component_hex(token["$value"])
+                if actual != value:
+                    errors.append(f"theme {name} {field}: {actual:#010x} != {value:#010x}")
+            elif kind == "dimension":
+                actual = float(token["$value"]["value"])
+                if actual != value:
+                    errors.append(f"theme {name} {field}: {actual} != {value}")
+            elif kind == "fontFamily":
+                if token["$value"] != value:
+                    errors.append(f"theme {name} {field}: {token['$value']} != {value}")
+            else:
+                errors.append(f"theme {name} {field}: unsupported {kind}")
+    if errors:
+        raise SystemExit("TOKEN_MISMATCH\n" + "\n".join(errors))
+    print(f"TOKENS_OK {len(spec['color']['values'])} colors")
+
+
+if __name__ == "__main__":
+    main()
