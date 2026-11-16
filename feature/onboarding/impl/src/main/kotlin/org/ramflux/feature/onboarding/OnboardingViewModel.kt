@@ -368,9 +368,8 @@ class OnboardingViewModel @Inject constructor(
                         is ClientResult.Failed -> {
                             val code = result.problem.code
                             val name = result.problem.statusName ?: "none"
-                            val check = result.problem.check ?: "none"
                             val outcome = result.problem.outcome
-                            logConfirm("confirm.failed.$code.$name.$check.$outcome")
+                            logConfirm("confirm.failed.$code.$name.$outcome")
                             record(result)
                         }
                         is ClientResult.Unavailable -> {

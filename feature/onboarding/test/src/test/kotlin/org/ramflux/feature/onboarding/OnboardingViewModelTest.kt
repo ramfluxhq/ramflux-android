@@ -175,7 +175,8 @@ class OnboardingViewModelTest {
         val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
-        assertEquals(listOf("confirm.failed.5.CustodyConfirmationFailed.word_8.NONE"), traced)
+        assertEquals(listOf("confirm.failed.5.CustodyConfirmationFailed.NONE"), traced)
+        assertTrue(traced.none { it.contains("word_") || it.contains("passphrase_") })
         val message = vm.state.value.notice?.message as UiText.Resource
         assertEquals(R.string.ui_the_request_did_not_complete_code_value_name_check, message.id)
         assertTrue(message.args.any { it is UiText.Data && it.value == "word_8" })
@@ -620,7 +621,7 @@ class OnboardingViewModelTest {
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
         assertEquals(1, ceremony.confirmations)
-        assertEquals(listOf("confirm.failed.9.none.none.UNKNOWN"), traced)
+        assertEquals(listOf("confirm.failed.9.none.UNKNOWN"), traced)
         assertEquals(OnboardingNoticeKind.UNKNOWN_OUTCOME, vm.state.value.notice?.kind)
         val message = vm.state.value.notice?.message as UiText.Resource
         assertEquals(R.string.ui_the_outcome_is_unknown_refresh_the_current_state, message.id)
