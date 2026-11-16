@@ -12,7 +12,12 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
+import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
+import com.github.takahirom.roborazzi.RoborazziOptions
+import com.github.takahirom.roborazzi.RoborazziTaskType
+import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -154,6 +159,121 @@ class KitLayoutTest {
         compose.onNodeWithTag("switch", useUnmergedTree = true).assertWidthIsEqualTo(51.dp).assertHeightIsEqualTo(31.dp)
         compose.onNodeWithTag("disabled", useUnmergedTree = true).assertIsNotEnabled()
         compose.onNodeWithTag("row", useUnmergedTree = true).assertIsNotEnabled()
+    }
+
+    @Test fun nestedHitsStayFortyEightInsideTheMasterFrame() {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column {
+                    KitSearchField("x", {}, "\u641c\u7d22", tag = "search")
+                    KitSegmented(listOf("A", "B"), 0, {}, tag = "segments")
+                    KitComposer("x", {}, "\u6d88\u606f", {}, {}, sendActive = true, tag = "composer")
+                    KitReactionBar(listOf("\uD83D\uDC4D"), {}, {}, tag = "reactions")
+                }
+            }
+        }
+        compose.onNodeWithTag("search").assertHeightIsEqualTo(36.dp)
+        compose.onNodeWithTag("search-clear", useUnmergedTree = true).assertHeightIsEqualTo(48.dp)
+        compose.onNodeWithTag("search-clear-icon", useUnmergedTree = true).assertHeightIsEqualTo(17.dp)
+        compose.onNodeWithTag("segments").assertHeightIsEqualTo(36.dp)
+        compose.onNodeWithTag("segments-0", useUnmergedTree = true).assertHeightIsEqualTo(48.dp)
+        compose.onNodeWithTag("composer").assertHeightIsEqualTo(60.dp)
+        compose.onNodeWithTag("composer-send", useUnmergedTree = true).assertHeightIsEqualTo(48.dp)
+        compose.onNodeWithTag("composer-send-icon", useUnmergedTree = true).assertHeightIsEqualTo(32.dp)
+        compose.onNodeWithTag("reactions").assertHeightIsEqualTo(44.dp)
+        compose.onNodeWithTag("reactions-0", useUnmergedTree = true).assertHeightIsEqualTo(48.dp)
+        compose.onNodeWithTag("reactions-cell-0", useUnmergedTree = true).assertHeightIsEqualTo(44.dp)
+        compose.onNodeWithTag("reactions-cell-0", useUnmergedTree = true).assertWidthIsEqualTo(40.dp)
+    }
+
+    @Test fun pressedFilledButtonUsesTheRuledAlpha() {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Box(Modifier.width(361.dp)) { KitButton("\u6309\u94ae", {}, tag = "button") }
+            }
+        }
+        compose.onNodeWithTag("button").performTouchInput { down(center) }
+        compose.mainClock.advanceTimeByFrame()
+        val pixel = colorAt("button", 12, 26)
+        val red = android.graphics.Color.red(pixel) / 255f
+        // 0.88 of #222224 over the light surface lands near rgb 60 (0x3C).
+        check(red in 0.18f..0.32f) { "pressed red $red pixel ${Integer.toHexString(pixel)}" }
+    }
+
+    @Test fun focusedPrimaryRingUsesTheDarkFocusToken() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Box(Modifier.width(361.dp)) { KitButton("\u6309\u94ae", {}, focused = true, tag = "button") }
+            }
+        }
+        val image = capture("button")
+        val ring = channel(image, 1, 26)
+        val fill = channel(image, 12, 26)
+        check(ring > 0.7f) { "ring red $ring pixel ${hex(image, 1, 26)}" }
+        check(fill < 0.25f) { "fill red $fill pixel ${hex(image, 12, 26)}" }
+    }
+
+    @Test fun focusedPrimaryRingStaysVisibleInDarkTheme() {
+        compose.setContent {
+            RamfluxTheme(dark = true) {
+                Box(Modifier.width(361.dp)) { KitButton("\u6309\u94ae", {}, focused = true, tag = "button") }
+            }
+        }
+        val image = capture("button")
+        val ring = channel(image, 1, 26)
+        val fill = channel(image, 12, 26)
+        check(ring + 0.04f < fill) { "dark ring $ring fill $fill ringPx ${hex(image, 1, 26)} fillPx ${hex(image, 12, 26)}" }
+    }
+
+    @Test fun pressedRowUsesTheSelectedFill() {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Box(Modifier.width(361.dp)) { KitRow("\u6807\u9898", {}, icon = "user-round", testTag = "row") }
+            }
+        }
+        compose.onNodeWithTag("row").performTouchInput { down(center) }
+        compose.mainClock.advanceTimeByFrame()
+        val pixel = colorAt("row", 180, 4)
+        val red = android.graphics.Color.red(pixel) / 255f
+        check(red in 0.85f..0.95f) { "pressed row red $red pixel ${Integer.toHexString(pixel)}" }
+    }
+
+    @Test fun loadingButtonKeepsItsWidthAndShowsASpinner() {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Box(Modifier.width(361.dp)) { KitButton("\u6309\u94ae", {}, loading = true, tag = "loading") }
+            }
+        }
+        compose.mainClock.advanceTimeByFrame()
+        val width = compose.onNodeWithTag("loading").fetchSemanticsNode().size.width
+        check(width == 361) { "loading width $width" }
+        compose.onNodeWithTag("loading-spinner", useUnmergedTree = true).assertExists()
+    }
+
+    private fun colorAt(tag: String, x: Int, y: Int): Int = capture(tag).getPixel(x, y)
+
+    private fun channel(image: android.graphics.Bitmap, x: Int, y: Int): Float = android.graphics.Color.red(image.getPixel(x, y)) / 255f
+
+    private fun hex(image: android.graphics.Bitmap, x: Int, y: Int): String = Integer.toHexString(image.getPixel(x, y))
+
+    @OptIn(ExperimentalRoborazziApi::class)
+    private fun capture(tag: String): android.graphics.Bitmap {
+        val file = java.io.File.createTempFile("kit-pixel-", ".png")
+        try {
+            compose.onNodeWithTag(tag).captureRoboImage(
+                file,
+                RoborazziOptions(taskType = RoborazziTaskType.Record)
+            )
+            val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+            check(bitmap != null) { "unreadable ${file.absolutePath} bytes=${file.length()}" }
+            return bitmap
+        } finally {
+            file.delete()
+        }
     }
 
     private fun frame(tag: String, width: androidx.compose.ui.unit.Dp, content: @androidx.compose.runtime.Composable () -> Unit) {

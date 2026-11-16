@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.generated.RFDesign
 
 enum class KitButtonKind { Primary, Secondary, Destructive, Disabled, Text }
 
@@ -69,6 +70,7 @@ fun KitButton(
     val filled = kind == KitButtonKind.Primary || kind == KitButtonKind.Destructive
     val pressedAlpha = if (pressed && filled && active) RfMetrics.pressedAlpha else 1f
     val disabledAlpha = if (!enabled && !designedDisabled) RfMetrics.disabledAlpha else 1f
+    val focusColor = if (fill == theme.focus) RFDesign.dark.focus else theme.focus
     val visual: @Composable () -> Unit = {
         Box(
             Modifier
@@ -77,7 +79,7 @@ fun KitButton(
                 .alpha(pressedAlpha * disabledAlpha)
                 .background(fill, shape)
                 .then(if (stroke == null) Modifier else Modifier.border(dp(RfMetrics.stroke), stroke, shape))
-                .then(if (focused) Modifier.border(dp(RfMetrics.focusRing), theme.focus, shape) else Modifier)
+                .then(if (focused) Modifier.border(dp(RfMetrics.focusRing), focusColor, shape) else Modifier)
                 .kitTag(if (height >= RfMetrics.hit) null else tag),
             contentAlignment = Alignment.Center
         ) {
@@ -86,7 +88,7 @@ fun KitButton(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = dp(RfMetrics.buttonPadH))
             ) {
-                if (loading) KitSpinner(RfMetrics.tileGlyph, labelColor)
+                if (loading) KitSpinner(RfMetrics.tileGlyph, labelColor, Modifier.kitTag(tag?.let { "$it-spinner" }))
                 Text(label, style = kitStyle(theme.size_mobile_body, weight, labelColor, RfMetrics.lineTitle))
             }
         }

@@ -132,11 +132,20 @@ fun KitSearchField(
             }
         )
         if (value.isNotEmpty()) {
-            Box(
-                Modifier.size(dp(RfMetrics.searchIcon)).clickableNoRipple(enabled, { onValue("") }),
-                contentAlignment = Alignment.Center
+            HitOverlap(
+                { onValue("") },
+                slotWidth = RfMetrics.searchIcon,
+                slotHeight = RfMetrics.searchIcon,
+                enabled = enabled,
+                label = "clear",
+                tag = if (tag == null) null else tag + "-clear"
             ) {
-                KitIcon("circle-x", RfMetrics.searchIcon, theme.secondary)
+                Box(
+                    Modifier.size(dp(RfMetrics.searchIcon)).kitTag(if (tag == null) null else tag + "-clear-icon"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    KitIcon("circle-x", RfMetrics.searchIcon, theme.secondary)
+                }
             }
         }
     }

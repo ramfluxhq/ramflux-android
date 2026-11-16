@@ -71,7 +71,9 @@ class KitScreenshotTest {
 
     @Test fun homeIndicator() = shot("home-indicator--default") { KitHomeIndicator(tag = "shot") }
 
-    @Test fun pageHeader() = shot("page-header--default", 393.dp) { KitPageHeader("\u6807\u9898", onBack = {}, onInfo = {}, tag = "shot") }
+    @Test fun pageHeader() = shot("page-header--default", 393.dp) {
+        KitPageHeader("\u9875\u9762\u6807\u9898", onBack = {}, onInfo = {}, tag = "shot")
+    }
 
     @Test fun pageHeaderLarge() = shot("page-header--large-title", 393.dp) {
         KitPageHeader(
@@ -115,7 +117,9 @@ class KitScreenshotTest {
         KitTextField("", {}, "\u6807\u7b7e", error = "\u9519\u8bef", tag = "shot")
     }
 
-    @Test fun row() = shot("row--default", 361.dp) { KitRow("\u6807\u7b7e", {}, icon = "user-round", value = "\u503c", testTag = "shot") }
+    @Test fun row() = shot("row--default", 361.dp) {
+        KitRow("\u6807\u9898", {}, icon = "user-round", value = "\u8bf4\u660e", tagLabel = "\u7f51\u9875", testTag = "shot")
+    }
 
     @Test fun rowTag() = shot("row--tag", 361.dp) {
         KitRow("\u6807\u7b7e", {}, icon = "user-round", tagLabel = "\u6807\u7b7e", testTag = "shot")
@@ -286,7 +290,9 @@ class KitScreenshotTest {
             KitConversationRow("\u6807\u9898", "\u9884\u89c8", "9:41", { KitAvatar("A", 52f, KitAvatarKind.Person) }, {}, tag = "shot")
         }
         shot("mono-block--default--dark", 361.dp, dark = true) { KitMonoBlock("abc123", {}, tag = "shot") }
-        shot("page-header--default--dark", 393.dp, dark = true) { KitPageHeader("\u6807\u9898", onBack = {}, onInfo = {}, tag = "shot") }
+        shot("page-header--default--dark", 393.dp, dark = true) {
+            KitPageHeader("\u9875\u9762\u6807\u9898", onBack = {}, onInfo = {}, tag = "shot")
+        }
         shot("page-header--large-title--dark", 393.dp, dark = true) {
             KitPageHeader("\u6d88\u606f", large = true, subtitle = "\u526f\u6807\u9898", tag = "shot")
         }
@@ -299,14 +305,21 @@ class KitScreenshotTest {
             )
         }
         shot("row--default--dark", 361.dp, dark = true) {
-            KitRow("\u6807\u7b7e", {}, icon = "user-round", value = "\u503c", testTag = "shot")
+            KitRow(
+                "\u6807\u9898",
+                {},
+                icon = "user-round",
+                value = "\u8bf4\u660e",
+                tagLabel = "\u7f51\u9875",
+                testTag = "shot"
+            )
         }
         shot("search-field--default--dark", 361.dp, dark = true) { KitSearchField("", {}, "\u641c\u7d22", tag = "shot") }
         shot("segmented--default--dark", 361.dp, dark = true) { KitSegmented(listOf("\u6d88\u606f", "\u7fa4\u7ec4"), 0, {}, tag = "shot") }
         shot("sheet--default--dark", 393.dp, dark = true) { KitSheet("\u6807\u9898", "\u6b63\u6587", "\u5173\u95ed", {}, tag = "shot") }
         shot("status-bar--default--dark", 393.dp, dark = true) { KitStatusBar("9:41", tag = "shot") }
         shot("status-hero--default--dark", dark = true) { KitStatusHero("loader-circle", tag = "shot") }
-        shot("tab-bar--default--dark", 393.dp, dark = true) { messagesTabBar() }
+        shot("tab-bar--default--dark", 393.dp, dark = true) { MessagesTabBar() }
         shot("text-field--default--dark", 361.dp, dark = true) { KitTextField("\u503c", {}, "\u6807\u7b7e", tag = "shot") }
         shot("tip-bar--default--dark", 361.dp, dark = true) {
             KitTipBar("\u63d0\u793a", "wifi-off", action = "\u91cd\u8bd5", onAction = {}, tag = "shot")
@@ -315,28 +328,43 @@ class KitScreenshotTest {
     }
 
     @Test fun englishAndChineseSamples() = batch {
-        shot("button--primary--en", 361.dp) { KitButton("Button", {}, tag = "shot") }
+        shot("button--primary--en", 361.dp) { KitButton("\u6309\u94ae", {}, tag = "shot") }
         shot("button--primary--zh", 361.dp) { KitButton("\u6309\u94ae", {}, tag = "shot") }
-        shot("page-header--default--en", 393.dp) { KitPageHeader("Title", onBack = {}, onInfo = {}, tag = "shot") }
-        shot("page-header--default--zh", 393.dp) { KitPageHeader("\u6807\u9898", onBack = {}, onInfo = {}, tag = "shot") }
-        shot("row--default--en", 361.dp) { KitRow("Label", {}, icon = "user-round", value = "Value", testTag = "shot") }
-        shot("row--default--zh", 361.dp) { KitRow("\u6807\u7b7e", {}, icon = "user-round", value = "\u503c", testTag = "shot") }
-        shot("bubble--own--en", 393.dp) {
-            KitBubble("Received, and I will answer each point.", time = "10:23", maxWidth = 260.dp, tag = "shot")
+        shot("page-header--default--en", 393.dp) {
+            KitPageHeader("\u9875\u9762\u6807\u9898", onBack = {}, onInfo = {}, tag = "shot")
         }
-        shot("tab-bar--messages-selected-badge--en", 393.dp) {
-            KitTabBar(
-                listOf(
-                    KitTab("messages-square", "Messages", badge = "1"),
-                    KitTab("users-round", "Groups"),
-                    KitTab("bot", "Agents", latin = true),
-                    KitTab("ellipsis", "More")
-                ),
-                0,
+        shot("page-header--default--zh", 393.dp) {
+            KitPageHeader("\u9875\u9762\u6807\u9898", onBack = {}, onInfo = {}, tag = "shot")
+        }
+        shot("row--default--en", 361.dp) {
+            KitRow(
+                "\u6807\u9898",
                 {},
+                icon = "user-round",
+                value = "\u8bf4\u660e",
+                tagLabel = "\u7f51\u9875",
+                testTag = "shot"
+            )
+        }
+        shot("row--default--zh", 361.dp) {
+            KitRow(
+                "\u6807\u9898",
+                {},
+                icon = "user-round",
+                value = "\u8bf4\u660e",
+                tagLabel = "\u7f51\u9875",
+                testTag = "shot"
+            )
+        }
+        shot("bubble--own--en", 393.dp) {
+            KitBubble(
+                "\u6536\u5230\uff0c\u6211\u4f1a\u628a\u95ee\u9898\u9010\u9879\u56de\u590d\u3002",
+                time = "10:23",
+                maxWidth = 260.dp,
                 tag = "shot"
             )
         }
+        shot("tab-bar--messages-selected-badge--en", 393.dp) { MessagesTabBar() }
     }
 
     @Test fun ruledStates() = batch {
@@ -346,11 +374,20 @@ class KitScreenshotTest {
         shot("button--primary--loading", 361.dp) { KitButton("\u6309\u94ae", {}, loading = true, tag = "shot") }
         shot("button--primary--focused", 361.dp) { KitButton("\u6309\u94ae", {}, focused = true, tag = "shot") }
         shot("button--primary--pressed", 361.dp, press = true) { KitButton("\u6309\u94ae", {}, tag = "shot") }
-        shot("row--default--pressed", 361.dp, press = true) { KitRow("\u6807\u7b7e", {}, icon = "user-round", testTag = "shot") }
+        shot("row--default--pressed", 361.dp, press = true) {
+            KitRow(
+                "\u6807\u9898",
+                {},
+                icon = "user-round",
+                value = "\u8bf4\u660e",
+                tagLabel = "\u7f51\u9875",
+                testTag = "shot"
+            )
+        }
     }
 
     @Composable
-    private fun messagesTabBar() {
+    private fun MessagesTabBar() {
         KitTabBar(
             listOf(
                 KitTab("messages-square", "\u6d88\u606f", badge = "1"),

@@ -13,11 +13,11 @@ Licenses are in `NOTICE` and `third_party/`.
 ## States the design does not draw
 
 - Pressed rows use the selected fill. Pressed filled buttons use 0.88 opacity.
-- Focused controls, including text fields, draw a 2pt focus ring.
+- Focused controls, including text fields, draw a 2pt focus ring. A filled button whose fill matches the current rf-focus token uses the dark rf-focus token, so the ring stays visible on that dark fill.
 - Loading replaces a leading icon with a spinner and keeps the control width. Buttons keep their frame and show the spinner beside the label.
 - The disabled button master is a surface fill with control-colored label. Disabled text fields use 0.55 opacity. Other disabled controls use 0.45 opacity and do not hit.
 - The tab bar has no selection pill. The selected tab uses the text color and a 600 label.
-- Header icons, tabs, compact and text buttons, menu rows, switches, and checkboxes keep their drawn size and expose a 48dp hit frame. Icon-only controls use a Button, Switch, or Checkbox role and a content description.
+- Header icons, tabs, compact and text buttons, menu rows, switches, checkboxes, the composer send control, the search clear control, segmented cells, and reaction cells keep their drawn size and expose a 48dp hit frame. Icon-only controls use a Button, Switch, or Checkbox role and a content description.
 - The QR tile and its glyph stay on the light-theme white and ink in dark mode.
 - Radio, origin display, and charts are not in this kit.
 

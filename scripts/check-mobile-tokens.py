@@ -4,7 +4,8 @@
 """Compare hand-written RFTokens with the design token file.
 
 The design file's SHA-256 is pinned. CI passes that file and fails if the
-bytes drift from the pin or if RFTokens disagrees with it.
+bytes drift from the pin or if RFTokens disagrees with it. A second path,
+when the caller has the spec file, must be byte-identical to the first.
 """
 import hashlib
 import json
@@ -56,13 +57,18 @@ def component_hex(node):
 
 
 def main():
-    if len(sys.argv) != 2:
-        raise SystemExit("usage: check-mobile-tokens.py <design-tokens.json>")
+    if len(sys.argv) not in (2, 3):
+        raise SystemExit("usage: check-mobile-tokens.py <design-tokens.json> [spec-tokens.json]")
     token_path = Path(sys.argv[1])
     raw = token_path.read_bytes()
     digest = hashlib.sha256(raw).hexdigest()
     if digest != DESIGN_SHA256:
         raise SystemExit(f"TOKEN_DIGEST {digest} != {DESIGN_SHA256}")
+    if len(sys.argv) == 3:
+        spec_bytes = Path(sys.argv[2]).read_bytes()
+        spec_digest = hashlib.sha256(spec_bytes).hexdigest()
+        if spec_bytes != raw or spec_digest != DESIGN_SHA256:
+            raise SystemExit(f"TOKEN_SPEC_MISMATCH {spec_digest} != {DESIGN_SHA256}")
     spec = json.loads(raw)
     text = SOURCE.read_text()
     light = field_map(theme_block(text, "light"))
