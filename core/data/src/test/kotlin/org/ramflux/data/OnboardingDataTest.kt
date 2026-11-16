@@ -53,7 +53,7 @@ class OnboardingDataTest {
         val failure = DefaultNodeSetupRepository(transport).confirm(candidate, "key") as ClientResult.Failed
         assertEquals(ClientOutcome.UNKNOWN, failure.problem.outcome); assertEquals(1, transport.calls.size)
     }
-    @Test fun accountListMapsRealBridgeReplyAndCustodyOperationsNeverCallNative() = runTest(timeout = 5.seconds) {
+    @Test fun lockedAccountUnlocksThroughTheAccountAbiAndSetupStaysLocal() = runTest(timeout = 5.seconds) {
         val abi = FakeAbi().apply { completionBody = buildJsonObject {
             put("account_details", buildJsonArray { add(buildJsonObject { put("id", "a"); put("label", "Work"); put("state", "locked") }) }); put("active_account_id", JsonNull)
         } }
@@ -65,6 +65,22 @@ class OnboardingDataTest {
             assertTrue(repo.select("a") is ClientResult.Unavailable)
             for (action in AccountSetupAction.entries) assertTrue(repo.setup(action) is ClientResult.Unavailable)
             assertEquals(listOf("account.list", "account.list"), abi.submitted.map { it.getValue("method").jsonPrimitive.content })
+            val passphrase = "seal-fixture".toCharArray()
+            assertTrue(repo.unlock("a", passphrase) is ClientResult.Ready)
+            assertTrue(passphrase.all { it == '\u0000' })
+            assertEquals(listOf("account.unlock", "account.switch"), abi.submitted.drop(2).map { it.getValue("method").jsonPrimitive.content })
+            val unlock = abi.submitted[2]
+            assertEquals("a", unlock.getValue("account_id").jsonPrimitive.content)
+            assertEquals("seal-fixture", unlock.getValue("body").jsonObject.getValue("passphrase").jsonPrimitive.content)
+            assertEquals(0, abi.submitted[3].getValue("body").jsonObject.size)
+            val blank = "   ".toCharArray()
+            assertTrue(repo.unlock("a", blank) is ClientResult.Failed)
+            assertTrue(blank.all { it == '\u0000' })
+            abi.completionCode = 8
+            val rejected = "other-seal".toCharArray()
+            assertTrue(repo.unlock("a", rejected) is ClientResult.Failed)
+            assertTrue(rejected.all { it == '\u0000' })
+            assertEquals("account.unlock", abi.submitted.last().getValue("method").jsonPrimitive.content)
             assertTrue(abi.returnedBuffers.all { buffer -> buffer.all { it == 0.toByte() } })
         } finally { client.close() }
     }

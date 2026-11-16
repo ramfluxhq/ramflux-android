@@ -45,6 +45,7 @@ class OnboardingViewModel @Inject constructor(
         super.onCleared()
     }
     private var candidate: DiscoveredNode? = null
+    private var pendingUnlock: String? = null
     private var savedNodes = emptyList<SavedNode>()
     private var ticket = 0L
     private var operationGeneration = 0L
@@ -130,17 +131,27 @@ class OnboardingViewModel @Inject constructor(
             OnboardingAction.ContinueCreated -> local.value.createdAccountId?.let { id ->
                 viewModelScope.launch { channel.send(OnboardingEvent.AccountCreated(id)) }
             }
-            is OnboardingAction.SelectAccount -> launch {
-                val result = accounts.select(action.id)
-                checkCurrent()
-                when (result) {
-                    is ClientResult.Ready -> {
+            is OnboardingAction.SelectAccount -> {
+                val known = local.value.accounts.find { it.id == action.id }
+                if (known != null && !known.unlocked) {
+                    pendingUnlock = action.id
+                    local.update { it.copy(page = OnboardingPage.LOCAL_UNLOCK, notice = null) }
+                } else {
+                    pendingUnlock = null
+                    launch {
+                        val result = accounts.select(action.id)
                         checkCurrent()
-                        channel.send(OnboardingEvent.AccountSelected(action.id))
+                        when (result) {
+                            is ClientResult.Ready -> {
+                                checkCurrent()
+                                channel.send(OnboardingEvent.AccountSelected(action.id))
+                            }
+                            else -> failure(result)
+                        }
                     }
-                    else -> failure(result)
                 }
             }
+            is OnboardingAction.SubmitUnlock -> submitUnlock(action)
             OnboardingAction.Back -> Unit
         }
     }
@@ -260,9 +271,9 @@ class OnboardingViewModel @Inject constructor(
         val setup = when (page) {
             OnboardingPage.RECOVER -> AccountSetupAction.RECOVER
             OnboardingPage.PAIR -> AccountSetupAction.PAIR
-            OnboardingPage.LOCAL_UNLOCK -> AccountSetupAction.LOCAL_UNLOCK
             else -> null
         }
+        if (page != OnboardingPage.LOCAL_UNLOCK) pendingUnlock = null
         val selectable = setOf(
             OnboardingPage.START,
             OnboardingPage.CONTINUE,
@@ -273,7 +284,7 @@ class OnboardingViewModel @Inject constructor(
             OnboardingPage.WELCOME,
             OnboardingPage.CREATE
         )
-        if (setup == null && page !in selectable) return
+        if (setup == null && page !in selectable && page != OnboardingPage.LOCAL_UNLOCK) return
         candidate = null
         local.update { it.copy(page = page, identity = null, normalizedOrigin = null, notice = null) }
         if (setup != null) {
@@ -284,6 +295,34 @@ class OnboardingViewModel @Inject constructor(
     /** Draws one recovery word into the caller and never copies it into screen state. */
     fun drawPhrase(index: Int, block: (CharArray) -> Unit) {
         phrase?.draw(index, block)
+    }
+
+    private fun submitUnlock(action: OnboardingAction.SubmitUnlock) {
+        val id = pendingUnlock
+        val passphrase = action.passphrase.snapshot()
+        action.passphrase.clear()
+        val blank = passphrase.isEmpty() || passphrase.all { it.isWhitespace() }
+        if (local.value.page != OnboardingPage.LOCAL_UNLOCK || id.isNullOrEmpty() || blank) {
+            passphrase.fill('\u0000')
+            if (local.value.page == OnboardingPage.LOCAL_UNLOCK && blank) {
+                local.update { it.copy(notice = OnboardingNotice(uiText(R.string.ui_enter_the_data_passphrase))) }
+            }
+            return
+        }
+        launch {
+            try {
+                when (val result = accounts.unlock(id, passphrase)) {
+                    is ClientResult.Ready -> {
+                        pendingUnlock = null
+                        checkCurrent()
+                        channel.send(OnboardingEvent.AccountSelected(id))
+                    }
+                    else -> failure(result)
+                }
+            } finally {
+                passphrase.fill('\u0000')
+            }
+        }
     }
 
     private fun beginCreate() {

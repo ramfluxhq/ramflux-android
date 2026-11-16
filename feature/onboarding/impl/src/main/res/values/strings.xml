@@ -92,6 +92,7 @@
     <string name="ui_data_passphrase_explanation">This passphrase seals account data on this device. It is separate from the recovery phrase.</string>
     <string name="ui_confirm_account">Confirm account</string>
     <string name="ui_enter_the_recovery_words_and_the_data_passphrase">Enter the three recovery words and the data passphrase.</string>
+    <string name="ui_enter_the_data_passphrase">Enter the data passphrase.</string>
     <string name="ui_account_created_detail">The account is unlocked on this device.</string>
     <string name="ui_continue_into_the_account">Continue</string>
 </resources>

@@ -11,4 +11,10 @@ interface AccountAccessRepository {
     suspend fun list(): ClientResult<AccountCatalog>
     suspend fun select(id: String): ClientResult<Unit>
     suspend fun setup(action: AccountSetupAction): ClientResult<Unit>
+
+    /** A locked account stays locked until this call. The passphrase array is wiped before return. */
+    suspend fun unlock(id: String, passphrase: CharArray): ClientResult<Unit> {
+        passphrase.fill('\u0000')
+        return ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
+    }
 }

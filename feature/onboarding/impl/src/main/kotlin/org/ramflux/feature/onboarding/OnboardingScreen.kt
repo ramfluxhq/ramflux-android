@@ -28,6 +28,7 @@ fun OnboardingScreen(
 ) {
     val theme = LocalRFTheme.current
     val challenge = remember { ChallengeEntry() }
+    val unlockPassphrase = remember { ErasableBuffer() }
     Scaffold(modifier = Modifier.testTag("onboarding-window"), contentWindowInsets = contentWindowInsets) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
@@ -252,7 +253,19 @@ fun OnboardingScreen(
                             OnboardingPage.PHRASE -> PhrasePage(state, drawPhrase)
                             OnboardingPage.CHALLENGE -> ChallengePage(state, challenge)
                             OnboardingPage.CREATED -> CreatedAccountPage(state)
-                            OnboardingPage.LOCAL_UNLOCK, OnboardingPage.PAIR, OnboardingPage.RECOVER -> {
+                            OnboardingPage.LOCAL_UNLOCK -> {
+                                Text(stringResource(R.string.ui_data_passphrase_explanation))
+                                ErasableSecretField(
+                                    unlockPassphrase,
+                                    stringResource(R.string.ui_data_passphrase),
+                                    "unlock-passphrase",
+                                    enabled = !state.busy,
+                                    password = true,
+                                    limit = 128,
+                                    onEdited = {}
+                                )
+                            }
+                            OnboardingPage.PAIR, OnboardingPage.RECOVER -> {
                                 Text(
                                     stringResource(R.string.ui_secure_setup_is_unavailable_no_account_phrase_or)
                                 )
@@ -268,14 +281,19 @@ fun OnboardingScreen(
                         }
                     }
                 }
-                OnboardingFooter(state, challenge, onAction)
+                OnboardingFooter(state, challenge, unlockPassphrase, onAction)
             }
         }
     }
 }
 
 @Composable
-private fun OnboardingFooter(state: OnboardingState, challenge: ChallengeEntry, onAction: (OnboardingAction) -> Unit) {
+private fun OnboardingFooter(
+    state: OnboardingState,
+    challenge: ChallengeEntry,
+    unlockPassphrase: ErasableBuffer,
+    onAction: (OnboardingAction) -> Unit
+) {
     val theme = LocalRFTheme.current
     if (!state.sessionReady) return
     Column(
@@ -333,6 +351,14 @@ private fun OnboardingFooter(state: OnboardingState, challenge: ChallengeEntry, 
                 theme,
                 disabled = state.busy || !challenge.ready(state.challengePositions.size),
                 onAction = { onAction(OnboardingAction.ConfirmChallenge(challenge.words, challenge.passphrase)) }
+            )
+            OnboardingPage.LOCAL_UNLOCK -> RFActionButton(
+                "unlock-account",
+                stringResource(R.string.ui_unlock),
+                RFButtonKind.Primary,
+                theme,
+                disabled = state.busy,
+                onAction = { onAction(OnboardingAction.SubmitUnlock(unlockPassphrase)) }
             )
             OnboardingPage.CREATED -> RFActionButton(
                 "continue-created",

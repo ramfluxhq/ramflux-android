@@ -10,6 +10,9 @@ class FakeAccountAccess : AccountAccessRepository {
     var reads = 0
     var selections = 0
     var setups = 0
+    var unlocks = 0
+    var lastUnlockId: String? = null
+    var unlockResult: ClientResult<Unit> = ClientResult.Ready(Unit)
     var listing: suspend () -> ClientResult<AccountCatalog> = { ClientResult.Ready(AccountCatalog(emptyList(), null)) }
     override suspend fun list(): ClientResult<AccountCatalog> {
         reads++
@@ -28,6 +31,12 @@ class FakeAccountAccess : AccountAccessRepository {
             is ClientResult.Failed -> result
             is ClientResult.Unavailable -> result
         }
+    }
+    override suspend fun unlock(id: String, passphrase: CharArray): ClientResult<Unit> {
+        unlocks++
+        lastUnlockId = id
+        passphrase.fill('\u0000')
+        return unlockResult
     }
     override suspend fun setup(action: AccountSetupAction): ClientResult<Unit> {
         setups++

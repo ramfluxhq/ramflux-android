@@ -13,6 +13,9 @@ sealed interface OnboardingAction {
     data object UseNode : OnboardingAction
     data object Confirm : OnboardingAction
     data class SelectAccount(val id: String) : OnboardingAction
+
+    /** The handler reads this buffer once and erases it. */
+    class SubmitUnlock(val passphrase: ErasableBuffer) : OnboardingAction
     data class DisplayName(val value: String) : OnboardingAction
     data object BeginCreate : OnboardingAction
     data object PhraseSaved : OnboardingAction

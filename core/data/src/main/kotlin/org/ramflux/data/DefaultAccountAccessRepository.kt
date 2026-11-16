@@ -26,11 +26,32 @@ internal class DefaultAccountAccessRepository(transport: RepositoryTransport) : 
             is ClientResult.Unavailable -> return current
         }
         if (catalog.accounts.none { it.id == id && it.unlocked }) return unavailable()
-        return when (val result = accounts.accountSwitch(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {})) {
+        return switch(id)
+    }
+    override suspend fun unlock(id: String, passphrase: CharArray): ClientResult<Unit> {
+        if (!acceptable(id) || passphrase.isEmpty() || passphrase.size > 128 || passphrase.all { it.isWhitespace() }) {
+            passphrase.fill('\u0000')
+            return invalid()
+        }
+        val unlocked = accounts.accountUnlock(
+            RepositoryContext(id, UUID.randomUUID().toString()),
+            SecretBody.fields { chars("passphrase", passphrase) }
+        )
+        return when (unlocked) {
+            is CoreResult.Failure -> ClientResult.Failed(unlocked.error.appProblem())
+            is CoreResult.Success -> {
+                unlocked.value.close()
+                switch(id)
+            }
+        }
+    }
+    private suspend fun switch(id: String): ClientResult<Unit> =
+        when (val result = accounts.accountSwitch(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {})) {
             is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
             is CoreResult.Success -> { result.value.close(); ClientResult.Ready(Unit) }
         }
-    }
+    private fun acceptable(id: String) = id.isNotEmpty() && id.length <= 128
+    private fun invalid() = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
     override suspend fun setup(action: AccountSetupAction): ClientResult<Unit> = unavailable()
     private fun unavailable() = ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
 }

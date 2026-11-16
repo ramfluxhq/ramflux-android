@@ -195,7 +195,9 @@ class OnboardingViewModelTest {
         runCurrent()
         vm.onAction(OnboardingAction.SelectAccount("a"))
         runCurrent()
-        assertEquals(OnboardingNoticeKind.UNAVAILABLE, vm.state.value.notice?.kind)
+        assertEquals(OnboardingPage.LOCAL_UNLOCK, vm.state.value.page)
+        assertNull(vm.state.value.notice)
+        assertEquals(0, accounts.selections)
         vm.onAction(OnboardingAction.Page(OnboardingPage.CREATE))
         runCurrent()
         assertEquals(OnboardingPage.CREATE, vm.state.value.page)
@@ -680,6 +682,35 @@ class OnboardingViewModelTest {
         assertEquals(R.string.ui_the_outcome_is_unknown_refresh_the_current_state, message.id)
         assertTrue(words.all { it.isEmpty() })
         assertTrue(passphrase.isEmpty())
+    }
+
+    @Test fun lockedAccountAsksForThePassphraseThenUnlocksOnce() = runTest(timeout = 5.seconds) {
+        val accounts = FakeAccountAccess().apply {
+            listing = { ClientResult.Ready(AccountCatalog(listOf(AccountSummary("a", "Phone", false, "locked")), null)) }
+        }
+        val vm = OnboardingViewModel(accounts, FakeNodeSetup(), FakeOnboardingSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(OnboardingAction.SelectAccount("a"))
+        runCurrent()
+        assertEquals(OnboardingPage.LOCAL_UNLOCK, vm.state.value.page)
+        assertEquals(0, accounts.selections)
+        val empty = ErasableBuffer()
+        vm.onAction(OnboardingAction.SubmitUnlock(empty))
+        runCurrent()
+        assertEquals(0, accounts.unlocks)
+        val rejected = vm.state.value.notice?.message as UiText.Resource
+        assertEquals(R.string.ui_enter_the_data_passphrase, rejected.id)
+        val events = mutableListOf<OnboardingEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        vm.onAction(OnboardingAction.SubmitUnlock(passphrase))
+        runCurrent()
+        assertEquals(listOf(OnboardingEvent.AccountSelected("a")), events)
+        assertEquals(1, accounts.unlocks)
+        assertEquals("a", accounts.lastUnlockId)
+        assertTrue(passphrase.isEmpty())
+        assertNull(vm.state.value.notice)
     }
 }
 
