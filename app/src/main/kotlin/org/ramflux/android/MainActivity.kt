@@ -13,7 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import org.ramflux.android.shell.RamfluxShell
+import org.ramflux.android.shell.StartupHost
 import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
 import org.ramflux.feature.agents.AgentsNavigation
@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
                 AppShellNavigation(
                     routeForFeature = {
                         when (it) {
-                            "onboarding" -> OnboardingRoute
+                            "onboarding" -> OnboardingRoute()
                             "conversations" -> ConversationsRoute
                             "settings" -> SettingsRoute
                             "contacts" -> ContactsRoute
@@ -68,26 +68,26 @@ class MainActivity : ComponentActivity() {
                             else -> FeatureRoute(it)
                         }
                     },
-                    home = { navigate -> RamfluxShell(navigate) }
+                    home = { navigate -> StartupHost(navigate) }
                 ) { onBack, navigate ->
-                    entry<CallsRoute> { CallsNavigation(onBack, { navigate(OnboardingRoute) }) }
+                    entry<CallsRoute> { CallsNavigation(onBack, { navigate(OnboardingRoute()) }) }
                     entry<CardsRoute> { CardsNavigation(onBack) }
-                    entry<TasksRoute> { TasksNavigation(onBack, { navigate(OnboardingRoute) }) }
-                    entry<AgentsRoute> { AgentsNavigation(onBack, { navigate(OnboardingRoute) }) }
+                    entry<TasksRoute> { TasksNavigation(onBack, { navigate(OnboardingRoute()) }) }
+                    entry<AgentsRoute> { AgentsNavigation(onBack, { navigate(OnboardingRoute()) }) }
                     entry<GroupsRoute> {
                         GroupsNavigation(
                             onBack,
-                            { navigate(OnboardingRoute) },
+                            { navigate(OnboardingRoute()) },
                             { account, conversation, group -> navigate(ChatRoute(account, conversation, group)) }
                         )
                     }
-                    entry<ContactsRoute> { ContactsNavigation(onBack, { navigate(OnboardingRoute) }) }
+                    entry<ContactsRoute> { ContactsNavigation(onBack, { navigate(OnboardingRoute()) }) }
                     entry<PermissionsRoute> { route -> PermissionsNavigation(route, onBack) }
                     entry<SettingsRoute> {
                         SettingsNavigation(
                             onBack,
-                            { navigate(OnboardingRoute) },
-                            { navigate(OnboardingRoute) },
+                            { navigate(OnboardingRoute()) },
+                            { navigate(OnboardingRoute()) },
                             onPermissions = { navigate(PermissionsRoute()) }
                         )
                     }
@@ -103,16 +103,18 @@ class MainActivity : ComponentActivity() {
                     entry<ConversationsRoute> {
                         ConversationsNavigation(
                             onBack = onBack,
-                            onSetupAccount = { navigate(OnboardingRoute) },
+                            onSetupAccount = { navigate(OnboardingRoute()) },
                             onOpenChat = { account, conversation -> navigate(ChatRoute(account, conversation)) },
                             permissionBanner = { NotificationPermissionBannerNavigation({ navigate(PermissionsRoute()) }) }
                         )
                     }
-                    entry<OnboardingRoute> {
+                    entry<OnboardingRoute> { route ->
                         OnboardingNavigation(
                             onBack = onBack,
                             onAccountSelected = { onBack() },
-                            onAccountCreated = { navigate(PermissionsRoute(PermissionEntry.AFTER_ACCOUNT_CREATION, it)) }
+                            onAccountCreated = { navigate(PermissionsRoute(PermissionEntry.AFTER_ACCOUNT_CREATION, it)) },
+                            openCreate = route.openCreate,
+                            unlockId = route.unlockId
                         )
                     }
                 }

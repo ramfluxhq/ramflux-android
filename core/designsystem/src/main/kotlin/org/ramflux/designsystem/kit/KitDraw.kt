@@ -108,6 +108,12 @@ internal fun KitSpinner(size: Float, tint: Color, modifier: Modifier = Modifier)
     KitIcon("loader-circle", size, tint, modifier.rotate(angle))
 }
 
+/** Static launch glyph. An infinite spin never goes idle under a synchronizing activity test. */
+@Composable
+fun KitLoaderMark(size: Float, tint: Color, modifier: Modifier = Modifier) {
+    KitIcon("loader-circle", size, tint, modifier)
+}
+
 internal fun Modifier.kitHairline(color: Color, top: Boolean = false): Modifier = drawBehind {
     val stroke = RfMetrics.hairline.dp.toPx()
     val y = if (top) stroke / 2f else size.height - stroke / 2f

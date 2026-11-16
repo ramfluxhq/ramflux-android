@@ -14,9 +14,14 @@ fun OnboardingNavigation(
     onBack: () -> Unit,
     onAccountSelected: (String) -> Unit,
     onAccountCreated: (String) -> Unit = {},
+    openCreate: Boolean = false,
+    unlockId: String = "",
     vm: OnboardingViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(openCreate, unlockId) {
+        if (openCreate || unlockId.isNotEmpty()) vm.requestEntry(openCreate, unlockId)
+    }
     BackHandler { vm.onAction(OnboardingAction.Back) }
     LaunchedEffect(vm) {
         vm.events.collect { event ->

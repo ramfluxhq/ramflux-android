@@ -4,4 +4,4 @@
 package org.ramflux.feature.onboarding.api
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
-@Serializable data object OnboardingRoute : NavKey
+@Serializable data class OnboardingRoute(val openCreate: Boolean = false, val unlockId: String = "") : NavKey

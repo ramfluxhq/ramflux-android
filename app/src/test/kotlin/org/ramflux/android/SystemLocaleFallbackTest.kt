@@ -38,8 +38,17 @@ class UnsupportedSystemLocaleTest {
     @Test fun freshSystemSettingOnAnUnsupportedLocaleShowsEnglish() {
         compose.waitUntil(5_000) { !compose.activity.language.language.value.loading }
         assertEquals(AppLanguage.SYSTEM, compose.activity.language.language.value.value)
-        compose.onAllNodesWithText("Messages").assertCountEquals(2)
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Messages").fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Continue").fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Starting up").fetchSemanticsNodes().isNotEmpty()
+        }
+        if (compose.onAllNodesWithText("Messages").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onAllNodesWithText("Messages").assertCountEquals(2)
+        }
         compose.onAllNodesWithText("消息").assertCountEquals(0)
+        compose.onAllNodesWithText("继续").assertCountEquals(0)
+        compose.onAllNodesWithText("正在启动").assertCountEquals(0)
     }
 }
 
@@ -55,7 +64,16 @@ class SupportedSystemLocaleTest {
     @Test fun freshSystemSettingOnChineseShowsChinese() {
         compose.waitUntil(5_000) { !compose.activity.language.language.value.loading }
         assertEquals(AppLanguage.SYSTEM, compose.activity.language.language.value.value)
-        compose.onAllNodesWithText("消息").assertCountEquals(2)
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("消息").fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("继续").fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("正在启动").fetchSemanticsNodes().isNotEmpty()
+        }
+        if (compose.onAllNodesWithText("消息").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onAllNodesWithText("消息").assertCountEquals(2)
+        }
         compose.onAllNodesWithText("Messages").assertCountEquals(0)
+        compose.onAllNodesWithText("Continue").assertCountEquals(0)
+        compose.onAllNodesWithText("Starting up").assertCountEquals(0)
     }
 }

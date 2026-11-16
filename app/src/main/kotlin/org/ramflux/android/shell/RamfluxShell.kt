@@ -51,7 +51,7 @@ fun RamfluxShell(navigate: (NavKey) -> Unit) {
             when (tab) {
                 0 -> ConversationsNavigation(
                     onBack = {},
-                    onSetupAccount = { navigate(OnboardingRoute) },
+                    onSetupAccount = { navigate(OnboardingRoute()) },
                     onOpenChat = { account, conversation -> navigate(ChatRoute(account, conversation)) },
                     permissionBanner = { NotificationPermissionBannerNavigation({ navigate(PermissionsRoute()) }) },
                     rooted = true,
@@ -59,14 +59,14 @@ fun RamfluxShell(navigate: (NavKey) -> Unit) {
                 )
                 1 -> GroupsNavigation(
                     onBack = {},
-                    onSetupAccount = { navigate(OnboardingRoute) },
+                    onSetupAccount = { navigate(OnboardingRoute()) },
                     onChat = { account, conversation, group -> navigate(ChatRoute(account, conversation, group)) },
                     rooted = true,
                     onAtRoot = { atRoot = it }
                 )
                 2 -> AgentsNavigation(
                     onBack = {},
-                    onSetupAccount = { navigate(OnboardingRoute) },
+                    onSetupAccount = { navigate(OnboardingRoute()) },
                     rooted = true,
                     onAtRoot = { atRoot = it }
                 )

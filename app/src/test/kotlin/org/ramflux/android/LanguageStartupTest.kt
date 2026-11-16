@@ -36,8 +36,23 @@ class LanguageStartupTest(private val initial: AppLanguage) {
         compose.waitUntil(5_000) { !compose.activity.language.language.value.loading }
         fun assertShell(language: AppLanguage) {
             compose.waitUntil(5_000) { compose.activity.language.language.value.value == language }
-            val label = if (language == AppLanguage.SIMPLIFIED_CHINESE) "消息" else "Messages"
-            compose.onAllNodesWithText(label).assertCountEquals(2)
+            val chinese = language == AppLanguage.SIMPLIFIED_CHINESE
+            val shell = if (chinese) "消息" else "Messages"
+            val continueLabel = if (chinese) "继续" else "Continue"
+            val starting = if (chinese) "正在启动" else "Starting up"
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText(shell).fetchSemanticsNodes().isNotEmpty() ||
+                    compose.onAllNodesWithText(continueLabel).fetchSemanticsNodes().isNotEmpty() ||
+                    compose.onAllNodesWithText(starting).fetchSemanticsNodes().isNotEmpty()
+            }
+            val shellCount = compose.onAllNodesWithText(shell).fetchSemanticsNodes().size
+            if (shellCount > 0) assertEquals(2, shellCount)
+            val otherShell = if (chinese) "Messages" else "消息"
+            val otherContinue = if (chinese) "Continue" else "继续"
+            val otherStarting = if (chinese) "Starting up" else "正在启动"
+            compose.onAllNodesWithText(otherShell).assertCountEquals(0)
+            compose.onAllNodesWithText(otherContinue).assertCountEquals(0)
+            compose.onAllNodesWithText(otherStarting).assertCountEquals(0)
         }
         runBlocking { withTimeout(5_000) { assertTrue(compose.activity.language.setLanguage(initial) is ClientResult.Ready) } }
         compose.activityRule.scenario.recreate()

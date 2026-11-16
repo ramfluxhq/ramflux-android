@@ -46,6 +46,8 @@ class OnboardingViewModel @Inject constructor(
     }
     private var candidate: DiscoveredNode? = null
     private var pendingUnlock: String? = null
+    private var requestedCreate = false
+    private var requestedUnlock = ""
     private var savedNodes = emptyList<SavedNode>()
     private var ticket = 0L
     private var operationGeneration = 0L
@@ -58,10 +60,19 @@ class OnboardingViewModel @Inject constructor(
             savedNodes = emptyList()
             phrase?.close()
             phrase = null
-            local.value = OnboardingState()
+            local.value = OnboardingState(page = entryPage())
             if (phase == ClientPhase.OPEN) onAction(OnboardingAction.Refresh)
         }
     }
+
+    /** Opens create or the existing local unlock when this screen was pushed from startup. */
+    fun requestEntry(create: Boolean, unlockId: String) {
+        requestedCreate = create
+        requestedUnlock = unlockId
+        if (unlockId.isNotEmpty()) pendingUnlock = unlockId
+        if (session.status.value.phase == ClientPhase.OPEN) local.update { it.copy(page = entryPage()) }
+    }
+
     fun onAction(action: OnboardingAction) {
         if (action == OnboardingAction.Back) {
             work?.cancel()
@@ -71,7 +82,7 @@ class OnboardingViewModel @Inject constructor(
             phrase?.close()
             phrase = null
             if (dropCeremony) viewModelScope.launch { ceremony.cancel() }
-            if (local.value.page == OnboardingPage.START) {
+            if (local.value.page == OnboardingPage.START || leavingEntry()) {
                 viewModelScope.launch { channel.send(OnboardingEvent.Back) }
             } else {
                 local.update {
@@ -155,6 +166,21 @@ class OnboardingViewModel @Inject constructor(
             OnboardingAction.Back -> Unit
         }
     }
+    private fun entryPage(): OnboardingPage = when {
+        requestedUnlock.isNotEmpty() -> {
+            pendingUnlock = requestedUnlock
+            OnboardingPage.LOCAL_UNLOCK
+        }
+        requestedCreate -> OnboardingPage.CREATE
+        else -> OnboardingPage.START
+    }
+
+    private fun leavingEntry(): Boolean {
+        val page = local.value.page
+        return (requestedCreate && page == OnboardingPage.CREATE) ||
+            (requestedUnlock.isNotEmpty() && page == OnboardingPage.LOCAL_UNLOCK)
+    }
+
     private fun read() = launch {
         val accountResult = accounts.list()
         checkCurrent()
