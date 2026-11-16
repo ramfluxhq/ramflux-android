@@ -34,4 +34,29 @@ class ConversationDirectoryMetadataTest {
         assertFalse(row.toString().contains("do-not-copy"))
         assertTrue(raw.all { it == 0.toByte() })
     }
+
+    @Test fun aWideOrOverlongParticipantListDoesNotDropThePage() {
+        val wide = List(33) { "\"${"p".repeat(200)}\"" }.joinToString(",")
+        val exact = "r".repeat(256)
+        val over = "q".repeat(257)
+        val raw = buildString {
+            append("""{"conversations":[""")
+            append("""{"id":"wide","unread_count":0,"is_unread":false,"archived":false,"hidden":false,"participants":[""")
+            append(wide).append("]},")
+            append("""{"id":"exact","unread_count":0,"is_unread":false,"archived":false,"hidden":false,"participants":["self","""")
+            append(exact).append(""""]},""")
+            append("""{"id":"over","unread_count":0,"is_unread":false,"archived":false,"hidden":false,"participants":["","""")
+            append(over).append(""""]},""")
+            append("""{"id":"plain","unread_count":1,"is_unread":true,"archived":false,"hidden":false}""")
+            append("""],"next_cursor":null}""")
+        }.toByteArray()
+        val rows = (ConversationDirectoryMetadataReader.read(SecretReply(SecretBytes.take(raw))) as CoreResult.Success).value.rows
+        assertEquals(listOf("wide", "exact", "over", "plain"), rows.map { it.id })
+        assertEquals(33, rows[0].participants.size)
+        assertEquals(200, rows[0].participants[0].length)
+        assertEquals(listOf("self", exact), rows[1].participants)
+        assertTrue(rows[2].participants.isEmpty())
+        assertTrue(rows[3].participants.isEmpty())
+        assertTrue(raw.all { it == 0.toByte() })
+    }
 }
