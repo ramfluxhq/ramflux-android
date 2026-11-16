@@ -8,8 +8,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
@@ -174,6 +176,7 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
                                 item("node") { StatusRow(stringResource(R.string.settings_node), status.node) }
                                 item("last-run") { StatusRow(stringResource(R.string.settings_last_run), status.lastRun) }
                             }
+                            item("about") { AboutVersion() }
                         }
                         SettingsPage.LANGUAGE -> {
                             item("language-help") { Text(stringResource(R.string.settings_language_help)) }
@@ -247,6 +250,17 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AboutVersion() {
+    val context = LocalContext.current
+    val info = remember(context) { runCatching { context.packageManager.getPackageInfo(context.packageName, 0) }.getOrNull() }
+    val name = info?.versionName ?: return
+    Column(Modifier.testTag("about-version")) {
+        Text(stringResource(R.string.settings_about), style = MaterialTheme.typography.labelLarge)
+        Text(stringResource(R.string.settings_version, name, info.longVersionCode))
     }
 }
 
