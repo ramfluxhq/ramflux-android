@@ -22,6 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import org.ramflux.designsystem.LocalRFTheme
 
@@ -65,25 +69,60 @@ fun KitButton(
     val filled = kind == KitButtonKind.Primary || kind == KitButtonKind.Destructive
     val pressedAlpha = if (pressed && filled && active) RfMetrics.pressedAlpha else 1f
     val disabledAlpha = if (!enabled && !designedDisabled) RfMetrics.disabledAlpha else 1f
-    Box(
-        modifier
-            .fillMaxWidth()
-            .height(dp(height))
-            .alpha(pressedAlpha * disabledAlpha)
-            .background(fill, shape)
-            .then(if (stroke == null) Modifier else Modifier.border(dp(RfMetrics.stroke), stroke, shape))
-            .then(if (focused) Modifier.border(dp(RfMetrics.focusRing), theme.focus, shape) else Modifier)
-            .kitTag(tag)
-            .clickable(interaction, null, enabled = active, onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap)),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = dp(RfMetrics.buttonPadH))
+    val visual: @Composable () -> Unit = {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(dp(height))
+                .alpha(pressedAlpha * disabledAlpha)
+                .background(fill, shape)
+                .then(if (stroke == null) Modifier else Modifier.border(dp(RfMetrics.stroke), stroke, shape))
+                .then(if (focused) Modifier.border(dp(RfMetrics.focusRing), theme.focus, shape) else Modifier)
+                .kitTag(if (height >= RfMetrics.hit) null else tag),
+            contentAlignment = Alignment.Center
         ) {
-            if (loading) KitSpinner(RfMetrics.tileGlyph, labelColor)
-            Text(label, style = kitStyle(theme.size_mobile_body, weight, labelColor, RfMetrics.lineTitle))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap)),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = dp(RfMetrics.buttonPadH))
+            ) {
+                if (loading) KitSpinner(RfMetrics.tileGlyph, labelColor)
+                Text(label, style = kitStyle(theme.size_mobile_body, weight, labelColor, RfMetrics.lineTitle))
+            }
+        }
+    }
+    if (height >= RfMetrics.hit) {
+        Box(
+            modifier
+                .fillMaxWidth()
+                .height(dp(height))
+                .semantics { contentDescription = label }
+                .clickable(interaction, null, enabled = active, role = Role.Button, onClick = onClick)
+                .kitTag(tag)
+        ) { visual() }
+    } else {
+        val hit = dp(RfMetrics.hit)
+        val drawn = dp(height)
+        Layout(
+            modifier = modifier.fillMaxWidth(),
+            content = {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(hit)
+                        .semantics { contentDescription = label }
+                        .clickable(interaction, null, enabled = active, role = Role.Button, onClick = onClick)
+                        .kitTag(tag?.let { "$it-hit" }),
+                    contentAlignment = Alignment.Center
+                ) { visual() }
+            }
+        ) { measurables, constraints ->
+            val hitPx = hit.roundToPx()
+            val drawnPx = drawn.roundToPx()
+            val placeable = measurables[0].measure(
+                constraints.copy(minWidth = constraints.maxWidth, minHeight = hitPx, maxHeight = hitPx)
+            )
+            layout(placeable.width, drawnPx) { placeable.place(0, (drawnPx - hitPx) / 2) }
         }
     }
 }

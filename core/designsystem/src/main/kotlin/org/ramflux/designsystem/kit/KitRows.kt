@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import org.ramflux.designsystem.LocalRFTheme
@@ -40,10 +42,19 @@ fun KitIconTile(icon: String, modifier: Modifier = Modifier, tag: String? = null
 }
 
 @Composable
-fun KitInfoButton(onClick: () -> Unit, modifier: Modifier = Modifier, tag: String? = null) {
+fun KitInfoButton(onClick: () -> Unit, modifier: Modifier = Modifier, label: String = "info", tag: String? = null) {
     val theme = LocalRFTheme.current
-    Box(modifier.size(dp(RfMetrics.iconButton)).kitTag(tag).clickableNoRipple(true, onClick), contentAlignment = Alignment.Center) {
-        KitIcon("info", RfMetrics.iconInfo, theme.secondary)
+    Box(
+        modifier
+            .size(dp(RfMetrics.hit))
+            .semantics { contentDescription = label }
+            .clickableNoRipple(true, onClick)
+            .kitTag(tag?.let { "$it-hit" }),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(Modifier.size(dp(RfMetrics.iconButton)).kitTag(tag), contentAlignment = Alignment.Center) {
+            KitIcon("info", RfMetrics.iconInfo, theme.secondary)
+        }
     }
 }
 

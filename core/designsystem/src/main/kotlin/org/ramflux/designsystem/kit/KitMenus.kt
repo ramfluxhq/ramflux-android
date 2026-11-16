@@ -23,6 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import org.ramflux.designsystem.LocalRFTheme
@@ -34,44 +37,80 @@ fun KitContextMenu(entries: List<KitMenuEntry>, onSelect: (Int) -> Unit, modifie
     val theme = LocalRFTheme.current
     val shape = shapeOf(theme.radius_menu)
     Column(
-        modifier.width(
-            dp(RfMetrics.menu)
-        ).border(dp(RfMetrics.stroke), theme.overlay_border, shape).background(theme.overlay, shape).kitTag(tag)
+        modifier
+            .width(dp(RfMetrics.menu))
+            .border(dp(RfMetrics.stroke), theme.overlay_border, shape)
+            .background(theme.overlay, shape)
+            .kitTag(tag)
     ) {
+        var start = 0
         entries.forEachIndexed { index, entry ->
-            if (entry.groupBefore) Box(Modifier.fillMaxWidth().height(dp(RfMetrics.stroke)).background(theme.line))
-            KitMenuItem(
-                entry,
-                index < entries.lastIndex && !entries[index + 1].groupBefore,
-                onClick = { onSelect(index) }
-            )
+            if (entry.groupBefore && index > start) {
+                MenuRun(entries.subList(start, index), start, onSelect)
+                Box(Modifier.fillMaxWidth().height(dp(RfMetrics.stroke)).background(theme.line))
+                start = index
+            }
+        }
+        if (start < entries.size) MenuRun(entries.subList(start, entries.size), start, onSelect)
+    }
+}
+
+@Composable
+private fun MenuRun(entries: List<KitMenuEntry>, offset: Int, onSelect: (Int) -> Unit) {
+    val visual = dp(RfMetrics.menuItem)
+    val hit = dp(RfMetrics.hit)
+    Layout(content = {
+        entries.forEachIndexed { index, entry ->
+            KitMenuItem(entry, index < entries.lastIndex, offset.toString() + "-" + index.toString()) {
+                onSelect(offset + index)
+            }
+        }
+    }) { measurables, constraints ->
+        val visualPx = visual.roundToPx()
+        val hitPx = hit.roundToPx()
+        val placeables = measurables.map {
+            it.measure(constraints.copy(minWidth = constraints.maxWidth, minHeight = hitPx, maxHeight = hitPx))
+        }
+        layout(constraints.maxWidth, visualPx * placeables.size) {
+            placeables.forEachIndexed { index, placeable ->
+                placeable.place(0, index * visualPx - (hitPx - visualPx) / 2)
+            }
         }
     }
 }
 
 @Composable
-private fun KitMenuItem(entry: KitMenuEntry, hairline: Boolean, onClick: () -> Unit) {
+private fun KitMenuItem(entry: KitMenuEntry, hairline: Boolean, hitTag: String, onClick: () -> Unit) {
     val theme = LocalRFTheme.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val tint = if (entry.danger) theme.danger else theme.text
-    Row(
+    Box(
         Modifier
             .fillMaxWidth()
-            .height(dp(RfMetrics.menuItem))
-            .background(if (pressed) theme.selected else Color.Transparent)
-            .then(if (hairline) Modifier.kitHairline(theme.line) else Modifier)
-            .padding(horizontal = dp(RfMetrics.menuPad))
-            .clickableNoRipple(interaction, true, onClick),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
+            .height(dp(RfMetrics.hit))
+            .semantics { contentDescription = entry.label }
+            .clickableNoRipple(interaction, true, onClick)
+            .kitTag("menu-hit-" + hitTag),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            entry.label,
-            modifier = Modifier.weight(1f),
-            style = kitStyle(theme.size_mobile_body, FontWeight.Normal, tint, RfMetrics.lineTitle)
-        )
-        KitIcon(entry.icon, RfMetrics.menuIcon, tint)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(dp(RfMetrics.menuItem))
+                .background(if (pressed) theme.selected else Color.Transparent)
+                .then(if (hairline) Modifier.kitHairline(theme.line) else Modifier)
+                .padding(horizontal = dp(RfMetrics.menuPad)),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
+        ) {
+            Text(
+                entry.label,
+                modifier = Modifier.weight(1f),
+                style = kitStyle(theme.size_mobile_body, FontWeight.Normal, tint, RfMetrics.lineTitle)
+            )
+            KitIcon(entry.icon, RfMetrics.menuIcon, tint)
+        }
     }
 }
 
@@ -97,9 +136,9 @@ fun KitReactionBar(
     ) {
         reactions.forEachIndexed { index, reaction ->
             Box(
-                Modifier.size(dp(RfMetrics.reactionCell), dp(RfMetrics.reaction)).clickableNoRipple(true) {
-                    onReaction(index)
-                },
+                Modifier
+                    .size(dp(RfMetrics.reactionCell), dp(RfMetrics.reaction))
+                    .clickableNoRipple(true, { onReaction(index) }),
                 contentAlignment = Alignment.Center
             ) {
                 Text(reaction, style = kitStyle(theme.size_page, FontWeight.Normal, theme.text, RfMetrics.lineTitle))

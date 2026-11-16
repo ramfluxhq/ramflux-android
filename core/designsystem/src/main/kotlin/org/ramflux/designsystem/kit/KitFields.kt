@@ -36,16 +36,19 @@ fun KitTextField(
     placeholder: String = "",
     error: String? = null,
     enabled: Boolean = true,
+    focused: Boolean = false,
     tag: String? = null
 ) {
     val theme = LocalRFTheme.current
     val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
+    val editing by interaction.collectIsFocusedAsState()
+    val activeFocus = focused || editing
     val border = when {
         error != null -> theme.danger
-        focused -> theme.focus
+        activeFocus -> theme.focus
         else -> theme.input_border
     }
+    val borderWidth = if (activeFocus) RfMetrics.focusRing else RfMetrics.stroke
     Column(
         modifier.fillMaxWidth().alpha(if (enabled) 1f else RfMetrics.fieldDisabledAlpha).kitTag(tag),
         verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.fieldGap))
@@ -63,7 +66,7 @@ fun KitTextField(
                 .fillMaxWidth()
                 .height(dp(RfMetrics.fieldBox))
                 .background(theme.input, shapeOf(theme.radius_input))
-                .border(dp(RfMetrics.stroke), border, shapeOf(theme.radius_input))
+                .border(dp(borderWidth), border, shapeOf(theme.radius_input))
                 .padding(horizontal = dp(RfMetrics.fieldPad)),
             decorationBox = { inner ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))) {
@@ -129,7 +132,10 @@ fun KitSearchField(
             }
         )
         if (value.isNotEmpty()) {
-            Box(Modifier.size(dp(RfMetrics.searchIcon)).clickableNoRipple(enabled) { onValue("") }, contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.size(dp(RfMetrics.searchIcon)).clickableNoRipple(enabled, { onValue("") }),
+                contentAlignment = Alignment.Center
+            ) {
                 KitIcon("circle-x", RfMetrics.searchIcon, theme.secondary)
             }
         }
