@@ -7,4 +7,5 @@ import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
 @Serializable data object ShellHome : NavKey
+@Serializable data object NoticesRoute : NavKey
 @Serializable data class FeatureRoute(val featureId: String) : NavKey

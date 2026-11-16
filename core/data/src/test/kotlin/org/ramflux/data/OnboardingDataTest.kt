@@ -4,7 +4,9 @@
 package org.ramflux.data
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -60,6 +62,9 @@ class OnboardingDataTest {
         val client = (CoreClient.open(abi, "/test/onboarding", "a".repeat(64)) as CoreResult.Success).value
         try {
             val repo = DefaultAccountAccessRepository(SdkRepositoryTransport { client })
+            val revisions = mutableListOf<Int>()
+            val watch = launch { repo.revisions.collect { revisions.add(it) } }
+            yield()
             val rows = (repo.list() as ClientResult.Ready).value
             assertEquals("Work", rows.accounts.single().label); assertFalse(rows.accounts.single().unlocked)
             assertTrue(repo.select("a") is ClientResult.Unavailable)
@@ -67,6 +72,8 @@ class OnboardingDataTest {
             assertEquals(listOf("account.list", "account.list"), abi.submitted.map { it.getValue("method").jsonPrimitive.content })
             val passphrase = "seal-fixture".toCharArray()
             assertTrue(repo.unlock("a", passphrase) is ClientResult.Ready)
+            yield()
+            assertEquals(listOf(1), revisions)
             assertTrue(passphrase.all { it == '\u0000' })
             assertEquals(listOf("account.unlock", "account.switch"), abi.submitted.drop(2).map { it.getValue("method").jsonPrimitive.content })
             val unlock = abi.submitted[2]
@@ -81,6 +88,8 @@ class OnboardingDataTest {
             assertTrue(repo.unlock("a", rejected) is ClientResult.Failed)
             assertTrue(rejected.all { it == '\u0000' })
             assertEquals("account.unlock", abi.submitted.last().getValue("method").jsonPrimitive.content)
+            assertEquals(listOf(1), revisions)
+            watch.cancel()
             assertTrue(abi.returnedBuffers.all { buffer -> buffer.all { it == 0.toByte() } })
         } finally { client.close() }
     }

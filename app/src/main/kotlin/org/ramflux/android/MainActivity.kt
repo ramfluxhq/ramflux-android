@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import org.ramflux.android.shell.OpenSourceNotices
 import org.ramflux.android.shell.StartupHost
 import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
@@ -20,6 +21,7 @@ import org.ramflux.feature.agents.AgentsNavigation
 import org.ramflux.feature.agents.api.AgentsRoute
 import org.ramflux.feature.appshell.AppShellNavigation
 import org.ramflux.feature.appshell.api.FeatureRoute
+import org.ramflux.feature.appshell.api.NoticesRoute
 import org.ramflux.feature.calls.CallsNavigation
 import org.ramflux.feature.calls.api.CallsRoute
 import org.ramflux.feature.cards.CardsNavigation
@@ -108,6 +110,7 @@ class MainActivity : ComponentActivity() {
                             permissionBanner = { NotificationPermissionBannerNavigation({ navigate(PermissionsRoute()) }) }
                         )
                     }
+                    entry<NoticesRoute> { OpenSourceNotices(onBack) }
                     entry<OnboardingRoute> { route ->
                         OnboardingNavigation(
                             onBack = onBack,

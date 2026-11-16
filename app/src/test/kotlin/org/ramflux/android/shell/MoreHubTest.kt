@@ -20,7 +20,8 @@ import org.robolectric.annotation.Config
 class MoreHubTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun contactsOpensAndAHiddenTaskIsAbsent() {
+    @Test(timeout = 30_000)
+    fun contactsOpensAndAHiddenTaskIsAbsent() {
         var opened = ""
         compose.setContent {
             RamfluxTheme {
@@ -33,7 +34,8 @@ class MoreHubTest {
         compose.onNodeWithText("Edit navigation").assertExists()
     }
 
-    @Test fun noticesOpenFromTheMoreHub() {
+    @Test(timeout = 30_000)
+    fun noticesOpenFromTheMoreHub() {
         var opened = false
         val showNotices = mutableStateOf(false)
         compose.setContent {

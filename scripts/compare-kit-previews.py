@@ -13,7 +13,9 @@ It does not measure trimmed ink. A capture edge more than 2 design pixels
 from the master is OVER.
 """
 
+import hashlib
 import json
+import re
 import struct
 import sys
 import zlib
@@ -21,6 +23,10 @@ from pathlib import Path
 
 SCALE = 2
 LIMIT = 2.0
+PIXEL_STRONG = 0.35
+PIXEL_MAE = 48.0
+VARIANCE_FLOOR = 64.0
+SHELL_NAME = re.compile(r"^(MOB-[A-Z0-9]+)\.(light|dark)--(en|zh)$")
 LIGHT_BG = (0xFC, 0xFB, 0xF9)
 DARK_BG = (0x17, 0x17, 0x16)
 SKIP_PREFIXES = ("chart--", "radio--", "origin-display--")
@@ -181,6 +187,113 @@ def preview_for(previews, name):
     return None, False
 
 
+def load_table(path):
+    if not path.exists():
+        return []
+    rows = []
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            rows.append(line)
+    return rows
+
+
+def board_id(name):
+    match = SHELL_NAME.match(name)
+    if match:
+        return match.group(1)
+    return name.split(".", 1)[0].split("--", 1)[0]
+
+
+def ink_count(width, channels, y, rows, bg):
+    count = 0
+    for x in range(width):
+        red, green, blue, alpha = pixel(rows, channels, x, y)
+        red, green, blue = over_bg(red, green, blue, alpha, bg)
+        if max(abs(red - bg[0]), abs(green - bg[1]), abs(blue - bg[2])) > 24:
+            count += 1
+    return count
+
+
+def luma_variance(width, height, channels, rows, bg):
+    count = 0
+    total = 0
+    total_sq = 0
+    for y in range(height):
+        for x in range(width):
+            red, green, blue, alpha = pixel(rows, channels, x, y)
+            red, green, blue = over_bg(red, green, blue, alpha, bg)
+            lum = (red * 3 + green * 6 + blue) // 10
+            total += lum
+            total_sq += lum * lum
+            count += 1
+    mean = total / count
+    return total_sq / count - mean * mean
+
+
+def pixel_error(capture_w, capture_h, channels, rows, scaled, bg):
+    _preview_w, _preview_h, preview_rows = scaled
+    total = 0
+    strong = 0
+    accumulated = 0
+    height = min(capture_h, len(preview_rows))
+    for y in range(height):
+        width = min(capture_w, len(preview_rows[y]) // 3)
+        for x in range(width):
+            red, green, blue, alpha = pixel(rows, channels, x, y)
+            red, green, blue = over_bg(red, green, blue, alpha, bg)
+            other = preview_rows[y][x * 3 : x * 3 + 3]
+            delta = max(abs(red - other[0]), abs(green - other[1]), abs(blue - other[2]))
+            accumulated += delta
+            if delta > 40:
+                strong += 1
+            total += 1
+    if total == 0:
+        return PIXEL_MAE + 1, 1.0
+    return accumulated / total, strong / total
+
+
+def first_ink_y(width, height, channels, rows, bg, limit):
+    for y in range(min(limit, height)):
+        if ink_count(width, channels, y, rows, bg) > 20:
+            return y
+    return None
+
+
+def tab_top(width, height, channels, rows, bg):
+    hits = []
+    for y in range(max(0, height - 140), max(0, height - 8)):
+        count = ink_count(width, channels, y, rows, bg)
+        if 15 <= count <= 180:
+            hits.append(y)
+    if not hits:
+        return None
+    floor = hits[-1]
+    cluster = [y for y in hits if floor - y <= 40]
+    return min(cluster)
+
+
+def structure_reason(name, width, height, channels, rows, bg, layout):
+    match = SHELL_NAME.match(name)
+    if layout is None or match is None or match.group(2) != "light":
+        return ""
+    board = match.group(1)
+    tolerance = layout["tolerance"]
+    reasons = []
+    if board in layout["titled"]:
+        measured = first_ink_y(width, height, channels, rows, bg, 180)
+        spec = layout["titleHeaderY"]
+        relative = spec - layout["statusBar"]
+        if measured is None or min(abs(measured - spec), abs(measured - relative)) > tolerance:
+            reasons.append(f"title y={measured} spec={spec}")
+    if board in layout["tabRoots"]:
+        measured = tab_top(width, height, channels, rows, bg)
+        spec = layout["tabBarY"]
+        if measured is None or abs(measured - spec) > tolerance:
+            reasons.append(f"tab y={measured} spec={spec}")
+    return "; ".join(reasons)
+
+
 def main():
     if len(sys.argv) != 4:
         raise SystemExit("usage: compare-kit-previews.py <previews-dir> <captures-dir> <output-dir>")
@@ -188,10 +301,24 @@ def main():
     captures = Path(sys.argv[2])
     output = Path(sys.argv[3])
     output.mkdir(parents=True, exist_ok=True)
+    gaps = {line.split("\t", 1)[0]: line.split("\t", 1)[-1] for line in load_table(previews / "design-gaps.tsv")}
+    layout_path = previews / "shell-layout.json"
+    layout = json.loads(layout_path.read_text()) if layout_path.exists() else None
     over = 0
     lines = ["name\tcapture\tmaster\tpreview\tdw\tdh\tflag\tnote"]
+    fingerprints = {}
     print(f"{'name':42} {'capture':>11} {'master':>11} {'preview':>11} {'dw':>7} {'dh':>7}")
-    for capture in sorted(captures.glob("*.png")):
+    captures_found = [path for path in sorted(captures.glob("*.png")) if not path.stem.startswith(SKIP_PREFIXES)]
+    if not captures_found:
+        print("OVER empty capture directory")
+        lines.append("captures\tEMPTY\t\t\t\t\tOVER\tempty capture directory")
+        over += 1
+    for stem in load_table(previews / "expected-frames.txt"):
+        if not (captures / f"{stem}.png").exists():
+            print(f"{stem:42} MISSING expected frame")
+            lines.append(f"{stem}\tMISSING\t\t\t\t\tOVER\texpected frame absent")
+            over += 1
+    for capture in captures_found:
         name = capture.stem
         if name.startswith(SKIP_PREFIXES):
             continue
@@ -226,9 +353,31 @@ def main():
         limit_h = 4.0 if locale else LIMIT
         fail_w = width_checked and abs(delta_w) > LIMIT
         fail_h = abs(delta_h) > limit_h
-        flag = "OVER" if fail_w or fail_h else "ok"
+        reasons = []
+        if fail_w or fail_h:
+            reasons.append("dimension")
+        if board_id(name) in gaps:
+            reasons.append("design gap must not be paired")
+        if scaled is not None:
+            mae, strong = pixel_error(capture_w, capture_h, capture_channels, capture_rows, scaled, bg)
+            if strong > PIXEL_STRONG or mae > PIXEL_MAE:
+                reasons.append(f"pixels mae={mae:.1f} strong={strong:.3f}")
+            if capture_h >= 700:
+                variance = luma_variance(capture_w, capture_h, capture_channels, capture_rows, bg)
+                if variance < VARIANCE_FLOOR:
+                    reasons.append(f"low-variance {variance:.1f}")
+            placed = structure_reason(name, capture_w, capture_h, capture_channels, capture_rows, bg, layout)
+            if placed:
+                reasons.append(placed)
+            digest = hashlib.sha256()
+            for row in capture_rows:
+                digest.update(row)
+            fingerprints[(name, digest.digest())] = board_id(name)
+        flag = "OVER" if reasons else "ok"
         if flag == "OVER":
             over += 1
+        if reasons:
+            note = (note + "; " if note else "") + "; ".join(reasons)
         dw_text = f"{delta_w:.1f}" if width_checked else "n/a"
         print(
             f"{name:42} {capture_w:4}x{capture_h:<4} {master_w:5g}x{master_h:<5g} "
@@ -240,6 +389,20 @@ def main():
         if scaled is not None:
             write_pair(output / f"{name}--pair.png", capture_w, capture_h, capture_channels, capture_rows, scaled, bg)
             write_diff(output / f"{name}--diff.png", capture_w, capture_h, capture_channels, capture_rows, scaled, bg)
+    grouped = {}
+    for (name, digest), board in fingerprints.items():
+        match = SHELL_NAME.match(name)
+        if match is None:
+            continue
+        grouped.setdefault((match.group(2), match.group(3), digest), set()).add(board)
+    for (theme, locale, _digest), boards in sorted(grouped.items()):
+        if len(boards) > 1:
+            label = ",".join(sorted(boards))
+            print(f"OVER identical pixels {theme} {locale}: {label}")
+            lines.append(f"{label}\t\t\t\t\t\tOVER\tidentical pixels on {theme} {locale}")
+            over += 1
+    for board, reason in sorted(gaps.items()):
+        lines.append(f"{board}\t\t\t\t\t\tGAP\t{reason}")
     lines.append("")
     lines.append("notes")
     lines.append("Pushed page titles are 17/600. The page-header spec title token is 20. The ruling overrides that spec.")
@@ -247,6 +410,11 @@ def main():
     lines.append("Chinese uses the platform CJK font, so type metrics can differ from Noto Sans SC.")
     lines.append("en/zh samples may differ by up to 4 px because Latin and CJK metrics differ.")
     lines.append("Icon geometry is Lucide. Pencil strokes are a reference, not the vector source.")
+    lines.append("Pixel mean channel error above 48, or more than 35 percent of pixels differing by more than 40, fails.")
+    lines.append("A full-board luma variance below 64 fails. That is a blank or flat placeholder frame.")
+    lines.append("Light titles must sit on spec header y=59, or on that header when the 59px design status bar is absent. Tolerance is 32.")
+    lines.append("Light tab bars must start within 32px of spec y=769.")
+    lines.append("Two different board ids with identical pixels fail. A listed design gap must not be captured as a match.")
     checklist = output / "checklist.tsv"
     checklist.write_text("\n".join(lines) + "\n")
     print(f"OVER {over}")

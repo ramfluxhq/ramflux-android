@@ -19,7 +19,8 @@ import org.robolectric.annotation.Config
 class GatewayScreenTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun continueOpensWelcomeAndChangeNodeIsPresent() {
+    @Test(timeout = 30_000)
+    fun continueOpensWelcomeAndChangeNodeIsPresent() {
         var step = ""
         compose.setContent {
             RamfluxTheme {

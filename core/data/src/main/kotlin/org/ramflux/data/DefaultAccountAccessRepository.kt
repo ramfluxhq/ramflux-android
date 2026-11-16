@@ -4,11 +4,17 @@
 package org.ramflux.data
 
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.sdk.*
 
 internal class DefaultAccountAccessRepository(transport: RepositoryTransport) : AccountAccessRepository {
     private val accounts = DefaultAccountsRepository(transport)
+    private val revisionCount = AtomicInteger()
+    private val publishedRevisions = MutableSharedFlow<Int>(replay = 1, extraBufferCapacity = 1)
+    override val revisions: Flow<Int> = publishedRevisions
     override suspend fun list(): ClientResult<AccountCatalog> = when (val result = accounts.accountList(RepositoryContext(null), JsonObject(emptyMap()))) {
         is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
         is CoreResult.Success -> when (val decoded = AccountListMetadataReader.read(result.value)) {
@@ -48,7 +54,11 @@ internal class DefaultAccountAccessRepository(transport: RepositoryTransport) : 
     private suspend fun switch(id: String): ClientResult<Unit> =
         when (val result = accounts.accountSwitch(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {})) {
             is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
-            is CoreResult.Success -> { result.value.close(); ClientResult.Ready(Unit) }
+            is CoreResult.Success -> {
+                result.value.close()
+                publishedRevisions.emit(revisionCount.incrementAndGet())
+                ClientResult.Ready(Unit)
+            }
         }
     private fun acceptable(id: String) = id.isNotEmpty() && id.length <= 128
     private fun invalid() = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))

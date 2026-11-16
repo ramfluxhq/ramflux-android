@@ -48,14 +48,23 @@ class StartupModel @Inject constructor(
                     facts.value = StartupFacts()
                     return@collect
                 }
-                val accountResult = accounts.list()
-                val nodeResult = nodes.list()
-                if (session.status.value.phase != ClientPhase.OPEN) return@collect
-                val listed = (accountResult as? ClientResult.Ready)?.value
-                val saved = (nodeResult as? ClientResult.Ready)?.value
-                facts.value = StartupFacts(listed, saved, failed = listed == null || saved == null)
+                refresh()
             }
         }
+        viewModelScope.launch {
+            accounts.revisions.collect {
+                if (session.status.value.phase == ClientPhase.OPEN) refresh()
+            }
+        }
+    }
+
+    private suspend fun refresh() {
+        val accountResult = accounts.list()
+        val nodeResult = nodes.list()
+        if (session.status.value.phase != ClientPhase.OPEN) return
+        val listed = (accountResult as? ClientResult.Ready)?.value
+        val saved = (nodeResult as? ClientResult.Ready)?.value
+        facts.value = StartupFacts(listed, saved, failed = listed == null || saved == null)
     }
 
     fun showWelcome() {

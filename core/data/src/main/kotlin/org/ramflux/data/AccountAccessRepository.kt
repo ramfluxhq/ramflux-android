@@ -3,11 +3,18 @@
 
 package org.ramflux.data
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+
 /** Metadata is ordinary display information; credentials and ceremony replies never cross Data. */
 data class AccountSummary(val id: String, val label: String?, val unlocked: Boolean, val state: String)
 data class AccountCatalog(val accounts: List<AccountSummary>, val activeId: String?)
 enum class AccountSetupAction { CREATE, RECOVER, PAIR, SHOW_PHRASE, CHECK_PHRASE, LOCAL_UNLOCK }
 interface AccountAccessRepository {
+    /** Increments after a successful switch. Unlock publishes through that switch. */
+    val revisions: Flow<Int>
+        get() = emptyFlow()
+
     suspend fun list(): ClientResult<AccountCatalog>
     suspend fun select(id: String): ClientResult<Unit>
     suspend fun setup(action: AccountSetupAction): ClientResult<Unit>

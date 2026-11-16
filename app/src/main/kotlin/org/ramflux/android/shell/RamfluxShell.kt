@@ -24,6 +24,7 @@ import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitTab
 import org.ramflux.designsystem.kit.KitTabBar
 import org.ramflux.feature.agents.AgentsNavigation
+import org.ramflux.feature.appshell.api.NoticesRoute
 import org.ramflux.feature.chat.api.ChatRoute
 import org.ramflux.feature.contacts.api.ContactsRoute
 import org.ramflux.feature.conversations.ConversationsNavigation
@@ -39,14 +40,9 @@ fun RamfluxShell(navigate: (NavKey) -> Unit) {
     val theme = LocalRFTheme.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var editing by rememberSaveable { mutableStateOf(false) }
-    var notices by rememberSaveable { mutableStateOf(false) }
     var order by rememberSaveable { mutableStateOf(DEFAULT_SHELL_ORDER) }
     var hidden by rememberSaveable { mutableStateOf("") }
     var atRoot by rememberSaveable { mutableStateOf(true) }
-    if (notices) {
-        OpenSourceNotices { notices = false }
-        return
-    }
     if (editing) {
         NavigationEditor(order, hidden, { order = it }, { hidden = it }, { editing = false })
         return
@@ -77,7 +73,7 @@ fun RamfluxShell(navigate: (NavKey) -> Unit) {
                 )
                 else -> {
                     SideEffect { atRoot = true }
-                    MoreHub(order, hidden, { openMore(it, navigate) }, { editing = true }, { notices = true })
+                    MoreHub(order, hidden, { openMore(it, navigate) }, { editing = true }, { navigate(NoticesRoute) })
                 }
             }
         }

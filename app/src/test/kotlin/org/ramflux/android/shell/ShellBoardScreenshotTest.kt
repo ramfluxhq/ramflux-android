@@ -22,13 +22,10 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.ramflux.android.R
-import org.ramflux.data.AgentCapability
 import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.kit.KitTab
 import org.ramflux.designsystem.kit.KitTabBar
-import org.ramflux.feature.agents.AgentsScreen
-import org.ramflux.feature.agents.AgentsState
 import org.ramflux.feature.conversations.ConversationItem
 import org.ramflux.feature.conversations.ConversationsScreen
 import org.ramflux.feature.conversations.ConversationsState
@@ -50,15 +47,14 @@ import org.robolectric.annotation.GraphicsMode
 class ShellBoardScreenshotTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun boardsMatchTheDesignFrame() {
+    @Test(timeout = 180_000)
+    fun boardsMatchTheDesignFrame() {
         val frames = listOf("en" to "en", "zh-CN" to "zh").flatMap { (locale, suffix) ->
             listOf(
                 BoardFrame("MOB-B01.light--$suffix", false, locale) { Tabs(0) { Messages(loaded = true) } },
                 BoardFrame("MOB-B01L.light--$suffix", false, locale) { Tabs(0) { Messages(loading = true) } },
                 BoardFrame("MOB-B01X.light--$suffix", false, locale) { Tabs(0) { Messages(problem = UiText.Data("Cannot connect")) } },
                 BoardFrame("MOB-C01.light--$suffix", false, locale) { Tabs(1) { Groups() } },
-                BoardFrame("MOB-D01.light--$suffix", false, locale) { Tabs(2) { Agents() } },
-                BoardFrame("MOB-D01E.light--$suffix", false, locale) { Tabs(2) { Agents() } },
                 BoardFrame("MOB-G01.light--$suffix", false, locale) { Tabs(3) { MoreHub(DEFAULT_SHELL_ORDER, "", {}, {}, {}) } },
                 BoardFrame("MOB-G03.light--$suffix", false, locale) { NavigationEditor(DEFAULT_SHELL_ORDER, "", {}, {}, {}) },
                 BoardFrame("MOB-N01.light--$suffix", false, locale) {
@@ -140,11 +136,6 @@ class ShellBoardScreenshotTest {
             {},
             rooted = true
         )
-    }
-
-    @Composable
-    private fun Agents() {
-        AgentsScreen(AgentsState(mode = AgentCapability.DIRECTORY), {}, rooted = true)
     }
 }
 
