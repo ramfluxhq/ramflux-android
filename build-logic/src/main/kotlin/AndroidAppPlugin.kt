@@ -36,6 +36,7 @@ class AndroidAppPlugin : Plugin<Project> {
         listOf("activity-compose", "compose-material", "lifecycle-process", "hilt-android", "hilt-compose", "navigation-runtime", "navigation-ui", "lifecycle-compose", "lifecycle-viewmodel").forEach { dependencies.add("implementation", libs.findLibrary(it).get()) }
         dependencies.add("ksp", libs.findLibrary("hilt-compiler").get())
         listOf("roborazzi", "roborazzi-compose").forEach { dependencies.add("testImplementation", libs.findLibrary(it).get()) }
+        offlineRobolectric()
         tasks.withType(Test::class.java).configureEach {
             if (System.getenv("CI") != "true") exclude("**/*ScreenshotTest*")
         }

@@ -18,6 +18,7 @@ class AndroidTestingPlugin : Plugin<Project> {
             dependencies.add("testImplementation", libs.findLibrary(it).get())
         }
         dependencies.add("debugImplementation", libs.findLibrary("compose-test-manifest").get())
+        offlineRobolectric()
         tasks.withType(Test::class.java).configureEach {
             systemProperty("robolectric.graphicsMode", "NATIVE")
             if (System.getenv("CI") != "true") exclude("**/*ScreenshotTest*")

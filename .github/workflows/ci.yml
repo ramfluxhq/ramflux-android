@@ -23,6 +23,12 @@ jobs:
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0
       - uses: gradle/actions/setup-gradle@v4
+      # The key follows the Robolectric version and the API 28/35 jar versions in libs.versions.toml.
+      - name: Cache Robolectric android-all jars
+        uses: actions/cache@v4
+        with:
+          path: robolectric-jars
+          key: robolectric-android-all-v1-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
       - run: python3 scripts/check-secret-boundary.py
       - run: python3 scripts/check-client-architecture.py
       - run: python3 scripts/check-os-permissions.py
