@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -24,6 +25,8 @@ import org.robolectric.annotation.Config
 class KitLayoutTest {
     @get:Rule val compose = createComposeRule()
 
+    @get:Rule val deadline = KitDeadline(30)
+
     @Test fun primaryButtonMatchesTheMasterFrame() = frame("button", 361.dp) {
         KitButton("\u6309\u94ae", {}, tag = "button")
     }.also {
@@ -33,7 +36,8 @@ class KitLayoutTest {
     @Test fun textButtonIsTheCompactHeight() = frame("text-button", 361.dp) {
         KitButton("\u6587\u5b57\u6309\u94ae", {}, kind = KitButtonKind.Text, tag = "text-button")
     }.also {
-        compose.onNodeWithTag("text-button").assertHeightIsEqualTo(44.dp)
+        compose.onNodeWithTag("text-button", useUnmergedTree = true).assertHeightIsEqualTo(44.dp)
+        compose.onNodeWithTag("text-button-hit", useUnmergedTree = true).assertHeightIsEqualTo(48.dp)
     }
 
     @Test fun disabledPrimaryUsesTheDesignedFrame() = frame("disabled", 361.dp) {
@@ -109,6 +113,47 @@ class KitLayoutTest {
     @Test fun qrTileStaysTheDesignSquare() {
         compose.setContent { RamfluxTheme(dark = true) { KitQrPlaceholder(tag = "qr") } }
         compose.onNodeWithTag("qr").assertWidthIsEqualTo(200.dp).assertHeightIsEqualTo(200.dp)
+    }
+
+    @Test fun hitFramesStayFortyEightWithoutChangingTheDrawnControl() {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column {
+                    KitInfoButton({}, tag = "info")
+                    KitPageHeader("Title", onBack = {}, tag = "header")
+                    KitChatHeader("Title", null, { KitAvatar("A", 36f, KitAvatarKind.Person) }, {}, tag = "chat")
+                    KitTabBar(listOf(KitTab("messages-square", "Messages")), 0, {}, tag = "tabs")
+                    KitContextMenu(listOf(KitMenuEntry("Reply", "reply")), {}, tag = "menu")
+                }
+            }
+        }
+        compose.onNodeWithTag("info", useUnmergedTree = true).assertWidthIsEqualTo(44.dp).assertHeightIsEqualTo(44.dp)
+        compose.onNodeWithTag("info-hit", useUnmergedTree = true).assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
+        compose.onNodeWithTag("header", useUnmergedTree = true).assertHeightIsEqualTo(60.dp)
+        compose.onNodeWithTag("header-back", useUnmergedTree = true).assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
+        compose.onNodeWithTag("chat", useUnmergedTree = true).assertHeightIsEqualTo(60.dp)
+        compose.onNodeWithTag("chat-back", useUnmergedTree = true).assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
+        compose.onNodeWithTag("tabs", useUnmergedTree = true).assertHeightIsEqualTo(83.dp)
+        compose.onNodeWithTag("tabs-0", useUnmergedTree = true).assertHeightIsEqualTo(48.dp)
+        compose.onNodeWithTag("menu-hit-0-0", useUnmergedTree = true).assertHeightIsEqualTo(48.dp)
+    }
+
+    @Test fun disabledControlsDoNotHit() {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column {
+                    KitSwitch(true, {}, enabled = false, tag = "switch")
+                    KitButton("Button", {}, kind = KitButtonKind.Disabled, tag = "disabled")
+                    KitRow("Label", {}, enabled = false, testTag = "row")
+                }
+            }
+        }
+        compose.onNodeWithTag("switch-hit", useUnmergedTree = true).assertIsNotEnabled()
+        compose.onNodeWithTag("switch", useUnmergedTree = true).assertWidthIsEqualTo(51.dp).assertHeightIsEqualTo(31.dp)
+        compose.onNodeWithTag("disabled", useUnmergedTree = true).assertIsNotEnabled()
+        compose.onNodeWithTag("row", useUnmergedTree = true).assertIsNotEnabled()
     }
 
     private fun frame(tag: String, width: androidx.compose.ui.unit.Dp, content: @androidx.compose.runtime.Composable () -> Unit) {

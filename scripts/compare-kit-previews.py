@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (c) 2026 Span Brain
-"""Compare kit captures with 2x design preview PNGs.
+"""Compare kit captures with design preview PNGs and write pair evidence.
 
-Usage: compare-kit-previews.py <previews-dir> <captures-dir>
+Usage: compare-kit-previews.py <previews-dir> <captures-dir> <output-dir>
 
-Design exports are twice the design size. A border whose pixels match the
-corner color is removed before the size is halved, so canvas padding is not
-a component delta. A width or height delta over 2 design pixels is OVER.
+Design exports are twice the design size. The checklist measures the master
+frame from kit-masters.json when the export canvas is not that frame, and
+the untrimmed preview frame otherwise. It does not measure trimmed ink.
+A capture edge more than 2 design pixels from the master is OVER.
 """
 
+import json
 import struct
 import sys
 import zlib
@@ -18,6 +20,9 @@ from pathlib import Path
 SCALE = 2
 LIMIT = 2.0
 SKIP_PREFIXES = ("chart--", "radio--", "origin-display--")
+STATE_SUFFIXES = ("--pressed", "--focused", "--loading", "--en", "--zh")
+ROOT = Path(__file__).resolve().parent.parent
+MASTERS = json.loads((ROOT / "core/designsystem/kit-masters.json").read_text())
 
 
 def paeth(left, up, upper_left):
@@ -83,70 +88,186 @@ def pixel(rows, channels, x, y):
     return sample[0], sample[1], sample[2], 255
 
 
-def content_box(width, height, channels, rows):
-    corner = pixel(rows, channels, 0, 0)
+def write_png(path, width, height, rgb_rows):
+    raw = bytearray()
+    for row in rgb_rows:
+        raw.append(0)
+        raw.extend(row)
+    compressed = zlib.compress(bytes(raw), 9)
 
-    def background(x, y):
-        sample = pixel(rows, channels, x, y)
-        if corner[3] < 16 and sample[3] < 16:
-            return True
-        return all(abs(sample[channel] - corner[channel]) <= 18 for channel in range(4))
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
 
-    top = 0
-    while top < height and all(background(x, top) for x in range(width)):
-        top += 1
-    bottom = height - 1
-    while bottom >= top and all(background(x, bottom) for x in range(width)):
-        bottom -= 1
-    if top > bottom:
-        return 0, 0, width, height
-    left = 0
-    while left < width and all(background(left, y) for y in range(top, bottom + 1)):
-        left += 1
-    right = width - 1
-    while right >= left and all(background(right, y) for y in range(top, bottom + 1)):
-        right -= 1
-    return left, top, right - left + 1, bottom - top + 1
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", compressed) + chunk(b"IEND", b""))
+
+
+def scale_half(width, height, channels, rows):
+    out_w = width // SCALE
+    out_h = height // SCALE
+    scaled = []
+    for y in range(out_h):
+        row = bytearray()
+        for x in range(out_w):
+            red, green, blue, _alpha = pixel(rows, channels, x * SCALE, y * SCALE)
+            row.extend((red, green, blue))
+        scaled.append(row)
+    return out_w, out_h, scaled
+
+
+def blank(width, height, color):
+    row = bytes(color) * width
+    return [bytearray(row) for _ in range(height)]
+
+
+def blit(canvas, rows, x0, y0):
+    for y, row in enumerate(rows):
+        start = (x0 + y and 0) * 0
+        offset = x0 * 3
+        canvas[y0 + y][offset : offset + len(row)] = row
+    return start
+
+
+def lookup_master(name):
+    keys = [name]
+    if name.endswith("--dark"):
+        keys.append(name[: -len("--dark")])
+    base = name
+    for suffix in STATE_SUFFIXES:
+        if base.endswith(suffix):
+            base = base[: -len(suffix)]
+            keys.append(base)
+            if base.endswith("--dark"):
+                keys.append(base[: -len("--dark")])
+    for key in keys:
+        if key in MASTERS:
+            return MASTERS[key]
+    return None
+
+
+def preview_for(previews, name):
+    direct = previews / f"{name}.png"
+    if direct.exists():
+        return direct, False
+    base = name
+    for suffix in STATE_SUFFIXES:
+        if base.endswith(suffix):
+            base = base[: -len(suffix)]
+            break
+    for candidate in (base, f"{base}--default"):
+        fallback = previews / f"{candidate}.png"
+        if fallback.exists():
+            return fallback, True
+    return None, False
 
 
 def main():
-    if len(sys.argv) != 3:
-        raise SystemExit("usage: compare-kit-previews.py <previews-dir> <captures-dir>")
+    if len(sys.argv) != 4:
+        raise SystemExit("usage: compare-kit-previews.py <previews-dir> <captures-dir> <output-dir>")
     previews = Path(sys.argv[1])
     captures = Path(sys.argv[2])
+    output = Path(sys.argv[3])
+    output.mkdir(parents=True, exist_ok=True)
     over = 0
-    print(f"{'name':42} {'capture':>11} {'preview':>11} {'trimmed':>11} {'dw':>7} {'dh':>7} basis")
+    lines = ["name\tcapture\tmaster\tpreview\tdw\tdh\tflag\tnote"]
+    print(f"{'name':42} {'capture':>11} {'master':>11} {'preview':>11} {'dw':>7} {'dh':>7}")
     for capture in sorted(captures.glob("*.png")):
         name = capture.stem
         if name.startswith(SKIP_PREFIXES):
             continue
-        preview_path = previews / f"{name}.png"
-        if not preview_path.exists():
+        capture_w, capture_h, capture_channels, capture_rows = read_png(capture)
+        preview_path, borrowed = preview_for(previews, name)
+        preview_label = "none"
+        scaled = None
+        if preview_path is not None:
+            preview_w, preview_h, channels, rows = read_png(preview_path)
+            preview_label = f"{preview_w / SCALE:g}x{preview_h / SCALE:g}"
+            scaled = scale_half(preview_w, preview_h, channels, rows)
+        master = lookup_master(name)
+        note = ""
+        if master is not None:
+            master_w = master.get("w", capture_w)
+            master_h = master["h"]
+            note = master.get("note", "")
+            if borrowed:
+                note = (note + "; " if note else "") + "paired with the base preview"
+        elif scaled is not None:
+            master_w, master_h, _rows = scaled
+        else:
             print(f"{name:42} MISSING preview")
+            lines.append(f"{name}\t{capture_w}x{capture_h}\tMISSING\tnone\t\t\tOVER\tno preview")
             over += 1
             continue
-        capture_w, capture_h, _, _ = read_png(capture)
-        preview_w, preview_h, channels, rows = read_png(preview_path)
-        _, _, trimmed_w, trimmed_h = content_box(preview_w, preview_h, channels, rows)
-        plain_w = preview_w / SCALE
-        plain_h = preview_h / SCALE
-        design_w = trimmed_w / SCALE
-        design_h = trimmed_h / SCALE
-        plain_score = max(abs(capture_w - plain_w), abs(capture_h - plain_h))
-        trim_score = max(abs(capture_w - design_w), abs(capture_h - design_h))
-        use_trim = trim_score + 0.5 < plain_score
-        delta_w = capture_w - (design_w if use_trim else plain_w)
-        delta_h = capture_h - (design_h if use_trim else plain_h)
-        flag = "OVER" if abs(delta_w) > LIMIT or abs(delta_h) > LIMIT else "ok"
+        delta_w = capture_w - master_w
+        delta_h = capture_h - master_h
+        width_checked = not (master is not None and "w" not in master)
+        locale = name.endswith("--en") or name.endswith("--zh")
+        limit_h = 4.0 if locale else LIMIT
+        fail_w = width_checked and abs(delta_w) > LIMIT
+        fail_h = abs(delta_h) > limit_h
+        flag = "OVER" if fail_w or fail_h else "ok"
         if flag == "OVER":
             over += 1
-        chosen = "trim" if use_trim else "frame"
+        dw_text = f"{delta_w:.1f}" if width_checked else "n/a"
         print(
-            f"{name:42} {capture_w:4}x{capture_h:<4} {plain_w:5g}x{plain_h:<5g} "
-            f"{design_w:5g}x{design_h:<5g} {delta_w:7.1f} {delta_h:7.1f} {chosen:5} {flag}"
+            f"{name:42} {capture_w:4}x{capture_h:<4} {master_w:5g}x{master_h:<5g} "
+            f"{preview_label:>11} {dw_text:>7} {delta_h:7.1f} {flag}"
         )
+        lines.append(
+            f"{name}\t{capture_w}x{capture_h}\t{master_w:g}x{master_h:g}\t{preview_label}\t{dw_text}\t{delta_h:.1f}\t{flag}\t{note}"
+        )
+        if scaled is not None:
+            write_pair(output / f"{name}--pair.png", capture_w, capture_h, capture_channels, capture_rows, scaled)
+            write_diff(output / f"{name}--diff.png", capture_w, capture_h, capture_channels, capture_rows, scaled)
+    lines.append("")
+    lines.append("notes")
+    lines.append("Pushed page titles are 17/600. The page-header spec title token is 20. The ruling overrides that spec.")
+    lines.append("The selected tab has no pill. Selection is icon and label color and weight.")
+    lines.append("Chinese uses the platform CJK font, so type metrics can differ from Noto Sans SC.")
+    lines.append("en/zh samples may differ by up to 4 px because Latin and CJK metrics differ.")
+    lines.append("Icon geometry is Lucide. Pencil strokes are a reference, not the vector source.")
+    checklist = output / "checklist.tsv"
+    checklist.write_text("\n".join(lines) + "\n")
     print(f"OVER {over}")
+    print(f"CHECKLIST {checklist}")
     return 1 if over else 0
+
+
+def capture_rgb(width, height, channels, rows):
+    rgb = []
+    for y in range(height):
+        row = bytearray()
+        for x in range(width):
+            red, green, blue, _alpha = pixel(rows, channels, x, y)
+            row.extend((red, green, blue))
+        rgb.append(row)
+    return rgb
+
+
+def write_pair(path, capture_w, capture_h, channels, rows, scaled):
+    preview_w, preview_h, preview_rows = scaled
+    gap = 8
+    width = capture_w + gap + preview_w
+    height = max(capture_h, preview_h)
+    canvas = blank(width, height, (255, 255, 255))
+    blit(canvas, capture_rgb(capture_w, capture_h, channels, rows), 0, 0)
+    blit(canvas, preview_rows, capture_w + gap, 0)
+    write_png(path, width, height, canvas)
+
+
+def write_diff(path, capture_w, capture_h, channels, rows, scaled):
+    preview_w, preview_h, preview_rows = scaled
+    canvas = blank(capture_w, capture_h, (230, 230, 230))
+    for y in range(capture_h):
+        for x in range(capture_w):
+            red, green, blue, _alpha = pixel(rows, channels, x, y)
+            if y < preview_h and x < preview_w:
+                other = preview_rows[y][x * 3 : x * 3 + 3]
+                delta = max(abs(red - other[0]), abs(green - other[1]), abs(blue - other[2]))
+                if delta > 40:
+                    red, green, blue = 220, 40, 40
+            canvas[y][x * 3 : x * 3 + 3] = bytes((red, green, blue))
+    write_png(path, capture_w, capture_h, canvas)
 
 
 if __name__ == "__main__":

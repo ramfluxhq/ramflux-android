@@ -30,6 +30,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -116,16 +120,26 @@ internal fun HitBox(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    role: Role = Role.Button,
+    label: String = "",
     content: @Composable BoxScope.() -> Unit
 ) {
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides dp(RfMetrics.hit)) {
         Box(
-            modifier.minimumInteractiveComponentSize().clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
-            ),
+            modifier
+                .minimumInteractiveComponentSize()
+                .semantics {
+                    this.role = role
+                    if (label.isNotEmpty()) contentDescription = label
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    enabled = enabled,
+                    role = role,
+                    onClick = onClick
+                )
+                .kitTag(tag?.let { "$it-hit" }),
             contentAlignment = Alignment.Center
         ) {
             Box(if (tag == null) Modifier else Modifier.testTag(tag), content = content)

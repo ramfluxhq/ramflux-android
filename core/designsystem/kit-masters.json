@@ -1,0 +1,10 @@
+{
+  "bubble--file": {"h": 56, "note": "width follows the platform CJK font; the design file is Noto Sans SC"},
+  "button--primary--dark": {"w": 361, "h": 52, "note": "the dark export is a 160 px crop of the 361 pt master"},
+  "button--secondary--dark": {"w": 361, "h": 52, "note": "the dark export is a crop of the 361 pt master"},
+  "button--text--dark": {"w": 361, "h": 44, "note": "the dark export is narrower than the 361 pt master"},
+  "context-menu--default": {"w": 240, "h": 309, "note": "the export canvas includes shadow outside the master"},
+  "reaction-bar--default": {"w": 320, "h": 44, "note": "emoji ink draws outside the 44 pt master"},
+  "row--tag": {"w": 361, "h": 58, "note": "the 92 pt export is a board instance; the row master is 58"},
+  "sheet--default": {"w": 393, "h": 188, "note": "the export canvas includes shadow outside the master"}
+}

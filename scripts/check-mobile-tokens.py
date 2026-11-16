@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (c) 2026 Span Brain
-"""Compare hand-written RFTokens with the mobile kit token file."""
+"""Compare hand-written RFTokens with the design token file.
+
+The design file's SHA-256 is pinned. CI passes that file and fails if the
+bytes drift from the pin or if RFTokens disagrees with it.
+"""
+import hashlib
 import json
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TOKENS = ROOT / "core/designsystem/mobile-kit-tokens.json"
+DESIGN_SHA256 = "5af83dc4aafa883c1bfaa4a33c222be577567eb4327953ba80a7f0d78d680632"
 SOURCE = ROOT / "core/designsystem/src/main/kotlin/org/ramflux/generated/RFTokens.kt"
 THEMES = ROOT / "core/designsystem/src/main/assets/ramflux/themes"
 
@@ -51,20 +56,14 @@ def component_hex(node):
 
 
 def main():
-    token_path = Path(sys.argv[1]) if len(sys.argv) > 1 else TOKENS
-    spec = json.loads(token_path.read_text())
-    if len(sys.argv) > 2:
-        other = json.loads(Path(sys.argv[2]).read_text())
-        if other["color"]["values"] != spec["color"]["values"]:
-            raise SystemExit("vendored color tokens differ from the design token file")
-        if other["typography"]["sizesPx"]["values"] != spec["typography"]["sizesPx"]["values"]:
-            raise SystemExit("vendored type sizes differ from the design token file")
-        if other["radii"]["variables"] != spec["radii"]["variables"]:
-            raise SystemExit("vendored radii differ from the design token file")
-        if other["dimensions"]["variables"] != spec["dimensions"]["variables"]:
-            raise SystemExit("vendored dimensions differ from the design token file")
-        if other["typography"]["families"] != spec["typography"]["families"]:
-            raise SystemExit("vendored font families differ from the design token file")
+    if len(sys.argv) != 2:
+        raise SystemExit("usage: check-mobile-tokens.py <design-tokens.json>")
+    token_path = Path(sys.argv[1])
+    raw = token_path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != DESIGN_SHA256:
+        raise SystemExit(f"TOKEN_DIGEST {digest} != {DESIGN_SHA256}")
+    spec = json.loads(raw)
     text = SOURCE.read_text()
     light = field_map(theme_block(text, "light"))
     dark = field_map(theme_block(text, "dark"))

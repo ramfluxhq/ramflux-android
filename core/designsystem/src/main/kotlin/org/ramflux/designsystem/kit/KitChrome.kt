@@ -20,11 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import org.ramflux.designsystem.LocalRFTheme
 
-data class KitHeaderAction(val icon: String, val onClick: () -> Unit)
+data class KitHeaderAction(val icon: String, val label: String = icon, val onClick: () -> Unit)
 
 data class KitTab(val icon: String, val label: String, val latin: Boolean = false, val badge: String? = null)
 
@@ -88,7 +91,9 @@ fun KitPageHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
     ) {
-        if (!large && onBack != null) IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack)
+        if (!large && onBack != null) {
+            IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack, tag = tag?.let { "$it-back" })
+        }
         Column(Modifier.weight(1f)) {
             if (title.isNotEmpty()) {
                 Text(
@@ -111,16 +116,20 @@ fun KitPageHeader(
                 )
             }
         }
-        if (!large && onInfo != null) IconHit("info", RfMetrics.iconInfo, theme.secondary, onInfo)
+        if (!large && onInfo != null) IconHit("info", RfMetrics.iconInfo, theme.secondary, onInfo, tag = tag?.let { "$it-info" })
         if (!large && actionLabel != null && onAction != null) {
             Box(
-                Modifier.height(dp(RfMetrics.iconButton)).clickableNoRipple(true, onAction).padding(horizontal = dp(RfMetrics.headerGap)),
+                Modifier
+                    .height(dp(RfMetrics.hit))
+                    .semantics { contentDescription = actionLabel }
+                    .clickableNoRipple(true, onAction)
+                    .padding(horizontal = dp(RfMetrics.headerGap)),
                 Alignment.Center
             ) {
                 Text(actionLabel, style = kitStyle(theme.size_body, FontWeight.SemiBold, theme.text, RfMetrics.lineBody))
             }
         }
-        actions.forEach { action -> IconHit(action.icon, RfMetrics.iconAction, theme.text, action.onClick) }
+        actions.forEach { action -> IconHit(action.icon, RfMetrics.iconAction, theme.text, action.onClick, action.label) }
     }
 }
 
@@ -147,7 +156,7 @@ fun KitChatHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
     ) {
-        IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack)
+        IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack, tag = tag?.let { "$it-back" })
         avatar()
         Column(Modifier.weight(1f)) {
             Text(
@@ -176,59 +185,95 @@ fun KitTabBar(tabs: List<KitTab>, selected: Int, onSelect: (Int) -> Unit, modifi
     Column(
         modifier.fillMaxWidth().height(dp(RfMetrics.tabBar)).background(theme.bg).kitHairline(theme.line, top = true).kitTag(tag)
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(top = dp(RfMetrics.tabPadTop)).height(dp(RfMetrics.tab)),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(Modifier.fillMaxWidth().padding(top = dp(RfMetrics.tabPadTop)).height(dp(RfMetrics.hit))) {
             tabs.forEachIndexed { index, tab ->
                 val on = index == selected
                 val tint = if (on) theme.text else theme.secondary
-                Column(
-                    Modifier.weight(1f).height(dp(RfMetrics.tab)).clickableNoRipple(true) { onSelect(index) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.tabGap), Alignment.CenterVertically)
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(dp(RfMetrics.hit))
+                        .semantics { contentDescription = tab.label }
+                        .clickableNoRipple(true, { onSelect(index) })
+                        .kitTag(tag?.let { "$it-$index" })
                 ) {
-                    Box(Modifier.size(dp(RfMetrics.tabIcon))) {
-                        KitIcon(tab.icon, RfMetrics.tabIcon, tint)
-                        if (tab.badge != null) {
-                            Box(
-                                Modifier
-                                    .offset(x = dp(RfMetrics.badgeX), y = dp(RfMetrics.badgeY))
-                                    .height(dp(RfMetrics.tabBadge))
-                                    .widthIn(min = dp(RfMetrics.tabBadgeMin))
-                                    .clip(shapeOf(theme.radius_md))
-                                    .background(theme.badge)
-                                    .padding(horizontal = dp(RfMetrics.tabBadgePad)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    tab.badge,
-                                    style = kitStyle(theme.size_mobile_caption, FontWeight.SemiBold, theme.on_badge, RfMetrics.lineTitle)
-                                )
+                    Column(
+                        Modifier.height(dp(RfMetrics.tab)).align(Alignment.TopCenter),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.tabGap), Alignment.CenterVertically)
+                    ) {
+                        Box(Modifier.size(dp(RfMetrics.tabIcon))) {
+                            KitIcon(tab.icon, RfMetrics.tabIcon, tint)
+                            if (tab.badge != null) {
+                                Box(
+                                    Modifier
+                                        .offset(x = dp(RfMetrics.badgeX), y = dp(RfMetrics.badgeY))
+                                        .height(dp(RfMetrics.tabBadge))
+                                        .widthIn(min = dp(RfMetrics.tabBadgeMin))
+                                        .clip(shapeOf(theme.radius_md))
+                                        .background(theme.badge)
+                                        .padding(horizontal = dp(RfMetrics.tabBadgePad)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        tab.badge,
+                                        style = kitStyle(
+                                            theme.size_mobile_caption,
+                                            FontWeight.SemiBold,
+                                            theme.on_badge,
+                                            RfMetrics.lineTitle
+                                        )
+                                    )
+                                }
                             }
                         }
-                    }
-                    Text(
-                        tab.label,
-                        style = kitStyle(
-                            theme.size_mobile_caption,
-                            if (on) FontWeight.SemiBold else FontWeight.Medium,
-                            tint,
-                            RfMetrics.lineTitle,
-                            if (tab.latin) RfFonts.latin else RfFonts.ui
+                        Text(
+                            tab.label,
+                            style = kitStyle(
+                                theme.size_mobile_caption,
+                                if (on) FontWeight.SemiBold else FontWeight.Medium,
+                                tint,
+                                RfMetrics.lineTitle,
+                                if (tab.latin) RfFonts.latin else RfFonts.ui
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(dp(RfMetrics.tabInset)))
+        Spacer(Modifier.height(dp(RfMetrics.tabInset - (RfMetrics.hit - RfMetrics.tab))))
     }
 }
 
 @Composable
-internal fun IconHit(icon: String, size: Float, tint: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
-    Box(Modifier.size(dp(RfMetrics.iconButton)).clickableNoRipple(true, onClick), contentAlignment = Alignment.Center) {
-        KitIcon(icon, size, tint)
+internal fun IconHit(
+    icon: String,
+    size: Float,
+    tint: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit,
+    label: String = icon,
+    tag: String? = null
+) {
+    val hit = dp(RfMetrics.hit)
+    val slot = dp(RfMetrics.iconButton)
+    Layout(content = {
+        Box(
+            Modifier
+                .size(hit)
+                .semantics { contentDescription = label }
+                .clickableNoRipple(true, onClick)
+                .kitTag(tag),
+            contentAlignment = Alignment.Center
+        ) {
+            KitIcon(icon, size, tint)
+        }
+    }) { measurables, constraints ->
+        val hitPx = hit.roundToPx()
+        val slotPx = slot.roundToPx()
+        val placeable = measurables[0].measure(
+            constraints.copy(minWidth = hitPx, maxWidth = hitPx, minHeight = hitPx, maxHeight = hitPx)
+        )
+        layout(slotPx, slotPx) { placeable.place((slotPx - hitPx) / 2, (slotPx - hitPx) / 2) }
     }
 }
 

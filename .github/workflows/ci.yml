@@ -28,13 +28,25 @@ jobs:
       - run: python3 scripts/check-os-permissions.py
       - run: python3 scripts/test-native-emulator.py
       - run: python3 scripts/check-ui-resources.py
-      - run: python3 scripts/check-mobile-tokens.py
+      - run: python3 scripts/check-mobile-tokens.py core/designsystem/mobile-kit-tokens.json
       - run: python3 scripts/test-theme-catalog.py
       - run: python3 scripts/test-ui-resource-guard.py
       - run: ./gradlew ktlintCheck :core:designsystem:testDebugUnitTest :app:testDebugUnitTest :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :feature:permissions:test:testDebugUnitTest :feature:cards:test:testDebugUnitTest :feature:tasks:test:testDebugUnitTest :feature:agents:test:testDebugUnitTest :feature:calls:test:testDebugUnitTest :feature:groups:test:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest :feature:onboarding:test:testDebugUnitTest :feature:conversations:test:testDebugUnitTest :feature:chat:test:testDebugUnitTest :feature:settings:test:testDebugUnitTest :feature:contacts:test:testDebugUnitTest --console=plain
       - run: python3 scripts/check-os-permissions.py
       - name: Record client screenshots
         run: ./gradlew :feature:app-shell:test:recordRoborazziDebug :feature:onboarding:test:recordRoborazziDebug :feature:conversations:test:recordRoborazziDebug :feature:chat:test:recordRoborazziDebug :feature:settings:test:recordRoborazziDebug :feature:permissions:test:recordRoborazziDebug :feature:cards:test:recordRoborazziDebug :feature:tasks:test:recordRoborazziDebug :feature:agents:test:recordRoborazziDebug :feature:calls:test:recordRoborazziDebug :feature:groups:test:recordRoborazziDebug :feature:contacts:test:recordRoborazziDebug --console=plain
+      - name: Record kit screenshots and compare master frames
+        run: |
+          CI=true ./gradlew :core:designsystem:recordRoborazziDebug --tests org.ramflux.designsystem.kit.KitScreenshotTest --console=plain
+          python3 scripts/compare-kit-previews.py core/designsystem/kit-previews core/designsystem/build/outputs/roborazzi core/designsystem/build/outputs/kit-compare
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-kit-screenshots
+          if-no-files-found: error
+          path: |
+            core/designsystem/build/outputs/roborazzi/
+            core/designsystem/build/outputs/kit-compare/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

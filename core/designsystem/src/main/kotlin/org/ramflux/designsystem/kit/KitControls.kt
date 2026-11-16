@@ -25,13 +25,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import org.ramflux.designsystem.LocalRFTheme
 
 @Composable
-fun KitSwitch(checked: Boolean, onChecked: (Boolean) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, tag: String? = null) {
+fun KitSwitch(
+    checked: Boolean,
+    onChecked: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    label: String = "",
+    tag: String? = null
+) {
     val theme = LocalRFTheme.current
-    HitBox(tag, enabled, { onChecked(!checked) }, modifier.alpha(if (enabled) 1f else RfMetrics.disabledAlpha)) {
+    HitBox(tag, enabled, { onChecked(!checked) }, modifier.alpha(if (enabled) 1f else RfMetrics.disabledAlpha), Role.Switch, label) {
         Box(
             Modifier
                 .size(dp(RfMetrics.switchWidth), dp(RfMetrics.switchHeight))
@@ -60,12 +68,13 @@ fun KitCheckbox(
     size: Float = RfMetrics.checkbox,
     radius: Float? = null,
     strokeColor: Color? = null,
+    label: String = "",
     tag: String? = null
 ) {
     val theme = LocalRFTheme.current
     val corner = radius ?: theme.radius_sm
     val shape = shapeOf(corner)
-    HitBox(tag, enabled, { onChecked(!checked) }, modifier.alpha(if (enabled) 1f else RfMetrics.disabledAlpha)) {
+    HitBox(tag, enabled, { onChecked(!checked) }, modifier.alpha(if (enabled) 1f else RfMetrics.disabledAlpha), Role.Checkbox, label) {
         Box(
             Modifier
                 .size(dp(size))
@@ -110,7 +119,7 @@ fun KitSegmented(
                     .weight(1f)
                     .fillMaxHeight()
                     .then(if (on) Modifier.background(theme.surface_white, shapeOf(theme.radius_sm)) else Modifier)
-                    .clickableNoRipple(enabled) { onSelect(index) },
+                    .clickableNoRipple(enabled, { onSelect(index) }),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -128,9 +137,13 @@ fun KitSegmented(
 }
 
 @Composable
-internal fun Modifier.clickableNoRipple(enabled: Boolean, onClick: () -> Unit): Modifier =
-    clickableNoRipple(remember { MutableInteractionSource() }, enabled, onClick)
+internal fun Modifier.clickableNoRipple(enabled: Boolean, onClick: () -> Unit, role: Role = Role.Button): Modifier =
+    clickableNoRipple(remember { MutableInteractionSource() }, enabled, onClick, role)
 
 @Composable
-internal fun Modifier.clickableNoRipple(interaction: MutableInteractionSource, enabled: Boolean, onClick: () -> Unit): Modifier =
-    this.clickable(interaction, null, enabled = enabled, onClick = onClick)
+internal fun Modifier.clickableNoRipple(
+    interaction: MutableInteractionSource,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    role: Role = Role.Button
+): Modifier = this.clickable(interaction, null, enabled = enabled, role = role, onClick = onClick)

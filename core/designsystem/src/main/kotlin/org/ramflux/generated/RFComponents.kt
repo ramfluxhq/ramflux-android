@@ -21,7 +21,6 @@ enum class RFButtonKind { Primary, Secondary, Danger, Disabled }
 enum class RFAvatarKind { Person, Agent, Group }
 enum class RFBubbleKind { Peer, Own, Joined }
 enum class RFStateKind { Empty, Loading, Offline, Error }
-data class RFApprovalFact(val id: String, val label: String, val value: String)
 
 private fun RFComponentStyle.shape() = RoundedCornerShape(topStart = tl.dp, topEnd = tr.dp, bottomEnd = br.dp, bottomStart = bl.dp)
 private fun RFComponentStyle.borderModifier(): Modifier {
@@ -167,12 +166,6 @@ private fun RFComponentStyle.borderModifier(): Modifier {
     val style = if (danger) RFStyles.trust_banner_danger(theme) else RFStyles.trust_banner_warning(theme)
     RFBox(style) { Row(horizontalArrangement = Arrangement.spacedBy(style.gap.dp)) { icon(); Column(Modifier.weight(1f)) { Text(title); Text(description); action() } } }
 }
-@Composable fun RFOriginBanner(origin: String, provenance: String, theme: RFTheme,
-    icon: @Composable () -> Unit, warning: @Composable () -> Unit) {
-    val style = RFStyles.origin_banner_default(theme)
-    RFBox(style) { Row(horizontalArrangement = Arrangement.spacedBy(style.gap.dp)) { icon(); Column(Modifier.weight(1f)) { Text(origin); Text(provenance, color = theme.secondary); warning() } } }
-}
-
 @Composable fun RFStateBlock(title: String, description: String, kind: RFStateKind, theme: RFTheme, action: @Composable () -> Unit) {
     val style = when (kind) {
         RFStateKind.Empty -> RFStyles.state_block_empty(theme)
@@ -186,25 +179,6 @@ private fun RFComponentStyle.borderModifier(): Modifier {
     } }
 }
 
-// Facts and host controls are supplied by trusted host state, never card data.
-@Composable fun RFApprovalControls(theme: RFTheme, deny: @Composable () -> Unit, allow: @Composable () -> Unit) {
-    val style = RFStyles.approval_controls_default(theme)
-    RFBox(style) { Row(horizontalArrangement = Arrangement.spacedBy(style.gap.dp)) { deny(); allow() } }
-}
-
-@Composable fun RFApprovalPresentation(title: String, origin: String, facts: List<RFApprovalFact>, theme: RFTheme,
-    inline: Boolean = false, hostControls: @Composable () -> Unit) {
-    val style = if (inline) RFStyles.approval_presentation_inline(theme) else RFStyles.approval_presentation_default(theme)
-    RFBox(style) { Column(verticalArrangement = Arrangement.spacedBy(style.gap.dp)) {
-        Text(title); Text(origin)
-        facts.forEach { fact -> androidx.compose.runtime.key(fact.id) { Text(fact.label, color = theme.secondary); Text(fact.value) } }
-        hostControls()
-    } }
-}
-@Composable fun RFQuoteExcerpt(sender: String, text: String, theme: RFTheme) {
-    val style = RFStyles.quote_excerpt_default(theme)
-    RFBox(style) { Column(verticalArrangement = Arrangement.spacedBy(style.gap.dp)) { Text(sender); Text(text, maxLines = 3) } }
-}
 @Composable fun RFAttachmentShell(title: String, detail: String, theme: RFTheme, icon: @Composable () -> Unit, actions: @Composable () -> Unit) {
     val style = RFStyles.attachment_shell_default(theme)
     RFBox(style) { Row(horizontalArrangement = Arrangement.spacedBy(style.gap.dp)) { icon(); Column(Modifier.weight(1f)) { Text(title); Text(detail, color = theme.secondary) }; actions() } }
