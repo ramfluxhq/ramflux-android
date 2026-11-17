@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.1] - 2026-11-17
+
+- Version line aligned with product 0.2.1.
+
 ## 0.2.0 - 2026-11-16
 
 First release under the shared Ramflux product version (all repos move together).
