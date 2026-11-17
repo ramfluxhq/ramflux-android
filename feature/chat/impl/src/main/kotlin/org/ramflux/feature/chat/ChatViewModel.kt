@@ -456,8 +456,12 @@ class ChatViewModel @Inject constructor(
         typingJob = viewModelScope.launch {
             val result = history.setTyping(current.account, current.conversation, active)
             if (target != current || session.status.value.phase != ClientPhase.OPEN) return@launch
-            if (result !is ClientResult.Ready) {
+            val denied = result is ClientResult.Failed &&
+                result.problem.kind == ClientFailureKind.AUTHORIZATION
+            if (result !is ClientResult.Ready && !denied) {
                 typingRefused = true
+                typingActive = false
+            } else if (denied) {
                 typingActive = false
             }
             local.update { it.copy(typingProblem = typingNotice(result)) }
@@ -556,7 +560,12 @@ private fun failedNotice(problem: ClientProblem): UiText? =
 
 private fun typingNotice(result: ClientResult<Unit>): UiText? = when (result) {
     is ClientResult.Ready -> null
-    is ClientResult.Unavailable, is ClientResult.Failed -> uiText(R.string.ui_typing_unavailable)
+    is ClientResult.Unavailable -> uiText(R.string.ui_typing_unavailable)
+    is ClientResult.Failed -> if (result.problem.kind == ClientFailureKind.AUTHORIZATION) {
+        null
+    } else {
+        uiText(R.string.ui_typing_unavailable)
+    }
 }
 
 private fun coded(problem: ClientProblem, codeOnly: Int, withStatus: Int): UiText {

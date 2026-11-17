@@ -367,12 +367,28 @@ class ChatViewModelTest {
         assertFalse(vm.state.value.peerTyping)
     }
 
-    @Test fun refusedTypingUsesCatalogCopyAndDoesNotRepeat() = runTest(timeout = 5.seconds) {
+    @Test fun authorizationDoesNotHideTypingOrStopTheNextAttempt() = runTest(timeout = 5.seconds) {
         val history = FakeChatHistory().apply {
             typingResult = ClientResult.Failed(
                 ClientProblem(ClientFailureKind.AUTHORIZATION, 12, ClientOutcome.REFUSED)
             )
         }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Draft("hello"))
+        runCurrent()
+        assertNull(vm.state.value.typingProblem)
+        assertEquals(1, history.typingCalls)
+        vm.onAction(ChatAction.Draft("hello again"))
+        runCurrent()
+        assertNull(vm.state.value.typingProblem)
+        assertEquals(2, history.typingCalls)
+    }
+
+    @Test fun unavailableTypingUsesCatalogCopyAndDoesNotRepeat() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory()
         val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
         observe(vm)
         runCurrent()
