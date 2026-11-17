@@ -85,6 +85,7 @@ object SdkMethodPolicy {
         "conversation.mute" to MethodPolicy(true, true, false, false, true, "conversation"),
         "daemon.status" to MethodPolicy(false, false, false, false, true, "daemon"),
         "daemon.stop" to MethodPolicy(true, false, false, false, false, "daemon"),
+        "diag.residue" to MethodPolicy(true, false, false, false, true, "diag"),
         "device.authorize" to MethodPolicy(true, true, false, false, true, "device"),
         "device.list" to MethodPolicy(false, true, false, false, true, "device"),
         "device.migrate" to MethodPolicy(true, true, false, false, true, "device"),
