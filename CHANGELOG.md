@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.3] - 2026-11-21
+
+- Version line aligned with product 0.2.3.
+
 ## [0.2.2] - 2026-11-21
 
 - Version line aligned with product 0.2.2.
