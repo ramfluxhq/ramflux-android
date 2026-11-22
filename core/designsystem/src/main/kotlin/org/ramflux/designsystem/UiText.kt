@@ -43,7 +43,7 @@ fun UiText.render(): String {
         is UiText.Number -> NumberFormat.getIntegerInstance(locale).format(value)
         is UiText.Quantity -> pluralStringResource(
             id,
-            if (value == 1uL) 1 else 2,
+            pluralQuantity(value),
             NumberFormat.getIntegerInstance(locale).format(BigInteger(value.toString()))
         )
         is UiText.DateTime -> try {
@@ -54,6 +54,19 @@ fun UiText.render(): String {
         }
     }
 }
+
+/**
+ * The quantity handed to the platform plural rules, which select the CLDR category (zero, one, two, few,
+ * many, other) for the active locale. A value above [Int.MAX_VALUE] keeps its last six digits, which
+ * decide every CLDR integer rule (n % 10, n % 100, i % 1000000), and stays above the small-number cases.
+ */
+internal fun pluralQuantity(value: ULong): Int = if (value <= Int.MAX_VALUE.toULong()) {
+    value.toInt()
+} else {
+    (value % PLURAL_MODULUS + PLURAL_MODULUS).toInt()
+}
+
+private const val PLURAL_MODULUS = 1_000_000uL
 
 @Composable
 fun localizedUnsigned(value: String): String = NumberFormat.getIntegerInstance(LocalConfiguration.current.locales[0])
