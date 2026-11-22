@@ -36,7 +36,7 @@ class ResourceGuardTest(unittest.TestCase):
                 file.parent.mkdir(parents=True, exist_ok=True)
                 file.write_text('<resources><string name="title">Title</string></resources>')
                 files.append(file)
-            self.assertEqual((2, 1), guard.validate(root))
+            self.assertEqual((2, 1, ['en', 'zh-CN']), guard.validate(root))
             source = root / 'app/src/main/kotlin/Screen.kt'
             source.parent.mkdir(parents=True)
             source.write_text('fun Screen() { Text("hello") }')
@@ -50,6 +50,49 @@ class ResourceGuardTest(unittest.TestCase):
             files[1].write_text('<resources><string name="title">%1%1$s</string></resources>')
             with self.assertRaises(ValueError):
                 guard.validate(root)
+
+    def test_locales_are_discovered_from_resource_folders(self):
+        with tempfile.TemporaryDirectory(prefix='rf-locale-discovery-') as scratch:
+            root = Path(scratch)
+            for folder in ['values', 'values-b+sr+Latn']:
+                file = root / 'app/src/main/res' / folder / 'strings.xml'
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text('<resources><string name="title">Title</string></resources>')
+            self.assertEqual((2, 1, ['en', 'sr-Latn']), guard.validate(root))
+            # Adding a language folder in one module makes it a shipped locale for every module.
+            feature = root / 'feature/demo/impl'
+            (feature / 'build.gradle.kts').parent.mkdir(parents=True)
+            (feature / 'build.gradle.kts').write_text('')
+            for folder in ['values', 'values-ar']:
+                file = feature / 'src/main/res' / folder / 'strings.xml'
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text('<resources><string name="body">Body</string></resources>')
+            with self.assertRaisesRegex(ValueError, 'Locale key mismatch: app ar'):
+                guard.validate(root)
+            arabic = root / 'app/src/main/res/values-ar/strings.xml'
+            arabic.parent.mkdir(parents=True)
+            arabic.write_text('<resources><string name="title">Title</string></resources>')
+            with self.assertRaisesRegex(ValueError, 'Locale key mismatch: feature/demo/impl sr-Latn'):
+                guard.validate(root)
+            serbian = feature / 'src/main/res/values-b+sr+Latn/strings.xml'
+            serbian.parent.mkdir(parents=True)
+            serbian.write_text('<resources><string name="body">Body</string></resources>')
+            self.assertEqual((3, 2, ['ar', 'en', 'sr-Latn']), guard.validate(root))
+
+    def test_theme_names_cover_every_shipped_locale(self):
+        with tempfile.TemporaryDirectory(prefix='rf-theme-locales-') as scratch:
+            root = Path(scratch)
+            for folder in ['values', 'values-ja']:
+                file = root / 'app/src/main/res' / folder / 'strings.xml'
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text('<resources><string name="title">Title</string></resources>')
+            theme = root / 'core/designsystem/src/main/assets/ramflux/themes/light.json'
+            theme.parent.mkdir(parents=True)
+            theme.write_text('{"names": {"en": "Light"}}')
+            with self.assertRaisesRegex(ValueError, 'Theme names missing locales'):
+                guard.validate(root)
+            theme.write_text('{"names": {"en": "Light", "ja": "Light"}}')
+            guard.validate(root)
 
 
 if __name__ == '__main__':
