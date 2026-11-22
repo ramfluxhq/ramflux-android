@@ -1,0 +1,4 @@
+{
+  "comment": "Every <service> a production manifest may declare. Each entry names the exact class, its foreground service type and the permissions that service brings; nothing else may declare a service. Services must not be exported. Add an entry only with a reviewed reason.",
+  "services": []
+}
