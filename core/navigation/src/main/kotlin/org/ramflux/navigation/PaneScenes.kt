@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -18,6 +20,13 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.scene.Scene
 import androidx.navigation3.scene.SceneStrategy
 import androidx.navigation3.scene.SceneStrategyScope
+
+/**
+ * The role in which the shell currently shows an entry: [PaneRole.LIST] or [PaneRole.DETAIL] when list
+ * and detail are side by side, null when the entry fills one pane. Entry providers read it to tell a
+ * screen whether it has a back affordance (a detail beside its list has none); screens never read it.
+ */
+val LocalPaneRole = compositionLocalOf<PaneRole?> { null }
 
 /** Pane geometry supplied by the shell from design tokens. Only the shell caps widths. */
 data class PaneMetrics(val listPaneWidth: Dp, val maxPaneWidth: Dp)
@@ -93,14 +102,20 @@ private class TwoPaneScene<T : Any>(
     override val entries: List<NavEntry<T>> = listOfNotNull(list, detail)
     override val content: @Composable () -> Unit = {
         Row(Modifier.fillMaxSize()) {
-            Box(Modifier.width(metrics.listPaneWidth).fillMaxHeight().testTag("pane-list")) { list.Content() }
+            Box(Modifier.width(metrics.listPaneWidth).fillMaxHeight().testTag("pane-list")) {
+                CompositionLocalProvider(LocalPaneRole provides PaneRole.LIST) { list.Content() }
+            }
             separator()
             Box(
                 Modifier.weight(1f).fillMaxHeight().testTag("pane-detail"),
                 contentAlignment = Alignment.TopCenter
             ) {
                 Box(Modifier.widthIn(max = metrics.maxPaneWidth).fillMaxSize()) {
-                    if (detail != null) detail.Content() else emptyDetail()
+                    if (detail != null) {
+                        CompositionLocalProvider(LocalPaneRole provides PaneRole.DETAIL) { detail.Content() }
+                    } else {
+                        emptyDetail()
+                    }
                 }
             }
         }

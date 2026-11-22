@@ -87,7 +87,7 @@ class ChatScreenTest {
     }
 
     @Test fun aDetailPaneHidesTheBackControl() {
-        compose.setContent { RamfluxTheme { ChatScreen(ChatState(loaded = true), {}, showBack = false) } }
+        compose.setContent { RamfluxTheme { ChatScreen(ChatState(loaded = true), {}, rooted = true) } }
         compose.onNodeWithContentDescription("Back").assertDoesNotExist()
     }
 

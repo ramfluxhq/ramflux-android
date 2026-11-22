@@ -33,12 +33,13 @@ fun pane(role: PaneRole): Map<String, Any> = metadata { put(PaneRoleKey, role) }
 
 internal fun NavEntry<*>.paneRole(): PaneRole? = if (metadata.contains(PaneRoleKey)) metadata[PaneRoleKey] else null
 
-/** The application's routing policy for keys whose modules cannot implement the markers themselves. */
+/**
+ * The application's routing policy. Which keys are account scoped is declared by the keys themselves
+ * through [AccountScoped]; the policy only adds which keys open outside the tab stacks.
+ */
 class RoutePolicy(
     /** Keys outside the tab stacks, shown over the whole shell (for example account setup). */
-    val isGlobal: (NavKey) -> Boolean = { false },
-    /** Extra account-scoped keys, in addition to keys implementing [AccountScoped]. */
-    private val alsoAccountScoped: (NavKey) -> Boolean = { false }
+    val isGlobal: (NavKey) -> Boolean = { false }
 ) {
-    fun isAccountScoped(key: NavKey): Boolean = key is AccountScoped || alsoAccountScoped(key)
+    fun isAccountScoped(key: NavKey): Boolean = key is AccountScoped
 }

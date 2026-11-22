@@ -62,7 +62,7 @@ import org.ramflux.feature.chat.impl.R
 
 /**
  * The chat screen renders [state] and emits [ChatAction] only. It fills the space the caller gives it: it
- * applies no window insets and no width cap, so a shell or pane scene owns both. [showBack] hides the back
+ * applies no window insets and no width cap, so a shell or pane scene owns both. [rooted] hides the back
  * control when the chat is the detail pane beside its list. [clock] decides "today" for the date chips.
  */
 @Composable
@@ -70,7 +70,7 @@ fun ChatScreen(
     state: ChatState,
     onAction: (ChatAction) -> Unit,
     modifier: Modifier = Modifier,
-    showBack: Boolean = true,
+    rooted: Boolean = false,
     clock: Clock = Clock.systemDefaultZone()
 ) {
     val theme = LocalRFTheme.current
@@ -79,7 +79,7 @@ fun ChatScreen(
     val selected = state.selectedId?.let { id -> state.rows.firstOrNull { it.id == id } as? MessageItem }
     Box(modifier.fillMaxSize().background(theme.bg)) {
         Column(Modifier.fillMaxSize()) {
-            ChatHeader(state, showBack, onAction)
+            ChatHeader(state, rooted, onAction)
             state.headerProblem?.let { problem ->
                 KitTipBar(problem.render(), "circle-alert", Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp))
             }
@@ -100,7 +100,7 @@ fun ChatScreen(
 }
 
 @Composable
-private fun ChatHeader(state: ChatState, showBack: Boolean, onAction: (ChatAction) -> Unit) {
+private fun ChatHeader(state: ChatState, rooted: Boolean, onAction: (ChatAction) -> Unit) {
     val peerTitle = state.title?.render()?.let { Bidi.sanitize(it, UntrustedKind.Name) }?.takeIf { it.isNotBlank() }
     val title = peerTitle ?: stringResource(R.string.ui_conversation)
     val locale = LocalConfiguration.current.locales[0]
@@ -116,10 +116,10 @@ private fun ChatHeader(state: ChatState, showBack: Boolean, onAction: (ChatActio
                 KitAvatar(initial, AVATAR, KitAvatarKind.Person)
             }
         },
-        if (showBack) {
-            { onAction(ChatAction.Back) }
-        } else {
+        if (rooted) {
             null
+        } else {
+            { onAction(ChatAction.Back) }
         },
         backLabel = stringResource(R.string.ui_back),
         tag = "chat-header"

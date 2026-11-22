@@ -31,6 +31,7 @@ import org.ramflux.feature.settings.SettingsNavigation
 import org.ramflux.feature.settings.api.SettingsRoute
 import org.ramflux.feature.tasks.TasksNavigation
 import org.ramflux.feature.tasks.api.TasksRoute
+import org.ramflux.navigation.LocalPaneRole
 import org.ramflux.navigation.PaneRole
 import org.ramflux.navigation.RoutePolicy
 import org.ramflux.navigation.pane
@@ -39,17 +40,10 @@ private const val TAB_GROUPS = 1
 private const val TAB_AGENTS = 2
 
 /**
- * The application's routing policy. [OnboardingRoute] opens over the whole shell. Route keys of
- * feature API modules that do not yet implement [org.ramflux.navigation.AccountScoped] are listed
- * here so a locked session still drops them; each is removed once its key implements the marker.
+ * The application's routing policy. [OnboardingRoute] opens over the whole shell. Account-scoped keys
+ * declare themselves through [org.ramflux.navigation.AccountScoped] in their API module.
  */
-val SHELL_ROUTE_POLICY = RoutePolicy(
-    isGlobal = { it is OnboardingRoute },
-    alsoAccountScoped = {
-        it is ChatRoute || it is ContactsRoute || it is TasksRoute || it is CallsRoute ||
-            it is CardsRoute || it is SettingsRoute || it is PermissionsRoute
-    }
-)
+val SHELL_ROUTE_POLICY = RoutePolicy(isGlobal = { it is OnboardingRoute })
 
 /** Production tab entries. Conversations and groups are lists whose chat opens as their detail. */
 fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
@@ -94,7 +88,8 @@ fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
             route.conversationId,
             shell::back,
             groupId = route.groupId,
-            onAttachments = { shell.navigate(PermissionsRoute(PermissionEntry.ATTACHMENTS)) }
+            onAttachments = { shell.navigate(PermissionsRoute(PermissionEntry.ATTACHMENTS)) },
+            rooted = LocalPaneRole.current == PaneRole.DETAIL
         )
     }
     entry<ContactsRoute> { ContactsNavigation(shell::back, setup) }
