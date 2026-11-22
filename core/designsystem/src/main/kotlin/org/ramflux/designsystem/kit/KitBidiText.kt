@@ -88,12 +88,7 @@ fun LtrCode(
  * a word longer than a column is narrowed to fit instead of overlapping its neighbour.
  */
 @Composable
-fun LtrSecretWords(
-    count: Int,
-    draw: (Int, (CharArray) -> Unit) -> Unit,
-    modifier: Modifier = Modifier,
-    tag: String? = null
-) {
+fun LtrSecretWords(count: Int, draw: (Int, (CharArray) -> Unit) -> Unit, modifier: Modifier = Modifier, tag: String? = null) {
     val theme = LocalRFTheme.current
     val density = LocalDensity.current
     val typeface = LocalFontFamilyResolver.current.resolve(RfFonts.mono).value as? Typeface ?: Typeface.MONOSPACE

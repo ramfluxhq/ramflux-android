@@ -178,5 +178,6 @@ internal object RfMetrics {
     val summaryGap = 2f
     val avatarGap = 12f
     val headerGap = 8f
+    val headerActionMax = 128f
     val iconButton = 44f
 }

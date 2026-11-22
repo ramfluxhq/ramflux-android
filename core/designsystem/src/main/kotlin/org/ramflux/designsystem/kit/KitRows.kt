@@ -194,7 +194,12 @@ fun KitConversationRow(
                     modifier = Modifier.weight(1f, fill = false),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle).copy(textDirection = TextDirection.Content)
+                    style = kitStyle(
+                        theme.size_mobile_body,
+                        FontWeight.SemiBold,
+                        theme.text,
+                        RfMetrics.lineTitle
+                    ).copy(textDirection = TextDirection.Content)
                 )
                 if (muted) KitIcon("bell-off", RfMetrics.metaIcon, theme.secondary)
                 Box(Modifier.weight(1f))
@@ -208,7 +213,12 @@ fun KitConversationRow(
                 if (!sender.isNullOrEmpty()) {
                     KitText(
                         untrustedDisplay(sender, UntrustedKind.Excerpt),
-                        style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody).copy(textDirection = TextDirection.Content)
+                        style = kitStyle(
+                            theme.size_body,
+                            FontWeight.Normal,
+                            theme.text,
+                            RfMetrics.lineBody
+                        ).copy(textDirection = TextDirection.Content)
                     )
                 }
                 KitText(
@@ -216,7 +226,12 @@ fun KitConversationRow(
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = kitStyle(theme.size_body, FontWeight.Normal, theme.secondary, RfMetrics.lineBody).copy(textDirection = TextDirection.Content)
+                    style = kitStyle(
+                        theme.size_body,
+                        FontWeight.Normal,
+                        theme.secondary,
+                        RfMetrics.lineBody
+                    ).copy(textDirection = TextDirection.Content)
                 )
                 if (!badge.isNullOrEmpty()) {
                     Box(

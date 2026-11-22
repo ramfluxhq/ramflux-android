@@ -85,6 +85,9 @@ internal fun TextStyle.forScript(text: String): TextStyle {
 
 private fun androidx.compose.ui.unit.TextUnit.isSpecified(): Boolean = this != androidx.compose.ui.unit.TextUnit.Unspecified
 
+/** Share of each line a taller platform face may overhang the design line box (CJK faces need about 15%). */
+private const val DESIGN_LINE_SLACK = 0.25f
+
 /**
  * Every text drawn by the kit goes through here, so script rules hold in one place.
  *
@@ -113,7 +116,10 @@ internal fun KitText(
         modifier.layout { measurable, constraints ->
             val placeable = measurable.measure(constraints)
             val box = (resolved.lineHeight.toPx() * lines).roundToInt()
-            val height = minOf(placeable.height, maxOf(box, constraints.minHeight))
+            // Only what a taller platform face adds (a fraction of each line) is absorbed; text that really
+            // needs more room (large font scales, tall marks) reports its full height and never overlaps.
+            val slack = (resolved.lineHeight.toPx() * DESIGN_LINE_SLACK * lines).roundToInt()
+            val height = minOf(placeable.height, maxOf(box, placeable.height - slack, constraints.minHeight))
             layout(placeable.width, height) { placeable.placeRelative(0, (height - placeable.height) / 2) }
         },
         style = resolved,

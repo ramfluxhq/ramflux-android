@@ -108,6 +108,8 @@ fun KitPageHeader(
         if (!large && onBack != null) {
             IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack, tag = tag?.let { "$it-back" })
         }
+        // The title takes the free width; a text action is capped and wraps, so a long or enlarged label
+        // cannot squeeze the title to a few letters.
         Column(Modifier.weight(1f)) {
             if (title.isNotEmpty()) {
                 KitText(
@@ -132,6 +134,7 @@ fun KitPageHeader(
         if (!large && actionLabel != null && onAction != null) {
             Box(
                 Modifier
+                    .widthIn(max = dp(RfMetrics.headerActionMax))
                     .heightIn(min = dp(RfMetrics.hit))
                     .semantics { contentDescription = actionLabel }
                     .clickableNoRipple(true, onAction)
@@ -179,7 +182,12 @@ fun KitChatHeader(
                 designLine = true,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle).copy(textDirection = TextDirection.Content)
+                style = kitStyle(
+                    theme.size_mobile_body,
+                    FontWeight.SemiBold,
+                    theme.text,
+                    RfMetrics.lineTitle
+                ).copy(textDirection = TextDirection.Content)
             )
             if (!subtitle.isNullOrEmpty()) {
                 KitText(
@@ -187,7 +195,12 @@ fun KitChatHeader(
                     designLine = true,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineMeta()).copy(textDirection = TextDirection.Content)
+                    style = kitStyle(
+                        theme.size_meta,
+                        FontWeight.Normal,
+                        theme.secondary,
+                        RfMetrics.lineMeta()
+                    ).copy(textDirection = TextDirection.Content)
                 )
             }
         }
