@@ -34,7 +34,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.dp
 import kotlin.math.max
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
@@ -227,7 +226,7 @@ fun KitTabBar(
     val theme = LocalRFTheme.current
     val inset = with(LocalDensity.current) { bottomInset.getBottom(this).toDp() }
     // The 48 dp hit row already reaches 4 dp below the 44 dp tab row into the band.
-    val band = (inset - dp(RfMetrics.homeSafeBottom - RfMetrics.tabInset) - dp(RfMetrics.hit - RfMetrics.tab)).coerceAtLeast(0.dp)
+    val band = (inset - dp(RfMetrics.homeSafeBottom - RfMetrics.tabInset) - dp(RfMetrics.hit - RfMetrics.tab)).coerceAtLeast(dp(0f))
     Column(modifier.fillMaxWidth().background(theme.bg).kitHairline(theme.line, top = true).kitTag(tag)) {
         Row(Modifier.fillMaxWidth().padding(top = dp(RfMetrics.tabPadTop)).heightIn(min = dp(RfMetrics.hit))) {
             tabs.forEachIndexed { index, tab ->
