@@ -200,4 +200,4 @@ class ChatScreenshotTest(
 }
 
 private const val HEIGHT = 852
-private const val HOME = 34
+private const val HOME = 30

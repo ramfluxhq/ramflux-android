@@ -178,6 +178,15 @@ private sealed interface Entry {
     }
 }
 
+/** An entry with the space above it, as a fraction of the layout gap: messages sit apart, chips and dividers close. */
+@Immutable
+private data class Placed(val entry: Entry, val space: Float)
+
+private fun placed(entries: List<Entry>): List<Placed> = entries.mapIndexed { index, entry ->
+    val previous = entries.getOrNull(index - 1)
+    Placed(entry, if (entry is Entry.Row && previous is Entry.Row) MESSAGE_SPACE else CHIP_SPACE)
+}
+
 private fun entries(state: ChatState, zone: ZoneId): List<Entry> {
     val result = mutableListOf<Entry>()
     var day: LocalDate? = null
@@ -196,7 +205,7 @@ private fun entries(state: ChatState, zone: ZoneId): List<Entry> {
 
 @Composable
 private fun Timeline(state: ChatState, stamps: Stamps, onAction: (ChatAction) -> Unit) {
-    val list = remember(state.rows, state.firstUnreadId, state.peerTyping, stamps.zone) { entries(state, stamps.zone).asReversed() }
+    val list = remember(state.rows, state.firstUnreadId, state.peerTyping, stamps.zone) { placed(entries(state, stamps.zone)).asReversed() }
     val actionsLabel = stringResource(R.string.chat_message_actions)
     // The bubble cap follows the whole timeline width, as on the board, not the width inside the gutters.
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -207,7 +216,7 @@ private fun Timeline(state: ChatState, stamps: Stamps, onAction: (ChatAction) ->
 
 @Composable
 private fun TimelineList(
-    list: List<Entry>,
+    list: List<Placed>,
     state: ChatState,
     stamps: Stamps,
     cap: Dp,
@@ -218,13 +227,15 @@ private fun TimelineList(
     LazyColumn(
         Modifier.fillMaxSize().testTag("chat-timeline"),
         reverseLayout = true,
-        verticalArrangement = Arrangement.spacedBy((gap * .625f).dp, Alignment.Bottom)
+        verticalArrangement = Arrangement.Bottom
     ) {
-        items(list, key = { it.key }, contentType = { it::class }) { entry ->
-            val padded = Modifier.fillMaxWidth().padding(horizontal = gap.dp)
+        items(list, key = { it.entry.key }, contentType = { it.entry::class }) { placed ->
+            val entry = placed.entry
+            val padded = Modifier.fillMaxWidth().padding(start = gap.dp, end = gap.dp, top = (gap * placed.space).dp)
             when (entry) {
                 is Entry.Day -> KitDateChip(
-                    stamps.day(entry.date, stringResource(R.string.chat_date_today), stringResource(R.string.chat_date_yesterday))
+                    stamps.day(entry.date, stringResource(R.string.chat_date_today), stringResource(R.string.chat_date_yesterday)),
+                    Modifier.padding(top = (gap * placed.space).dp)
                 )
                 Entry.Unread -> KitUnreadDivider(stringResource(R.string.chat_unread_divider), padded)
                 Entry.Typing -> KitMeta(stringResource(R.string.ui_peer_typing), padded)
@@ -458,6 +469,8 @@ private fun rememberStamps(clock: Clock): Stamps {
 
 private const val AVATAR = 36f
 private const val COMPOSER_LINES = 4
+private const val MESSAGE_SPACE = .625f
+private const val CHIP_SPACE = .125f
 
 // Skeletons for the best localized pattern: hour (0-23) or hour (1-12) with minutes.
 private val HOUR_24 = charArrayOf('H', 'm').concatToString()
