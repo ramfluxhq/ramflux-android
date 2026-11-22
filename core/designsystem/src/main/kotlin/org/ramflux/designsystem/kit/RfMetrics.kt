@@ -93,6 +93,9 @@ internal object RfMetrics {
     val bubblePadH = 12f
     val bubbleGap = 4f
     val metaIcon = 14f
+
+    /** The failed-send mark beside a bubble (board MOB-B05). */
+    val failedMark = 22f
     val agentTag = 18f
     val avatar18 = 18f
     val avatar28 = 28f

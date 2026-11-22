@@ -13,6 +13,32 @@ class FakeChatHistory : MessageHistoryRepository {
         reads++
         return reading(conversation)
     }
+    var paging: (suspend (String?) -> ClientResult<TimelinePage>)? = null
+    val pageCursors = mutableListOf<String?>()
+    override suspend fun page(account: String, conversation: String, before: String?): ClientResult<TimelinePage> {
+        val source = paging ?: return super.page(account, conversation, before)
+        reads++
+        pageCursors.add(before)
+        return source(before)
+    }
+    val marked = mutableListOf<String>()
+    var markResult: ClientResult<Unit> = ClientResult.Ready(Unit)
+    override suspend fun markRead(account: String, conversation: String, message: String): ClientResult<Unit> {
+        marked.add(message)
+        return markResult
+    }
+    val reactions = mutableListOf<String>()
+    override suspend fun react(
+        account: String,
+        conversation: String,
+        message: String,
+        token: String,
+        remove: Boolean,
+        operationId: String
+    ): ClientResult<Unit> {
+        reactions.add(token)
+        return ClientResult.Ready(Unit)
+    }
     var heading: ClientResult<ConversationHeader> = ClientResult.Ready(ConversationHeader(null))
     override suspend fun header(account: String, conversation: String) = heading
     var capability: ClientResult<Unit> = ClientResult.Unavailable(
@@ -84,4 +110,19 @@ class FakeChatSession : ClientSessionRepository {
         status.value = status.value.copy(phase = ClientPhase.CLOSED)
     }
     override suspend fun availability(feature: ClientFeature): ClientResult<Unit> = ClientResult.Ready(Unit)
+}
+
+class FakeChatDrafts : ChatDraftRepository {
+    val stored = mutableMapOf<String, String>()
+    override suspend fun load(account: String, conversation: String): String? = stored["$account/$conversation"]
+    override suspend fun save(account: String, conversation: String, text: String): ClientResult<Unit> {
+        if (text.isBlank()) stored.remove("$account/$conversation") else stored["$account/$conversation"] = text
+        return ClientResult.Ready(Unit)
+    }
+    override suspend fun clear(account: String, conversation: String) {
+        stored.remove("$account/$conversation")
+    }
+    override suspend fun clearAccount(account: String) {
+        stored.keys.removeAll { it.startsWith("$account/") }
+    }
 }

@@ -5,6 +5,8 @@ package org.ramflux.feature.chat
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -24,13 +26,19 @@ fun ChatNavigation(
     vm: ChatViewModel = hiltViewModel(),
     groupId: String? = null,
     onAttachments: () -> Unit = {},
-    rooted: Boolean = false
+    rooted: Boolean = false,
+    onDetails: (() -> Unit)? = null,
+    onCall: (() -> Unit)? = null
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val attachments by rememberUpdatedState(onAttachments)
+    val details by rememberUpdatedState(onDetails)
+    val call by rememberUpdatedState(onCall)
+    val clipboard = LocalClipboardManager.current
     BackHandler(enabled = state.selectedId != null) { vm.onAction(ChatAction.Dismiss) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(ChatAction.Refresh) }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { vm.onAction(ChatAction.Pause) }
     LaunchedEffect(vm, accountId, conversationId, groupId) { vm.onAction(ChatAction.Load(accountId, conversationId, groupId)) }
     LaunchedEffect(vm) {
         vm.events.collect { event ->
@@ -38,8 +46,11 @@ fun ChatNavigation(
                 ChatEvent.Back -> back()
                 ChatEvent.Attachments -> attachments()
                 ChatEvent.Sent -> vm.onAction(ChatAction.Refresh)
+                ChatEvent.Details -> details?.invoke()
+                ChatEvent.Call -> call?.invoke()
+                is ChatEvent.Copy -> clipboard.setText(AnnotatedString(event.text))
             }
         }
     }
-    ChatScreen(state, vm::onAction, modifier, rooted)
+    ChatScreen(state, vm::onAction, modifier, rooted, showDetails = onDetails != null, showCall = onCall != null)
 }

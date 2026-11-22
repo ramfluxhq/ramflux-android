@@ -63,4 +63,30 @@
     <string name="chat_replying_to">Replying to %1$s</string>
     <!-- Accessibility label of the long-press action that opens the message actions. -->
     <string name="chat_message_actions">Message actions</string>
+    <!-- Message action that copies the message text to the clipboard. -->
+    <string name="chat_action_copy">Copy text</string>
+    <!-- Status line under an own message the SDK refused or failed to send. -->
+    <string name="chat_not_sent">Not sent</string>
+    <!-- Action next to "Not sent" that sends the same message again. -->
+    <string name="chat_retry">Retry</string>
+    <!-- Message action that removes an unsent local message from this device. -->
+    <string name="chat_discard">Discard</string>
+    <!-- Status inside an own bubble that waits for a connection before it is sent. -->
+    <string name="chat_queued">Queued</string>
+    <!-- Status inside an own bubble that is being handed to the SDK. -->
+    <string name="chat_sending">Sending</string>
+    <!-- Notice above the timeline while messages wait for the connection to return. -->
+    <string name="chat_offline_notice">Offline · messages will be sent when the connection returns</string>
+    <!-- Header action that opens the conversation details. -->
+    <string name="chat_conversation_details">Conversation details</string>
+    <!-- Header action that starts a one-to-one call. -->
+    <string name="chat_call">Call</string>
+    <!-- Row at the top of the timeline while an older page loads. -->
+    <string name="chat_loading_older">Loading earlier messages</string>
+    <!-- Accessibility label of one quick reaction; %1$s is the emoji, shown as is. -->
+    <string name="chat_react_with">React with %1$s</string>
+    <!-- One reaction with its count; %1$s is the reaction emoji, %2$d the number of people. -->
+    <string name="chat_reaction_count">%1$s %2$d</string>
+    <!-- Separator between short status words under a message, as in "Not sent · Retry". -->
+    <string name="chat_meta_separator">·</string>
 </resources>

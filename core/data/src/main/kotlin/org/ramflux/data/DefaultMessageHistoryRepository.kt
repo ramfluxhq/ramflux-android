@@ -8,11 +8,15 @@ import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.ramflux.sdk.CoreError
 import org.ramflux.sdk.CoreResult
 import org.ramflux.sdk.CoreUpdate
 import org.ramflux.sdk.MessageDelivery
@@ -28,6 +32,8 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
     private val groups = DefaultGroupDirectoryRepository(transport)
     private val sends = linkedMapOf<String, Attempt<SendReceipt>>()
     private val mutations = linkedMapOf<String, Attempt<Unit>>()
+    private val devices = DefaultDeviceDirectoryRepository(transport)
+    private val readers = HashMap<String, String>()
 
     override suspend fun groupHeader(account: String, group: String, conversation: String): ClientResult<ConversationHeader> {
         if (!identity(account) || !identity(group) || !identity(conversation)) return invalid()
@@ -43,33 +49,101 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
         }
     }
 
-    override suspend fun read(account: String, conversation: String): ClientResult<List<TimelineSummary>> {
+    override suspend fun read(account: String, conversation: String): ClientResult<List<TimelineSummary>> =
+        when (val result = page(account, conversation, null)) {
+            is ClientResult.Ready -> ClientResult.Ready(result.value.rows)
+            is ClientResult.Failed -> result
+            is ClientResult.Unavailable -> result
+        }
+
+    override suspend fun page(account: String, conversation: String, before: String?): ClientResult<TimelinePage> {
         if (!identity(account) || !identity(conversation)) return invalid()
+        val cursor = before?.let {
+            if (it.length > 8192) return invalid()
+            try {
+                Json.parseToJsonElement(it) as? JsonObject
+            } catch (_: SerializationException) {
+                null
+            } ?: return invalid()
+        }
         val body = buildJsonObject {
             put("conversation_id", conversation)
             put("read_model", true)
-            put("limit", 100)
+            put("limit", PAGE)
+            cursor?.let { put("before_order_key", it) }
         }
-        return when (val result = source.messageRead(RepositoryContext(account), body)) {
-            is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
-            is CoreResult.Success -> when (val decoded = MessageHistoryMetadataReader.read(result.value)) {
-                is CoreResult.Failure -> ClientResult.Failed(decoded.error.appProblem())
-                is CoreResult.Success -> {
-                    if (decoded.value.any { it.conversationId != conversation }) invalid()
-                    else ClientResult.Ready(decoded.value.asReversed().map { row ->
-                        when (row) {
-                            is MessageHistoryEntry -> MessageSummary(
-                                row.id, row.sender, row.own, row.deleted, row.text, row.createdAt, row.revision, row.edited,
-                                row.reactions.map { MessageReaction(it.token, it.count) },
-                                row.receipts.map { MessageReceipt(it.deviceId, it.state) },
-                                row.replyPreview, row.placeholder, row.service,
-                            )
-                            is CallHistoryEntry -> CallSummary(row.id, row.createdAt)
-                        }
-                    })
+        val reply = when (val result = source.messageRead(RepositoryContext(account), body)) {
+            is CoreResult.Failure -> return ClientResult.Failed(result.error.appProblem())
+            is CoreResult.Success -> result.value
+        }
+        // Two readers consume the page: the SDK display reader (rows) and the data reader (cursor, media).
+        val split = try {
+            reply.useOnce { raw -> TimelinePageExtras.parse(raw) to raw.copyOf() }
+        } catch (_: Exception) {
+            return ClientResult.Failed(CoreError.InvalidResponse().appProblem())
+        } finally {
+            reply.close()
+        }
+        val (extras, copy) = split
+        return when (val decoded = MessageHistoryMetadataReader.read(SecretReplies.take(copy))) {
+            is CoreResult.Failure -> ClientResult.Failed(decoded.error.appProblem())
+            is CoreResult.Success -> {
+                if (decoded.value.any { it.conversationId != conversation }) {
+                    invalid()
+                } else {
+                    ClientResult.Ready(TimelinePage(decoded.value.asReversed().map { row -> summary(row, extras) }, extras.nextBefore))
                 }
             }
         }
+    }
+
+    override suspend fun markRead(account: String, conversation: String, message: String): ClientResult<Unit> {
+        if (!identity(account) || !identity(conversation) || !identity(message)) return invalid()
+        val reader = when (val device = localDevice(account)) {
+            is ClientResult.Ready -> device.value
+            is ClientResult.Failed -> return device
+            is ClientResult.Unavailable -> return device
+        }
+        // Local projection only: the peer-visible receipt also needs the delivery id of the incoming
+        // envelope (`target_delivery_id`), which the read model does not carry.
+        val body = SecretBody.fields {
+            publicText("conversation_id", conversation)
+            publicText("message_id", message)
+            publicText("reader_id", reader)
+        }
+        return when (val result = source.messageReceiptRead(RepositoryContext(account), body)) {
+            is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
+            is CoreResult.Success -> {
+                result.value.close()
+                ClientResult.Ready(Unit)
+            }
+        }
+    }
+
+    private suspend fun localDevice(account: String): ClientResult<String> {
+        synchronized(readers) { readers[account] }?.let { return ClientResult.Ready(it) }
+        return when (val listed = devices.list(account)) {
+            is ClientResult.Ready -> listed.value.firstOrNull { it.local }?.id?.let { id ->
+                synchronized(readers) {
+                    if (readers.size >= 8) readers.clear()
+                    readers[account] = id
+                }
+                ClientResult.Ready(id)
+            } ?: ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)
+            is ClientResult.Failed -> listed
+            is ClientResult.Unavailable -> listed
+        }
+    }
+
+    private fun summary(row: org.ramflux.sdk.TimelineMetadata, extras: TimelinePageExtras): TimelineSummary = when (row) {
+        is MessageHistoryEntry -> MessageSummary(
+            row.id, row.sender, row.own, row.deleted, row.text, row.createdAt, row.revision, row.edited,
+            row.reactions.map { MessageReaction(it.token, it.count) },
+            row.receipts.map { MessageReceipt(it.deviceId, it.state) },
+            row.replyPreview, row.placeholder, row.service,
+            if (row.deleted) emptyList() else extras.media[row.id].orEmpty(),
+        )
+        is CallHistoryEntry -> CallSummary(row.id, row.createdAt)
     }
 
     override suspend fun header(account: String, conversation: String): ClientResult<ConversationHeader> {
@@ -86,7 +160,10 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
                 is CoreResult.Failure -> return ClientResult.Failed(result.error.appProblem())
                 is CoreResult.Success -> result.value
             }
-            page.rows.firstOrNull { it.id == conversation && !it.hidden }?.let { return ClientResult.Ready(ConversationHeader(it.title)) }
+            page.rows.firstOrNull { it.id == conversation && !it.hidden }?.let {
+                val unread = it.unread.coerceAtMost(Long.MAX_VALUE.toULong()).toLong()
+                return ClientResult.Ready(ConversationHeader(it.title, unread = unread))
+            }
             val next = page.nextCursor ?: return ClientResult.Ready(ConversationHeader(null))
             if (next.length > 8192 || !seen.add(next)) return invalid()
             cursor = next
@@ -144,7 +221,7 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
     override suspend fun react(
         account: String, conversation: String, message: String, token: String, remove: Boolean, operationId: String,
     ): ClientResult<Unit> {
-        if (token != ChatReaction.ACK) return invalid()
+        if (!ChatReaction.accepts(token)) return invalid()
         val fingerprint = listOf("react", message, token, remove.toString()).joinToString("\u0000")
         return mutate(account, conversation, message, null, operationId, fingerprint, setOf("submitted")) {
             SecretBody.fields {
@@ -189,10 +266,8 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
             return@flow
         }
         val filter = SubscriptionFilter(account, buildJsonObject {
-            put("topics", buildJsonArray {
-                add(JsonPrimitive("*"))
-                add(JsonPrimitive("message.transient"))
-            })
+            // Named topics only (scale rule 7): inserts, edits/receipts/tombstones, directory changes, typing.
+            put("topics", buildJsonArray { TOPICS.forEach { add(JsonPrimitive(it)) } })
         })
         source.updates(filter).collect { update ->
             when (update) {
@@ -345,6 +420,12 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
     private fun usable(text: String) = text.trim().isNotEmpty() && text.toByteArray(Charsets.UTF_8).size <= 65536
     private fun invalid(): ClientResult<Nothing> = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
     private fun unknown(): ClientResult<Nothing> = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.UNKNOWN))
+
+    internal companion object {
+        private const val PAGE = 100
+        fun subscriptionTopics(): List<String> = TOPICS
+        private val TOPICS = listOf("message.received", "group.message.received", "message.updated", "conversation.changed", "message.transient")
+    }
 
     private class Attempt<T>(val operationId: String, val fingerprint: String, var result: ClientResult<T>?)
 }

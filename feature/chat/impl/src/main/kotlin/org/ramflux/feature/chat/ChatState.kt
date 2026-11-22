@@ -20,6 +20,19 @@ enum class Receipt { SENT, DELIVERED, READ }
 
 enum class ComposerMode { SEND, REPLY, EDIT }
 
+/** A message this device has not yet handed to the SDK, shown at the end of the timeline. */
+enum class LocalDelivery {
+    /** Waiting for a live session; it is sent when the connection returns (board MOB-B08). */
+    QUEUED,
+    SENDING,
+
+    /** Refused or failed; the person can retry or discard it (board MOB-B05). */
+    FAILED
+}
+
+/** One reaction token with its count; the token is peer-controlled text. */
+@Immutable data class ReactionCount(val token: String, val count: Int)
+
 @Immutable data class MessageItem(
     override val id: String,
     val sender: String,
@@ -33,7 +46,9 @@ enum class ComposerMode { SEND, REPLY, EDIT }
     val placeholder: Boolean = false,
     val service: Boolean = false,
     val receipt: Receipt? = null,
-    val reaction: UiText? = null
+    val reactions: ImmutableList<ReactionCount> = persistentListOf(),
+    val delivery: LocalDelivery? = null,
+    val attachments: ImmutableList<AttachmentItem> = persistentListOf()
 ) : TimelineItem {
     override fun toString() = "MessageItem(<redacted>)"
 }
@@ -59,7 +74,58 @@ enum class ComposerMode { SEND, REPLY, EDIT }
     val deliveryNotice: UiText? = null,
     val typingProblem: UiText? = null,
     /** The first unread message, when the read model reports one; the timeline draws the unread divider above it. */
-    val firstUnreadId: String? = null
+    val firstUnreadId: String? = null,
+    /** The SDK reported an older page; scrolling to the top loads it. */
+    val hasOlder: Boolean = false,
+    val loadingOlder: Boolean = false,
+    /** At least one send waits for a live session; the timeline shows the offline notice. */
+    val queued: Boolean = false
 ) {
     override fun toString() = "ChatState(<redacted>)"
+}
+
+enum class AttachmentKind { IMAGE, ANIMATED, VIDEO, FILE }
+
+/** What the bubble of one attachment shows; mapped from the transfer state of the media repository. */
+enum class AttachmentStatus {
+    /** An untrusted sender: nothing is decoded or downloaded until the person taps. */
+    HIDDEN,
+
+    /** Not on this device yet; tapping downloads it. */
+    AVAILABLE,
+    LOADING,
+    READY,
+
+    /** Failed in a way a retry may fix. */
+    FAILED,
+
+    /** The 24-hour access window has passed. */
+    EXPIRED,
+
+    /** Removed by the sender. */
+    REVOKED,
+
+    /** This device holds no key for it (paired after the message was sent). */
+    NOT_ON_DEVICE,
+
+    /** A local send that is staged or uploading. */
+    SENDING
+}
+
+@Immutable data class AttachmentItem(
+    val messageId: String,
+    val index: Int,
+    val kind: AttachmentKind,
+    /** Peer-controlled; always rendered through the untrusted file-name primitive. */
+    val fileName: String,
+    val size: Long,
+    /** Width over height from message data only, so the row never changes height after download. */
+    val aspect: Float,
+    val status: AttachmentStatus,
+    /** The decrypted file in app-private storage once [status] is READY. */
+    val localPath: String? = null,
+    val mime: String = ""
+) {
+    val key: String get() = messageId + "/" + index
+    override fun toString() = "AttachmentItem(<redacted>)"
 }

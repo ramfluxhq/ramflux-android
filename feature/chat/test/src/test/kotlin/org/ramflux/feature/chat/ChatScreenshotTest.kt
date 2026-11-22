@@ -46,14 +46,14 @@ class ChatScreenshotTest(
     @get:Rule val compose = createComposeRule()
     companion object {
         private val locales = listOf("en", "zh-CN", "en-XA", "ar-XB")
-        private val kinds = listOf("loading", "error", "empty", "rows", "group", "bidi", "board", "actions")
+        private val kinds = listOf("loading", "error", "empty", "rows", "group", "bidi", "board", "actions", "outbox")
 
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}-dark{1}-{2}-locale{3}-font{4}")
         fun cases(): List<Array<Any>> {
             val light = listOf(360, 393, 700).flatMap { width -> kinds.map { arrayOf<Any>(width, false, it, 1f) } }
             val dark = kinds.map { arrayOf<Any>(393, true, it, 1f) }
-            val large = listOf("rows", "bidi", "board", "actions").map { arrayOf<Any>(360, false, it, 2f) }
+            val large = listOf("rows", "bidi", "board", "actions", "outbox").map { arrayOf<Any>(360, false, it, 2f) }
             return (light + dark + large).flatMap { row -> locales.map { tag -> arrayOf(row[0], row[1], row[2], tag, row[3]) } }
         }
 
@@ -67,6 +67,34 @@ class ChatScreenshotTest(
             "error" -> ChatState(problem = uiText(R.string.ui_unable_to_continue))
             "empty" -> ChatState(loaded = true, title = UiText.Data("Project"))
             "board", "actions" -> ChatBoards.conversation(selected = kind == "actions")
+            // Boards MOB-B05 (send failed) and MOB-B08 (offline, queued).
+            "outbox" -> ChatState(
+                conversationId = "conversation-id",
+                title = UiText.Data("Project"),
+                loaded = true,
+                queued = true,
+                rows = persistentListOf(
+                    MessageItem("one", "Peer", false, false, UiText.Data("Approved message content."), at(10, 21)),
+                    MessageItem(
+                        "local:a",
+                        "",
+                        true,
+                        false,
+                        UiText.Data("I'll send the revisions this afternoon."),
+                        at(10, 22),
+                        delivery = LocalDelivery.QUEUED
+                    ),
+                    MessageItem(
+                        "local:b",
+                        "",
+                        true,
+                        false,
+                        UiText.Data("Seen, more comments later."),
+                        at(10, 23),
+                        delivery = LocalDelivery.FAILED
+                    )
+                )
+            )
             "bidi" -> ChatState(
                 conversationId = "conversation-id",
                 groupId = "group-id",
@@ -101,7 +129,15 @@ class ChatScreenshotTest(
                 title = UiText.Data("Project"),
                 loaded = true,
                 rows = persistentListOf(
-                    MessageItem("one", "Peer", false, false, UiText.Data("Approved message content."), at(9, 20, 1)),
+                    MessageItem(
+                        "one",
+                        "Peer",
+                        false,
+                        false,
+                        UiText.Data("Approved message content."),
+                        at(9, 20, 1),
+                        reactions = persistentListOf(ReactionCount("+", 1), ReactionCount(String(Character.toChars(0x1F44D)), 2))
+                    ),
                     CallItem("call", at(9, 21, 1)),
                     MessageItem(
                         "two",
@@ -138,7 +174,7 @@ class ChatScreenshotTest(
                                 if (frame) {
                                     Column(Modifier.fillMaxSize()) {
                                         KitStatusBar("9:41")
-                                        ChatScreen(state, {}, Modifier.weight(1f), clock = clock)
+                                        ChatScreen(state, {}, Modifier.weight(1f), clock = clock, showDetails = true, showCall = true)
                                         Box(
                                             Modifier.fillMaxWidth().height(HOME.dp),
                                             contentAlignment = Alignment.Center

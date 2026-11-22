@@ -228,3 +228,9 @@ fun KitBubble(
         }
     }
 }
+
+/** The danger mark beside an own bubble the SDK did not accept (board MOB-B05). */
+@Composable
+fun KitFailedMark(description: String?, modifier: Modifier = Modifier, tag: String? = null) {
+    KitIcon("circle-alert", RfMetrics.failedMark, LocalRFTheme.current.danger, modifier.kitTag(tag), description)
+}

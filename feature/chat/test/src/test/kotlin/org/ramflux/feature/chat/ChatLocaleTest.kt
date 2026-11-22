@@ -38,7 +38,8 @@ class ChatLocaleTest {
                 val state by vm.state.collectAsState()
                 RamfluxTheme {
                     ChatScreen(state, {
-                        actions++
+                        // Visibility reports are passive; the read position is marked once per row (see the view model).
+                        if (it !is ChatAction.Shown) actions++
                         vm.onAction(it)
                     })
                 }
@@ -59,6 +60,7 @@ class ChatLocaleTest {
         compose.runOnIdle {
             assertEquals(0, actions)
             assertEquals(reads, history.reads)
+            assertTrue(history.marked.size <= 1)
         }
     }
 }

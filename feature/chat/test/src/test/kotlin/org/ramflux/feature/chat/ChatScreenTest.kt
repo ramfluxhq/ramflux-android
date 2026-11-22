@@ -165,11 +165,15 @@ class ChatScreenTest {
         compose.runOnIdle { state.value = state.value.copy(selectedId = "one") }
         compose.onNodeWithTag("message-menu").assertExists()
         compose.onNodeWithText("Edit").assertDoesNotExist()
-        compose.onNodeWithText("Delete for everyone").assertExists()
+        // Erase for everyone is the author's action only.
+        compose.onNodeWithText("Delete for everyone").assertDoesNotExist()
+        compose.onNodeWithText("Delete for me").assertExists()
         compose.onNodeWithContentDescription("Reply").performClick()
         compose.runOnIdle { assertEquals(ChatAction.Reply, actions.last()) }
-        compose.onNodeWithContentDescription("Acknowledge").performClick()
-        compose.runOnIdle { assertEquals(ChatAction.React, actions.last()) }
+        compose.onNodeWithContentDescription("Copy text").performClick()
+        compose.runOnIdle { assertEquals(ChatAction.Copy, actions.last()) }
+        compose.onNodeWithContentDescription("React with \uD83D\uDC4D").performClick()
+        compose.runOnIdle { assertEquals(ChatAction.React("\uD83D\uDC4D"), actions.last()) }
         compose.onNodeWithTag("message-actions-scrim").performTouchInput { click(topCenter) }
         compose.runOnIdle { assertEquals(ChatAction.Dismiss, actions.last()) }
     }
@@ -182,10 +186,40 @@ class ChatScreenTest {
         )
         val state = androidx.compose.runtime.mutableStateOf(ChatState(loaded = true, rows = rows, selectedId = "own"))
         compose.setContent { RamfluxTheme { ChatScreen(state.value, { actions.add(it) }, clock = clock) } }
+        compose.onNodeWithText("Delete for everyone").assertExists()
         compose.onNodeWithContentDescription("Edit").performClick()
         compose.runOnIdle { assertEquals(ChatAction.Edit, actions.last()) }
         compose.runOnIdle { state.value = state.value.copy(selectedId = "gone") }
         compose.onNodeWithTag("message-menu").assertDoesNotExist()
+    }
+
+    @Test fun failedLocalMessagesOfferRetryAndQueuedOnesShowTheOfflineNotice() {
+        val actions = mutableListOf<ChatAction>()
+        val rows = persistentListOf(
+            MessageItem("local:1", "", true, false, UiText.Data("Unsent"), stamp, delivery = LocalDelivery.FAILED),
+            MessageItem("local:2", "", true, false, UiText.Data("Waiting"), stamp, delivery = LocalDelivery.QUEUED)
+        )
+        compose.setContent {
+            RamfluxTheme { ChatScreen(ChatState(loaded = true, rows = rows, queued = true), { actions.add(it) }, clock = clock) }
+        }
+        compose.onNodeWithText("Not sent").assertExists()
+        compose.onNodeWithText("Queued").assertExists()
+        compose.onNodeWithTag("chat-offline", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("chat-retry", useUnmergedTree = true).performClick()
+        compose.runOnIdle { assertEquals(ChatAction.Retry("local:1"), actions.last()) }
+    }
+
+    @Test fun headerActionsAppearOnlyWhenTheHostWiresThem() {
+        val actions = mutableListOf<ChatAction>()
+        val state = ChatState(loaded = true, rows = persistentListOf(MessageItem("m", "Peer", false, false, UiText.Data("Hi"), stamp)))
+        compose.setContent {
+            RamfluxTheme { ChatScreen(state, { actions.add(it) }, clock = clock, showDetails = true, showCall = true) }
+        }
+        compose.onNodeWithContentDescription("Conversation details").performClick()
+        compose.runOnIdle { assertEquals(ChatAction.Details, actions.last()) }
+        compose.onNodeWithContentDescription("Call").performClick()
+        compose.runOnIdle { assertEquals(ChatAction.Call, actions.last()) }
+        compose.runOnIdle { assertTrue(actions.any { it is ChatAction.Shown && it.id == "m" }) }
     }
 
     @Test fun anArabicMessageInAnEnglishInterfaceIsRightToLeft() {

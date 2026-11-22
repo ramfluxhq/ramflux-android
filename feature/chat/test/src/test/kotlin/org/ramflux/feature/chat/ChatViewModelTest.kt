@@ -265,8 +265,9 @@ class ChatViewModelTest {
         assertFalse(vm.state.value.toString().contains("Private draft"))
     }
 
-    @Test fun failedSendKeepsDraft() = runTest(timeout = 5.seconds) {
+    @Test fun failedSendBecomesAFailedBubbleThatCanBeRetriedOrDiscarded() = runTest(timeout = 5.seconds) {
         val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
             sendResult = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.NONE))
         }
         val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
@@ -276,9 +277,43 @@ class ChatViewModelTest {
         vm.onAction(ChatAction.Draft("Private draft"))
         vm.onAction(ChatAction.Send)
         runCurrent()
-        assertEquals("Private draft", vm.state.value.draft)
+        val failed = vm.state.value.rows.single() as MessageItem
+        assertEquals(LocalDelivery.FAILED, failed.delivery)
+        assertEquals("", vm.state.value.draft)
         assertNotNull(vm.state.value.problem)
         assertEquals(1, history.sends)
+        // A definite failure is retried as a new operation.
+        vm.onAction(ChatAction.Retry(failed.id))
+        runCurrent()
+        assertEquals(2, history.sends)
+        assertNotEquals(history.sentOperations[0], history.sentOperations[1])
+        vm.onAction(ChatAction.Discard(failed.id))
+        runCurrent()
+        assertTrue(vm.state.value.rows.isEmpty())
+        assertFalse(vm.state.value.toString().contains("Private draft"))
+    }
+
+    @Test fun offlineSendsWaitInTheQueueAndGoOutAfterTheNextRead() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            sendResult = ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE))
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Draft("later"))
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        assertTrue(vm.state.value.queued)
+        assertEquals(LocalDelivery.QUEUED, (vm.state.value.rows.single() as MessageItem).delivery)
+        assertNull(vm.state.value.problem)
+        history.sendResult = ClientResult.Ready(SendReceipt("sent"))
+        vm.onAction(ChatAction.Refresh)
+        runCurrent()
+        assertEquals(2, history.sends)
+        assertFalse(vm.state.value.queued)
+        assertTrue(vm.state.value.rows.none { (it as MessageItem).delivery != null })
     }
 
     @Test fun unknownSendRetriesTheSameOperationAndALaterEqualTextIsNew() = runTest(timeout = 5.seconds) {
@@ -295,20 +330,122 @@ class ChatViewModelTest {
         vm.onAction(ChatAction.Send)
         runCurrent()
         val first = history.sentOperations.single()
-        vm.onAction(ChatAction.Send)
+        val local = vm.state.value.rows.single().id
+        vm.onAction(ChatAction.Retry(local))
         runCurrent()
         assertEquals(listOf(first, first), history.sentOperations)
-        assertEquals("same", vm.state.value.draft)
         history.sendResult = ClientResult.Ready(SendReceipt("sent"))
-        vm.onAction(ChatAction.Send)
+        vm.onAction(ChatAction.Retry(local))
         runCurrent()
         assertEquals(listOf(first, first, first), history.sentOperations)
-        assertEquals("", vm.state.value.draft)
+        assertTrue(vm.state.value.rows.isEmpty())
         vm.onAction(ChatAction.Draft("same"))
         vm.onAction(ChatAction.Send)
         runCurrent()
         assertEquals(4, history.sentOperations.size)
         assertNotEquals(first, history.sentOperations.last())
+    }
+
+    @Test fun olderPagesPrependWithoutDuplicatesAndTheWindowStaysBounded() = runTest(timeout = 20.seconds) {
+        val total = 50_000
+        val history = FakeChatHistory().apply { paging = syntheticPages(total) }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertEquals(100, vm.state.value.rows.size)
+        assertEquals("m${total - 1}", vm.state.value.rows.last().id)
+        assertTrue(vm.state.value.hasOlder)
+        val started = System.nanoTime()
+        repeat(30) {
+            vm.onAction(ChatAction.LoadOlder)
+            runCurrent()
+        }
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+        val ids = vm.state.value.rows.map { it.id }
+        assertEquals(ids.size, ids.toSet().size)
+        assertTrue("window ${ids.size}", ids.size <= 1_000)
+        assertTrue(vm.state.value.hasOlder)
+        // Thirty pages over a 50,000-row source stay well inside the test budget on the JVM.
+        assertTrue("paging took $elapsedMs ms", elapsedMs < 10_000)
+        println("CHAT_SCALE: 30 older pages over $total rows in $elapsedMs ms, window ${ids.size}")
+    }
+
+    @Test fun shownIncomingMessagesAreMarkedReadOnceAndTheDividerFollowsTheUnreadCount() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            heading = ClientResult.Ready(ConversationHeader("Peer", unread = 2))
+            reading = {
+                ClientResult.Ready(
+                    listOf(
+                        MessageSummary("a", "peer", false, false, "one", 10),
+                        MessageSummary("b", "peer", false, false, "two", 11),
+                        MessageSummary("c", "me", true, false, "mine", 12),
+                        MessageSummary("d", "peer", false, false, "three", 13)
+                    )
+                )
+            }
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertEquals("b", vm.state.value.firstUnreadId)
+        vm.onAction(ChatAction.Shown("c"))
+        runCurrent()
+        assertEquals(listOf("b"), history.marked)
+        vm.onAction(ChatAction.Shown("b"))
+        runCurrent()
+        assertEquals(listOf("b"), history.marked)
+        vm.onAction(ChatAction.Shown("d"))
+        runCurrent()
+        assertEquals(listOf("b", "d"), history.marked)
+    }
+
+    @Test fun draftsAreSealedOnPauseRestoredOnLoadAndErasedOnSend() = runTest(timeout = 5.seconds) {
+        val drafts = FakeChatDrafts()
+        val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), drafts)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Draft("half written"))
+        vm.onAction(ChatAction.Pause)
+        runCurrent()
+        assertEquals("half written", drafts.stored["a/c"])
+        val restored = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), drafts)
+        observe(restored)
+        runCurrent()
+        load(restored)
+        assertEquals("half written", restored.state.value.draft)
+        restored.onAction(ChatAction.Send)
+        runCurrent()
+        assertNull(drafts.stored["a/c"])
+    }
+
+    @Test fun reactionsSendTheChosenGraphemeAndRefuseOthers() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(MessageSummary("m", "peer", false, false, "hi", 10))) }
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Select("m"))
+        vm.onAction(ChatAction.React("ab"))
+        runCurrent()
+        assertTrue(history.reactions.isEmpty())
+        vm.onAction(ChatAction.Select("m"))
+        vm.onAction(ChatAction.React("\u2764\uFE0F"))
+        runCurrent()
+        assertEquals(listOf("\u2764\uFE0F"), history.reactions)
+    }
+
+    private fun syntheticPages(total: Int): suspend (String?) -> ClientResult<TimelinePage> = { before ->
+        val end = before?.toInt() ?: total
+        val start = (end - 100).coerceAtLeast(0)
+        val rows = (start until end).map { MessageSummary("m$it", "peer", it % 3 == 0, false, "row $it", it.toLong()) }
+        ClientResult.Ready(TimelinePage(rows, if (start > 0) start.toString() else null))
     }
 
     @Test fun editPassesTheObservedRevision() = runTest(timeout = 5.seconds) {

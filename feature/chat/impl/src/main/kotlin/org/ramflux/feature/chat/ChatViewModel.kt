@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -21,10 +20,32 @@ import org.ramflux.feature.chat.impl.R
 class ChatViewModel @Inject constructor(
     private val history: MessageHistoryRepository,
     private val accounts: AccountAccessRepository,
-    private val session: ClientSessionRepository
+    private val session: ClientSessionRepository,
+    private val drafts: ChatDraftRepository
 ) : ViewModel() {
+    /** For hosts that keep no drafts (tests and previews). */
+    constructor(
+        history: MessageHistoryRepository,
+        accounts: AccountAccessRepository,
+        session: ClientSessionRepository
+    ) : this(history, accounts, session, NoChatDrafts)
+
     private data class Target(val account: String, val conversation: String, val group: String?)
     private var target: Target? = null
+
+    /** The loaded window in reading order (oldest first), mapped once per page, bounded by [WINDOW]. */
+    private val window = ArrayList<TimelineItem>()
+    private var older: String? = null
+
+    /** Rows were trimmed from the newest end; live pages are not merged until the window is reset. */
+    private var detached = false
+    private var olderJob: Job? = null
+    private val outbox = LinkedHashMap<String, Outgoing>()
+    private var lastMarked: String? = null
+    private var markRefused = false
+    private var unreadAtOpen = 0L
+    private var dividerPlaced = false
+    private var draftJob: Job? = null
     private val local = MutableStateFlow(ChatState())
     private val channel = Channel<ChatEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
@@ -40,9 +61,10 @@ class ChatViewModel @Inject constructor(
     private var typingRefused = false
     private var needsRefresh = false
     private var ticket = 0L
-    private var pendingSend: PendingSend? = null
     private val lifecycle = viewModelScope.launch {
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect { (phase, _) ->
+            // Lock or session loss: seal the draft before the in-memory state is dropped.
+            sealDraft()
             request?.cancel()
             watch?.cancel()
             watchTarget = null
@@ -50,11 +72,13 @@ class ChatViewModel @Inject constructor(
             stopTyping()
             typingRefused = false
             ticket++
-            pendingSend = null
+            resetTimeline()
             local.value = ChatState()
             val openTarget = target
             if (phase == ClientPhase.OPEN && openTarget != null) {
+                local.value = ChatState(conversationId = openTarget.conversation)
                 ensureWatch(openTarget)
+                restoreDraft(openTarget)
                 onAction(ChatAction.Refresh)
             }
         }
@@ -64,6 +88,7 @@ class ChatViewModel @Inject constructor(
             is ChatAction.Load -> {
                 val next = Target(action.accountId, action.conversationId, action.groupId)
                 if (target != next) {
+                    sealDraft()
                     request?.cancel()
                     watch?.cancel()
                     watchTarget = null
@@ -71,10 +96,11 @@ class ChatViewModel @Inject constructor(
                     stopTyping()
                     typingRefused = false
                     ticket++
-                    pendingSend = null
+                    resetTimeline()
                     target = next
                     local.value = ChatState(conversationId = next.conversation)
                     ensureWatch(next)
+                    restoreDraft(next)
                     read()
                 }
             }
@@ -83,19 +109,27 @@ class ChatViewModel @Inject constructor(
                 val text = action.text.take(65536)
                 local.update { it.copy(draft = text) }
                 if (local.value.composer == ComposerMode.SEND) syncTyping(text.isNotBlank())
+                if (local.value.composer != ComposerMode.EDIT) scheduleDraftSave()
             }
-            ChatAction.Send -> if (request?.isActive != true && local.value.draft.isNotBlank()) compose(local.value.composer)
+            ChatAction.Send -> if (local.value.draft.isNotBlank()) {
+                if (local.value.composer == ComposerMode.SEND) {
+                    enqueue()
+                } else if (request?.isActive != true) {
+                    compose(local.value.composer)
+                }
+            }
             ChatAction.Attachments -> if (target != null && !local.value.sending) {
                 viewModelScope.launch { channel.send(ChatEvent.Attachments) }
             }
             ChatAction.Back -> {
+                sealDraft()
                 request?.cancel()
                 watch?.cancel()
                 watchTarget = null
                 clearPeerTypingClock()
                 stopTyping()
                 ticket++
-                pendingSend = null
+                resetTimeline()
                 local.value = ChatState()
                 target = null
                 viewModelScope.launch { channel.send(ChatEvent.Back) }
@@ -123,8 +157,15 @@ class ChatViewModel @Inject constructor(
                     }
                 }
             }
-            ChatAction.React -> mutate(local.value.selectedId) { account, conversation, id, operation ->
-                history.react(account, conversation, id, ChatReaction.ACK, false, operation)
+            is ChatAction.React -> if (ChatReaction.accepts(action.token)) {
+                mutate(local.value.selectedId) { account, conversation, id, operation ->
+                    history.react(account, conversation, id, action.token, false, operation)
+                }
+            }
+            ChatAction.Copy -> selected()?.let { row ->
+                val text = (row.content as? UiText.Data)?.value
+                local.update { it.copy(selectedId = null) }
+                if (text != null && !row.deleted && !row.placeholder) viewModelScope.launch { channel.send(ChatEvent.Copy(text)) }
             }
             ChatAction.DeleteForMe -> mutate(local.value.selectedId) { account, conversation, id, operation ->
                 history.delete(account, conversation, id, MessageDeleteScope.LOCAL, operation)
@@ -132,9 +173,25 @@ class ChatViewModel @Inject constructor(
             ChatAction.DeleteForEveryone -> mutate(local.value.selectedId) { account, conversation, id, operation ->
                 history.delete(account, conversation, id, MessageDeleteScope.EVERYONE, operation)
             }
-            ChatAction.CancelComposer -> local.update {
-                it.copy(composer = ComposerMode.SEND, actionTarget = null, expectedRevision = 0)
+            ChatAction.CancelComposer -> {
+                val editing = local.value.composer == ComposerMode.EDIT
+                local.update {
+                    it.copy(
+                        composer = ComposerMode.SEND,
+                        actionTarget = null,
+                        expectedRevision = 0,
+                        draft = if (editing) "" else it.draft
+                    )
+                }
+                if (editing) target?.let { restoreDraft(it) }
             }
+            ChatAction.LoadOlder -> loadOlder()
+            is ChatAction.Shown -> shown(action.id)
+            is ChatAction.Retry -> retry(action.id)
+            is ChatAction.Discard -> if (outbox.remove(action.id) != null) publish()
+            ChatAction.Details -> if (target != null) viewModelScope.launch { channel.send(ChatEvent.Details) }
+            ChatAction.Call -> if (target != null && local.value.groupId == null) viewModelScope.launch { channel.send(ChatEvent.Call) }
+            ChatAction.Pause -> sealDraft()
         }
     }
     private fun selected(): MessageItem? {
@@ -179,19 +236,8 @@ class ChatViewModel @Inject constructor(
         if (session.status.value.phase != ClientPhase.OPEN) return
         val expected = ++ticket
         val generation = session.status.value.generation
-        local.update {
-            it.copy(
-                conversationId = currentTarget.conversation,
-                groupId = null,
-                canSend = false,
-                title = null,
-                headerProblem = null,
-                loading = true,
-                loaded = false,
-                rows = persistentListOf(),
-                problem = null
-            )
-        }
+        // A refresh keeps the rows on screen and merges the newest page into them.
+        local.update { it.copy(conversationId = currentTarget.conversation, loading = true, problem = null) }
         request = viewModelScope.launch {
             try {
                 if (!validate(expected, generation, currentTarget)) return@launch
@@ -206,12 +252,13 @@ class ChatViewModel @Inject constructor(
                     local.value = ChatState(problem = uiText(R.string.ui_conversation_details_unavailable))
                     return@launch
                 }
-                val result = history.read(currentTarget.account, currentTarget.conversation)
+                val result = history.page(currentTarget.account, currentTarget.conversation, null)
                 current(expected, generation, currentTarget)
                 if (!validate(expected, generation, currentTarget)) return@launch
                 val header = groupHeader ?: history.header(currentTarget.account, currentTarget.conversation)
                 current(expected, generation, currentTarget)
                 if (!validate(expected, generation, currentTarget)) return@launch
+                if (!dividerPlaced) unreadAtOpen = (header as? ClientResult.Ready)?.value?.unread ?: 0L
                 local.update {
                     it.copy(
                         groupId = (groupHeader as? ClientResult.Ready)?.value?.groupId,
@@ -227,31 +274,30 @@ class ChatViewModel @Inject constructor(
                 val capability = history.sendAvailability()
                 current(expected, generation, currentTarget)
                 when (result) {
-                    is ClientResult.Ready -> local.update {
-                        it.copy(
-                            loaded = true,
-                            rows = result.value.map { row ->
-                                when (row) {
-                                    is CallSummary -> CallItem(row.id, row.createdAt)
-                                    is MessageSummary -> messageItem(row)
+                    is ClientResult.Ready -> {
+                        merge(result.value)
+                        local.update {
+                            it.copy(
+                                loaded = true,
+                                canSend = capability is ClientResult.Ready,
+                                unavailable = when (capability) {
+                                    is ClientResult.Unavailable -> uiText(
+                                        R.string.ui_sending_unavailable_value,
+                                        capability.reason.description()
+                                    )
+                                    is ClientResult.Ready, is ClientResult.Failed -> null
+                                },
+                                problem = when (capability) {
+                                    is ClientResult.Failed -> uiText(
+                                        R.string.ui_send_availability_failed_code_value,
+                                        UiText.Number(capability.problem.code.toLong())
+                                    )
+                                    is ClientResult.Ready, is ClientResult.Unavailable -> null
                                 }
-                            }.toPersistentList(),
-                            canSend = capability is ClientResult.Ready,
-                            unavailable = when (capability) {
-                                is ClientResult.Unavailable -> uiText(
-                                    R.string.ui_sending_unavailable_value,
-                                    capability.reason.description()
-                                )
-                                is ClientResult.Ready, is ClientResult.Failed -> null
-                            },
-                            problem = when (capability) {
-                                is ClientResult.Failed -> uiText(
-                                    R.string.ui_send_availability_failed_code_value,
-                                    UiText.Number(capability.problem.code.toLong())
-                                )
-                                is ClientResult.Ready, is ClientResult.Unavailable -> null
-                            }
-                        )
+                            )
+                        }
+                        publish()
+                        if (capability is ClientResult.Ready) resendQueued()
                     }
                     is ClientResult.Failed -> local.update {
                         it.copy(problem = uiText(R.string.ui_read_failed_code_value, UiText.Number(result.problem.code.toLong())))
@@ -265,52 +311,274 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
+
+    /** Reply and edit; plain sends go through [enqueue]. */
     private fun compose(mode: ComposerMode) {
         val currentTarget = target ?: return
-        if (session.status.value.phase != ClientPhase.OPEN) return
+        if (session.status.value.phase != ClientPhase.OPEN || mode == ComposerMode.SEND) return
         val text = local.value.draft
-        val messageId = local.value.actionTarget
+        val messageId = local.value.actionTarget ?: return
         val revision = local.value.expectedRevision
-        if (mode != ComposerMode.SEND && messageId == null) return
-        val operation = if (mode == ComposerMode.SEND) {
-            sendOperation(currentTarget.account, currentTarget.conversation, text)
-        } else {
-            UUID.randomUUID().toString()
-        }
+        val operation = UUID.randomUUID().toString()
         val expected = ++ticket
         val generation = session.status.value.generation
         local.update { it.copy(sending = true, problem = null) }
         request = viewModelScope.launch {
             try {
                 if (!validate(expected, generation, currentTarget)) return@launch
-                if (mode == ComposerMode.SEND) {
-                    val sent = history.send(currentTarget.account, currentTarget.conversation, text, operation)
-                    current(expected, generation, currentTarget)
-                    if (!validate(expected, generation, currentTarget)) return@launch
-                    applySend(sent)
+                val changed = if (mode == ComposerMode.REPLY) {
+                    history.reply(currentTarget.account, currentTarget.conversation, messageId, text, operation)
                 } else {
-                    val targetId = messageId ?: return@launch
-                    val changed = if (mode == ComposerMode.REPLY) {
-                        history.reply(currentTarget.account, currentTarget.conversation, targetId, text, operation)
-                    } else {
-                        history.edit(
-                            currentTarget.account,
-                            currentTarget.conversation,
-                            targetId,
-                            text,
-                            revision,
-                            operation
-                        )
-                    }
-                    current(expected, generation, currentTarget)
-                    if (!validate(expected, generation, currentTarget)) return@launch
-                    applyUnit(changed, clearDraft = true)
+                    history.edit(currentTarget.account, currentTarget.conversation, messageId, text, revision, operation)
+                }
+                current(expected, generation, currentTarget)
+                if (!validate(expected, generation, currentTarget)) return@launch
+                applyUnit(changed, clearDraft = true)
+                if (changed is ClientResult.Ready && mode == ComposerMode.REPLY) {
+                    drafts.clear(currentTarget.account, currentTarget.conversation)
                 }
             } finally {
                 finish(expected)
             }
         }
     }
+
+    /** Moves the draft into the outbox at once (boards MOB-B05, MOB-B08) and hands it to the SDK. */
+    private fun enqueue() {
+        val currentTarget = target ?: return
+        if (session.status.value.phase != ClientPhase.OPEN) return
+        val text = local.value.draft
+        if (outbox.size >= OUTBOX_LIMIT) return
+        val operation = UUID.randomUUID().toString()
+        val id = LOCAL_PREFIX + operation
+        outbox[id] = Outgoing(operation, text, System.currentTimeMillis() / 1000, LocalDelivery.SENDING)
+        draftJob?.cancel()
+        local.update { it.copy(draft = "", problem = null) }
+        syncTyping(false)
+        viewModelScope.launch { drafts.clear(currentTarget.account, currentTarget.conversation) }
+        publish()
+        deliver(currentTarget, id)
+    }
+
+    private fun deliver(currentTarget: Target, id: String) {
+        val outgoing = outbox[id] ?: return
+        val generation = session.status.value.generation
+        viewModelScope.launch {
+            if (!accountStillOpen(currentTarget, generation)) return@launch
+            val sent = history.send(currentTarget.account, currentTarget.conversation, outgoing.text, outgoing.operation)
+            if (target != currentTarget || generation != session.status.value.generation) return@launch
+            when (sent) {
+                is ClientResult.Ready -> {
+                    outbox.remove(id)
+                    local.update { it.copy(deliveryNotice = uiText(R.string.ui_delivery_submitted)) }
+                    publish()
+                    channel.send(ChatEvent.Sent)
+                    if (request?.isActive == true) needsRefresh = true else read()
+                }
+                is ClientResult.Unavailable -> {
+                    // Sending is not available here at all: give the words back to the composer.
+                    outbox.remove(id)
+                    local.update {
+                        it.copy(
+                            draft = it.draft.ifEmpty { outgoing.text },
+                            unavailable = uiText(R.string.ui_sending_unavailable_draft_kept)
+                        )
+                    }
+                    publish()
+                }
+                is ClientResult.Failed -> {
+                    val offline = sent.problem.kind == ClientFailureKind.UNAVAILABLE || sent.problem.statusName in OFFLINE
+                    outgoing.delivery = if (offline) LocalDelivery.QUEUED else LocalDelivery.FAILED
+                    outgoing.definite = sent.problem.outcome != ClientOutcome.UNKNOWN
+                    local.update {
+                        it.copy(
+                            problem = if (offline) null else sendFailure(sent.problem),
+                            deliveryNotice = if (offline) null else failedNotice(sent.problem)
+                        )
+                    }
+                    publish()
+                }
+            }
+        }
+    }
+
+    private fun retry(id: String) {
+        val currentTarget = target ?: return
+        val outgoing = outbox[id] ?: return
+        if (outgoing.delivery == LocalDelivery.SENDING || session.status.value.phase != ClientPhase.OPEN) return
+        // An uncertain outcome is retried under the same operation id so the SDK can reconcile it.
+        val again = if (outgoing.definite) outgoing.copy(operation = UUID.randomUUID().toString()) else outgoing
+        again.delivery = LocalDelivery.SENDING
+        outbox[id] = again
+        publish()
+        deliver(currentTarget, id)
+    }
+
+    private fun resendQueued() {
+        outbox.entries.filter { it.value.delivery == LocalDelivery.QUEUED }.forEach { retry(it.key) }
+    }
+
+    private suspend fun accountStillOpen(expectedTarget: Target, generation: Long): Boolean {
+        if (target != expectedTarget || session.status.value.phase != ClientPhase.OPEN ||
+            generation != session.status.value.generation
+        ) {
+            return false
+        }
+        val catalog = accounts.list() as? ClientResult.Ready ?: return false
+        return catalog.value.activeId == expectedTarget.account &&
+            catalog.value.accounts.any { it.id == expectedTarget.account && it.unlocked }
+    }
+
+    /** Merges the newest page into the window: rows from the first overlap onwards are replaced. */
+    private fun merge(page: TimelinePage) {
+        val mapped = page.rows.map(::itemOf)
+        if (window.isEmpty()) {
+            window.addAll(mapped)
+            older = page.older
+            return
+        }
+        if (detached) return
+        val ids = mapped.mapTo(HashSet(mapped.size)) { it.id }
+        val overlap = window.indexOfFirst { it.id in ids }
+        if (overlap < 0) {
+            // More new rows than one page: the gap cannot be filled forwards, so the window restarts.
+            window.clear()
+            window.addAll(mapped)
+            older = page.older
+        } else {
+            window.subList(overlap, window.size).clear()
+            window.addAll(mapped)
+        }
+    }
+
+    private fun loadOlder() {
+        val currentTarget = target ?: return
+        val cursor = older ?: return
+        if (olderJob?.isActive == true || session.status.value.phase != ClientPhase.OPEN) return
+        local.update { it.copy(loadingOlder = true) }
+        val generation = session.status.value.generation
+        olderJob = viewModelScope.launch {
+            try {
+                val result = history.page(currentTarget.account, currentTarget.conversation, cursor)
+                if (target != currentTarget || generation != session.status.value.generation) return@launch
+                when (result) {
+                    is ClientResult.Ready -> {
+                        val known = window.mapTo(HashSet(window.size)) { it.id }
+                        window.addAll(0, result.value.rows.map(::itemOf).filter { it.id !in known })
+                        older = result.value.older
+                        if (window.size > WINDOW) {
+                            window.subList(WINDOW, window.size).clear()
+                            detached = true
+                        }
+                        publish()
+                    }
+                    is ClientResult.Failed -> local.update {
+                        it.copy(problem = uiText(R.string.ui_read_failed_code_value, UiText.Number(result.problem.code.toLong())))
+                    }
+                    is ClientResult.Unavailable -> older = null
+                }
+            } finally {
+                if (target == currentTarget) local.update { it.copy(loadingOlder = false) }
+            }
+        }
+    }
+
+    /** Marks the newest incoming message at or before [id] as read, once, through the SDK. */
+    private fun shown(id: String) {
+        val currentTarget = target ?: return
+        val index = window.indexOfFirst { it.id == id }
+        if (index < 0) return
+        if (detached && index == window.lastIndex) {
+            // Back at the newest loaded row of a trimmed window: start again from the newest page.
+            detached = false
+            window.clear()
+            older = null
+            read()
+            return
+        }
+        if (markRefused || session.status.value.phase != ClientPhase.OPEN) return
+        val incoming = (index downTo 0).asSequence().map { window[it] }
+            .firstOrNull { it is MessageItem && !it.own && !it.deleted } ?: return
+        val marked = lastMarked?.let { last -> window.indexOfFirst { it.id == last } } ?: -1
+        if (marked >= window.indexOf(incoming)) return
+        lastMarked = incoming.id
+        viewModelScope.launch {
+            val result = history.markRead(currentTarget.account, currentTarget.conversation, incoming.id)
+            if (result is ClientResult.Unavailable) markRefused = true
+        }
+    }
+
+    /** Publishes the window plus the outbox as the timeline, and places the unread divider once. */
+    private fun publish() {
+        val pending = outbox.map { (id, outgoing) ->
+            MessageItem(id, "", true, false, UiText.Data(outgoing.text), outgoing.sentAt, delivery = outgoing.delivery)
+        }
+        if (!dividerPlaced && window.isNotEmpty()) {
+            dividerPlaced = true
+            local.update { it.copy(firstUnreadId = firstUnread()) }
+        }
+        local.update {
+            it.copy(
+                rows = (window + pending).toPersistentList(),
+                hasOlder = older != null,
+                queued = outbox.values.any { item -> item.delivery == LocalDelivery.QUEUED }
+            )
+        }
+    }
+
+    /** The read-model page has no read position; the reader-scoped unread count places the divider. */
+    private fun firstUnread(): String? {
+        if (unreadAtOpen <= 0) return null
+        var remaining = unreadAtOpen
+        for (index in window.indices.reversed()) {
+            val row = window[index] as? MessageItem ?: continue
+            if (row.own || row.deleted) continue
+            remaining--
+            if (remaining == 0L) return row.id
+        }
+        return null
+    }
+
+    private fun resetTimeline() {
+        olderJob?.cancel()
+        window.clear()
+        older = null
+        detached = false
+        outbox.clear()
+        lastMarked = null
+        markRefused = false
+        unreadAtOpen = 0
+        dividerPlaced = false
+    }
+
+    private fun scheduleDraftSave() {
+        val currentTarget = target ?: return
+        draftJob?.cancel()
+        draftJob = viewModelScope.launch {
+            delay(DRAFT_DEBOUNCE_MS)
+            drafts.save(currentTarget.account, currentTarget.conversation, local.value.draft)
+        }
+    }
+
+    /** Seals the current draft now (pause, lock, leaving the conversation). Edit text is not a draft. */
+    private fun sealDraft() {
+        val currentTarget = target ?: return
+        draftJob?.cancel()
+        val state = local.value
+        if (state.composer == ComposerMode.EDIT || state.conversationId != currentTarget.conversation) return
+        val text = state.draft
+        viewModelScope.launch(NonCancellable) { drafts.save(currentTarget.account, currentTarget.conversation, text) }
+    }
+
+    private fun restoreDraft(next: Target) {
+        viewModelScope.launch {
+            val text = drafts.load(next.account, next.conversation) ?: return@launch
+            if (target == next && session.status.value.phase == ClientPhase.OPEN && local.value.draft.isEmpty()) {
+                local.update { it.copy(draft = text) }
+            }
+        }
+    }
+
     private fun mutate(id: String?, call: suspend (String, String, String, String) -> ClientResult<Unit>) {
         val currentTarget = target ?: return
         val messageId = id ?: return
@@ -328,48 +596,6 @@ class ChatViewModel @Inject constructor(
                 applyUnit(result, clearDraft = false)
             } finally {
                 finish(expected)
-            }
-        }
-    }
-    private fun sendOperation(account: String, conversation: String, text: String): String {
-        val fingerprint = buildString {
-            append(account)
-            append('\u0000')
-            append(conversation)
-            append('\u0000')
-            append(text)
-        }
-        val pending = pendingSend
-        if (pending != null && pending.fingerprint == fingerprint) return pending.operation
-        val created = UUID.randomUUID().toString()
-        pendingSend = PendingSend(created, fingerprint)
-        return created
-    }
-    private suspend fun applySend(result: ClientResult<SendReceipt>) {
-        when (result) {
-            is ClientResult.Ready -> {
-                pendingSend = null
-                local.update {
-                    it.copy(
-                        draft = "",
-                        composer = ComposerMode.SEND,
-                        actionTarget = null,
-                        deliveryNotice = uiText(R.string.ui_delivery_submitted)
-                    )
-                }
-                syncTyping(false)
-                channel.send(ChatEvent.Sent)
-                needsRefresh = true
-            }
-            is ClientResult.Unavailable -> {
-                pendingSend = null
-                local.update { it.copy(unavailable = uiText(R.string.ui_sending_unavailable_draft_kept)) }
-            }
-            is ClientResult.Failed -> {
-                if (result.problem.outcome != ClientOutcome.UNKNOWN) pendingSend = null
-                local.update {
-                    it.copy(problem = sendFailure(result.problem), deliveryNotice = failedNotice(result.problem))
-                }
             }
         }
     }
@@ -481,6 +707,11 @@ class ChatViewModel @Inject constructor(
             viewModelScope.launch { history.setTyping(account, conversation, false) }
         }
     }
+    private fun itemOf(row: TimelineSummary): TimelineItem = when (row) {
+        is CallSummary -> CallItem(row.id, row.createdAt)
+        is MessageSummary -> messageItem(row)
+    }
+
     private fun messageItem(row: MessageSummary): MessageItem {
         val content = when {
             row.deleted -> uiText(R.string.ui_message_deleted)
@@ -501,7 +732,7 @@ class ChatViewModel @Inject constructor(
             row.placeholder,
             row.service,
             receiptLabel(row.receipts),
-            reactionLabel(row.reactions)
+            row.reactions.map { ReactionCount(it.token, it.count) }.toPersistentList()
         )
     }
     private suspend fun current(expected: Long, generation: Long, expectedTarget: Target) {
@@ -514,7 +745,29 @@ class ChatViewModel @Inject constructor(
     }
 }
 
-private data class PendingSend(val operation: String, val fingerprint: String)
+private data class Outgoing(
+    val operation: String,
+    val text: String,
+    val sentAt: Long,
+    var delivery: LocalDelivery,
+    var definite: Boolean = false
+) {
+    override fun toString() = "Outgoing(<redacted>)"
+}
+
+/** Status names of failures that mean "no live session"; such sends wait in the queue. */
+private val OFFLINE = setOf("authority_unavailable", "unavailable", "offline", "closed")
+private const val LOCAL_PREFIX = "local:"
+private const val OUTBOX_LIMIT = 64
+private const val WINDOW = 1_000
+private const val DRAFT_DEBOUNCE_MS = 400L
+
+private object NoChatDrafts : ChatDraftRepository {
+    override suspend fun load(account: String, conversation: String): String? = null
+    override suspend fun save(account: String, conversation: String, text: String): ClientResult<Unit> = ClientResult.Ready(Unit)
+    override suspend fun clear(account: String, conversation: String) = Unit
+    override suspend fun clearAccount(account: String) = Unit
+}
 
 private fun receiptLabel(receipts: List<MessageReceipt>): Receipt? {
     val state = receipts.maxByOrNull { rank(it.state) }?.state ?: return null
@@ -531,11 +784,6 @@ private fun rank(state: String) = when (state) {
     "delivered" -> 2
     "sent" -> 1
     else -> 0
-}
-
-private fun reactionLabel(reactions: List<MessageReaction>): UiText? {
-    val token = reactions.firstOrNull()?.token ?: return null
-    return if (token == ChatReaction.ACK) uiText(R.string.ui_reaction_ack) else UiText.Data(token)
 }
 
 private fun sendFailure(problem: ClientProblem): UiText = when (problem.outcome) {

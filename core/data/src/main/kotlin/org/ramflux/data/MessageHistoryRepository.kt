@@ -27,13 +27,19 @@ data class MessageSummary(
     val replyPreview: String? = null,
     val placeholder: Boolean = false,
     val service: Boolean = false,
+    /** The `content.message.media[]` references, addressed as (message id, index). */
+    val attachments: List<MediaAttachment> = emptyList(),
 ) : TimelineSummary {
     override fun toString() = "MessageSummary(<redacted>)"
 }
 data class CallSummary(override val id: String, override val createdAt: Long?) : TimelineSummary {
     override fun toString() = "CallSummary(<redacted>)"
 }
-data class ConversationHeader(val title: String?, val groupId: String? = null) {
+/**
+ * [unread] is the reader-scoped unread count of `conversation.directory`; the read-model page has no read
+ * position, so it is the only unread signal.
+ */
+data class ConversationHeader(val title: String?, val groupId: String? = null, val unread: Long = 0) {
     override fun toString() = "ConversationHeader(<redacted>)"
 }
 data class SendReceipt(val messageId: String) {
@@ -49,13 +55,43 @@ data class ChatSignal(
 )
 enum class MessageDeleteScope { LOCAL, EVERYONE }
 
-/** One grapheme the conversation.react intent accepts. The UI label stays in resources. */
+/** Reaction tokens: the SDK accepts exactly one grapheme, at most 64 bytes, no controls or blanks. */
 object ChatReaction {
+    /** The acknowledgement token other clients send; its UI label stays in resources. */
     const val ACK: String = "+"
+
+    fun accepts(token: String): Boolean {
+        if (token.isEmpty() || token.toByteArray(Charsets.UTF_8).size > 64) return false
+        if (token.any { it.isISOControl() } || token.isBlank()) return false
+        val iterator = java.text.BreakIterator.getCharacterInstance()
+        iterator.setText(token)
+        iterator.first()
+        return iterator.next() == token.length && iterator.next() == java.text.BreakIterator.DONE
+    }
+}
+
+/** One read-model page in reading order (oldest first). [older] is the opaque cursor of the previous page. */
+data class TimelinePage(val rows: List<TimelineSummary>, val older: String?) {
+    override fun toString() = "TimelinePage(<redacted>)"
 }
 
 interface MessageHistoryRepository {
     suspend fun read(account: String, conversation: String): ClientResult<List<TimelineSummary>>
+
+    /** The newest page when [before] is null, otherwise the page older than the [TimelinePage.older] cursor. */
+    suspend fun page(account: String, conversation: String, before: String? = null): ClientResult<TimelinePage> =
+        if (before != null) {
+            ClientResult.Ready(TimelinePage(emptyList(), null))
+        } else {
+            when (val rows = read(account, conversation)) {
+                is ClientResult.Ready -> ClientResult.Ready(TimelinePage(rows.value, null))
+                is ClientResult.Failed -> rows
+                is ClientResult.Unavailable -> rows
+            }
+        }
+
+    /** Moves this device's read position to [message] (local projection; see the implementation). */
+    suspend fun markRead(account: String, conversation: String, message: String): ClientResult<Unit> = unavailable()
     suspend fun header(account: String, conversation: String): ClientResult<ConversationHeader>
     /** Group presentation is enabled only after canonical group/conversation readback. */
     suspend fun groupHeader(account: String, group: String, conversation: String): ClientResult<ConversationHeader> =
