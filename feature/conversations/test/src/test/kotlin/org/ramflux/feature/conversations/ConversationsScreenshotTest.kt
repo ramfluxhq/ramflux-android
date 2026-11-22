@@ -2,9 +2,12 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.conversations
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.unit.*
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.collections.immutable.persistentListOf
@@ -15,52 +18,58 @@ import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.conversations.impl.R
+import org.ramflux.testing.fixtures.ConversationBoards
+import org.ramflux.testing.screenshot.ScreenshotCase
+import org.ramflux.testing.screenshot.ScreenshotFrame
+import org.ramflux.testing.screenshot.ScreenshotMatrix
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
+
+/**
+ * One parameterised matrix: states x the shared screenshot cases. The B01 family renders at the
+ * board frame with board content and the board's system bar insets in every matrix locale and
+ * theme (the app's board test adds the shell around it and is the one compared with the design);
+ * the list renders over the full review matrix; secondary states render at the phone frame.
+ */
 @OptIn(ExperimentalTestApi::class)
 @RunWith(ParameterizedRobolectricTestRunner::class)
-@Config(sdk = [35], qualifiers = "w1000dp-h1200dp-mdpi")
-class ConversationsScreenshotTest(
-    private val width: Int,
-    private val dark: Boolean,
-    private val kind: String,
-    private val localeTag: String
-) {
+@Config(sdk = [35], qualifiers = "${ScreenshotMatrix.WINDOW_QUALIFIERS}-mdpi")
+class ConversationsScreenshotTest(private val kind: String, private val case: ScreenshotCase) {
     @get:Rule val compose = createComposeRule()
+
     companion object {
+        private val boardKinds = ConversationBoards.boards.keys.toList()
+        private val secondary = listOf("account", "unavailable")
+
         @JvmStatic
-        @ParameterizedRobolectricTestRunner.Parameters(name = "{0}-dark{1}-{2}-locale{3}")
-        fun cases(): List<Array<Any>> = baseCases().flatMap { row ->
-            listOf("en", "zh-CN", "en-XA").map { tag -> Array<Any>(row.size + 1) { index -> if (index < row.size) row[index] else tag } }
-        }
-        private fun baseCases(): List<Array<Any>> = listOf(400, 900).flatMap { width ->
-            listOf(false, true).flatMap { dark ->
-                listOf("loading", "error", "empty", "account", "rows").map { arrayOf(width, dark, it) }
-            }
+        @ParameterizedRobolectricTestRunner.Parameters(name = "{0}-{1}")
+        fun cases(): List<Array<Any>> = ScreenshotMatrix.parameters(boardKinds + "rows" + secondary) { kind ->
+            if (kind == "rows") ScreenshotMatrix.review() else ScreenshotMatrix.compact()
         }
     }
 
     @Test fun screen() {
-        val state = when (kind) {
-            "loading" -> ConversationsState(accountLabel = "Work", loading = true)
-            "error" -> ConversationsState(accountLabel = "Work", problem = uiText(R.string.ui_unable_to_continue))
-            "empty" -> ConversationsState(loaded = true)
+        val board = ConversationBoards.boards[kind]
+        val state = board ?: when (kind) {
             "account" -> ConversationsState(accountRequired = true)
-            else -> ConversationsState(
+            "unavailable" -> ConversationsState(
                 loaded = true,
                 rows = persistentListOf(
                     ConversationItem("c", "Project", uiText(R.string.ui_conversation), "7", true, UiText.Data("10:30"))
                 ),
                 unavailable = uiText(R.string.ui_value_is_not_available_in_this_version, uiText(R.string.ui_local_search))
             )
+            else -> ConversationBoards.list
         }
+        // Board frames carry the design's system bars (59 dp status bar, 34 dp home indicator).
+        val insets = if (board != null) WindowInsets(top = 59.dp, bottom = 34.dp) else WindowInsets(0, 0, 0, 0)
         compose.setContent {
-            DeviceConfigurationOverride(DeviceConfigurationOverride.Locales(LocaleList(localeTag))) {
-                DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(width.dp, 500.dp))) {
-                    RamfluxTheme(dark) { ConversationsScreen(state, {}) }
+            ScreenshotFrame(case) {
+                RamfluxTheme(case.dark) {
+                    ConversationsScreen(state, {}, rooted = true, modifier = Modifier.fillMaxSize().windowInsetsPadding(insets))
                 }
             }
         }
-        compose.onRoot().captureRoboImage("build/outputs/roborazzi/conversations-$width-$dark-$kind-$localeTag.png")
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/conversations-$kind-${case.label}.png")
     }
 }

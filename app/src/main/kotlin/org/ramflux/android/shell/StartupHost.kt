@@ -39,10 +39,14 @@ fun StartupHost(
         shell()
         return
     }
+    StartupSurface(insets) { StartupPlaceScreen(ui, details, { details = it }, navigate, model) }
+}
+
+/** The startup host's side of the screen contract: background behind the system bars and the insets. */
+@Composable
+internal fun StartupSurface(insets: WindowInsets, content: @Composable () -> Unit) {
     val theme = LocalRFTheme.current
-    Box(Modifier.fillMaxSize().background(theme.bg).windowInsetsPadding(insets)) {
-        StartupPlaceScreen(ui, details, { details = it }, navigate, model)
-    }
+    Box(Modifier.fillMaxSize().background(theme.bg).windowInsetsPadding(insets)) { content() }
 }
 
 @Composable
