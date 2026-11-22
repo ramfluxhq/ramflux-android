@@ -5,6 +5,7 @@ plugins { id("ramflux.android.app") }
 android {
     bundle { language { enableSplit = false } }
     testOptions.unitTests.isIncludeAndroidResources = true
+    sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/screenshot/kotlin"))
 }
 dependencies {
     implementation(project(":feature:permissions:impl"))
