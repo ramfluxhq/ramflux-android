@@ -51,6 +51,12 @@ object MediaImages {
         return bitmap.asImageBitmap()
     }
 
+    internal fun cached(key: String): Bitmap? = cache.get(key)
+
+    internal fun store(key: String, bitmap: Bitmap) {
+        cache.put(key, bitmap)
+    }
+
     /** Drops every decoded image (lock, memory trim, account change). */
     fun clear() = cache.evictAll()
 

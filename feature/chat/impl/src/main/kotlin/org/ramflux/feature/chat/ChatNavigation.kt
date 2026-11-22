@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.ramflux.data.MediaAttachment
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.kit.KitConfirmDialog
@@ -65,8 +66,10 @@ fun ChatNavigation(
     var confirm by remember { mutableStateOf<ChatEvent.File?>(null) }
     var notice by remember { mutableStateOf<Int?>(null) }
     // The system photo picker needs no storage permission; documents come through the document picker.
-    val photos = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) vm.onAction(ChatAction.Picked(listOf(uri.toString()), PickSource.PHOTO))
+    // Up to 16 photos and videos become one message (the SDK's attachment limit per message).
+    val pickMany = ActivityResultContracts.PickMultipleVisualMedia(MediaAttachment.MAX_PER_MESSAGE)
+    val photos = rememberLauncherForActivityResult(pickMany) { uris ->
+        if (uris.isNotEmpty()) vm.onAction(ChatAction.Picked(uris.map { it.toString() }, PickSource.PHOTO))
     }
     val documents = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.onAction(ChatAction.Picked(listOf(uri.toString()), PickSource.FILE))
@@ -120,7 +123,7 @@ fun ChatNavigation(
             when (event) {
                 ChatEvent.Back -> back()
                 is ChatEvent.Pick -> when (event.source) {
-                    PickSource.PHOTO -> photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    PickSource.PHOTO -> photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                     PickSource.CAMERA -> takePhoto()
                     PickSource.FILE -> documents.launch(ANY_DOCUMENT)
                 }

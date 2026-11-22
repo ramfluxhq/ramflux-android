@@ -144,6 +144,9 @@ internal object RfMetrics {
     val datePadV = 8f
     val chipPadV = 4f
     val chipPadH = 8f
+
+    /** Space between album tiles (no board yet; media design B23). */
+    val albumGap = 2f
     val unread = 28f
     val unreadGap = 12f
     val unreadLine = 1f

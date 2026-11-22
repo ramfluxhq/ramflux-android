@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -56,7 +59,9 @@ fun KitMediaBubble(
     description: String? = null,
     maxWidth: Dp? = null,
     onClick: (() -> Unit)? = null,
-    tag: String? = null
+    tag: String? = null,
+    glyph: String? = null,
+    content: (@Composable () -> Unit)? = null
 ) {
     val theme = LocalRFTheme.current
     val shape = shapeOf(theme.radius_bubble)
@@ -74,7 +79,9 @@ fun KitMediaBubble(
                 .kitTag(tag),
             contentAlignment = Alignment.Center
         ) {
-            if (image != null) {
+            if (content != null) {
+                content()
+            } else if (image != null) {
                 Image(image, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             } else {
                 val tone = if (own) theme.outgoing_meta else theme.secondary
@@ -88,6 +95,7 @@ fun KitMediaBubble(
                     }
                 }
             }
+            if (glyph != null && (image != null || content != null)) KitMediaGlyph(glyph)
             if (!badge.isNullOrEmpty() || !time.isNullOrEmpty()) {
                 Row(
                     Modifier
@@ -115,6 +123,97 @@ fun KitMediaBubble(
         }
     }
 }
+
+/** A play or pause mark over a picture, on a scrim disc so it reads on any frame; it never mirrors. */
+@Composable
+fun KitMediaGlyph(glyph: String, modifier: Modifier = Modifier) {
+    val theme = LocalRFTheme.current
+    Box(
+        modifier.size(dp(RfMetrics.hit)).background(theme.scrim, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        KitIcon(glyph, RfMetrics.fileGlyph, theme.surface_white)
+    }
+}
+
+/**
+ * An album of 2 to 16 items in one bubble (media design 4.6, board B23 to be drawn). Heights depend
+ * only on [count] and the width cap: two squares side by side, one tall item beside two stacked, or a
+ * two-by-two grid whose last tile shows how many more there are ([more]). The first item sits at the
+ * leading edge. [tile] draws item `index` filling the modifier it is given.
+ */
+@Composable
+fun KitAlbumGrid(
+    count: Int,
+    own: Boolean,
+    modifier: Modifier = Modifier,
+    maxWidth: Dp? = null,
+    more: String? = null,
+    time: String? = null,
+    tag: String? = null,
+    tile: @Composable (index: Int, modifier: Modifier) -> Unit
+) {
+    val theme = LocalRFTheme.current
+    val shape = shapeOf(theme.radius_bubble)
+    val gap = dp(RfMetrics.albumGap)
+    BoxWithConstraints(modifier) {
+        val cap = maxWidth ?: kitBubbleCap(this.maxWidth)
+        val half = (cap - gap) / 2
+        Box(Modifier.width(cap).clip(shape).background(if (own) theme.outgoing else theme.incoming).kitTag(tag)) {
+            when {
+                count <= 2 -> Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    repeat(count.coerceAtLeast(1)) { tile(it, Modifier.size(half)) }
+                }
+                count == 3 -> {
+                    val height = cap * 2 / 3
+                    val side = (cap - gap) / 3
+                    Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        tile(0, Modifier.width(cap - gap - side).height(height))
+                        Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                            tile(1, Modifier.width(side).height((height - gap) / 2))
+                            tile(2, Modifier.width(side).height((height - gap) / 2))
+                        }
+                    }
+                }
+                else -> Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                    for (row in 0 until 2) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                            for (column in 0 until 2) {
+                                val index = row * 2 + column
+                                Box(Modifier.size(half), contentAlignment = Alignment.Center) {
+                                    tile(index, Modifier.size(half))
+                                    if (index == ALBUM_TILES - 1 && !more.isNullOrEmpty()) AlbumMore(more)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!time.isNullOrEmpty()) {
+                KitText(
+                    time,
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(dp(RfMetrics.bubblePadV))
+                        .background(theme.scrim, shapeOf(theme.radius_chip))
+                        .padding(horizontal = dp(RfMetrics.chipPadH)),
+                    style = kitStyle(theme.size_mobile_caption, FontWeight.Normal, theme.surface_white, RfMetrics.lineTitle, RfFonts.latin)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.AlbumMore(more: String) {
+    val theme = LocalRFTheme.current
+    Box(Modifier.matchParentSize().background(theme.scrim), contentAlignment = Alignment.Center) {
+        KitText(more, style = kitStyle(theme.size_title, FontWeight.SemiBold, theme.surface_white, RfMetrics.lineTitle))
+    }
+}
+
+/** Tiles an album shows before the last one counts the rest. */
+const val ALBUM_TILES = 4
 
 /**
  * Full-screen image with pinch zoom (up to five times) and panning while zoomed. The window keeps its

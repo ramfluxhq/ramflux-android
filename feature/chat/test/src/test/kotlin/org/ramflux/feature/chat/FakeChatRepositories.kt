@@ -194,6 +194,16 @@ class FakeChatMedia : MediaRepository {
 class FakeChatStager : MediaStager {
     var dropped = 0
     val captures = mutableListOf<String>()
+    val visuals = mutableListOf<String>()
+    var visualResult: (String) -> StageResult = { uri ->
+        val mime = if (uri.contains("video")) "video/mp4" else "image/jpeg"
+        StageResult.Staged(StagedMedia(java.io.File("/tmp/visual-" + uri.hashCode()), uri.substringAfterLast('/'), mime))
+    }
+    override suspend fun visual(account: String, uri: String, progress: (Float) -> Unit): StageResult {
+        visuals.add(uri)
+        progress(.5f)
+        return visualResult(uri)
+    }
     override suspend fun camera(account: String, uri: String): StagedMedia? {
         captures.add(uri)
         return image(account, uri)

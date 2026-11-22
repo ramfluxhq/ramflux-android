@@ -56,6 +56,15 @@ class ChatViewModel @Inject constructor(
     private val located = HashMap<String, String>()
     private val transfers = HashMap<String, TransferState>()
     private val downloads = HashMap<String, Job>()
+
+    /** Staged items of the open send preview, in the order they will be sent. */
+    private val previewItems = ArrayList<StagedMedia>()
+    private var previewJob: Job? = null
+
+    /** What the open forward chooser re-sends: one message, or one item of it. */
+    private data class Forwarding(val target: Target, val messageId: String, val index: Int?, val cursor: String?)
+    private var forwarding: Forwarding? = null
+    private var forwardJob: Job? = null
     private val local = MutableStateFlow(ChatState())
     private val channel = Channel<ChatEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
@@ -210,13 +219,23 @@ class ChatViewModel @Inject constructor(
             ChatAction.Call -> if (target != null && local.value.groupId == null) viewModelScope.launch { channel.send(ChatEvent.Call) }
             ChatAction.Pause -> sealDraft()
             is ChatAction.OpenAttachment -> openAttachment(action.key)
-            ChatAction.CloseViewer -> local.update { it.copy(viewer = null) }
+            ChatAction.CloseViewer -> local.update { it.copy(viewer = null, viewerPosition = null) }
             is ChatAction.SaveAttachment -> handOver(action.key, FileUse.SAVE)
             is ChatAction.ShareAttachment -> handOver(action.key, FileUse.SHARE)
             is ChatAction.Pick -> if (target != null && local.value.canSend) {
                 viewModelScope.launch { channel.send(ChatEvent.Pick(action.source)) }
             }
-            is ChatAction.Picked -> action.uris.firstOrNull()?.let { stage(it, action.source) }
+            is ChatAction.Picked -> if (action.source == PickSource.PHOTO) {
+                preview(action.uris)
+            } else {
+                action.uris.firstOrNull()?.let { stage(it, action.source) }
+            }
+            is ChatAction.PreviewRemove -> previewRemove(action.index)
+            is ChatAction.PreviewMove -> previewMove(action.index)
+            is ChatAction.PreviewCaption -> local.update { it.copy(preview = it.preview?.copy(caption = action.text.take(65536))) }
+            ChatAction.PreviewSend -> previewSend()
+            ChatAction.PreviewCancel -> previewCancel()
+            is ChatAction.ViewerStep -> viewerStep(action.delta)
             is ChatAction.Forward -> openForward(action.messageId ?: local.value.selectedId, action.index)
             ChatAction.ForwardMore -> loadForwardTargets(more = true)
             is ChatAction.ForwardTo -> forwardTo(action.conversation)
@@ -395,14 +414,14 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             if (!accountStillOpen(currentTarget, generation)) return@launch
             val staged = outgoing.staged
-            val sent = if (staged == null) {
+            val sent = if (staged.isEmpty()) {
                 history.send(currentTarget.account, currentTarget.conversation, outgoing.text, outgoing.operation)
             } else {
                 media.send(
                     currentTarget.account,
                     MediaDestination(currentTarget.conversation, currentTarget.group),
                     outgoing.text,
-                    listOf(staged),
+                    staged,
                     outgoing.operation
                 )
             }
@@ -432,7 +451,11 @@ class ChatViewModel @Inject constructor(
                     outgoing.definite = sent.problem.outcome != ClientOutcome.UNKNOWN
                     local.update {
                         it.copy(
-                            problem = if (offline) null else sendFailure(sent.problem),
+                            problem = when {
+                                offline -> null
+                                staged.isNotEmpty() -> mediaFailure(sent.problem) ?: sendFailure(sent.problem)
+                                else -> sendFailure(sent.problem)
+                            },
                             deliveryNotice = if (offline) null else failedNotice(sent.problem)
                         )
                     }
@@ -553,18 +576,13 @@ class ChatViewModel @Inject constructor(
     /** Publishes the window plus the outbox as the timeline, and places the unread divider once. */
     private fun publish() {
         val pending = outbox.map { (id, outgoing) ->
-            val staged = outgoing.staged
-            val attachments = if (staged == null) {
-                persistentListOf()
-            } else {
-                persistentListOf(
-                    AttachmentItem(
-                        id, 0, kindOf(staged.mime), staged.fileName, staged.file.length(), MediaAttachment.DEFAULT_RATIO,
-                        if (outgoing.delivery == LocalDelivery.SENDING) AttachmentStatus.SENDING else AttachmentStatus.FAILED,
-                        staged.file.path, staged.mime
-                    )
+            val status = if (outgoing.delivery == LocalDelivery.SENDING) AttachmentStatus.SENDING else AttachmentStatus.FAILED
+            val attachments = outgoing.staged.mapIndexed { index, staged ->
+                AttachmentItem(
+                    id, index, kindOf(staged.mime), staged.fileName, staged.size, MediaAttachment.DEFAULT_RATIO,
+                    status, staged.file.path, staged.mime
                 )
-            }
+            }.toPersistentList()
             MessageItem(
                 id,
                 "",
@@ -603,6 +621,7 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun resetTimeline() {
+        previewCancel()
         olderJob?.cancel()
         forwardJob?.cancel()
         forwarding = null
@@ -888,8 +907,8 @@ class ChatViewModel @Inject constructor(
         when (item.status) {
             AttachmentStatus.READY -> {
                 val path = item.localPath ?: return
-                if (item.kind == AttachmentKind.IMAGE || item.kind == AttachmentKind.ANIMATED) {
-                    local.update { it.copy(viewer = item) }
+                if (item.kind != AttachmentKind.FILE) {
+                    local.update { it.copy(viewer = item, viewerPosition = viewerPosition(item)) }
                 } else {
                     viewModelScope.launch { channel.send(ChatEvent.File(path, item.mime, item.fileName, FileUse.OPEN)) }
                 }
@@ -930,7 +949,7 @@ class ChatViewModel @Inject constructor(
         if (session.status.value.phase != ClientPhase.OPEN || outbox.size >= OUTBOX_LIMIT) return
         viewModelScope.launch {
             val staged = when (source) {
-                PickSource.PHOTO -> stager.image(currentTarget.account, uri)
+                PickSource.PHOTO -> (stager.visual(currentTarget.account, uri) as? StageResult.Staged)?.media
                 PickSource.CAMERA -> stager.camera(currentTarget.account, uri)
                 PickSource.FILE -> stager.file(currentTarget.account, uri)
             }
@@ -944,16 +963,113 @@ class ChatViewModel @Inject constructor(
             }
             val operation = UUID.randomUUID().toString()
             val id = LOCAL_PREFIX + operation
-            outbox[id] = Outgoing(operation, "", System.currentTimeMillis() / 1000, LocalDelivery.SENDING, staged = staged)
+            outbox[id] = Outgoing(operation, "", System.currentTimeMillis() / 1000, LocalDelivery.SENDING, staged = listOf(staged))
             publish()
             deliver(currentTarget, id)
         }
     }
 
-    /** What the open forward chooser re-sends: one message, or one item of it. */
-    private data class Forwarding(val target: Target, val messageId: String, val index: Int?, val cursor: String?)
-    private var forwarding: Forwarding? = null
-    private var forwardJob: Job? = null
+    /**
+     * Stages up to 16 picked items one after another (transcoding is serial), then opens the send preview
+     * (album board B28 to be drawn). Local work reports real progress; nothing is sent yet.
+     */
+    private fun preview(uris: List<String>) {
+        val currentTarget = target ?: return
+        if (uris.isEmpty() || session.status.value.phase != ClientPhase.OPEN || outbox.size >= OUTBOX_LIMIT) return
+        val picked = uris.take(MediaAttachment.MAX_PER_MESSAGE)
+        previewCancel()
+        local.update { it.copy(preview = SendPreview(preparing = true, progress = 0f)) }
+        previewJob = viewModelScope.launch {
+            val refusals = HashSet<StageRefusal>()
+            picked.forEachIndexed { index, uri ->
+                val result = stager.visual(currentTarget.account, uri) { fraction ->
+                    local.update { it.copy(preview = it.preview?.copy(progress = (index + fraction.coerceIn(0f, 1f)) / picked.size)) }
+                }
+                if (target != currentTarget) {
+                    (result as? StageResult.Staged)?.media?.file?.delete()
+                    return@launch
+                }
+                when (result) {
+                    is StageResult.Staged -> previewItems += result.media
+                    is StageResult.Refused -> refusals += result.reason
+                }
+                publishPreview(preparing = index < picked.lastIndex, progress = (index + 1f) / picked.size, refusals = refusals)
+            }
+            if (previewItems.isEmpty() && refusals.isNotEmpty()) {
+                local.update { it.copy(preview = null, problem = refusalText(refusals)) }
+            }
+        }
+    }
+
+    private fun publishPreview(preparing: Boolean, progress: Float?, refusals: Set<StageRefusal> = emptySet()) {
+        val rows = previewItems.mapIndexed { index, staged ->
+            PreviewItem(index, kindOf(staged.mime), staged.file.path, staged.fileName, staged.size)
+        }.toPersistentList()
+        local.update { state ->
+            state.copy(
+                preview = (state.preview ?: SendPreview()).copy(
+                    items = rows,
+                    preparing = preparing,
+                    progress = progress,
+                    problem = if (refusals.isEmpty()) state.preview?.problem else refusalText(refusals)
+                )
+            )
+        }
+    }
+
+    private fun previewRemove(index: Int) {
+        if (local.value.preview?.preparing != false || index !in previewItems.indices) return
+        previewItems.removeAt(index).file.delete()
+        if (previewItems.isEmpty()) previewCancel() else publishPreview(preparing = false, progress = null)
+    }
+
+    /** Moves item [index] one place towards the start of the album. */
+    private fun previewMove(index: Int) {
+        if (local.value.preview?.preparing != false || index !in 1 until previewItems.size) return
+        previewItems.add(index - 1, previewItems.removeAt(index))
+        publishPreview(preparing = false, progress = null)
+    }
+
+    private fun previewSend() {
+        val currentTarget = target ?: return
+        val sheet = local.value.preview ?: return
+        if (sheet.preparing || previewItems.isEmpty() || outbox.size >= OUTBOX_LIMIT) return
+        val operation = UUID.randomUUID().toString()
+        val id = LOCAL_PREFIX + operation
+        val now = System.currentTimeMillis() / 1000
+        outbox[id] = Outgoing(operation, sheet.caption, now, LocalDelivery.SENDING, staged = previewItems.toList())
+        previewItems.clear()
+        local.update { it.copy(preview = null) }
+        publish()
+        deliver(currentTarget, id)
+    }
+
+    private fun previewCancel() {
+        previewJob?.cancel()
+        previewJob = null
+        previewItems.forEach { it.file.delete() }
+        previewItems.clear()
+        if (local.value.preview != null) local.update { it.copy(preview = null) }
+    }
+
+    /** Steps the viewer through the ready pictures and videos of the same message. */
+    private fun viewerStep(delta: Int) {
+        val open = local.value.viewer ?: return
+        val siblings = references.values.filter { it.messageId == open.messageId }.sortedBy { it.index }
+            .map { attachmentItem(it, false) }
+            .filter { it.status == AttachmentStatus.READY && it.kind != AttachmentKind.FILE }
+        val at = siblings.indexOfFirst { it.key == open.key }
+        val next = siblings.getOrNull(at + delta) ?: return
+        local.update { it.copy(viewer = next, viewerPosition = viewerPosition(next)) }
+    }
+
+    private fun viewerPosition(item: AttachmentItem): ViewerPosition? {
+        val siblings = references.values.filter { it.messageId == item.messageId }.sortedBy { it.index }
+            .map { attachmentItem(it, false) }
+            .filter { it.status == AttachmentStatus.READY && it.kind != AttachmentKind.FILE }
+        if (siblings.size < 2) return null
+        return ViewerPosition(siblings.indexOfFirst { it.key == item.key } + 1, siblings.size)
+    }
 
     private fun openForward(messageId: String?, index: Int?) {
         val currentTarget = target ?: return
@@ -1084,7 +1200,7 @@ private data class Outgoing(
     val sentAt: Long,
     var delivery: LocalDelivery,
     var definite: Boolean = false,
-    val staged: StagedMedia? = null
+    val staged: List<StagedMedia> = emptyList()
 ) {
     override fun toString() = "Outgoing(<redacted>)"
 }
@@ -1102,6 +1218,20 @@ private fun kindOf(mime: String) = when (MediaAttachment.kindOf(mime)) {
     MediaKind.FILE -> AttachmentKind.FILE
 }
 private const val OUTBOX_LIMIT = 64
+
+/** Media refusals the person can act on get their own words (design B22); others use the generic text. */
+private fun mediaFailure(problem: ClientProblem): UiText? = when (problem.statusName ?: problem.check) {
+    "recipient_limit" -> uiText(R.string.chat_media_recipient_limit)
+    "peer_upgrade_required" -> uiText(R.string.chat_media_peer_upgrade)
+    "file_too_large", "quota_exceeded", "disk_full" -> uiText(R.string.chat_media_too_large)
+    else -> null
+}
+
+private fun refusalText(refusals: Set<StageRefusal>): UiText = when {
+    StageRefusal.VIDEO_TOO_LONG in refusals -> uiText(R.string.chat_media_video_too_long)
+    StageRefusal.VIDEO_TOO_LARGE in refusals -> uiText(R.string.chat_media_video_too_large)
+    else -> uiText(R.string.chat_media_not_staged)
+}
 private const val FORWARD_WINDOW = 500
 private const val OCTET = "application/octet-stream"
 

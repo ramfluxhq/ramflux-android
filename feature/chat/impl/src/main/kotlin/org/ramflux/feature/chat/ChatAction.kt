@@ -56,6 +56,18 @@ sealed interface ChatAction {
     data class ForwardTo(val conversation: String) : ChatAction
     data object CloseForward : ChatAction
 
+    /** Removes item [index] from the send preview. */
+    data class PreviewRemove(val index: Int) : ChatAction
+
+    /** Moves item [index] of the send preview one place towards the start. */
+    data class PreviewMove(val index: Int) : ChatAction
+    data class PreviewCaption(val text: String) : ChatAction
+    data object PreviewSend : ChatAction
+    data object PreviewCancel : ChatAction
+
+    /** Shows the next ([delta] 1) or previous (-1) picture or video of the message in the viewer. */
+    data class ViewerStep(val delta: Int) : ChatAction
+
     /** The screen left the foreground; the draft is sealed to storage now. */
     data object Pause : ChatAction
 }

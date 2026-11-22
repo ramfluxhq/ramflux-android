@@ -83,7 +83,11 @@ enum class LocalDelivery {
     /** The image shown full screen, when one is open. */
     val viewer: AttachmentItem? = null,
     /** The forward chooser, while it is open. */
-    val forward: ForwardSheet? = null
+    val forward: ForwardSheet? = null,
+    /** The send preview of picked photos and videos, while it is open. */
+    val preview: SendPreview? = null,
+    /** "2 of 5" in the viewer when the message has more than one picture or video. */
+    val viewerPosition: ViewerPosition? = null
 ) {
     override fun toString() = "ChatState(<redacted>)"
 }
@@ -103,6 +107,24 @@ enum class LocalDelivery {
     val sending: Boolean = false
 ) {
     override fun toString() = "ForwardSheet(<redacted>)"
+}
+
+@Immutable data class ViewerPosition(val index: Int, val count: Int)
+
+/** One staged item of the send preview; [path] is its outbox file. */
+@Immutable data class PreviewItem(val index: Int, val kind: AttachmentKind, val path: String, val fileName: String, val size: Long) {
+    override fun toString() = "PreviewItem(<redacted>)"
+}
+
+/** Picked photos and videos staged for one message; [progress] is local staging and transcoding work. */
+@Immutable data class SendPreview(
+    val items: ImmutableList<PreviewItem> = persistentListOf(),
+    val preparing: Boolean = false,
+    val progress: Float? = null,
+    val caption: String = "",
+    val problem: UiText? = null
+) {
+    override fun toString() = "SendPreview(<redacted>)"
 }
 
 enum class AttachmentKind { IMAGE, ANIMATED, VIDEO, FILE }

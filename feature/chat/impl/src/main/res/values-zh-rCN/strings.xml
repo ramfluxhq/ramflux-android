@@ -149,4 +149,54 @@
     <string name="chat_forward_unavailable">此处无法转发。</string>
     <!-- Accessibility label of the button that closes the forward chooser. -->
     <string name="chat_forward_close">关闭</string>
+    <!-- Shown when a picked video is longer than the 10-minute cap for compressed video. -->
+    <string name="chat_media_video_too_long">此视频超过 10 分钟，请改为以文件发送。</string>
+    <!-- Shown when a compressed video is still larger than the 200 MB cap. -->
+    <string name="chat_media_video_too_large">压缩后此视频仍超过 200 MB，请改为以文件发送。</string>
+    <!-- Shown when a media send is refused because the group has more than 64 recipient devices. -->
+    <string name="chat_media_recipient_limit">暂不支持向超过 64 台设备的群组发送媒体。</string>
+    <!-- Shown when the recipient's devices are too old to receive encrypted media. -->
+    <string name="chat_media_peer_upgrade">对方需要更新 Ramflux 才能接收媒体。</string>
+    <!-- Shown when the attachment is too large for the relay quota or the device storage. -->
+    <string name="chat_media_too_large">附件过大或存储空间已满。</string>
+    <!-- Title of the send preview for picked photos and videos. -->
+    <string name="chat_preview_title">发送媒体</string>
+    <!-- Button that sends the previewed photos and videos as one message. -->
+    <string name="chat_preview_send">发送</string>
+    <!-- Button that closes the send preview and discards the staged items. -->
+    <string name="chat_preview_cancel">取消</string>
+    <!-- Accessibility label of the button that removes one item from the send preview. -->
+    <string name="chat_preview_remove">移除</string>
+    <!-- Accessibility label of the button that moves one item earlier in the album. -->
+    <string name="chat_preview_move">前移</string>
+    <!-- Placeholder of the caption field in the send preview. -->
+    <string name="chat_preview_caption">添加说明</string>
+    <!-- Status while picked items are compressed on this device; %1$d is the percentage of local work done. -->
+    <string name="chat_preview_preparing">正在准备… %1$d%%</string>
+    <!-- Count on the last album tile; %1$d is how many more items the album holds. -->
+    <string name="chat_media_more">+%1$d</string>
+    <!-- Accessibility label of an animated image bubble. -->
+    <string name="chat_media_animated">动图</string>
+    <!-- Accessibility label of an album bubble; %1$d is the number of items. -->
+    <plurals name="chat_media_album">
+        <item quantity="other">相册，%1$d 项</item>
+    </plurals>
+    <!-- Viewer button that starts the video. -->
+    <string name="chat_viewer_play">播放</string>
+    <!-- Viewer button that pauses the video. -->
+    <string name="chat_viewer_pause">暂停</string>
+    <!-- Viewer button that mutes the video. -->
+    <string name="chat_viewer_mute">静音</string>
+    <!-- Viewer button that turns the video sound back on. -->
+    <string name="chat_viewer_unmute">取消静音</string>
+    <!-- Viewer button that shows the previous item of the same message. -->
+    <string name="chat_viewer_previous">上一项</string>
+    <!-- Viewer button that shows the next item of the same message. -->
+    <string name="chat_viewer_next">下一项</string>
+    <!-- Viewer position in a message with several items; %1$d is the item, %2$d the count. -->
+    <string name="chat_viewer_position">第 %1$d 项，共 %2$d 项</string>
+    <!-- Shown in the viewer when the video cannot be played on this device. -->
+    <string name="chat_viewer_video_failed">此设备无法播放此视频。</string>
+    <!-- Elapsed and total video time; %1$s and %2$s are media times in Western digits, shown left to right. -->
+    <string name="chat_viewer_time">%1$s / %2$s</string>
 </resources>

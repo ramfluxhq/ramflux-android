@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -67,8 +68,6 @@ import org.ramflux.designsystem.kit.KitContextMenu
 import org.ramflux.designsystem.kit.KitDateChip
 import org.ramflux.designsystem.kit.KitEmpty
 import org.ramflux.designsystem.kit.KitFailedMark
-import org.ramflux.designsystem.kit.KitIconButton
-import org.ramflux.designsystem.kit.KitMediaBubble
 import org.ramflux.designsystem.kit.KitMenuEntry
 import org.ramflux.designsystem.kit.KitMeta
 import org.ramflux.designsystem.kit.KitPageHeader
@@ -78,12 +77,12 @@ import org.ramflux.designsystem.kit.KitRow
 import org.ramflux.designsystem.kit.KitRowTrailing
 import org.ramflux.designsystem.kit.KitTipBar
 import org.ramflux.designsystem.kit.KitUnreadDivider
-import org.ramflux.designsystem.kit.KitZoomableImage
 import org.ramflux.designsystem.kit.kitBubbleCap
 import org.ramflux.designsystem.render
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
-import org.ramflux.media.rememberMediaImage
+import org.ramflux.media.AnimationSlots
+import org.ramflux.media.LocalAnimationSlots
 
 /**
  * The chat screen renders [state] and emits [ChatAction] only. It fills the space the caller gives it: it
@@ -109,37 +108,42 @@ fun ChatScreen(
     // Bubble bounds relative to this box, captured on long press so the actions attach to the pressed bubble.
     val anchors = remember { BubbleAnchors() }
     var attachMenu by remember { mutableStateOf(false) }
-    Box(modifier.fillMaxSize().background(theme.bg).onGloballyPositioned { anchors.root = it }) {
-        Column(Modifier.fillMaxSize()) {
-            ChatHeader(state, rooted, onAction, showDetails, showCall)
-            state.headerProblem?.let { problem ->
-                KitTipBar(problem.render(), "circle-alert", Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp))
-            }
-            if (state.queued) {
-                KitTipBar(
-                    stringResource(R.string.chat_offline_notice),
-                    "wifi-off",
-                    Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp).testTag("chat-offline")
-                )
-            }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                if (state.rows.isEmpty()) {
-                    EmptyTimeline(state, onAction, Modifier.align(Alignment.Center))
-                } else {
-                    Timeline(state, stamps, anchors, onAction)
+    // Animated images share two playing slots per chat (media design 4.2).
+    val slots = remember { AnimationSlots() }
+    CompositionLocalProvider(LocalAnimationSlots provides slots) {
+        Box(modifier.fillMaxSize().background(theme.bg).onGloballyPositioned { anchors.root = it }) {
+            Column(Modifier.fillMaxSize()) {
+                ChatHeader(state, rooted, onAction, showDetails, showCall)
+                state.headerProblem?.let { problem ->
+                    KitTipBar(problem.render(), "circle-alert", Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp))
                 }
+                if (state.queued) {
+                    KitTipBar(
+                        stringResource(R.string.chat_offline_notice),
+                        "wifi-off",
+                        Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp).testTag("chat-offline")
+                    )
+                }
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    if (state.rows.isEmpty()) {
+                        EmptyTimeline(state, onAction, Modifier.align(Alignment.Center))
+                    } else {
+                        Timeline(state, stamps, anchors, onAction)
+                    }
+                }
+                Notices(state)
+                Composer(state, onAction, bottomInset) { attachMenu = true }
             }
-            Notices(state)
-            Composer(state, onAction, bottomInset) { attachMenu = true }
+            if (selected != null && actionsFor(selected).isNotEmpty()) {
+                MessageActions(selected, state, stamps, anchors.pressed, onAction)
+            }
+            if (attachMenu) {
+                AttachMenu(showCamera, onAction) { attachMenu = false }
+            }
+            state.viewer?.let { Viewer(it, state.viewerPosition, onAction) }
+            state.preview?.let { SendPreviewSheet(it, onAction) }
+            state.forward?.let { ForwardChooser(it, onAction) }
         }
-        if (selected != null && actionsFor(selected).isNotEmpty()) {
-            MessageActions(selected, state, stamps, anchors.pressed, onAction)
-        }
-        if (attachMenu) {
-            AttachMenu(showCamera, onAction) { attachMenu = false }
-        }
-        state.viewer?.let { Viewer(it, onAction) }
-        state.forward?.let { ForwardChooser(it, onAction) }
     }
 }
 
@@ -391,7 +395,7 @@ private fun Message(
                     horizontalAlignment = if (own) Alignment.End else Alignment.Start,
                     verticalArrangement = Arrangement.spacedBy((LocalRFTheme.current.gap * .25f).dp)
                 ) {
-                    row.attachments.forEach { item -> Attachment(item, own, stamps.time(row.sentAt), cap, onAction) }
+                    Attachments(row.attachments, own, stamps.time(row.sentAt), cap, onAction)
                     val text = (row.content as? UiText.Data)?.value
                     if (row.attachments.isEmpty() || !text.isNullOrBlank()) {
                         Bubble(row, own, state.groupId != null, stamps, cap, press)
@@ -403,61 +407,6 @@ private fun Message(
             if (row.reactions.isNotEmpty()) Reactions(row.reactions)
             if (row.delivery == LocalDelivery.FAILED) FailedLine(row.id, onAction)
         }
-    }
-}
-
-/** One attachment: images and video as a media box sized from message data, everything else as a file row. */
-@Composable
-private fun Attachment(item: AttachmentItem, own: Boolean, time: String?, cap: Dp, onAction: (ChatAction) -> Unit) {
-    val status = when (item.status) {
-        AttachmentStatus.HIDDEN -> stringResource(R.string.chat_media_hidden)
-        AttachmentStatus.AVAILABLE -> stringResource(R.string.chat_media_download)
-        AttachmentStatus.LOADING -> stringResource(R.string.chat_media_loading)
-        AttachmentStatus.READY -> null
-        AttachmentStatus.FAILED -> stringResource(R.string.chat_media_failed)
-        AttachmentStatus.EXPIRED -> stringResource(R.string.chat_media_expired)
-        AttachmentStatus.REVOKED -> stringResource(R.string.chat_media_revoked)
-        AttachmentStatus.NOT_ON_DEVICE -> stringResource(R.string.chat_media_not_on_device)
-        AttachmentStatus.SENDING -> stringResource(R.string.chat_media_sending)
-    }
-    val icon = when (item.status) {
-        AttachmentStatus.HIDDEN -> "eye"
-        AttachmentStatus.AVAILABLE, AttachmentStatus.FAILED -> if (item.kind == AttachmentKind.FILE) "download" else "image-down"
-        AttachmentStatus.LOADING, AttachmentStatus.SENDING -> "loader-circle"
-        AttachmentStatus.EXPIRED -> "timer-off"
-        AttachmentStatus.REVOKED, AttachmentStatus.NOT_ON_DEVICE -> "ban"
-        AttachmentStatus.READY -> if (item.kind == AttachmentKind.VIDEO) "play" else null
-    }
-    val open = { onAction(ChatAction.OpenAttachment(item.key)) }
-    val size = android.text.format.Formatter.formatShortFileSize(LocalContext.current, item.size)
-    if (item.kind == AttachmentKind.FILE || (item.kind == AttachmentKind.VIDEO && item.status != AttachmentStatus.READY)) {
-        KitBubble(
-            "",
-            Modifier.clickable(onClick = open).testTag("attachment-" + item.key),
-            kind = KitBubbleKind.File,
-            time = time,
-            fileName = item.fileName.ifEmpty { stringResource(R.string.chat_attach_file) },
-            fileMeta = if (status == null) size else stringResource(R.string.chat_file_meta, size, status),
-            fileIcon = icon ?: "file-text",
-            maxWidth = cap
-        )
-    } else {
-        // Only files this device decrypted are decoded; senders' thumbnails are not in the message yet (R1).
-        val path = item.localPath?.takeIf { item.status == AttachmentStatus.READY || item.status == AttachmentStatus.SENDING }
-        val density = androidx.compose.ui.platform.LocalDensity.current
-        val target = with(density) { cap.roundToPx() }
-        KitMediaBubble(
-            rememberMediaImage(path, target),
-            item.aspect,
-            own,
-            icon = icon,
-            status = status,
-            time = time,
-            description = stringResource(if (item.kind == AttachmentKind.VIDEO) R.string.chat_media_video else R.string.chat_media_image),
-            maxWidth = cap,
-            onClick = open,
-            tag = "attachment-" + item.key
-        )
     }
 }
 
@@ -613,32 +562,6 @@ private fun androidx.compose.foundation.layout.BoxScope.AttachMenu(
         Modifier.align(Alignment.BottomStart).padding(theme.gap.dp),
         tag = "attach-menu"
     )
-}
-
-/** Full-screen image with zoom; save and share go through the system, the window keeps its secure flag. */
-@Composable
-private fun androidx.compose.foundation.layout.BoxScope.Viewer(item: AttachmentItem, onAction: (ChatAction) -> Unit) {
-    val theme = LocalRFTheme.current
-    BackHandler { onAction(ChatAction.CloseViewer) }
-    BoxWithConstraints(Modifier.matchParentSize().background(theme.bg).testTag("media-viewer")) {
-        val target = with(androidx.compose.ui.platform.LocalDensity.current) { (maxOf(maxWidth, maxHeight) * 2).roundToPx() }
-        rememberMediaImage(item.localPath, target)?.let {
-            KitZoomableImage(it, stringResource(R.string.chat_media_image))
-        }
-        Row(
-            Modifier.align(Alignment.TopEnd).padding(theme.gap.dp),
-            horizontalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp)
-        ) {
-            KitIconButton("download", stringResource(R.string.chat_media_save), { onAction(ChatAction.SaveAttachment(item.key)) })
-            KitIconButton(
-                "forward",
-                stringResource(R.string.chat_action_forward),
-                { onAction(ChatAction.Forward(item.messageId, item.index)) }
-            )
-            KitIconButton("share-2", stringResource(R.string.chat_media_share), { onAction(ChatAction.ShareAttachment(item.key)) })
-            KitIconButton("x", stringResource(R.string.chat_media_close), { onAction(ChatAction.CloseViewer) }, tag = "viewer-close")
-        }
-    }
 }
 
 /**

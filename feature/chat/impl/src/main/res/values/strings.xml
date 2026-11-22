@@ -149,4 +149,55 @@
     <string name="chat_forward_unavailable">Forwarding is not available here.</string>
     <!-- Accessibility label of the button that closes the forward chooser. -->
     <string name="chat_forward_close">Close</string>
+    <!-- Shown when a picked video is longer than the 10-minute cap for compressed video. -->
+    <string name="chat_media_video_too_long">This video is longer than 10 minutes. Send it as a file instead.</string>
+    <!-- Shown when a compressed video is still larger than the 200 MB cap. -->
+    <string name="chat_media_video_too_large">This video is still larger than 200 MB after compression. Send it as a file instead.</string>
+    <!-- Shown when a media send is refused because the group has more than 64 recipient devices. -->
+    <string name="chat_media_recipient_limit">Media cannot be sent to a group with more than 64 devices yet.</string>
+    <!-- Shown when the recipient's devices are too old to receive encrypted media. -->
+    <string name="chat_media_peer_upgrade">The recipient needs to update Ramflux to receive media.</string>
+    <!-- Shown when the attachment is too large for the relay quota or the device storage. -->
+    <string name="chat_media_too_large">The attachment is too large or storage is full.</string>
+    <!-- Title of the send preview for picked photos and videos. -->
+    <string name="chat_preview_title">Send media</string>
+    <!-- Button that sends the previewed photos and videos as one message. -->
+    <string name="chat_preview_send">Send</string>
+    <!-- Button that closes the send preview and discards the staged items. -->
+    <string name="chat_preview_cancel">Cancel</string>
+    <!-- Accessibility label of the button that removes one item from the send preview. -->
+    <string name="chat_preview_remove">Remove</string>
+    <!-- Accessibility label of the button that moves one item earlier in the album. -->
+    <string name="chat_preview_move">Move earlier</string>
+    <!-- Placeholder of the caption field in the send preview. -->
+    <string name="chat_preview_caption">Add a caption</string>
+    <!-- Status while picked items are compressed on this device; %1$d is the percentage of local work done. -->
+    <string name="chat_preview_preparing">Preparing… %1$d%%</string>
+    <!-- Count on the last album tile; %1$d is how many more items the album holds. -->
+    <string name="chat_media_more">+%1$d</string>
+    <!-- Accessibility label of an animated image bubble. -->
+    <string name="chat_media_animated">Animated image</string>
+    <!-- Accessibility label of an album bubble; %1$d is the number of items. -->
+    <plurals name="chat_media_album">
+        <item quantity="one">Album, %1$d item</item>
+        <item quantity="other">Album, %1$d items</item>
+    </plurals>
+    <!-- Viewer button that starts the video. -->
+    <string name="chat_viewer_play">Play</string>
+    <!-- Viewer button that pauses the video. -->
+    <string name="chat_viewer_pause">Pause</string>
+    <!-- Viewer button that mutes the video. -->
+    <string name="chat_viewer_mute">Mute</string>
+    <!-- Viewer button that turns the video sound back on. -->
+    <string name="chat_viewer_unmute">Unmute</string>
+    <!-- Viewer button that shows the previous item of the same message. -->
+    <string name="chat_viewer_previous">Previous</string>
+    <!-- Viewer button that shows the next item of the same message. -->
+    <string name="chat_viewer_next">Next</string>
+    <!-- Viewer position in a message with several items; %1$d is the item, %2$d the count. -->
+    <string name="chat_viewer_position">%1$d of %2$d</string>
+    <!-- Shown in the viewer when the video cannot be played on this device. -->
+    <string name="chat_viewer_video_failed">This video cannot be played on this device.</string>
+    <!-- Elapsed and total video time; %1$s and %2$s are media times in Western digits, shown left to right. -->
+    <string name="chat_viewer_time">%1$s / %2$s</string>
 </resources>

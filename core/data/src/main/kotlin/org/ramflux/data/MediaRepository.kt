@@ -7,6 +7,8 @@ import java.io.File
 
 /** A normalised outbox file ready for `attachment.prepare.*`; [fileName] is what recipients see. */
 data class StagedMedia(val file: File, val fileName: String, val mime: String) {
+    /** Bytes of the staged file, read once when it was staged. */
+    val size: Long = file.length()
     override fun toString() = "StagedMedia(<redacted>)"
 }
 
@@ -88,6 +90,14 @@ class UnavailableMediaRepository : MediaRepository {
     override fun outbox(account: String): File? = null
 }
 
+/** Why a picked item could not be staged; each maps to its own message. */
+enum class StageRefusal { UNREADABLE, VIDEO_TOO_LONG, VIDEO_TOO_LARGE }
+
+sealed interface StageResult {
+    data class Staged(val media: StagedMedia) : StageResult
+    data class Refused(val reason: StageRefusal) : StageResult
+}
+
 /** Stages picker results into the account outbox (platform code; see core/media). Uris are opaque strings. */
 interface MediaStager {
     /** Re-encodes an image from its pixels; null when it cannot be decoded within the caps. */
@@ -95,6 +105,13 @@ interface MediaStager {
 
     /** Copies a document byte for byte; null when it cannot be read or exceeds the client cap. */
     suspend fun file(account: String, uri: String): StagedMedia?
+
+    /**
+     * Anything the photo picker returns: still images are re-encoded, GIF and animated WebP keep their
+     * bytes under the animation cap, videos are transcoded to the caps; [progress] reports local work.
+     */
+    suspend fun visual(account: String, uri: String, progress: (Float) -> Unit = {}): StageResult =
+        image(account, uri)?.let { StageResult.Staged(it) } ?: StageResult.Refused(StageRefusal.UNREADABLE)
 
     /** [image] for a photo the system camera wrote into the app's capture folder; the capture is deleted afterwards. */
     suspend fun camera(account: String, uri: String): StagedMedia? = image(account, uri)

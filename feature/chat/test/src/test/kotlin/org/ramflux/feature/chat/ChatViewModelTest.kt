@@ -487,10 +487,10 @@ class ChatViewModelTest {
         observe(vm)
         runCurrent()
         load(vm)
-        vm.onAction(ChatAction.Picked(listOf("content://picked"), PickSource.PHOTO))
+        vm.onAction(ChatAction.Picked(listOf("content://picked"), PickSource.CAMERA))
         runCurrent()
         assertEquals(1, media.sent.size)
-        assertEquals("IMG_1.jpg", media.sent.single().single().fileName)
+        assertEquals(listOf("content://picked"), stager.captures)
         val row = vm.state.value.rows.single() as MessageItem
         assertEquals(LocalDelivery.FAILED, row.delivery)
         assertEquals(AttachmentStatus.FAILED, row.attachments.single().status)
@@ -582,6 +582,84 @@ class ChatViewModelTest {
         vm.onAction(ChatAction.CloseForward)
         runCurrent()
         assertNull(vm.state.value.forward)
+    }
+
+    @Test fun pickedPhotosAndVideosOpenAPreviewThatReordersRemovesAndSendsOneAlbum() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+        val media = FakeChatMedia()
+        val stager = FakeChatStager()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, stager)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Picked(listOf("content://a", "content://video-b", "content://c"), PickSource.PHOTO))
+        runCurrent()
+        val preview = vm.state.value.preview!!
+        assertFalse(preview.preparing)
+        assertEquals(listOf(AttachmentKind.IMAGE, AttachmentKind.VIDEO, AttachmentKind.IMAGE), preview.items.map { it.kind })
+        assertTrue(media.sent.isEmpty())
+        vm.onAction(ChatAction.PreviewMove(2))
+        vm.onAction(ChatAction.PreviewRemove(0))
+        vm.onAction(ChatAction.PreviewCaption("trip"))
+        runCurrent()
+        assertEquals(listOf(AttachmentKind.IMAGE, AttachmentKind.VIDEO), vm.state.value.preview!!.items.map { it.kind })
+        vm.onAction(ChatAction.PreviewSend)
+        runCurrent()
+        assertNull(vm.state.value.preview)
+        assertEquals(listOf("c", "video-b"), media.sent.single().map { it.fileName })
+        assertEquals("trip", media.captions.single())
+    }
+
+    @Test fun refusedVideosExplainTheCapAndGroupLimitsHaveTheirOwnWords() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+        val media = FakeChatMedia().apply {
+            sendResult = ClientResult.Failed(
+                ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.REFUSED, statusName = "recipient_limit")
+            )
+        }
+        val stager = FakeChatStager().apply { visualResult = { StageResult.Refused(StageRefusal.VIDEO_TOO_LONG) } }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, stager)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Picked(listOf("content://video-long"), PickSource.PHOTO))
+        runCurrent()
+        assertNull(vm.state.value.preview)
+        assertEquals(uiText(R.string.chat_media_video_too_long), vm.state.value.problem)
+        vm.onAction(ChatAction.Picked(listOf("content://capture"), PickSource.CAMERA))
+        runCurrent()
+        assertEquals(uiText(R.string.chat_media_recipient_limit), vm.state.value.problem)
+    }
+
+    @Test fun theViewerStepsThroughTheReadyItemsOfAnAlbum() = runTest(timeout = 5.seconds) {
+        val items = (0 until 3).map { MediaAttachment("p", it, MediaKind.IMAGE, "image/jpeg", "p$it.jpg", 10) }
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(MessageSummary("p", "peer", false, false, "", 10, attachments = items))) }
+        }
+        val media = FakeChatMedia().apply { items.forEach { held["p/" + it.index] = java.io.File("/tmp/p" + it.index) } }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, FakeChatStager())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.OpenAttachment("p/1"))
+        runCurrent()
+        assertEquals(ViewerPosition(2, 3), vm.state.value.viewerPosition)
+        vm.onAction(ChatAction.ViewerStep(1))
+        runCurrent()
+        assertEquals("p/2", vm.state.value.viewer?.key)
+        vm.onAction(ChatAction.ViewerStep(1))
+        runCurrent()
+        assertEquals("p/2", vm.state.value.viewer?.key)
+        vm.onAction(ChatAction.CloseViewer)
+        runCurrent()
+        assertNull(vm.state.value.viewerPosition)
+    }
+
+    @Test fun mediaTimeUsesWesternDigitsLeftToRight() {
+        assertEquals("0:07", mediaClock(7_400))
+        assertEquals("10:00", mediaClock(600_000))
+        assertEquals("1:02:03", mediaClock(3_723_000))
     }
 
     private fun syntheticPages(total: Int): suspend (String?) -> ClientResult<TimelinePage> = { before ->

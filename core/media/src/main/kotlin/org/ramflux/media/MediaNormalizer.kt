@@ -27,6 +27,54 @@ object MediaNormalizer {
     const val JPEG_QUALITY = 82
     const val MAX_FILE_BYTES = 2L * 1024 * 1024 * 1024
 
+    /** GIF and animated WebP keep their bytes up to this size (media design 4.2); larger ones go as files. */
+    const val MAX_ANIMATED_BYTES = 15L * 1024 * 1024
+
+    /**
+     * True when the source is an animated GIF or WebP within the pixel cap. Only the header is decoded:
+     * the listener aborts before any frame is allocated.
+     */
+    suspend fun animated(resolver: ContentResolver, uri: Uri): Boolean = withContext(Dispatchers.IO) {
+        val mime = resolver.getType(uri)
+        if (mime != "image/gif" && mime != "image/webp") return@withContext false
+        var animated = false
+        try {
+            ImageDecoder.decodeDrawable(ImageDecoder.createSource(resolver, uri)) { _, info, _ ->
+                animated = info.isAnimated && info.size.width.toLong() * info.size.height <= MediaImages.MAX_PIXELS
+                throw HeaderRead()
+            }
+        } catch (_: HeaderRead) {
+        } catch (_: Exception) {
+            animated = false
+        }
+        animated
+    }
+
+    /**
+     * Copies an animated image byte for byte under [MAX_ANIMATED_BYTES]. GIF comment and application
+     * blocks are not rewritten yet (design 4.2 gap); the original name is replaced.
+     */
+    suspend fun animatedCopy(resolver: ContentResolver, uri: Uri, outbox: File): StagedMedia? = withContext(Dispatchers.IO) {
+        val mime = resolver.getType(uri) ?: return@withContext null
+        val extension = if (mime == "image/gif") ".gif" else ".webp"
+        outbox.mkdirs()
+        val file = File.createTempFile("stage", extension, outbox)
+        try {
+            val copied = resolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } } ?: -1L
+            if (copied <= 0 || copied > MAX_ANIMATED_BYTES) {
+                file.delete()
+                return@withContext null
+            }
+            val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ROOT).format(Date())
+            StagedMedia(file, "IMG_$stamp$extension", mime)
+        } catch (_: Exception) {
+            file.delete()
+            null
+        }
+    }
+
+    private class HeaderRead : RuntimeException()
+
     suspend fun image(resolver: ContentResolver, uri: Uri, outbox: File, now: Date = Date()): StagedMedia? = withContext(Dispatchers.IO) {
         try {
             var alpha = false
