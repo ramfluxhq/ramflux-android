@@ -21,7 +21,7 @@ class MessageHistoryDataTest {
             assertEquals(12L, rows[2].createdAt)
             assertNull((rows[2] as MessageSummary).text)
             val request = abi.submitted.single()
-            assertEquals("message.list", request["method"]?.jsonPrimitive?.content)
+            assertEquals("message.read", request["method"]?.jsonPrimitive?.content)
             assertEquals("a", request["account_id"]?.jsonPrimitive?.content)
             val body = request["body"]?.jsonObject
             assertEquals("c", body?.get("conversation_id")?.jsonPrimitive?.content)
@@ -120,7 +120,7 @@ class MessageHistoryDataTest {
                 message("one", 10, """"text":"approved""""),
             )
             onSubmitted = { frame ->
-                if (frame["method"]?.jsonPrimitive?.content != "message.list") completionBody = buildJsonObject { }
+                if (frame["method"]?.jsonPrimitive?.content != "message.read") completionBody = buildJsonObject { }
             }
         }
         val client = open(abi, "/test/typing")
@@ -132,7 +132,7 @@ class MessageHistoryDataTest {
             assertNull((rows[1] as MessageSummary).text)
             assertTrue(repo.setTyping("a", "c", true) is ClientResult.Ready)
             val methods = abi.submitted.map { it["method"]?.jsonPrimitive?.content }
-            assertEquals(listOf("message.list", "message.focus", "message.submit"), methods)
+            assertEquals(listOf("message.read", "message.focus", "message.submit"), methods)
             val submit = abi.submitted.last()["body"]?.jsonObject
             val typing = submit?.get("send")?.jsonObject?.get("content")?.jsonObject?.get("typing")?.jsonObject
             assertEquals(true, typing?.get("active")?.jsonPrimitive?.boolean)

@@ -19,7 +19,6 @@ interface ConversationsRepository {
     suspend fun messageFocus(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun messageDelete(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun messageFranking_evidence(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
-    suspend fun messageList(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun messageRead(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun messageReceiptDelivered(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun messageReceiptRead(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -79,9 +78,6 @@ class DefaultConversationsRepository(transport: RepositoryTransport) : SdkReposi
 
     override suspend fun messageFranking_evidence(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("message.franking_evidence", "message", context, SecretBody.publicJson("message.franking_evidence", body))
-
-    override suspend fun messageList(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
-        executeSecret("message.list", "message", context, SecretBody.publicJson("message.list", body))
 
     override suspend fun messageRead(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("message.read", "message", context, SecretBody.publicJson("message.read", body))

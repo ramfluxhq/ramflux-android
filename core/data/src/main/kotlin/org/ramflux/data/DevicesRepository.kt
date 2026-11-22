@@ -10,9 +10,7 @@ import org.ramflux.sdk.SecretBody
 import org.ramflux.sdk.SecretReply
 
 interface DevicesRepository {
-    suspend fun authorize(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun list(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
-    suspend fun migrate(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun pairApprove(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun pairBegin(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun pairCancel(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -34,14 +32,8 @@ interface DevicesRepository {
 }
 
 class DefaultDevicesRepository(transport: RepositoryTransport) : SdkRepository(transport), DevicesRepository {
-    override suspend fun authorize(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
-        executeSecret("device.authorize", "device", context, body)
-
     override suspend fun list(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("device.list", "device", context, SecretBody.publicJson("device.list", body))
-
-    override suspend fun migrate(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
-        executeSecret("device.migrate", "device", context, body)
 
     override suspend fun pairApprove(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("device.pair.approve", "device", context, body)

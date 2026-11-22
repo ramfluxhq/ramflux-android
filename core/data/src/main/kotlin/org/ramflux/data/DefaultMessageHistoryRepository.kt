@@ -50,7 +50,7 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
             put("read_model", true)
             put("limit", 100)
         }
-        return when (val result = source.messageList(RepositoryContext(account), body)) {
+        return when (val result = source.messageRead(RepositoryContext(account), body)) {
             is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
             is CoreResult.Success -> when (val decoded = MessageHistoryMetadataReader.read(result.value)) {
                 is CoreResult.Failure -> ClientResult.Failed(decoded.error.appProblem())
