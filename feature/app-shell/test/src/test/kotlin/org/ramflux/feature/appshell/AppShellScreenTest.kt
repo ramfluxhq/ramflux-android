@@ -20,6 +20,7 @@ import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.render
 import org.ramflux.feature.app_shell.impl.R
 import org.ramflux.feature.appshell.api.*
+import org.ramflux.testing.screenshot.ScreenshotMatrix
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -64,7 +65,7 @@ class AppShellScreenTest {
                 }
             }
         }
-        for (language in listOf("en", "zh-CN")) {
+        for (language in ScreenshotMatrix.locales) {
             compose.runOnIdle { locale = language }
             compose.waitForIdle()
             for ((index, label) in labels.withIndex()) {
