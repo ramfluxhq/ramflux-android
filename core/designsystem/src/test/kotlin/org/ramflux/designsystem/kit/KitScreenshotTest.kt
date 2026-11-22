@@ -175,7 +175,7 @@ class KitScreenshotTest {
 
     @Test fun reaction() = shot("reaction-bar--default") {
         KitReactionBar(
-            listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE2E", "\uD83D\uDE22", "\uD83D\uDE4F"),
+            emojiReactions(),
             {},
             {},
             tag = "shot"
@@ -309,7 +309,7 @@ class KitScreenshotTest {
         }
         shot("reaction-bar--default--dark", dark = true) {
             KitReactionBar(
-                listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE2E", "\uD83D\uDE22", "\uD83D\uDE4F"),
+                emojiReactions(),
                 {},
                 {},
                 tag = "shot"
@@ -413,6 +413,9 @@ class KitScreenshotTest {
             tag = "shot"
         )
     }
+
+    private fun emojiReactions() = listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE2E", "\uD83D\uDE22", "\uD83D\uDE4F")
+        .map { KitReaction(it) }
 
     private fun menuEntries() = listOf(
         KitMenuEntry("\u56de\u590d", "reply"),

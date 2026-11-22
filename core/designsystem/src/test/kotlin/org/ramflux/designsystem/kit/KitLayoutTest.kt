@@ -174,7 +174,7 @@ class KitLayoutTest {
                     KitSearchField("x", {}, "\u641c\u7d22", tag = "search")
                     KitSegmented(listOf("A", "B"), 0, {}, tag = "segments")
                     KitComposer("x", {}, "\u6d88\u606f", {}, {}, sendActive = true, tag = "composer")
-                    KitReactionBar(listOf("\uD83D\uDC4D"), {}, {}, tag = "reactions")
+                    KitReactionBar(listOf(KitReaction("\uD83D\uDC4D")), {}, {}, tag = "reactions")
                 }
             }
         }

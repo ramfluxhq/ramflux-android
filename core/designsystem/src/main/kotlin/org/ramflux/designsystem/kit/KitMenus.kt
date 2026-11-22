@@ -32,6 +32,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import org.ramflux.designsystem.LocalRFTheme
 
+/**
+ * One reaction cell: an emoji [glyph], or a kit [icon] for a reaction that has no emoji. [label] is what
+ * accessibility services read.
+ */
+data class KitReaction(val label: String, val glyph: String = label, val icon: String? = null)
+
 data class KitMenuEntry(val label: String, val icon: String, val danger: Boolean = false, val groupBefore: Boolean = false)
 
 @Composable
@@ -123,10 +129,11 @@ private fun KitMenuItem(entry: KitMenuEntry, hairline: Boolean, hitTag: String, 
 
 @Composable
 fun KitReactionBar(
-    reactions: List<String>,
+    reactions: List<KitReaction>,
     onReaction: (Int) -> Unit,
-    onMore: () -> Unit,
+    onMore: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    moreLabel: String = "plus",
     tag: String? = null
 ) {
     val theme = LocalRFTheme.current
@@ -147,7 +154,7 @@ fun KitReactionBar(
                 { onReaction(index) },
                 slotWidth = RfMetrics.reactionCell,
                 slotHeight = RfMetrics.reaction,
-                label = reaction,
+                label = reaction.label,
                 tag = if (tag == null) null else tag + "-" + index.toString()
             ) {
                 Box(
@@ -156,28 +163,52 @@ fun KitReactionBar(
                         .kitTag(if (tag == null) null else tag + "-cell-" + index.toString()),
                     contentAlignment = Alignment.Center
                 ) {
-                    KitText(reaction, style = kitStyle(theme.size_page, FontWeight.Normal, theme.text, RfMetrics.lineTitle))
+                    if (reaction.icon != null) {
+                        KitIcon(reaction.icon, RfMetrics.moreIcon, theme.text)
+                    } else {
+                        KitText(reaction.glyph, style = kitStyle(theme.size_page, FontWeight.Normal, theme.text, RfMetrics.lineTitle))
+                    }
                 }
             }
         }
-        HitOverlap(
-            onMore,
-            slotWidth = RfMetrics.reactionCell,
-            slotHeight = RfMetrics.reaction,
-            label = "plus",
-            tag = if (tag == null) null else tag + "-more"
-        ) {
-            Box(
-                Modifier
-                    .sizeIn(minWidth = dp(RfMetrics.reactionCell), minHeight = dp(RfMetrics.reaction))
-                    .background(theme.surface, shapeOf(theme.radius_xs))
-                    .kitTag(if (tag == null) null else tag + "-more-cell"),
-                contentAlignment = Alignment.Center
-            ) {
-                KitIcon("plus", RfMetrics.moreIcon, theme.text)
-            }
+        if (onMore != null) {
+            ReactionMore(onMore, moreLabel, tag)
         }
     }
+}
+
+@Composable
+private fun ReactionMore(onMore: () -> Unit, label: String, tag: String?) {
+    val theme = LocalRFTheme.current
+    HitOverlap(
+        onMore,
+        slotWidth = RfMetrics.reactionCell,
+        slotHeight = RfMetrics.reaction,
+        label = label,
+        tag = if (tag == null) null else tag + "-more"
+    ) {
+        Box(
+            Modifier
+                .sizeIn(minWidth = dp(RfMetrics.reactionCell), minHeight = dp(RfMetrics.reaction))
+                .background(theme.surface, shapeOf(theme.radius_xs))
+                .kitTag(if (tag == null) null else tag + "-more-cell"),
+            contentAlignment = Alignment.Center
+        ) {
+            KitIcon("plus", RfMetrics.moreIcon, theme.text)
+        }
+    }
+}
+
+/** A secondary caption line: call records, typing, reactions and delivery notes in a timeline. */
+@Composable
+fun KitMeta(text: String, modifier: Modifier = Modifier, centered: Boolean = false, tag: String? = null) {
+    val theme = LocalRFTheme.current
+    KitText(
+        text,
+        modifier.kitTag(tag),
+        style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle),
+        textAlign = if (centered) TextAlign.Center else TextAlign.Start
+    )
 }
 
 @Composable

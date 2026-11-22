@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import kotlin.math.max
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.UntrustedKind
 
 data class KitHeaderAction(val icon: String, val label: String = icon, val onClick: () -> Unit)
 
@@ -143,10 +144,13 @@ fun KitChatHeader(
     title: String,
     subtitle: String?,
     avatar: @Composable () -> Unit,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
     onCall: (() -> Unit)? = null,
     onMore: (() -> Unit)? = null,
+    backLabel: String = "chevron-left",
+    callLabel: String = "phone",
+    moreLabel: String = "ellipsis",
     tag: String? = null
 ) {
     val theme = LocalRFTheme.current
@@ -161,11 +165,11 @@ fun KitChatHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
     ) {
-        IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack, tag = tag?.let { "$it-back" })
+        if (onBack != null) IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack, backLabel, tag = tag?.let { "$it-back" })
         avatar()
         Column(Modifier.weight(1f)) {
             KitText(
-                title,
+                untrustedDisplay(title, UntrustedKind.Excerpt),
                 designLine = true,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -173,7 +177,7 @@ fun KitChatHeader(
             )
             if (!subtitle.isNullOrEmpty()) {
                 KitText(
-                    subtitle,
+                    untrustedDisplay(subtitle, UntrustedKind.Excerpt),
                     designLine = true,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -181,8 +185,8 @@ fun KitChatHeader(
                 )
             }
         }
-        if (onCall != null) IconHit("phone", RfMetrics.iconBack, theme.text, onCall)
-        if (onMore != null) IconHit("ellipsis", RfMetrics.iconBack, theme.text, onMore)
+        if (onCall != null) IconHit("phone", RfMetrics.iconBack, theme.text, onCall, callLabel)
+        if (onMore != null) IconHit("ellipsis", RfMetrics.iconBack, theme.text, onMore, moreLabel)
     }
 }
 

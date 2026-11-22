@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.UntrustedKind
 
 enum class KitRowTrailing { Chevron, Check, None }
 
@@ -184,7 +185,7 @@ fun KitConversationRow(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))) {
                 KitText(
-                    title,
+                    untrustedDisplay(title, UntrustedKind.Excerpt),
                     modifier = Modifier.weight(1f, fill = false),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -200,10 +201,13 @@ fun KitConversationRow(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))) {
                 if (read) KitIcon("check-check", RfMetrics.metaIcon, theme.secondary)
                 if (!sender.isNullOrEmpty()) {
-                    KitText(sender, style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody))
+                    KitText(
+                        untrustedDisplay(sender, UntrustedKind.Excerpt),
+                        style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody)
+                    )
                 }
                 KitText(
-                    preview,
+                    untrustedDisplay(preview, UntrustedKind.Excerpt),
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
