@@ -17,10 +17,10 @@ import org.ramflux.designsystem.kit.*
 import org.ramflux.feature.tasks.impl.R
 
 @Composable
-fun TasksScreen(state: TasksState, onAction: (TasksAction) -> Unit) {
+fun TasksScreen(state: TasksState, onAction: (TasksAction) -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
     val subtitle = state.conversation?.takeIf { it.isNotEmpty() }
-    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 KitPageHeader(

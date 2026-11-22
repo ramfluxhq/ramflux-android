@@ -22,7 +22,7 @@ import org.ramflux.designsystem.kit.*
 import org.ramflux.feature.settings.impl.R
 
 @Composable
-fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
+fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
     val subtitle = state.accountLabel?.takeIf { it.isNotEmpty() }
     val title = stringResource(
@@ -34,7 +34,7 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit) {
             SettingsPage.BACKUP -> R.string.settings_backup
         }
     )
-    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 KitPageHeader(

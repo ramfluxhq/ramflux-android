@@ -20,7 +20,7 @@ import org.ramflux.designsystem.kit.KitSearchField
 import org.ramflux.feature.groups.impl.R
 
 @Composable
-fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: Boolean = false) {
+fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: Boolean = false, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
     val title = stringResource(
         when (state.page) {
@@ -33,7 +33,7 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
         }
     )
     val bars = if (rooted) WindowInsets.statusBars else WindowInsets.safeDrawing
-    Scaffold(contentWindowInsets = bars) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = bars) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 if (rooted && state.page == GroupsPage.LIST) {

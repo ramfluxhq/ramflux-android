@@ -15,9 +15,9 @@ import org.ramflux.designsystem.kit.KitEmpty
 import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.feature.cards.impl.R
 @Composable
-fun CardsScreen(state: CardsState, onAction: (CardsAction) -> Unit) {
+fun CardsScreen(state: CardsState, onAction: (CardsAction) -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
-    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 KitPageHeader(
