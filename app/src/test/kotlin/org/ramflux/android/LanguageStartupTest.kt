@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.android
+import android.app.LocaleManager
+import android.content.Context
+import android.os.Build
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
@@ -65,10 +68,17 @@ class LanguageStartupTest(private val initial: AppLanguage) {
         }
         compose.activityRule.scenario.recreate()
         assertShell(initial)
-        val restored = AndroidClientData(ApplicationProvider.getApplicationContext(), "a".repeat(64)).language
-        runBlocking {
-            withTimeout(5_000) {
-                restored.language.first { !it.loading }.also { assertEquals(initial, it.value) }
+        // The choice lives in its single source of truth: the platform per-app language on API 33+,
+        // the device-local store before that.
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            assertEquals(initial.tag, context.getSystemService(LocaleManager::class.java).applicationLocales.toLanguageTags())
+        } else {
+            val restored = AndroidClientData(context, "a".repeat(64)).language
+            runBlocking {
+                withTimeout(5_000) {
+                    restored.language.first { !it.loading }.also { assertEquals(initial, it.value) }
+                }
             }
         }
     }

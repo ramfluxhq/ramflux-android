@@ -5,6 +5,7 @@ package org.ramflux.feature.onboarding
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -16,7 +17,8 @@ fun OnboardingNavigation(
     onAccountCreated: (String) -> Unit = {},
     openCreate: Boolean = false,
     unlockId: String = "",
-    vm: OnboardingViewModel = hiltViewModel()
+    vm: OnboardingViewModel = hiltViewModel(),
+    modifier: Modifier = Modifier
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(openCreate, unlockId) {
@@ -32,5 +34,5 @@ fun OnboardingNavigation(
             }
         }
     }
-    OnboardingScreen(state, vm::onAction, drawPhrase = vm::drawPhrase)
+    OnboardingScreen(state, vm::onAction, drawPhrase = vm::drawPhrase, modifier = modifier)
 }

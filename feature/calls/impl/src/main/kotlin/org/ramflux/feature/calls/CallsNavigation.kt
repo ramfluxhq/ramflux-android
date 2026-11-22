@@ -4,12 +4,13 @@
 package org.ramflux.feature.calls
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
-fun CallsNavigation(onBack: () -> Unit, onSetupAccount: () -> Unit, vm: CallsViewModel = hiltViewModel()) {
+fun CallsNavigation(onBack: () -> Unit, onSetupAccount: () -> Unit, vm: CallsViewModel = hiltViewModel(), modifier: Modifier = Modifier) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val setup by rememberUpdatedState(onSetupAccount)
@@ -27,5 +28,5 @@ fun CallsNavigation(onBack: () -> Unit, onSetupAccount: () -> Unit, vm: CallsVie
             }
         }
     }
-    CallsScreen(state, vm::onAction)
+    CallsScreen(state, vm::onAction, modifier = modifier)
 }

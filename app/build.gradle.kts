@@ -4,7 +4,12 @@
 plugins { id("ramflux.android.app") }
 android {
     bundle { language { enableSplit = false } }
+    // The locale config lists exactly the locales that have resources (res/resources.properties names
+    // the default), so adding a language is a resources-only change.
+    androidResources { generateLocaleConfig = true }
     testOptions.unitTests.isIncludeAndroidResources = true
+    sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/screenshot/kotlin"))
+    sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/fixtures/conversations/kotlin"))
 }
 dependencies {
     implementation(project(":feature:permissions:impl"))

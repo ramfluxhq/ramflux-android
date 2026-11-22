@@ -37,7 +37,9 @@ jobs:
       - run: python3 scripts/check-mobile-tokens.py core/designsystem/mobile-kit-tokens.json
       - run: python3 scripts/test-theme-catalog.py
       - run: python3 scripts/test-ui-resource-guard.py
-      - run: ./gradlew ktlintCheck :core:designsystem:testDebugUnitTest :app:testDebugUnitTest :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :feature:permissions:test:testDebugUnitTest :feature:cards:test:testDebugUnitTest :feature:tasks:test:testDebugUnitTest :feature:agents:test:testDebugUnitTest :feature:calls:test:testDebugUnitTest :feature:groups:test:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest :feature:onboarding:test:testDebugUnitTest :feature:conversations:test:testDebugUnitTest :feature:chat:test:testDebugUnitTest :feature:settings:test:testDebugUnitTest :feature:contacts:test:testDebugUnitTest --console=plain
+      - run: python3 scripts/test-board-compare.py
+      - run: python3 scripts/sync-board-references.py check app/src/test/resources/shell-previews
+      - run: ./gradlew ktlintCheck :core:designsystem:testDebugUnitTest :app:testDebugUnitTest :core:navigation:testDebugUnitTest :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :feature:permissions:test:testDebugUnitTest :feature:cards:test:testDebugUnitTest :feature:tasks:test:testDebugUnitTest :feature:agents:test:testDebugUnitTest :feature:calls:test:testDebugUnitTest :feature:groups:test:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest :feature:onboarding:test:testDebugUnitTest :feature:conversations:test:testDebugUnitTest :feature:chat:test:testDebugUnitTest :feature:settings:test:testDebugUnitTest :feature:contacts:test:testDebugUnitTest --console=plain
       - run: python3 scripts/check-os-permissions.py
       - name: Record client screenshots
         run: ./gradlew :feature:app-shell:test:recordRoborazziDebug :feature:onboarding:test:recordRoborazziDebug :feature:conversations:test:recordRoborazziDebug :feature:chat:test:recordRoborazziDebug :feature:settings:test:recordRoborazziDebug :feature:permissions:test:recordRoborazziDebug :feature:cards:test:recordRoborazziDebug :feature:tasks:test:recordRoborazziDebug :feature:agents:test:recordRoborazziDebug :feature:calls:test:recordRoborazziDebug :feature:groups:test:recordRoborazziDebug :feature:contacts:test:recordRoborazziDebug --console=plain
@@ -53,10 +55,12 @@ jobs:
           path: |
             core/designsystem/build/outputs/roborazzi/
             core/designsystem/build/outputs/kit-compare/
+      # Board captures are compared pixel by pixel with the current design exports. Reviewed
+      # deviations (the alignment work list) are reported as KNOWN; any new deviation fails.
       - name: Record shell screenshots and compare board frames
         run: |
           CI=true ./gradlew :app:recordRoborazziDebug --tests org.ramflux.android.shell.ShellBoardScreenshotTest --console=plain
-          python3 scripts/compare-kit-previews.py app/src/test/resources/shell-previews app/build/outputs/shell-roborazzi app/build/outputs/shell-compare
+          python3 scripts/compare-board-captures.py app/src/test/resources/shell-previews app/build/outputs/shell-roborazzi app/build/outputs/shell-compare --expected app/src/test/resources/shell-previews/expected-deviations.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -65,6 +69,7 @@ jobs:
           path: |
             app/build/outputs/shell-roborazzi/
             app/build/outputs/shell-compare/
+            app/build/outputs/shell-matrix/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -9,6 +9,8 @@ from pathlib import Path
 import re
 from xml.sax.saxutils import escape
 
+from resource_locales import default_locale, locale_folder
+
 
 def compile_catalog(themes, schema, java_output, res_output):
     fields = re.findall(r'val (\w+): (Color|Float|String)', schema.read_text().split('object RFDesign')[0])
@@ -20,10 +22,12 @@ def compile_catalog(themes, schema, java_output, res_output):
     rows = []
     if any(path.stat().st_size > 128 * 1024 for path in files):
         raise ValueError('Theme file exceeds bound')
+    default = default_locale()
     locale_sets = [set(json.loads(path.read_text())['names']) for path in files]
     locales = set().union(*locale_sets)
-    if not {'en', 'zh-CN'} <= locales or any(keys != locales for keys in locale_sets):
-        raise ValueError('Every theme needs the same complete locale names, including en and zh-CN')
+    # Coverage of every shipped locale is checked by check-ui-resources.py against the resource folders.
+    if default not in locales or any(keys != locales for keys in locale_sets):
+        raise ValueError(f'Every theme needs the same complete locale names, including the default {default}')
     if any(not re.fullmatch('[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*', locale) for locale in locales):
         raise ValueError('Invalid locale tag')
     texts = {locale: [] for locale in sorted(locales)}
@@ -37,7 +41,7 @@ def compile_catalog(themes, schema, java_output, res_output):
             raise ValueError('Invalid theme identity/mode')
         seen.add(identity)
         if set(theme['names']) != set(texts):
-            raise ValueError('Every theme needs en and zh-CN names')
+            raise ValueError('Every theme needs the same locale names')
         for locale in texts:
             name = theme['names'][locale]
             if not isinstance(name, str) or not 1 <= len(name) <= 100:
@@ -86,7 +90,7 @@ def compile_catalog(themes, schema, java_output, res_output):
         'import org.ramflux.designsystem.NamedThemeTokens\nimport org.ramflux.designsystem.ThemeLayoutTokens\nimport org.ramflux.core.designsystem.R\n'
         'object ThemeTokenFiles {\n    val themes = listOf(\n' + '\n'.join(rows) + '\n    )\n}\n')
     for locale, entries in texts.items():
-        folder = 'values' if locale == 'en' else 'values-zh-rCN' if locale == 'zh-CN' else 'values-b+' + locale.replace('-', '+')
+        folder = locale_folder(locale, default)
         target = res_output / folder / 'theme_names.xml'
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text('<?xml version="1.0" encoding="utf-8"?>\n<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->\n<resources>\n'
@@ -105,7 +109,7 @@ def compile_catalog(themes, schema, java_output, res_output):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text('<?xml version="1.0" encoding="utf-8"?>\n<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->\n<resources>\n'
             + '\n'.join(entries) + '\n</resources>\n')
-    print(f'THEME_CATALOG_OK: {len(rows)} token sets; {len(fields)} fields; complete en/zh-CN names')
+    print(f'THEME_CATALOG_OK: {len(rows)} token sets; {len(fields)} fields; names in {", ".join(sorted(texts))}')
 
 
 if __name__ == '__main__':

@@ -111,16 +111,17 @@ close erase its allocation. `consumeChars` decodes escapes/UTF-8 into a temporar
 CharArray, passes it to the native host, then erases it. The host must not create
 immutable Strings from those characters. Event payloads use the same owned type.
 Errors from secret operations expose numeric status/effect, never parsed secret
-error details. `check-secret-boundary.py` guards decoder entrypoints and all 191
-SDK classifications in CI.
+error details. `check-secret-boundary.py` guards decoder entrypoints and all 214
+SDK classifications of the pinned policy in CI.
 
 ## Capabilities and integration boundary
 
 Repository methods forward existing SDK bus request bodies; they do not invent
 another message schema. `sdk-contract/ramflux_sdk_methods.json` is the exact pinned SDK policy;
 `pin.json` records its immutable source revision/hash. `scripts/sync-sdk-policy.py`
-reproduces classifications and repository signatures from that artifact. Recovery and creation use the SDK's actual
-connection-local ceremonies. Successful unknown message content stays successful.
+reproduces classifications and repository signatures from that artifact. Account creation
+uses the SDK's actual connection-local creation ceremony; recovery and pairing setup return
+typed custody-provider unavailable until their host flows exist. Successful unknown message content stays successful.
 SDK errors are never converted into fabricated rows or optimistic delivery success.
 
 The product v2 checkpoint lacks dedicated full-text search, Agent

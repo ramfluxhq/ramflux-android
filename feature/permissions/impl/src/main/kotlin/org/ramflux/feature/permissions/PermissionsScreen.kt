@@ -21,10 +21,10 @@ import org.ramflux.feature.permissions.api.PermissionEntry
 import org.ramflux.feature.permissions.impl.R
 
 @Composable
-fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> Unit) {
+fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
     val dialogMaxHeight = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() * 0.8f }
-    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 KitPageHeader(

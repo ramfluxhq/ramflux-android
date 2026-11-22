@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Span Brain
 
 plugins { id("ramflux.android.testing") }
+// Board content shared with the app's board captures.
+android.sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/fixtures/conversations/kotlin"))
 dependencies {
     testImplementation(project(":feature:conversations:impl"))
     testImplementation(project(":core:data"))

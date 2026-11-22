@@ -58,4 +58,8 @@
     <string name="startup_unlock_local_title">Unlock must be done on this device</string>
     <string name="startup_view_unlock">View device unlock info</string>
     <string name="startup_welcome_purpose">This phone can be your primary device.</string>
+    <!-- Detail pane placeholder beside a list when nothing is selected (tablets, unfolded foldables). -->
+    <string name="shell_detail_empty_title">Nothing selected</string>
+    <!-- Body of the empty detail pane. -->
+    <string name="shell_detail_empty_body">Choose an item in the list to open it here.</string>
 </resources>

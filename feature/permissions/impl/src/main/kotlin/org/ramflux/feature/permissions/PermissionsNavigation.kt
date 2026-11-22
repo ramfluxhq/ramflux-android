@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -22,7 +23,8 @@ fun PermissionsNavigation(
     onBack: () -> Unit,
     onReady: () -> Unit = onBack,
     onSelection: (String) -> Unit = {},
-    vm: PermissionsViewModel = hiltViewModel()
+    vm: PermissionsViewModel = hiltViewModel(),
+    modifier: Modifier = Modifier
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -102,5 +104,5 @@ fun PermissionsNavigation(
             }
         }
     }
-    PermissionsScreen(state, vm::onAction)
+    PermissionsScreen(state, vm::onAction, modifier = modifier)
 }

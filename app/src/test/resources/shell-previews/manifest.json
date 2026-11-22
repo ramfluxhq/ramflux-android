@@ -1,0 +1,304 @@
+{
+  "schema": 1,
+  "design": {
+    "file": "Ramflux-Desktop-Design.pen",
+    "sha256": "8c6e77dfcaf4ab80dc5f1327bb53d0c05a2cdb723854476587d50b36eb42cb5b",
+    "modified": "2026-11-21",
+    "exported": "2026-11-22",
+    "exportScale": 2
+  },
+  "frame": {
+    "widthDp": 393,
+    "heightDp": 852
+  },
+  "comparisonScale": 2,
+  "masks": [
+    {
+      "name": "status-bar",
+      "x": 0,
+      "y": 0,
+      "w": 393,
+      "h": 59,
+      "why": "System status bar glyphs; the app draws only its background."
+    },
+    {
+      "name": "home-indicator",
+      "x": 130,
+      "y": 828,
+      "w": 133,
+      "h": 20,
+      "why": "System home indicator pill."
+    }
+  ],
+  "boards": [
+    {
+      "key": "MOB-B01",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "bNSVh",
+      "source": "module-B/bNSVh.png",
+      "file": "MOB-B01.light--zh-CN.png",
+      "sha256": "4bd3ba35e114b6b75dc0c89004b9ae2fc380a5cff354d705ec39ef46794f5ae5"
+    },
+    {
+      "key": "MOB-B01",
+      "theme": "dark",
+      "locale": "zh-CN",
+      "node": "EPuzv",
+      "source": "module-B/EPuzv.png",
+      "file": "MOB-B01.dark--zh-CN.png",
+      "designBoard": "MOB-DK03",
+      "sha256": "307f57b77c1fab6dc3d6f1f096f0a60a307f2992d308397fea24a32a0ce487d9"
+    },
+    {
+      "key": "MOB-B01L",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "l1nzI",
+      "source": "module-B/l1nzI.png",
+      "file": "MOB-B01L.light--zh-CN.png",
+      "sha256": "f564e984e76848b3a225009ca7958b686c38a252083eab9efff84f4c399bf093"
+    },
+    {
+      "key": "MOB-B01X",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "LqfXW",
+      "source": "module-B/LqfXW.png",
+      "file": "MOB-B01X.light--zh-CN.png",
+      "sha256": "9d482fa432d59dc896c0b90d270fbd0e9a9156784ba2f871f10dfccbf0dd28bf"
+    },
+    {
+      "key": "MOB-B12",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "kYbcN",
+      "source": "module-B/kYbcN.png",
+      "file": "MOB-B12.light--zh-CN.png",
+      "sha256": "5c0f919e6191d2d063baaef8d19b26473f72eb02ec85312e114557df9d88b525"
+    },
+    {
+      "key": "MOB-B12",
+      "theme": "light",
+      "locale": "en",
+      "node": "sB4Fl",
+      "source": "module-B/sB4Fl.png",
+      "file": "MOB-B12.light--en.png",
+      "sha256": "18075c4c7898589a3daaeee6e7ff13ac2916af4b981814bb7b1607edca18a9dc"
+    },
+    {
+      "key": "MOB-B02",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "fX3lF",
+      "source": "module-B/fX3lF.png",
+      "file": "MOB-B02.light--zh-CN.png",
+      "sha256": "0c2571b8e764eb7f86bc244ff972e4dbadce3de0f054a6c5df7a92d38b595227"
+    },
+    {
+      "key": "MOB-B02",
+      "theme": "dark",
+      "locale": "zh-CN",
+      "node": "Rx27Y",
+      "source": "module-B/Rx27Y.png",
+      "file": "MOB-B02.dark--zh-CN.png",
+      "designBoard": "MOB-DK01",
+      "sha256": "f45cd344a3e84aeab7d716ccaacee40d534d2e30e62ab1ade0e31ea9c44bfcde"
+    },
+    {
+      "key": "MOB-B02E",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "ruNsB",
+      "source": "module-B/ruNsB.png",
+      "file": "MOB-B02E.light--zh-CN.png",
+      "sha256": "0787a2f9310f56b4b93b4993fec3c566d78ca52e9844e9e5f9068872f5b119af"
+    },
+    {
+      "key": "MOB-A01",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "LOmcE",
+      "source": "shell/LOmcE.png",
+      "file": "MOB-A01.light--zh-CN.png",
+      "sha256": "7ed3f309e1683be45220696e2fa8fe79b8b7a70bad7ced516b99f55671fa0f74"
+    },
+    {
+      "key": "MOB-A02",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "Ner6F",
+      "source": "shell/Ner6F.png",
+      "file": "MOB-A02.light--zh-CN.png",
+      "sha256": "1854daa28787f2746b25dbf0281eb5236ebb56e8f9acfce0c2169ed5d479662d"
+    },
+    {
+      "key": "MOB-A07",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "LiZdX",
+      "source": "shell/LiZdX.png",
+      "file": "MOB-A07.light--zh-CN.png",
+      "capture": false,
+      "reason": "No client screen shows device unlock info; the board also describes the data passphrase that the six-digit account code replaces.",
+      "sha256": "ff60bf5dbdd8dd9c9f2325dbcf9dc59f4da792bc699f4e7f72f84c0e98a3ad2c"
+    },
+    {
+      "key": "MOB-A07",
+      "theme": "light",
+      "locale": "en",
+      "node": "nwyUr",
+      "source": "shell/nwyUr.png",
+      "file": "MOB-A07.light--en.png",
+      "capture": false,
+      "reason": "No client screen shows device unlock info; the board also describes the data passphrase that the six-digit account code replaces.",
+      "sha256": "789790bec8f36c854084e00c1b59373051ad13a63567f35919662cfde2f9baf2"
+    },
+    {
+      "key": "MOB-C01",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "uQHaI",
+      "source": "shell/uQHaI.png",
+      "file": "MOB-C01.light--zh-CN.png",
+      "sha256": "055447ad58519778af545055d33615af30fa5f169b85399801c7b8f8f95e6c64"
+    },
+    {
+      "key": "MOB-C15",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "XB7nK",
+      "source": "shell/XB7nK.png",
+      "file": "MOB-C15.light--zh-CN.png",
+      "sha256": "47654a16826fe0438e25e165547f9147ec9ac9f3e587684c821635d2754bc9c0"
+    },
+    {
+      "key": "MOB-C15",
+      "theme": "light",
+      "locale": "en",
+      "node": "UXUV7",
+      "source": "shell/UXUV7.png",
+      "file": "MOB-C15.light--en.png",
+      "sha256": "1449dffd0cf9a31b9a875458b5a48bae370380e59f91ac5df0ac18f63ed2b5a1"
+    },
+    {
+      "key": "MOB-D01",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "O2ESI3",
+      "source": "shell/O2ESI3.png",
+      "file": "MOB-D01.light--zh-CN.png",
+      "sha256": "a6a7ca8fe3019dc522ba4f2a96635a2dfa49991c26b1eea50821255d7f5a61f2"
+    },
+    {
+      "key": "MOB-D01E",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "gSTqY",
+      "source": "shell/gSTqY.png",
+      "file": "MOB-D01E.light--zh-CN.png",
+      "sha256": "d04901c6be01a8ad350e1b7ee34270db0c2283ac07734cd3863572c17aa690d4"
+    },
+    {
+      "key": "MOB-D20",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "OpzhT",
+      "source": "shell/OpzhT.png",
+      "file": "MOB-D20.light--zh-CN.png",
+      "sha256": "139d6533ec500ff8d38310b3d7e0e4325fe54e77084154c71d6661d71ac5a0a7"
+    },
+    {
+      "key": "MOB-D20",
+      "theme": "light",
+      "locale": "en",
+      "node": "abx7X",
+      "source": "shell/abx7X.png",
+      "file": "MOB-D20.light--en.png",
+      "sha256": "96e3d9f9a4e9719b61e26da5863e8aef528ea22f68885955098ef06f7d743587"
+    },
+    {
+      "key": "MOB-F03",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "EZKYE",
+      "source": "shell/EZKYE.png",
+      "file": "MOB-F03.light--zh-CN.png",
+      "capture": false,
+      "reason": "The contact profile and safety number belong to the contacts feature, outside the shell capture set of wave 1.",
+      "sha256": "cc6ca42462a9716f83cbc16a492ed1a504ab641d1507c653ab8fe98ae09bdc3f"
+    },
+    {
+      "key": "MOB-G01",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "tPaQ5",
+      "source": "shell/tPaQ5.png",
+      "file": "MOB-G01.light--zh-CN.png",
+      "sha256": "5343bfd49b2131a3a5f70a3bf0f26049e162ba466986227db86ce73f8d32939a"
+    },
+    {
+      "key": "MOB-G02",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "W24Tk",
+      "source": "shell/W24Tk.png",
+      "file": "MOB-G02.light--zh-CN.png",
+      "sha256": "0bdb5e2c182c7c00bb7db3b59ffee752ea1fc670f7c4e004d7328922108ee957"
+    },
+    {
+      "key": "MOB-G03",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "wFFTL",
+      "source": "shell/wFFTL.png",
+      "file": "MOB-G03.light--zh-CN.png",
+      "sha256": "28e99a6c301071ae8a21d2180d7a77b074b0b30f533b80b010874002a5787bb5"
+    },
+    {
+      "key": "MOB-N01",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "GgMEb",
+      "source": "shell/GgMEb.png",
+      "file": "MOB-N01.light--zh-CN.png",
+      "sha256": "00b81205afb6c3551b8f04e8b141297ed9e1d9a258a1c9cbadb101d92fefd1d2"
+    },
+    {
+      "key": "MOB-S01",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "edKt3",
+      "source": "shell/edKt3.png",
+      "file": "MOB-S01.light--zh-CN.png",
+      "sha256": "7d7518c498a6b67c2e70d4098442d12e676b9e695f1470fed6e4070276e8466b"
+    },
+    {
+      "key": "MOB-S02",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "vHCIC",
+      "source": "shell/vHCIC.png",
+      "file": "MOB-S02.light--zh-CN.png",
+      "sha256": "d0d3886281797268c7a68791317c7022088f8fcebf6bcf16e7f60cab032f56e2"
+    },
+    {
+      "key": "MOB-S02",
+      "theme": "light",
+      "locale": "en",
+      "node": "h6Qtj",
+      "source": "shell/h6Qtj.png",
+      "file": "MOB-S02.light--en.png",
+      "sha256": "ef50191a9408dad747c5a2cfd56513e138d739a6fb9f59ae30bbc5cc50c2dd63"
+    },
+    {
+      "key": "MOB-S18",
+      "theme": "light",
+      "locale": "zh-CN",
+      "node": "p30J43",
+      "source": "shell/p30J43.png",
+      "file": "MOB-S18.light--zh-CN.png",
+      "sha256": "c643ad9ca1b4cb06b3e91172265d5ca6dda60a932d8361d21610c470f66715cc"
+    }
+  ]
+}

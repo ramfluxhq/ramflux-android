@@ -36,7 +36,7 @@ class NoticesBackTest {
                         entry<ShellHome> {
                             MoreHub(DEFAULT_SHELL_ORDER, "", {}, {}, { stack.add(NoticesRoute) })
                         }
-                        entry<NoticesRoute> { OpenSourceNotices { stack.removeLastOrNull() } }
+                        entry<NoticesRoute> { OpenSourceNotices({ stack.removeLastOrNull() }) }
                     }
                 )
             }

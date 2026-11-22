@@ -12,7 +12,11 @@ class AndroidTestingPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("ramflux.android.compose")
         pluginManager.apply("io.github.takahirom.roborazzi")
-        extensions.getByType<LibraryExtension>().testOptions.unitTests.isIncludeAndroidResources = true
+        extensions.getByType<LibraryExtension>().apply {
+            testOptions.unitTests.isIncludeAndroidResources = true
+            // Shared screenshot parameter lists (sizes, locales, themes, font scales) for every test module.
+            sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/screenshot/kotlin"))
+        }
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
         listOf("compose-test", "robolectric", "roborazzi", "roborazzi-compose", "androidx-test-core").forEach {
             dependencies.add("testImplementation", libs.findLibrary(it).get())
@@ -21,6 +25,8 @@ class AndroidTestingPlugin : Plugin<Project> {
         offlineRobolectric()
         tasks.withType(Test::class.java).configureEach {
             systemProperty("robolectric.graphicsMode", "NATIVE")
+            // Deliberate: the screenshot matrix renders hundreds of frames, so local `test` runs skip it.
+            // CI sets CI=true; run `CI=true ./gradlew <module>:recordRoborazziDebug` to render locally.
             if (System.getenv("CI") != "true") exclude("**/*ScreenshotTest*")
         }
         Unit

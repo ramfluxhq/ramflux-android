@@ -27,12 +27,13 @@ import org.ramflux.feature.app_shell.impl.R
 
 /** Pure presentation: all business policy, I/O and unavailable decisions live in the state holder/data layer. */
 @Composable
-fun AppShellScreen(state: AppShellState, onAction: (AppShellAction) -> Unit) {
+fun AppShellScreen(state: AppShellState, onAction: (AppShellAction) -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
-    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
-        Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
+    // Screen contract: the caller owns window insets and the width cap; the screen fills its pane.
+    Surface(modifier.fillMaxSize(), color = theme.bg) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             Column(
-                Modifier.widthIn(max = theme.column_max.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(theme.gap.dp),
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(theme.gap.dp),
                 verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
             ) {
                 val status = state.status.render()

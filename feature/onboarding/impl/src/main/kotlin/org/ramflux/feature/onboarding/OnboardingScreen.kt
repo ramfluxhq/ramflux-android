@@ -24,12 +24,13 @@ fun OnboardingScreen(
     state: OnboardingState,
     onAction: (OnboardingAction) -> Unit,
     contentWindowInsets: WindowInsets = WindowInsets.safeDrawing.union(WindowInsets.ime),
-    drawPhrase: (Int, (CharArray) -> Unit) -> Unit = { _, _ -> }
+    drawPhrase: (Int, (CharArray) -> Unit) -> Unit = { _, _ -> },
+    modifier: Modifier = Modifier
 ) {
     val theme = LocalRFTheme.current
     val challenge = remember { ChallengeEntry() }
     val unlockPassphrase = remember { ErasableBuffer() }
-    Scaffold(modifier = Modifier.testTag("onboarding-window"), contentWindowInsets = contentWindowInsets) { insets ->
+    Scaffold(modifier = modifier.testTag("onboarding-window"), contentWindowInsets = contentWindowInsets) { insets ->
         val frame = Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)
         if (state.page == OnboardingPage.CREATE) {
             CreateAccountPage(state, onAction, frame)

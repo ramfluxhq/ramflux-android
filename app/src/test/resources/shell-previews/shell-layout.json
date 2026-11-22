@@ -1,8 +1,0 @@
-{
-  "statusBar": 59,
-  "titleHeaderY": 59,
-  "tabBarY": 769,
-  "tolerance": 32,
-  "tabRoots": ["MOB-B01", "MOB-B01L", "MOB-B01X", "MOB-C01", "MOB-G01"],
-  "titled": ["MOB-B01", "MOB-B01L", "MOB-B01X", "MOB-C01", "MOB-G01", "MOB-A01", "MOB-A02", "MOB-G03", "MOB-N01", "MOB-S02", "MOB-S18"]
-}
