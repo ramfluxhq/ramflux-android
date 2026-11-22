@@ -47,6 +47,8 @@ object ClientModule {
 
     @Provides fun devices(data: AndroidClientData): DeviceDirectoryRepository = data.devices
 
+    @Provides fun accountStores(data: AndroidClientData): AccountScopedStores = data.accountStores
+
     @Provides fun accountStatus(data: AndroidClientData): AccountStatusRepository = data.accountStatus
 
     /** The platform per-app language on API 33+, the device-local store before that. */

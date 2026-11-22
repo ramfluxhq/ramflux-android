@@ -11,6 +11,9 @@ import android.content.Context
  */
 class AndroidClientData(context: Context, expectedDescriptor: String, languages: List<AppLanguage>) {
     private val driver = AndroidClientLifecycleDriver(context.applicationContext, expectedDescriptor)
+
+    /** Account-scoped host stores (drafts, media) register here; see [AccountScopedStores]. */
+    val accountStores = AccountScopedStores()
     val session: ClientSessionRepository = DefaultClientSessionRepository(driver)
     val accounts: AccountAccessRepository = DefaultAccountAccessRepository(driver.transport)
     val ceremony: AccountCeremonyRepository = DefaultAccountCeremonyRepository(driver.transport)
