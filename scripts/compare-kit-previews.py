@@ -10,12 +10,10 @@ composited onto rf-bg (light #FCFBF9, dark #171716) before the pair and the
 diff. The checklist measures the master frame from kit-masters.json when the
 export canvas is not that frame, and the untrimmed preview frame otherwise.
 It does not measure trimmed ink. A capture edge more than 2 design pixels
-from the master is OVER.
+from the master is OVER. Phone board captures use compare-board-captures.py.
 """
 
-import hashlib
 import json
-import re
 import struct
 import sys
 import zlib
@@ -26,7 +24,6 @@ LIMIT = 2.0
 PIXEL_STRONG = 0.35
 PIXEL_MAE = 48.0
 VARIANCE_FLOOR = 64.0
-SHELL_NAME = re.compile(r"^(MOB-[A-Z0-9]+)\.(light|dark)--(en|zh)$")
 LIGHT_BG = (0xFC, 0xFB, 0xF9)
 DARK_BG = (0x17, 0x17, 0x16)
 SKIP_PREFIXES = ("chart--", "radio--", "origin-display--")
@@ -199,20 +196,7 @@ def load_table(path):
 
 
 def board_id(name):
-    match = SHELL_NAME.match(name)
-    if match:
-        return match.group(1)
     return name.split(".", 1)[0].split("--", 1)[0]
-
-
-def ink_count(width, channels, y, rows, bg):
-    count = 0
-    for x in range(width):
-        red, green, blue, alpha = pixel(rows, channels, x, y)
-        red, green, blue = over_bg(red, green, blue, alpha, bg)
-        if max(abs(red - bg[0]), abs(green - bg[1]), abs(blue - bg[2])) > 24:
-            count += 1
-    return count
 
 
 def luma_variance(width, height, channels, rows, bg):
@@ -264,47 +248,6 @@ def pixel_error(capture_w, capture_h, channels, rows, scaled, bg):
     return accumulated / total, strong / total
 
 
-def first_ink_y(width, height, channels, rows, bg, limit):
-    for y in range(min(limit, height)):
-        if ink_count(width, channels, y, rows, bg) > 20:
-            return y
-    return None
-
-
-def tab_top(width, height, channels, rows, bg):
-    hits = []
-    for y in range(max(0, height - 140), max(0, height - 8)):
-        count = ink_count(width, channels, y, rows, bg)
-        if 15 <= count <= 180:
-            hits.append(y)
-    if not hits:
-        return None
-    floor = hits[-1]
-    cluster = [y for y in hits if floor - y <= 40]
-    return min(cluster)
-
-
-def structure_reason(name, width, height, channels, rows, bg, layout):
-    match = SHELL_NAME.match(name)
-    if layout is None or match is None or match.group(2) != "light":
-        return ""
-    board = match.group(1)
-    tolerance = layout["tolerance"]
-    reasons = []
-    if board in layout["titled"]:
-        measured = first_ink_y(width, height, channels, rows, bg, 180)
-        spec = layout["titleHeaderY"]
-        relative = spec - layout["statusBar"]
-        if measured is None or min(abs(measured - spec), abs(measured - relative)) > tolerance:
-            reasons.append(f"title y={measured} spec={spec}")
-    if board in layout["tabRoots"]:
-        measured = tab_top(width, height, channels, rows, bg)
-        spec = layout["tabBarY"]
-        if measured is None or abs(measured - spec) > tolerance:
-            reasons.append(f"tab y={measured} spec={spec}")
-    return "; ".join(reasons)
-
-
 def main():
     if len(sys.argv) != 4:
         raise SystemExit("usage: compare-kit-previews.py <previews-dir> <captures-dir> <output-dir>")
@@ -313,11 +256,8 @@ def main():
     output = Path(sys.argv[3])
     output.mkdir(parents=True, exist_ok=True)
     gaps = {line.split("\t", 1)[0]: line.split("\t", 1)[-1] for line in load_table(previews / "design-gaps.tsv")}
-    layout_path = previews / "shell-layout.json"
-    layout = json.loads(layout_path.read_text()) if layout_path.exists() else None
     over = 0
     lines = ["name\tcapture\tmaster\tpreview\tdw\tdh\tflag\tnote"]
-    fingerprints = {}
     print(f"{'name':42} {'capture':>11} {'master':>11} {'preview':>11} {'dw':>7} {'dh':>7}")
     captures_found = [path for path in sorted(captures.glob("*.png")) if not path.stem.startswith(SKIP_PREFIXES)]
     if not captures_found:
@@ -378,13 +318,6 @@ def main():
                 variance = luma_variance(capture_w, capture_h, capture_channels, capture_rows, bg)
                 if variance < VARIANCE_FLOOR:
                     reasons.append(f"low-variance {variance:.1f}")
-            placed = structure_reason(name, capture_w, capture_h, capture_channels, capture_rows, bg, layout)
-            if placed:
-                reasons.append(placed)
-            digest = hashlib.sha256()
-            for row in capture_rows:
-                digest.update(row)
-            fingerprints[(name, digest.digest())] = board_id(name)
         flag = "OVER" if reasons else "ok"
         if flag == "OVER":
             over += 1
@@ -401,18 +334,6 @@ def main():
         if scaled is not None:
             write_pair(output / f"{name}--pair.png", capture_w, capture_h, capture_channels, capture_rows, scaled, bg)
             write_diff(output / f"{name}--diff.png", capture_w, capture_h, capture_channels, capture_rows, scaled, bg)
-    grouped = {}
-    for (name, digest), board in fingerprints.items():
-        match = SHELL_NAME.match(name)
-        if match is None:
-            continue
-        grouped.setdefault((match.group(2), match.group(3), digest), set()).add(board)
-    for (theme, locale, _digest), boards in sorted(grouped.items()):
-        if len(boards) > 1:
-            label = ",".join(sorted(boards))
-            print(f"OVER identical pixels {theme} {locale}: {label}")
-            lines.append(f"{label}\t\t\t\t\t\tOVER\tidentical pixels on {theme} {locale}")
-            over += 1
     for board, reason in sorted(gaps.items()):
         lines.append(f"{board}\t\t\t\t\t\tGAP\t{reason}")
     lines.append("")
@@ -425,9 +346,7 @@ def main():
     lines.append("Pixel mean channel error above 48, or more than 35 percent of pixels differing by more than 40, fails.")
     lines.append("A kit-masters.json mae or strong field overrides that pixel limit for one board. The board note says why.")
     lines.append("A full-board luma variance below 64 fails. That is a blank or flat placeholder frame.")
-    lines.append("Light titles must sit on spec header y=59, or on that header when the 59px design status bar is absent. Tolerance is 32.")
-    lines.append("Light tab bars must start within 32px of spec y=769.")
-    lines.append("Two different board ids with identical pixels fail. A listed design gap must not be captured as a match.")
+    lines.append("A listed design gap must not be captured as a match.")
     checklist = output / "checklist.tsv"
     checklist.write_text("\n".join(lines) + "\n")
     print(f"OVER {over}")
