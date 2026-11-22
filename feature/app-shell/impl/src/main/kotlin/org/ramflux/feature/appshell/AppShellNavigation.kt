@@ -101,9 +101,12 @@ fun AppShellNavigation(
     }
 }
 
-/** The shell side of the screen contract for a root page: window insets and the width cap. */
+/**
+ * The shell side of the screen contract for a page on the root stack (outside the tabs, for example
+ * account setup): window insets, including the keyboard, and the width cap.
+ */
 @Composable
-private fun ShellPage(content: @Composable (Modifier) -> Unit) {
+fun ShellPage(content: @Composable (Modifier) -> Unit) {
     val theme = LocalRFTheme.current
     Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.TopCenter) {
         content(Modifier.widthIn(max = theme.column_max.dp))

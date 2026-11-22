@@ -24,9 +24,9 @@ import org.ramflux.feature.contacts.impl.R
 fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
     val subtitle = state.accountLabel?.takeIf { it.isNotEmpty() }
-    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
-            Column(Modifier.fillMaxSize().widthIn(max = theme.column_max.dp)) {
+            Column(Modifier.fillMaxSize()) {
                 KitPageHeader(
                     stringResource(
                         when (state.page) {

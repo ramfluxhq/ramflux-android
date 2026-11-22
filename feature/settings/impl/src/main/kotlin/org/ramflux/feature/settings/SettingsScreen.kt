@@ -34,9 +34,9 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, mod
             SettingsPage.BACKUP -> R.string.settings_backup
         }
     )
-    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
-            Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
+            Column(Modifier.fillMaxSize()) {
                 KitPageHeader(
                     title,
                     subtitle = subtitle,

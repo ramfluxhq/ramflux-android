@@ -8,6 +8,7 @@ import android.provider.Settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -225,7 +226,11 @@ private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
     "MOB-G02" to { FixtureShell(ShellFixture(tab = 3, pushed = SettingsRoute)) },
     "MOB-G03" to { FixtureShell(ShellFixture(tab = 3, pushed = NavigationEditorRoute)) },
     "MOB-N01" to {
-        OnboardingScreen(OnboardingState(page = OnboardingPage.CREATE, sessionReady = true), {}, contentWindowInsets = BOARD_INSETS)
+        OnboardingScreen(
+            OnboardingState(page = OnboardingPage.CREATE, sessionReady = true),
+            {},
+            modifier = Modifier.windowInsetsPadding(BOARD_INSETS)
+        )
     },
     "MOB-S01" to { StartupSurface(BOARD_INSETS) { SplashScreen() } },
     "MOB-S02" to { StartupSurface(BOARD_INSETS) { GatewayScreen({}, {}) } },

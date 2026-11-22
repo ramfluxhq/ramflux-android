@@ -32,10 +32,9 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
             GroupsPage.INVITATION -> R.string.groups_invitation
         }
     )
-    val bars = if (rooted) WindowInsets.statusBars else WindowInsets.safeDrawing
-    Scaffold(modifier = modifier, contentWindowInsets = bars) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
-            Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
+            Column(Modifier.fillMaxSize()) {
                 if (rooted && state.page == GroupsPage.LIST) {
                     KitPageHeader(title, large = true, subtitle = state.account, tag = "groups-header")
                 } else if (rooted) {
