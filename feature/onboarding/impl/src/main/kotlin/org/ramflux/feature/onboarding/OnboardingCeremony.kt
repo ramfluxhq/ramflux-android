@@ -28,11 +28,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitButton
-import org.ramflux.designsystem.kit.LtrSecretWords
 import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.kit.KitRow
 import org.ramflux.designsystem.kit.KitTextField
 import org.ramflux.designsystem.kit.KitTipBar
+import org.ramflux.designsystem.kit.LtrSecretWords
 import org.ramflux.designsystem.render
 import org.ramflux.feature.onboarding.impl.R
 

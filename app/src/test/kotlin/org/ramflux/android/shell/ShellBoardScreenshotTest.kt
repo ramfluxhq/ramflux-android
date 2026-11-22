@@ -295,7 +295,8 @@ private val PHRASE = listOf("apple", "river", "stone", "cloud", "amber", "orbit"
 private val MATRIX_STATES: Map<String, @Composable () -> Unit> = mapOf(
     "messages-chat" to { FixtureShell(ShellFixture(pushed = ChatRoute("a", "lin-yue")), NO_INSETS) },
     "groups" to {
-        FixtureShell(ShellFixture(tab = 1, groups = GroupsState(page = GroupsPage.LIST, account = ACCOUNT, loaded = true, groups = GROUPS_C01)), NO_INSETS)
+        val groups = GroupsState(page = GroupsPage.LIST, account = ACCOUNT, loaded = true, groups = GROUPS_C01)
+        FixtureShell(ShellFixture(tab = 1, groups = groups), NO_INSETS)
     },
     "agents" to { FixtureShell(ShellFixture(tab = 2), NO_INSETS) },
     "settings" to { FixtureShell(ShellFixture(tab = 3, pushed = SettingsRoute), NO_INSETS) },

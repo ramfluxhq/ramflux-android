@@ -60,7 +60,9 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                                     testTag = row.permission.name
                                 )
                                 when (row.permission) {
-                                    OsPermission.MICROPHONE, OsPermission.INCOMING_CALL -> Text(stringResource(R.string.permissions_media_help))
+                                    OsPermission.MICROPHONE, OsPermission.INCOMING_CALL -> Text(
+                                        stringResource(R.string.permissions_media_help)
+                                    )
                                     OsPermission.PHOTOS_FILES -> Text(stringResource(R.string.permissions_picker_help))
                                     OsPermission.SAVE_PHOTO -> Text(stringResource(R.string.permissions_save_help))
                                     else -> Unit

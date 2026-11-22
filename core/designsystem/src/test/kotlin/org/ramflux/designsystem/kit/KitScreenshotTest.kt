@@ -703,5 +703,6 @@ class KitScreenshotTest {
 private const val RAIL_SAMPLE_HEIGHT = 420
 
 /** Recovery-style words as character arrays, the only form LtrSecretWords accepts. */
-private val secretWords = listOf("apple", "river", "stone", "cloud", "amber", "orbit", "maple", "quartz", "harbor", "tiger", "violet", "zebra")
-    .map { it.toCharArray() }
+private val secretWords = listOf(
+    "apple", "river", "stone", "cloud", "amber", "orbit", "maple", "quartz", "harbor", "tiger", "violet", "zebra"
+).map { it.toCharArray() }

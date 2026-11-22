@@ -26,7 +26,10 @@ import org.robolectric.annotation.Config
 class KitIconMirrorTest {
     private val table = JSONObject(File("kit-icons.json").readText())
 
-    private fun names(key: String): Set<String> = table.getJSONArray(key).let { array -> (0 until array.length()).map(array::getString).toSet() }
+    private fun names(key: String): Set<String> {
+        val array = table.getJSONArray(key)
+        return (0 until array.length()).map(array::getString).toSet()
+    }
 
     private val mirrored = names("mirror")
 

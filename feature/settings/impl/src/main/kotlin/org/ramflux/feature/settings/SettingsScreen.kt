@@ -142,7 +142,13 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, mod
                             for (language in state.languages) item("language:" + language.tag) {
                                 ThemeChoiceRow(
                                     "language:" + language.tag,
-                                    if (language == AppLanguage.SYSTEM) stringResource(R.string.settings_system) else languageName(language),
+                                    if (language == AppLanguage.SYSTEM) {
+                                        stringResource(
+                                            R.string.settings_system
+                                        )
+                                    } else {
+                                        languageName(language)
+                                    },
                                     state.selectedLanguage == language,
                                     !state.savingLanguage
                                 ) { onAction(SettingsAction.Language(language)) }
