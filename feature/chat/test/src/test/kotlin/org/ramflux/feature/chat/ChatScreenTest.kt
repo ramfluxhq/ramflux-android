@@ -257,6 +257,18 @@ class ChatScreenTest {
         compose.runOnIdle { assertEquals(listOf(ChatAction.CardPress("a", "go")), actions.filterIsInstance<ChatAction.CardPress>()) }
     }
 
+    @Test fun theReactionPlusOpensThePlatformEmojiPicker() {
+        val state = ChatState(
+            loaded = true,
+            canSend = true,
+            selectedId = "m",
+            rows = persistentListOf(MessageItem("m", "Peer", false, false, UiText.Data("Hi"), stamp))
+        )
+        compose.setContent { RamfluxTheme { ChatScreen(state, {}, clock = clock) } }
+        compose.onNodeWithContentDescription("More reactions").performClick()
+        compose.onNodeWithTag("emoji-picker").assertExists()
+    }
+
     @Test fun anArabicMessageInAnEnglishInterfaceIsRightToLeft() {
         val arabic = "\u0645\u0631\u062D\u0628\u0627 \u0628\u0643"
         compose.setContent {

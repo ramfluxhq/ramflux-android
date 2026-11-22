@@ -8,4 +8,6 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:media"))
     implementation(libs.collections.immutable)
+    // Platform emoji picker for the reaction "+" (board MOB-B03). AndroidX, Apache-2.0, compatible with AGPL-3.0.
+    implementation("androidx.emoji2:emoji2-emojipicker:1.4.0")
 }

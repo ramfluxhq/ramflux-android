@@ -272,4 +272,6 @@
     <string name="card_approval_decline">Decline</string>
     <!-- Approve label of an approval card. -->
     <string name="card_approval_approve">Approve</string>
+    <!-- Reaction bar button and picker title for choosing any emoji as a reaction. -->
+    <string name="chat_react_more">More reactions</string>
 </resources>

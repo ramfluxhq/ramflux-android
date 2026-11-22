@@ -271,4 +271,6 @@
     <string name="card_approval_decline">拒绝</string>
     <!-- Approve label of an approval card. -->
     <string name="card_approval_approve">批准</string>
+    <!-- Reaction bar button and picker title for choosing any emoji as a reaction. -->
+    <string name="chat_react_more">更多表情</string>
 </resources>

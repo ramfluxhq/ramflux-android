@@ -726,6 +726,11 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
             .testTag("message-actions-scrim")
     )
     val reactions = !row.deleted && !row.placeholder && row.delivery == null
+    var picker by remember(row.id) { mutableStateOf(false) }
+    if (picker) {
+        EmojiSheet({ onAction(ChatAction.React(it)) }, { picker = false })
+        return
+    }
     AnchoredActions(
         anchor,
         own,
@@ -736,7 +741,8 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
             KitReactionBar(
                 QUICK_REACTIONS.mapIndexed { index, glyph -> KitReaction(reactionLabels[index], glyph) },
                 { index -> onAction(ChatAction.React(QUICK_REACTIONS[index])) },
-                null,
+                { picker = true },
+                moreLabel = stringResource(R.string.chat_react_more),
                 tag = "message-reactions"
             )
         } else {
@@ -756,6 +762,27 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
                 }
             )
         }, tag = "message-menu")
+    }
+}
+
+/**
+ * The platform emoji picker (androidx.emoji2) for any reaction; the view model accepts one grapheme the
+ * SDK takes. The picker view draws with the system emoji font and stays inside this window.
+ */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.EmojiSheet(onPick: (String) -> Unit, onClose: () -> Unit) {
+    val theme = LocalRFTheme.current
+    BackHandler(onBack = onClose)
+    Column(Modifier.matchParentSize().background(theme.bg).testTag("emoji-picker")) {
+        KitPageHeader(stringResource(R.string.chat_react_more), actionLabel = stringResource(R.string.ui_cancel), onAction = onClose)
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = { context ->
+                androidx.emoji2.emojipicker.EmojiPickerView(context).apply {
+                    setOnEmojiPickedListener { picked -> onPick(picked.emoji) }
+                }
+            },
+            modifier = Modifier.fillMaxWidth().weight(1f)
+        )
     }
 }
 
