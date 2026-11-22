@@ -30,7 +30,10 @@ Unknown stored locales fall back to the inherited configuration with a typed
 notice; failed commits leave the active selection unchanged.
 
 Debug builds enable Android pseudo-locales. Screenshot cases cover English,
-Simplified Chinese and expanded English in both shipped themes. The resource
+Simplified Chinese and expanded English in both shipped themes. The chat and kit
+suites add the right-to-left pseudo-locale ar-XB with Arabic peer text, font scale
+2.0 and 360, 393 and 700 dp widths; kit variants are written to
+`build/outputs/roborazzi-variants` because no design master exists for them. The resource
 guard checks matching launch-locale keys/placeholders, direct host text and
 hard-coded colors/dimensions. Its regression check proves that missing keys,
 malformed formats and direct text are rejected.
