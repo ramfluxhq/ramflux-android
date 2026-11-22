@@ -128,6 +128,18 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, mod
                                     testTag = "connections"
                                 )
                             }
+                            if (state.accountLabel != null) {
+                                item("lock") {
+                                    KitRow(
+                                        stringResource(R.string.settings_lock_account),
+                                        { onAction(SettingsAction.Lock) },
+                                        value = stringResource(R.string.settings_lock_account_help),
+                                        trailing = KitRowTrailing.None,
+                                        enabled = !state.loading,
+                                        testTag = "lock-account"
+                                    )
+                                }
+                            }
                             state.statusProblem?.let { problem -> item("status-error") { Text(problem.render()) } }
                             state.status?.let { status ->
                                 item("secure-sessions") { StatusRow(stringResource(R.string.settings_sessions), status.sessions) }

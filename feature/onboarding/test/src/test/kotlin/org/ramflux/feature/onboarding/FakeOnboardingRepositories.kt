@@ -116,6 +116,26 @@ class FakeAccountCeremony : AccountCeremonyRepository {
         return confirmResult(words, passphrase)
     }
     override suspend fun cancel(): ClientResult<Unit> = ClientResult.Ready(Unit)
+    var recoverBegins = 0
+    var recoverCancels = 0
+    var heldRecovery: Pair<CharArray, CharArray>? = null
+    var lastAnchor: String? = null
+    var recoverResult: ClientResult<String> = ClientResult.Ready("a")
+    override suspend fun beginRecover(accountId: String): ClientResult<RecoveryPending> {
+        recoverBegins++
+        return ClientResult.Ready(RecoveryPending(accountId, "anchor-abcd-efgh"))
+    }
+    override suspend fun confirmRecover(phrase: CharArray, code: CharArray, anchor: String): ClientResult<String> {
+        heldRecovery = phrase to code
+        lastAnchor = anchor
+        phrase.fill('\u0000')
+        code.fill('\u0000')
+        return recoverResult
+    }
+    override suspend fun cancelRecover(): ClientResult<Unit> {
+        recoverCancels++
+        return ClientResult.Ready(Unit)
+    }
 }
 class FakeOnboardingSession : ClientSessionRepository {
     override val status = MutableStateFlow(ClientSnapshot(ClientPhase.OPEN, 1))

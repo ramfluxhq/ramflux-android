@@ -34,17 +34,18 @@ internal class DefaultAccountAccessRepository(transport: RepositoryTransport) : 
         if (catalog.accounts.none { it.id == id && it.unlocked }) return unavailable()
         return switch(id)
     }
-    override suspend fun unlock(id: String, passphrase: CharArray): ClientResult<Unit> {
-        if (!acceptable(id) || passphrase.isEmpty() || passphrase.size > 128 || passphrase.all { it.isWhitespace() }) {
-            passphrase.fill('\u0000')
-            return invalid()
+    override suspend fun unlock(id: String, code: CharArray): ClientResult<Unit> {
+        if (!acceptable(id) || !AccountCode.complete(code)) {
+            code.fill('\u0000')
+            return if (acceptable(id)) codeRefused() else invalid()
         }
+        // The SDK field keeps its historical name; its value is the six-digit account code.
         val unlocked = accounts.accountUnlock(
             RepositoryContext(id, UUID.randomUUID().toString()),
-            SecretBody.fields { chars("passphrase", passphrase) }
+            SecretBody.fields { chars("passphrase", code) }
         )
         return when (unlocked) {
-            is CoreResult.Failure -> ClientResult.Failed(unlocked.error.appProblem())
+            is CoreResult.Failure -> ClientResult.Failed(unlocked.appProblem())
             is CoreResult.Success -> {
                 unlocked.value.close()
                 switch(id)
@@ -60,6 +61,18 @@ internal class DefaultAccountAccessRepository(transport: RepositoryTransport) : 
                 ClientResult.Ready(Unit)
             }
         }
+    override suspend fun lock(id: String): ClientResult<Unit> {
+        if (!acceptable(id)) return invalid()
+        return when (val locked = accounts.accountLock(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {})) {
+            is CoreResult.Failure -> ClientResult.Failed(locked.appProblem())
+            is CoreResult.Success -> {
+                locked.value.close()
+                publishedRevisions.emit(revisionCount.incrementAndGet())
+                ClientResult.Ready(Unit)
+            }
+        }
+    }
+    private fun codeRefused() = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE, statusName = "not_six_digits"))
     private fun acceptable(id: String) = id.isNotEmpty() && id.length <= 128
     private fun invalid() = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
     override suspend fun setup(action: AccountSetupAction): ClientResult<Unit> = unavailable()

@@ -13,4 +13,7 @@ sealed interface SettingsAction {
     data class Page(val page: SettingsPage) : SettingsAction
     data class Theme(val id: String?) : SettingsAction
     data class Revoke(val id: String) : SettingsAction
+
+    /** Explicit lock: only the account code opens the account again on this phone. */
+    data object Lock : SettingsAction
 }

@@ -21,9 +21,15 @@ which is not installed returns typed `Unavailable(FEATURE_NOT_INSTALLED)` from
 Data. This is not a fake account, conversation, or service response. Onboarding reads real account metadata and saved nodes, performs SDK node discovery,
 confirms the reviewed public key and rechecks saved-node safety before selection.
 Account creation runs the SDK's connection-local creation ceremony (begin, recovery
-phrase, word challenge, confirm) through `AccountCeremonyRepository`. The remaining
-setup actions (`AccountAccessRepository.setup`, which covers recovery and pairing)
-return typed custody-provider unavailable; no credential ceremony is simulated. Each
+phrase, word challenge, confirm with the six-digit account code) through
+`AccountCeremonyRepository`. The account code is entered through the Kit code field
+backed by an erasable buffer; unlock and lock go through `AccountAccessRepository`,
+and the SDK's named refusals (wrong code, wait with its `retry_after_secs`, attempts
+exhausted, missing device unlock secret) map to `AccountCodeRefusal`. Phrase recovery
+(`account.recover.*`) works for an account whose data is on this installation; the SDK
+refuses it without local account data, so a new installation needs a data restore or
+pairing first. Pairing (`AccountAccessRepository.setup(PAIR)`) still returns typed
+custody-provider unavailable; no credential ceremony is simulated. Each
 subsequent feature integrates through its public API and repository contract.
 
 The design system consumes the manifest-owned generated component catalog and

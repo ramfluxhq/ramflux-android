@@ -15,6 +15,11 @@ class FakeSettingsAccounts : AccountAccessRepository {
     }
     override suspend fun select(id: String): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.ONBOARDING)
     override suspend fun setup(action: AccountSetupAction): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.ONBOARDING)
+    val locked = mutableListOf<String>()
+    override suspend fun lock(id: String): ClientResult<Unit> {
+        locked += id
+        return ClientResult.Ready(Unit)
+    }
 }
 class FakeDeviceDirectory : DeviceDirectoryRepository {
     var reads = 0

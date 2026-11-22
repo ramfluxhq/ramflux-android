@@ -45,6 +45,9 @@ enum class OnboardingNoticeKind { ERROR, UNAVAILABLE, UNKNOWN_OUTCOME }
 
 @Immutable data class OnboardingNotice(val message: UiText, val kind: OnboardingNoticeKind = OnboardingNoticeKind.ERROR)
 
+/** A started phrase recovery: the anchor the user compares before entering the phrase. */
+@Immutable data class RecoveryFacts(val accountId: String, val anchor: String)
+
 @Immutable data class OnboardingState(
     val page: OnboardingPage = OnboardingPage.START,
     val accounts: ImmutableList<AccountItem> = persistentListOf(),
@@ -63,5 +66,8 @@ enum class OnboardingNoticeKind { ERROR, UNAVAILABLE, UNKNOWN_OUTCOME }
     val displayName: String = "",
     val phraseSlots: Int = 0,
     val challengePositions: ImmutableList<Int> = persistentListOf(),
-    val createdAccountId: String? = null
+    val createdAccountId: String? = null,
+    val recovery: RecoveryFacts? = null,
+    /** Set when the SDK says only phrase recovery opens this account now. */
+    val recoverAccountId: String? = null
 )

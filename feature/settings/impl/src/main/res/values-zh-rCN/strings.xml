@@ -50,4 +50,8 @@
     <string name="settings_permissions_help">查看系统权限实时状态与设置</string>
     <string name="settings_about">关于</string>
     <string name="settings_version">版本 %1$s（构建 %2$d）</string>
+    <!-- Settings row that locks the account on this phone. -->
+    <string name="settings_lock_account">锁定账户</string>
+    <!-- Explains what locking does; the account code is six digits. -->
+    <string name="settings_lock_account_help">在本机关闭你的账户数据。用六位账户码可再次打开。</string>
 </resources>

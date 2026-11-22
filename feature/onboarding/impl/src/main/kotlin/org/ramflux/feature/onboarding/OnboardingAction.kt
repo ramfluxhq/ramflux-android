@@ -14,14 +14,20 @@ sealed interface OnboardingAction {
     data object Confirm : OnboardingAction
     data class SelectAccount(val id: String) : OnboardingAction
 
-    /** The handler reads this buffer once and erases it. */
-    class SubmitUnlock(val passphrase: ErasableBuffer) : OnboardingAction
+    /** The handler reads this buffer (the six-digit account code) once and erases it. */
+    class SubmitUnlock(val code: ErasableBuffer) : OnboardingAction
     data class DisplayName(val value: String) : OnboardingAction
     data object BeginCreate : OnboardingAction
     data object PhraseSaved : OnboardingAction
 
     /** The confirm handler owns these buffers: it reads them once and erases them after the call returns. */
-    class ConfirmChallenge(val words: List<ErasableBuffer>, val passphrase: ErasableBuffer) : OnboardingAction
+    class ConfirmChallenge(val words: List<ErasableBuffer>, val code: ErasableBuffer) : OnboardingAction
+
+    /** Starts phrase recovery of an account whose data is on this phone. */
+    data class BeginRecover(val accountId: String) : OnboardingAction
+
+    /** The handler owns both buffers: it reads them once and erases them after the call returns. */
+    class ConfirmRecover(val phrase: ErasableBuffer, val code: ErasableBuffer) : OnboardingAction
 
     data object ContinueCreated : OnboardingAction
     data object Back : OnboardingAction

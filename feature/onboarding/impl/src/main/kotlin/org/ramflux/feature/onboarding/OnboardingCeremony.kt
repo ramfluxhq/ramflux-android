@@ -26,12 +26,19 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.ramflux.data.AccountCode
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.kit.KitAvatar
+import org.ramflux.designsystem.kit.KitAvatarKind
 import org.ramflux.designsystem.kit.KitButton
+import org.ramflux.designsystem.kit.KitButtonKind
 import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.kit.KitRow
+import org.ramflux.designsystem.kit.KitSecurityWarning
 import org.ramflux.designsystem.kit.KitTextField
 import org.ramflux.designsystem.kit.KitTipBar
+import org.ramflux.designsystem.kit.KitWarningTone
+import org.ramflux.designsystem.kit.LtrCode
 import org.ramflux.designsystem.kit.LtrSecretWords
 import org.ramflux.designsystem.render
 import org.ramflux.feature.onboarding.impl.R
@@ -110,7 +117,7 @@ internal fun PhrasePage(state: OnboardingState, drawPhrase: (Int, (CharArray) ->
 /** Challenge secrets stay in these buffers. Confirm reads them once and erases them after the call returns. */
 internal class ChallengeEntry {
     val words: List<ErasableBuffer> = List(3) { ErasableBuffer() }
-    val passphrase = ErasableBuffer()
+    val code = ErasableBuffer()
     var revision by mutableIntStateOf(0)
         private set
 
@@ -120,7 +127,7 @@ internal class ChallengeEntry {
 
     fun ready(positionCount: Int): Boolean {
         val tick = revision
-        return tick >= 0 && positionCount == words.size && words.none { it.isBlank() } && !passphrase.isEmpty()
+        return tick >= 0 && positionCount == words.size && words.none { it.isBlank() } && AccountCode.complete(code.owned())
     }
 }
 
@@ -140,14 +147,87 @@ internal fun ChallengePage(state: OnboardingState, entry: ChallengeEntry) {
             )
         }
     }
-    Text(stringResource(R.string.ui_data_passphrase_explanation))
-    ErasableSecretField(
-        entry.passphrase,
-        stringResource(R.string.ui_data_passphrase),
-        "data-passphrase",
+    AccountCodeField(
+        entry.code,
+        stringResource(R.string.ui_choose_account_code),
+        "account-code",
         enabled = !state.busy,
-        password = true,
-        limit = 128,
+        helper = stringResource(R.string.ui_account_code_explanation),
+        onEdited = entry::edited
+    )
+}
+
+/** Recovery secrets stay in these buffers. Confirm reads them once and erases them. */
+internal class RecoveryEntry {
+    val phrase = ErasableBuffer()
+    val code = ErasableBuffer()
+    var revision by mutableIntStateOf(0)
+        private set
+
+    fun edited() {
+        revision++
+    }
+
+    fun ready(): Boolean {
+        val tick = revision
+        return tick >= 0 && !phrase.isBlank() && AccountCode.complete(code.owned())
+    }
+}
+
+/**
+ * Phrase recovery of an account whose data is on this phone. Without a started recovery it lists the
+ * local accounts; the anchor (fingerprint) is shown left to right for comparison before phrase entry.
+ */
+@Composable
+internal fun RecoverPage(state: OnboardingState, entry: RecoveryEntry, onAction: (OnboardingAction) -> Unit) {
+    val recovery = state.recovery
+    if (recovery == null) {
+        if (state.accountsLoaded && state.accounts.isEmpty()) {
+            Text(stringResource(R.string.ui_recover_no_local_account))
+            return
+        }
+        Text(stringResource(R.string.ui_recover_choose_account))
+        for (account in state.accounts) {
+            KitRow(
+                account.label,
+                {},
+                value = account.subtitle.render(),
+                leading = { KitAvatar(account.label.take(1), 36f, KitAvatarKind.Person) },
+                trailingContent = {
+                    KitButton(
+                        stringResource(R.string.ui_recover),
+                        { onAction(OnboardingAction.BeginRecover(account.id)) },
+                        kind = KitButtonKind.Secondary,
+                        enabled = !state.busy,
+                        tag = "recover-" + account.id
+                    )
+                },
+                testTag = "recover-row-" + account.id
+            )
+        }
+        return
+    }
+    KitSecurityWarning(
+        stringResource(R.string.ui_account_fingerprint),
+        stringResource(R.string.ui_recover_warning),
+        KitWarningTone.Warning
+    )
+    LtrCode(recovery.anchor, groupSize = 4, tag = "recovery-anchor")
+    ErasableSecretField(
+        entry.phrase,
+        stringResource(R.string.ui_recovery_phrase),
+        "recovery-phrase-entry",
+        enabled = !state.busy,
+        password = false,
+        limit = 400,
+        onEdited = entry::edited
+    )
+    AccountCodeField(
+        entry.code,
+        stringResource(R.string.ui_account_code),
+        "recovery-code",
+        enabled = !state.busy,
+        helper = stringResource(R.string.ui_account_code_explanation),
         onEdited = entry::edited
     )
 }

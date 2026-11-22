@@ -70,7 +70,7 @@ class OnboardingDataTest {
             assertTrue(repo.select("a") is ClientResult.Unavailable)
             for (action in AccountSetupAction.entries) assertTrue(repo.setup(action) is ClientResult.Unavailable)
             assertEquals(listOf("account.list", "account.list"), abi.submitted.map { it.getValue("method").jsonPrimitive.content })
-            val passphrase = "seal-fixture".toCharArray()
+            val passphrase = "482915".toCharArray()
             assertTrue(repo.unlock("a", passphrase) is ClientResult.Ready)
             yield()
             assertEquals(listOf(1), revisions)
@@ -78,13 +78,17 @@ class OnboardingDataTest {
             assertEquals(listOf("account.unlock", "account.switch"), abi.submitted.drop(2).map { it.getValue("method").jsonPrimitive.content })
             val unlock = abi.submitted[2]
             assertEquals("a", unlock.getValue("account_id").jsonPrimitive.content)
-            assertEquals("seal-fixture", unlock.getValue("body").jsonObject.getValue("passphrase").jsonPrimitive.content)
+            assertEquals("482915", unlock.getValue("body").jsonObject.getValue("passphrase").jsonPrimitive.content)
             assertEquals(0, abi.submitted[3].getValue("body").jsonObject.size)
             val blank = "   ".toCharArray()
             assertTrue(repo.unlock("a", blank) is ClientResult.Failed)
             assertTrue(blank.all { it == '\u0000' })
+            val short = "4829".toCharArray()
+            val refused = repo.unlock("a", short) as ClientResult.Failed
+            assertEquals("an incomplete code is refused before the SDK", AccountCodeRefusal.NOT_SIX_DIGITS, refused.problem.accountCodeRefusal())
+            assertTrue(short.all { it == '\u0000' })
             abi.completionCode = 8
-            val rejected = "other-seal".toCharArray()
+            val rejected = "739164".toCharArray()
             assertTrue(repo.unlock("a", rejected) is ClientResult.Failed)
             assertTrue(rejected.all { it == '\u0000' })
             assertEquals("account.unlock", abi.submitted.last().getValue("method").jsonPrimitive.content)

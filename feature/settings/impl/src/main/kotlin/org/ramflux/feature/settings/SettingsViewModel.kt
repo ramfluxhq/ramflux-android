@@ -149,6 +149,12 @@ class SettingsViewModel @Inject constructor(
                 val account = activeAccount ?: return
                 capability { devices.revoke(account, action.id) }
             }
+            SettingsAction.Lock -> {
+                val account = activeAccount ?: return
+                capability {
+                    accounts.lock(account).also { if (it is ClientResult.Ready) event(SettingsEvent.OpenAccount) }
+                }
+            }
         }
     }
     private fun event(event: SettingsEvent) {

@@ -50,4 +50,8 @@
     <string name="settings_permissions_help">Live system status and permission settings</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version %1$s (build %2$d)</string>
+    <!-- Settings row that locks the account on this phone. -->
+    <string name="settings_lock_account">Lock account</string>
+    <!-- Explains what locking does; the account code is six digits. -->
+    <string name="settings_lock_account_help">Closes your account data on this phone. Your six-digit account code opens it again.</string>
 </resources>

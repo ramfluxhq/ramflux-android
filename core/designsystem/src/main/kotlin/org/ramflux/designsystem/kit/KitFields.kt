@@ -9,21 +9,26 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import org.ramflux.designsystem.LocalRFTheme
 
 @Composable
@@ -152,6 +157,71 @@ fun KitSearchField(
                     KitIcon("circle-x", RfMetrics.searchIcon, theme.secondary)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Six-slot code entry (the account code). The slots show how many digits are entered, never the
+ * digits, and stay left to right in every locale. The secure input itself is supplied by the host
+ * through [input], laid over the slots, so the digits never become Compose state or a String.
+ */
+@Composable
+fun KitCodeField(
+    label: String,
+    filled: Int,
+    modifier: Modifier = Modifier,
+    length: Int = 6,
+    error: String? = null,
+    helper: String? = null,
+    enabled: Boolean = true,
+    focused: Boolean = false,
+    tag: String? = null,
+    input: @Composable BoxScope.() -> Unit = {}
+) {
+    val theme = LocalRFTheme.current
+    val border = when {
+        error != null -> theme.danger
+        focused -> theme.focus
+        else -> theme.input_border
+    }
+    val borderWidth = if (focused) RfMetrics.focusRing else RfMetrics.stroke
+    Column(
+        modifier.fillMaxWidth().alpha(if (enabled) 1f else RfMetrics.fieldDisabledAlpha).kitBackdrop().kitTag(tag),
+        verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.fieldGap))
+    ) {
+        KitText(label, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Box(Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))) {
+                    repeat(length) { index ->
+                        val current = index == filled
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .heightIn(min = dp(RfMetrics.fieldBox))
+                                .background(theme.input, shapeOf(theme.radius_input))
+                                .border(
+                                    dp(if (current) borderWidth else RfMetrics.stroke),
+                                    if (current) border else theme.input_border,
+                                    shapeOf(theme.radius_input)
+                                )
+                                .kitTag(tag?.let { it + "-slot-" + index }),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (index < filled) {
+                                Box(Modifier.size(dp(RfMetrics.codeDot)).background(theme.text, CircleShape))
+                            }
+                        }
+                    }
+                }
+                input()
+            }
+        }
+        if (error != null) {
+            KitText(error, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.danger, RfMetrics.lineSecondary))
+        } else if (helper != null) {
+            KitText(helper, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
         }
     }
 }

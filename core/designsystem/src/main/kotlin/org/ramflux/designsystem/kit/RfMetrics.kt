@@ -142,6 +142,9 @@ internal object RfMetrics {
     val chipPadV = 4f
     val chipPadH = 8f
     val unread = 28f
+
+    /** Filled-slot dot of the account code field. */
+    val codeDot = 10f
     val unreadGap = 12f
     val unreadLine = 1f
     val tipPadV = 10f

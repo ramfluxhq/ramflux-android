@@ -59,7 +59,7 @@ class AccountCeremonyDataTest {
             assertEquals(24, positions.value[2])
             abi.completionBody = buildJsonObject { put("account_id", "account-1"); put("display_name", "Ada") }
             val words = arrayOf("w1".toCharArray(), "w2".toCharArray(), "w24".toCharArray())
-            val passphrase = "seal".toCharArray()
+            val passphrase = "482915".toCharArray()
             val created = repo.confirm(words, passphrase) as ClientResult.Ready
             assertEquals("account-1", created.value)
             assertTrue(words.all { word -> word.all { it == '\u0000' } })
@@ -93,7 +93,7 @@ class AccountCeremonyDataTest {
             abi.completionBody = buildJsonObject { put("account_id", "account-1"); put("display_name", "Ada") }
             val created = repo.confirm(
                 arrayOf("w1".toCharArray(), "w2".toCharArray(), "w3".toCharArray()),
-                "seal".toCharArray()
+                "482915".toCharArray()
             )
             assertTrue(created is ClientResult.Ready)
             abi.completionBody = buildJsonObject {

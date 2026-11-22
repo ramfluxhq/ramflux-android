@@ -79,9 +79,14 @@ class OnboardingViewModel @Inject constructor(
             ticket++
             candidate = null
             val dropCeremony = local.value.page == OnboardingPage.PHRASE || local.value.page == OnboardingPage.CHALLENGE
+            val dropRecovery = local.value.recovery != null
             phrase?.close()
             phrase = null
             if (dropCeremony) viewModelScope.launch { ceremony.cancel() }
+            if (dropRecovery) {
+                local.update { it.copy(recovery = null) }
+                viewModelScope.launch { ceremony.cancelRecover() }
+            }
             if (local.value.page == OnboardingPage.START || leavingEntry()) {
                 viewModelScope.launch { channel.send(OnboardingEvent.Back) }
             } else {
@@ -163,6 +168,8 @@ class OnboardingViewModel @Inject constructor(
                 }
             }
             is OnboardingAction.SubmitUnlock -> submitUnlock(action)
+            is OnboardingAction.BeginRecover -> beginRecover(action.accountId)
+            is OnboardingAction.ConfirmRecover -> confirmRecover(action)
             OnboardingAction.Back -> Unit
         }
     }
@@ -295,7 +302,6 @@ class OnboardingViewModel @Inject constructor(
     private fun page(page: OnboardingPage) {
         if (page == OnboardingPage.PHRASE || page == OnboardingPage.CHALLENGE || page == OnboardingPage.CREATED) return
         val setup = when (page) {
-            OnboardingPage.RECOVER -> AccountSetupAction.RECOVER
             OnboardingPage.PAIR -> AccountSetupAction.PAIR
             else -> null
         }
@@ -308,14 +314,15 @@ class OnboardingViewModel @Inject constructor(
             OnboardingPage.RESUME,
             OnboardingPage.REPAIR,
             OnboardingPage.WELCOME,
-            OnboardingPage.CREATE
+            OnboardingPage.CREATE,
+            OnboardingPage.RECOVER
         )
         if (setup == null && page !in selectable && page != OnboardingPage.LOCAL_UNLOCK) return
         candidate = null
-        local.update { it.copy(page = page, identity = null, normalizedOrigin = null, notice = null) }
+        local.update { it.copy(page = page, identity = null, normalizedOrigin = null, notice = null, recovery = null) }
         if (setup != null) {
             launch { failure(accounts.setup(setup)) }
-        } else if (page in setOf(OnboardingPage.CONNECTION, OnboardingPage.WELCOME, OnboardingPage.RESUME)) read()
+        } else if (page in setOf(OnboardingPage.CONNECTION, OnboardingPage.WELCOME, OnboardingPage.RESUME, OnboardingPage.RECOVER)) read()
     }
 
     /** Draws one recovery word into the caller and never copies it into screen state. */
@@ -325,28 +332,80 @@ class OnboardingViewModel @Inject constructor(
 
     private fun submitUnlock(action: OnboardingAction.SubmitUnlock) {
         val id = pendingUnlock
-        val passphrase = action.passphrase.snapshot()
-        action.passphrase.clear()
-        val blank = passphrase.isEmpty() || passphrase.all { it.isWhitespace() }
-        if (local.value.page != OnboardingPage.LOCAL_UNLOCK || id.isNullOrEmpty() || blank) {
-            passphrase.fill('\u0000')
-            if (local.value.page == OnboardingPage.LOCAL_UNLOCK && blank) {
-                local.update { it.copy(notice = OnboardingNotice(uiText(R.string.ui_enter_the_data_passphrase))) }
+        val code = action.code.snapshot()
+        action.code.clear()
+        val incomplete = !AccountCode.complete(code)
+        if (local.value.page != OnboardingPage.LOCAL_UNLOCK || id.isNullOrEmpty() || incomplete) {
+            code.fill('\u0000')
+            if (local.value.page == OnboardingPage.LOCAL_UNLOCK && incomplete) {
+                local.update { it.copy(notice = OnboardingNotice(uiText(R.string.ui_enter_the_account_code))) }
             }
             return
         }
         launch {
             try {
-                when (val result = accounts.unlock(id, passphrase)) {
+                when (val result = accounts.unlock(id, code)) {
                     is ClientResult.Ready -> {
                         pendingUnlock = null
                         checkCurrent()
                         channel.send(OnboardingEvent.AccountSelected(id))
                     }
-                    else -> failure(result)
+                    else -> {
+                        failure(result, unlock = true)
+                        val refusal = (result as? ClientResult.Failed)?.problem?.accountCodeRefusal(unlock = true)
+                        if (refusal == AccountCodeRefusal.ATTEMPTS_EXHAUSTED || refusal == AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE) {
+                            local.update { it.copy(recoverAccountId = id) }
+                        }
+                    }
                 }
             } finally {
-                passphrase.fill('\u0000')
+                code.fill('\u0000')
+            }
+        }
+    }
+
+    private fun beginRecover(accountId: String) {
+        if (local.value.accounts.none { it.id == accountId }) return
+        launch {
+            when (val result = ceremony.beginRecover(accountId)) {
+                is ClientResult.Ready -> {
+                    checkCurrent()
+                    pendingUnlock = null
+                    local.update {
+                        it.copy(
+                            page = OnboardingPage.RECOVER,
+                            recovery = RecoveryFacts(result.value.accountId, result.value.anchor),
+                            recoverAccountId = null,
+                            notice = null
+                        )
+                    }
+                }
+                else -> failure(result)
+            }
+        }
+    }
+
+    private fun confirmRecover(action: OnboardingAction.ConfirmRecover) {
+        val facts = local.value.recovery
+        val phraseChars = action.phrase.snapshot()
+        val code = action.code.snapshot()
+        action.phrase.clear()
+        action.code.clear()
+        if (facts == null || phraseChars.all { it.isWhitespace() } || !AccountCode.complete(code)) {
+            phraseChars.fill('\u0000')
+            code.fill('\u0000')
+            if (facts != null) local.update { it.copy(notice = OnboardingNotice(uiText(R.string.ui_enter_the_phrase_and_code))) }
+            return
+        }
+        launch {
+            // One attempt per ceremony: the facts are dropped whatever the outcome.
+            local.update { it.copy(recovery = null) }
+            when (val result = ceremony.confirmRecover(phraseChars, code, facts.anchor)) {
+                is ClientResult.Ready -> {
+                    checkCurrent()
+                    channel.send(OnboardingEvent.AccountSelected(result.value))
+                }
+                else -> failure(result)
             }
         }
     }
@@ -402,17 +461,17 @@ class OnboardingViewModel @Inject constructor(
     private fun confirmChallenge(action: OnboardingAction.ConfirmChallenge) {
         launch {
             val words = Array(action.words.size) { action.words[it].snapshot() }
-            val passphrase = action.passphrase.snapshot()
+            val code = action.code.snapshot()
             try {
-                val blank = words.size != 3 || words.any { it.isEmpty() || it.all(Char::isWhitespace) } || passphrase.isEmpty()
+                val blank = words.size != 3 || words.any { it.isEmpty() || it.all(Char::isWhitespace) } || !AccountCode.complete(code)
                 if (blank) {
                     val count = words.size
                     logConfirm("confirm.rejected.$count")
                     local.update {
-                        it.copy(notice = OnboardingNotice(uiText(R.string.ui_enter_the_recovery_words_and_the_data_passphrase)))
+                        it.copy(notice = OnboardingNotice(incompleteChallengeText(words, code)))
                     }
                 } else {
-                    when (val result = ceremony.confirm(words, passphrase)) {
+                    when (val result = ceremony.confirm(words, code)) {
                         is ClientResult.Ready -> {
                             logConfirm("confirm.ready")
                             try {
@@ -453,9 +512,9 @@ class OnboardingViewModel @Inject constructor(
                 unknownOutcome()
             } finally {
                 words.forEach { it.fill('\u0000') }
-                passphrase.fill('\u0000')
+                code.fill('\u0000')
                 action.words.forEach { it.clear() }
-                action.passphrase.clear()
+                action.code.clear()
             }
         }
     }
@@ -514,11 +573,11 @@ class OnboardingViewModel @Inject constructor(
             )
         }
     }
-    private suspend fun failure(result: ClientResult<*>) {
+    private suspend fun failure(result: ClientResult<*>, unlock: Boolean = false) {
         checkCurrent()
         local.update {
             it.copy(
-                notice = result.notice() ?: OnboardingNotice(
+                notice = result.notice(unlock) ?: OnboardingNotice(
                     uiText(
                         R.string.ui_this_setup_operation_is_unavailable
                     ),
@@ -529,7 +588,25 @@ class OnboardingViewModel @Inject constructor(
     }
 }
 private fun SavedNode.item() = NodeItem(id, url, keyChanged, isDefault, enabled)
-private fun ClientResult<*>.notice(): OnboardingNotice? = when (this) {
+
+/** Words missing: ask for everything; words present but a refused new code: say why. */
+private fun incompleteChallengeText(words: Array<CharArray>, code: CharArray): UiText {
+    val wordsReady = words.size == 3 && words.none { it.isEmpty() || it.all(Char::isWhitespace) }
+    val refusal = if (wordsReady && code.isNotEmpty()) AccountCode.newCodeRefusal(code) else null
+    return refusal?.let { codeText(it, null) } ?: uiText(R.string.ui_enter_the_recovery_words_and_the_account_code)
+}
+
+/** The account-code refusals the SDK reports by name, as sentences. */
+internal fun codeText(refusal: AccountCodeRefusal, retryAfterSecs: Long?): UiText = when (refusal) {
+    AccountCodeRefusal.NOT_SIX_DIGITS, AccountCodeRefusal.CODE_REQUIRED -> uiText(R.string.ui_code_not_six_digits)
+    AccountCodeRefusal.TRIVIAL_CODE -> uiText(R.string.ui_code_trivial)
+    AccountCodeRefusal.WRONG_CODE -> uiText(R.string.ui_code_wrong)
+    AccountCodeRefusal.RETRY_LATER -> UiText.Quantity(R.plurals.ui_code_retry_later, (retryAfterSecs ?: 0L).coerceAtLeast(0L).toULong())
+    AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> uiText(R.string.ui_code_attempts_exhausted)
+    AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE -> uiText(R.string.ui_code_device_unlock_unavailable)
+}
+
+private fun ClientResult<*>.notice(unlock: Boolean = false): OnboardingNotice? = when (this) {
     is ClientResult.Ready -> null
     is ClientResult.Unavailable -> OnboardingNotice(
         when (reason) {
@@ -538,7 +615,9 @@ private fun ClientResult<*>.notice(): OnboardingNotice? = when (this) {
         },
         OnboardingNoticeKind.UNAVAILABLE
     )
-    is ClientResult.Failed -> {
+    is ClientResult.Failed -> problem.accountCodeRefusal(unlock)?.let { refusal ->
+        OnboardingNotice(codeText(refusal, problem.retryAfterSecs))
+    } ?: run {
         val name = problem.statusName
         val check = problem.check
         OnboardingNotice(

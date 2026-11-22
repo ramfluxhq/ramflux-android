@@ -88,11 +88,7 @@
     <string name="ui_write_down_the_recovery_phrase">Write down these 24 words in order. They are shown only once and are not saved on this device.</string>
     <string name="ui_i_have_saved_the_phrase">I have written down the phrase</string>
     <string name="ui_recovery_word_position">Word %1$d</string>
-    <string name="ui_data_passphrase">Data passphrase</string>
-    <string name="ui_data_passphrase_explanation">This passphrase seals account data on this device. It is separate from the recovery phrase.</string>
     <string name="ui_confirm_account">Confirm account</string>
-    <string name="ui_enter_the_recovery_words_and_the_data_passphrase">Enter the three recovery words and the data passphrase.</string>
-    <string name="ui_enter_the_data_passphrase">Enter the data passphrase.</string>
     <string name="ui_account_created_detail">The account is unlocked on this device.</string>
     <string name="ui_continue_into_the_account">Continue</string>
     <string name="ui_n01_header">Create account</string>
@@ -102,4 +98,47 @@
     <string name="ui_n01_official_node">Ramflux official node</string>
     <string name="ui_n01_selected_node">Selected node</string>
     <string name="ui_n01_phrase_note">Your recovery phrase is generated on this phone and shown only once. Get paper and a pen ready.</string>
+    <!-- Label of the six-digit account code field. -->
+    <string name="ui_account_code">Account code</string>
+    <!-- Explains the account code on the unlock and create screens. -->
+    <string name="ui_account_code_explanation">Six digits. Together with this phone\'s secure storage it opens your account data here. It is not your recovery phrase.</string>
+    <!-- Label of the code field when a new account code is chosen. -->
+    <string name="ui_choose_account_code">Choose a six-digit account code</string>
+    <!-- Refusal: the code is not six digits. -->
+    <string name="ui_code_not_six_digits">The account code must be exactly 6 digits.</string>
+    <!-- Refusal: the new code is on the trivial list. -->
+    <string name="ui_code_trivial">This code is too easy to guess (repeated digits or a straight run). Choose another.</string>
+    <!-- Refusal: a wrong account code was entered. -->
+    <string name="ui_code_wrong">That code did not open the account. After several wrong codes you have to wait before the next try.</string>
+    <!-- Refusal: no more code attempts are allowed. -->
+    <string name="ui_code_attempts_exhausted">Too many wrong codes. Recover the account with its recovery phrase.</string>
+    <!-- Refusal: the device unlock secret is missing. -->
+    <string name="ui_code_device_unlock_unavailable">This phone\'s secure storage holds no unlock key for this account. Recover the account with its recovery phrase.</string>
+    <!-- Shown when the phrase check is submitted incomplete. -->
+    <string name="ui_enter_the_recovery_words_and_the_account_code">Enter the three recovery words and a six-digit account code.</string>
+    <!-- Shown when unlock is submitted without a complete code. -->
+    <string name="ui_enter_the_account_code">Enter the six-digit account code.</string>
+    <!-- Recovery page introduction. -->
+    <string name="ui_recover_choose_account">Choose the account on this phone to recover with its recovery phrase.</string>
+    <!-- Recovery page when no account data is on this phone. -->
+    <string name="ui_recover_no_local_account">Recovery needs the account\'s data on this phone. On a new installation, link this phone to your account from another device or restore a backup first.</string>
+    <!-- Button on an account row that starts recovery. -->
+    <string name="ui_recover">Recover</string>
+    <!-- Label above the account anchor shown during recovery. -->
+    <string name="ui_account_fingerprint">Account fingerprint</string>
+    <!-- Warning shown before the recovery phrase is entered. -->
+    <string name="ui_recover_warning">Compare this fingerprint with the one you saved. Recovery gives this phone new keys for the account and signs out its earlier devices.</string>
+    <!-- Label of the recovery phrase field. -->
+    <string name="ui_recovery_phrase">Recovery phrase (24 words)</string>
+    <!-- Button that submits the recovery phrase. -->
+    <string name="ui_recover_account_action">Recover account</string>
+    <!-- Shown when recovery is submitted incomplete. -->
+    <string name="ui_enter_the_phrase_and_code">Enter the 24-word recovery phrase and the account code.</string>
+    <!-- Button shown after the code attempts are exhausted. -->
+    <string name="ui_recover_with_phrase">Recover with recovery phrase</string>
+    <!-- Refusal with a wait: the SDK reports how many seconds remain before the next code try. -->
+    <plurals name="ui_code_retry_later">
+        <item quantity="one">Too many wrong codes. Try again in %d second.</item>
+        <item quantity="other">Too many wrong codes. Try again in %d seconds.</item>
+    </plurals>
 </resources>

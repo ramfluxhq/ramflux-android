@@ -193,6 +193,27 @@ class SettingsViewModelTest {
         assertEquals(uiText(R.string.settings_custody_missing), vm.state.value.unavailable)
     }
 
+    @Test fun lockClosesTheActiveAccountAndHandsOverToTheAccountScreen() = runTest(timeout = 5.seconds) {
+        val accounts = FakeSettingsAccounts()
+        val vm =
+            SettingsViewModel(
+                accounts,
+                FakeDeviceDirectory(),
+                FakeAccountStatus(),
+                FakeSettingsAppearance(),
+                FakeSettingsSession(),
+                FakeSettingsLanguage()
+            )
+        observe(vm)
+        runCurrent()
+        val events = mutableListOf<SettingsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(SettingsAction.Lock)
+        runCurrent()
+        assertEquals(listOf("a"), accounts.locked)
+        assertEquals(listOf(SettingsEvent.OpenAccount), events)
+    }
+
     @Test fun navigationIsOneShotAndBackFromSubpageStaysInModule() = runTest(timeout = 5.seconds) {
         val vm =
             SettingsViewModel(

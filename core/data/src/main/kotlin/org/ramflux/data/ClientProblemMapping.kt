@@ -3,7 +3,10 @@
 
 package org.ramflux.data
 
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import org.ramflux.sdk.CoreError
+import org.ramflux.sdk.CoreResult
 import org.ramflux.sdk.Effect
 
 internal fun CoreError.appProblem(): ClientProblem = ClientProblem(
@@ -20,3 +23,7 @@ internal fun CoreError.appProblem(): ClientProblem = ClientProblem(
     statusName = statusName,
     check = reasonCode,
 )
+
+/** As [CoreError.appProblem], plus the public retry wait the SDK attached to the refusal. */
+internal fun CoreResult.Failure.appProblem(): ClientProblem =
+    error.appProblem().copy(retryAfterSecs = (details?.get("retry_after_secs") as? JsonPrimitive)?.longOrNull)

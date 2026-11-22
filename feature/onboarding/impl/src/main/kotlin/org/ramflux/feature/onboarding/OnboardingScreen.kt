@@ -31,7 +31,8 @@ fun OnboardingScreen(
 ) {
     val theme = LocalRFTheme.current
     val challenge = remember { ChallengeEntry() }
-    val unlockPassphrase = remember { ErasableBuffer() }
+    val unlockCode = remember { ErasableBuffer() }
+    val recovery = remember { RecoveryEntry() }
     Scaffold(modifier = modifier.testTag("onboarding-window"), contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
         val frame = Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)
         if (state.page == OnboardingPage.CREATE) {
@@ -235,18 +236,25 @@ fun OnboardingScreen(
                             OnboardingPage.CHALLENGE -> ChallengePage(state, challenge)
                             OnboardingPage.CREATED -> CreatedAccountPage(state)
                             OnboardingPage.LOCAL_UNLOCK -> {
-                                Text(stringResource(R.string.ui_data_passphrase_explanation))
-                                ErasableSecretField(
-                                    unlockPassphrase,
-                                    stringResource(R.string.ui_data_passphrase),
-                                    "unlock-passphrase",
+                                AccountCodeField(
+                                    unlockCode,
+                                    stringResource(R.string.ui_account_code),
+                                    "unlock-code",
                                     enabled = !state.busy,
-                                    password = true,
-                                    limit = 128,
-                                    onEdited = {}
+                                    helper = stringResource(R.string.ui_account_code_explanation)
                                 )
+                                state.recoverAccountId?.let { id ->
+                                    KitButton(
+                                        stringResource(R.string.ui_recover_with_phrase),
+                                        { onAction(OnboardingAction.BeginRecover(id)) },
+                                        kind = KitButtonKind.Secondary,
+                                        enabled = !state.busy,
+                                        tag = "recover-locked"
+                                    )
+                                }
                             }
-                            OnboardingPage.PAIR, OnboardingPage.RECOVER -> {
+                            OnboardingPage.RECOVER -> RecoverPage(state, recovery, onAction)
+                            OnboardingPage.PAIR -> {
                                 Text(
                                     stringResource(R.string.ui_secure_setup_is_unavailable_no_account_phrase_or)
                                 )
@@ -261,7 +269,7 @@ fun OnboardingScreen(
                         }
                     }
                 }
-                OnboardingFooter(state, challenge, unlockPassphrase, onAction)
+                OnboardingFooter(state, challenge, unlockCode, recovery, onAction)
             }
         }
     }
@@ -271,7 +279,8 @@ fun OnboardingScreen(
 private fun OnboardingFooter(
     state: OnboardingState,
     challenge: ChallengeEntry,
-    unlockPassphrase: ErasableBuffer,
+    unlockCode: ErasableBuffer,
+    recovery: RecoveryEntry,
     onAction: (OnboardingAction) -> Unit
 ) {
     val theme = LocalRFTheme.current
@@ -311,16 +320,24 @@ private fun OnboardingFooter(
             )
             OnboardingPage.CHALLENGE -> KitButton(
                 stringResource(R.string.ui_confirm_account),
-                { onAction(OnboardingAction.ConfirmChallenge(challenge.words, challenge.passphrase)) },
+                { onAction(OnboardingAction.ConfirmChallenge(challenge.words, challenge.code)) },
                 enabled = !state.busy && challenge.ready(state.challengePositions.size),
                 tag = "confirm-account"
             )
             OnboardingPage.LOCAL_UNLOCK -> KitButton(
                 stringResource(R.string.ui_unlock),
-                { onAction(OnboardingAction.SubmitUnlock(unlockPassphrase)) },
+                { onAction(OnboardingAction.SubmitUnlock(unlockCode)) },
                 enabled = !state.busy,
                 tag = "unlock-account"
             )
+            OnboardingPage.RECOVER -> if (state.recovery != null) {
+                KitButton(
+                    stringResource(R.string.ui_recover_account_action),
+                    { onAction(OnboardingAction.ConfirmRecover(recovery.phrase, recovery.code)) },
+                    enabled = !state.busy && recovery.ready(),
+                    tag = "confirm-recovery"
+                )
+            }
             OnboardingPage.CREATED -> KitButton(
                 stringResource(R.string.ui_continue_into_the_account),
                 { onAction(OnboardingAction.ContinueCreated) },

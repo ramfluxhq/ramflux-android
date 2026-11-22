@@ -69,7 +69,7 @@ internal object ReplyCodec {
                         diagnostic(parser, envelope, "message"),
                     )
                 }
-                CoreResult.Failure(error(code, effect, status, reason), operationId)
+                CoreResult.Failure(error(code, effect, status, reason), operationId, retryDetails(parser, envelope))
             }
         }
     } catch (_: Exception) {
@@ -143,6 +143,22 @@ internal object ReplyCodec {
             CoreResult.Failure(CoreError.InvalidResponse(), operationId)
         } finally { reply.body.fill(0) }
     }
+
+    /**
+     * The only refusal detail lifted from a secret method's error frame: the public wait the SDK
+     * reports in `response.body.retry_after_secs` (for example a rate-limited account code check).
+     */
+    private fun retryDetails(parser: ByteJson, envelope: ByteJson.Node): JsonObject? = try {
+        val response = parser.field(envelope, "response")?.takeIf { it.kind == 123 }
+        val body = response?.let { parser.field(it, "body") }?.takeIf { it.kind == 123 }
+        val wait = body?.let { parser.field(it, "retry_after_secs") }
+        if (wait == null || wait.kind == 34 || wait.end - wait.start > 9) null
+        else JsonObject(mapOf(RETRY_AFTER_SECS to JsonPrimitive(parser.integer(wait))))
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+
+    const val RETRY_AFTER_SECS = "retry_after_secs"
 
     private fun statusName(parser: ByteJson, envelope: ByteJson.Node): String? {
         return namedErrorField(parser, envelope, "code")

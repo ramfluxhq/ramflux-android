@@ -18,6 +18,8 @@ data class ClientProblem(
     val reason: ClientFailureReason? = null,
     val statusName: String? = null,
     val check: String? = null,
+    /** A wait the SDK reported before the same request may be tried again (seconds). */
+    val retryAfterSecs: Long? = null,
 )
 data class ClientSnapshot(val phase: ClientPhase = ClientPhase.CLOSED, val generation: Long = 0, val problem: ClientProblem? = null)
 enum class UnavailableReason { FEATURE_NOT_INSTALLED, UNSUPPORTED_BY_CORE, CUSTODY_PROVIDER_REQUIRED }

@@ -19,9 +19,16 @@ interface AccountAccessRepository {
     suspend fun select(id: String): ClientResult<Unit>
     suspend fun setup(action: AccountSetupAction): ClientResult<Unit>
 
-    /** A locked account stays locked until this call. The passphrase array is wiped before return. */
-    suspend fun unlock(id: String, passphrase: CharArray): ClientResult<Unit> {
-        passphrase.fill('\u0000')
+    /**
+     * A locked account stays locked until this call with its six-digit account code. The code array
+     * is wiped before return. Refusals carry the SDK's names (see [accountCodeRefusal]) and waits.
+     */
+    suspend fun unlock(id: String, code: CharArray): ClientResult<Unit> {
+        code.fill('\u0000')
         return ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
     }
+
+    /** Explicit lock: closes the account's data; only its account code opens it again on this device. */
+    suspend fun lock(id: String): ClientResult<Unit> =
+        ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
 }
