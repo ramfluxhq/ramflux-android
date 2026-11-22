@@ -26,7 +26,7 @@ import org.ramflux.sdk.SecretBody
 import org.ramflux.sdk.SubscriptionFilter
 import org.ramflux.sdk.CallHistoryEntry
 
-class DefaultMessageHistoryRepository(private val transport: RepositoryTransport) : MessageHistoryRepository {
+class DefaultMessageHistoryRepository(private val transport: RepositoryTransport) : MessageHistoryRepository, AttachmentHost {
     constructor(client: org.ramflux.sdk.CoreClient) : this(SdkRepositoryTransport { client })
     private val source = DefaultConversationsRepository(transport)
     private val groups = DefaultGroupDirectoryRepository(transport)
@@ -34,6 +34,8 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
     private val mutations = linkedMapOf<String, Attempt<Unit>>()
     private val devices = DefaultDeviceDirectoryRepository(transport)
     private val readers = HashMap<String, String>()
+
+    override fun repositoryTransport(): RepositoryTransport = transport
 
     override suspend fun groupHeader(account: String, group: String, conversation: String): ClientResult<ConversationHeader> {
         if (!identity(account) || !identity(group) || !identity(conversation)) return invalid()
