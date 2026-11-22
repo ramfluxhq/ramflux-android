@@ -44,6 +44,7 @@ internal object RfMetrics {
     /** Home-indicator safe bottom of the 393x852 design frame (tokens frame.mobile.homeIndicatorSafeBottom). */
     val homeSafeBottom = 34f
     val rail = 80f
+    val secretGap = 8f
     val railGap = 4f
     val railPadH = 4f
     val tabGap = 2f

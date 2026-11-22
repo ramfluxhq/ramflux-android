@@ -3,13 +3,26 @@
 
 package org.ramflux.designsystem.kit
 
+import android.graphics.Paint
+import android.graphics.Typeface
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -62,6 +75,76 @@ fun LtrCode(
                 val spoken = if (group.all { it.isDigit() }) group.toList().joinToString(SPACE.toString()) else null
                 KitText(group, Modifier.semantics { if (spoken != null) contentDescription = spoken }, style = style)
             }
+        }
+    }
+}
+
+/**
+ * Secret words that must never become a String, such as the one-time recovery phrase: the [LtrCode] rules
+ * (left to right in every locale, the mono face, numbered words in reading order, text size from the font
+ * scale) applied to borrowed character arrays. [draw] lends word `index`'s characters only while a frame
+ * is drawn; nothing is copied, laid out as a String or exposed to accessibility, so the owner's
+ * show-once and erasure guarantees hold. Numbers are ASCII. The columns follow the available width;
+ * a word longer than a column is narrowed to fit instead of overlapping its neighbour.
+ */
+@Composable
+fun LtrSecretWords(
+    count: Int,
+    draw: (Int, (CharArray) -> Unit) -> Unit,
+    modifier: Modifier = Modifier,
+    tag: String? = null
+) {
+    val theme = LocalRFTheme.current
+    val density = LocalDensity.current
+    val typeface = LocalFontFamilyResolver.current.resolve(RfFonts.mono).value as? Typeface ?: Typeface.MONOSPACE
+    val color = theme.text.toArgb()
+    val textPx = with(density) { theme.size_body.sp.toPx() }
+    val paint = remember(typeface, textPx, color) {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.typeface = typeface
+            textSize = textPx
+            this.color = color
+        }
+    }
+    val numberStyle = kitStyle(theme.size_body, FontWeight.Normal, theme.secondary, RfMetrics.lineBody, RfFonts.mono)
+    val gap = dp(RfMetrics.secretGap)
+    val line = with(density) { (theme.size_body * RfMetrics.lineBody).sp.toDp() }
+    val numberWidth = with(density) { (textPx * MONO_ADVANCE * (count.toString().length + 1)).toDp() }
+    val wordWidth = with(density) { (textPx * MONO_ADVANCE * SECRET_WORD_CHARS).toDp() }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        BoxWithConstraints(modifier.fillMaxWidth().kitTag(tag)) {
+            val columns = (maxWidth / (numberWidth + wordWidth + gap)).toInt().coerceAtLeast(1)
+            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                for (row in 0 until (count + columns - 1) / columns) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        for (column in 0 until columns) {
+                            val index = row * columns + column
+                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                if (index < count) {
+                                    KitText((index + 1).toString(), Modifier.width(numberWidth), style = numberStyle)
+                                    SecretWord(index, draw, paint, Modifier.weight(1f).height(line).kitTag(tag?.let { "$it-$index" }))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SecretWord(index: Int, draw: (Int, (CharArray) -> Unit) -> Unit, paint: Paint, modifier: Modifier) {
+    Canvas(modifier) {
+        val metrics = paint.fontMetrics
+        val baseline = size.height / 2f - (metrics.ascent + metrics.descent) / 2f
+        draw(index) { chars ->
+            val width = paint.measureText(chars, 0, chars.size)
+            val canvas = drawContext.canvas.nativeCanvas
+            val save = canvas.save()
+            if (width > size.width && width > 0f) canvas.scale(size.width / width, 1f)
+            canvas.drawText(chars, 0, chars.size, 0f, baseline, paint)
+            canvas.restoreToCount(save)
         }
     }
 }
@@ -122,4 +205,7 @@ fun untrustedDisplay(value: String, kind: UntrustedKind): String =
     if (kind == UntrustedKind.FileName) Bidi.fileName(value) else Bidi.sanitize(value, kind)
 
 private const val MONO_ADVANCE = 0.6f
+
+// Room for the longest common recovery word (eight letters) plus a space.
+private const val SECRET_WORD_CHARS = 9
 private const val SPACE = ' '

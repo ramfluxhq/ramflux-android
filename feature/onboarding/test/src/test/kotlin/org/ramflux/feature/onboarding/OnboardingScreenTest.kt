@@ -366,6 +366,9 @@ class OnboardingScreenTest {
         assertTrue(secretInfo.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0)
         assertFalse(word.masksInput())
         assertTrue(secret.masksInput())
+        assertTrue(wordInfo.imeOptions and EditorInfo.IME_FLAG_FORCE_ASCII != 0)
+        assertEquals(View.LAYOUT_DIRECTION_LTR, word.layoutDirection)
+        assertEquals(View.LAYOUT_DIRECTION_LTR, secret.layoutDirection)
         compose.onNodeWithTag("confirm-account").performClick()
         compose.waitForIdle()
         val action = actions.single() as OnboardingAction.ConfirmChallenge

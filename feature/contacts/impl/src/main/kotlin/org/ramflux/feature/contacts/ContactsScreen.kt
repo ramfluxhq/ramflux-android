@@ -157,8 +157,10 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
                             when (state.page) {
                                 ContactsPage.SAFETY -> item("safety") {
                                     state.safety?.let { safety ->
-                                        Text(safety.number)
-                                        Text(stringResource(R.string.contacts_fingerprint, safety.fingerprint))
+                                        // Left to right in groups of five in every locale; the fingerprint is a
+                                        // typed code argument, isolated inside the translated sentence.
+                                        LtrCode(safety.number, groupSize = SAFETY_GROUP, tag = "contacts-safety-number")
+                                        Text(uiText(R.string.contacts_fingerprint, UiText.Code(safety.fingerprint)).render())
                                     }
                                     KitSecurityWarning(
                                         stringResource(R.string.contacts_safety),
@@ -276,3 +278,5 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
 private fun OperationButton(label: Int, operation: ContactOperation, disabled: Boolean, onAction: (ContactsAction) -> Unit) {
     TextButton(enabled = !disabled, onClick = { onAction(ContactsAction.Operate(operation)) }) { Text(stringResource(label)) }
 }
+
+private const val SAFETY_GROUP = 5
