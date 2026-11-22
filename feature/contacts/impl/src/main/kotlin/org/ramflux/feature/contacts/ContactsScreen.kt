@@ -135,6 +135,7 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
                                     value = row.principal,
                                     leading = { KitAvatar(row.label.take(1), 36f, KitAvatarKind.Person) },
                                     trailingContent = { Text(row.status.render()) },
+                                    peer = true,
                                     testTag = row.id
                                 )
                             }
@@ -147,10 +148,11 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
                                     value = row.principal,
                                     leading = { KitAvatar(row.label.take(1), 36f, KitAvatarKind.Person) },
                                     trailing = KitRowTrailing.None,
+                                    peer = true,
                                     testTag = row.id
                                 )
                                 Text(row.status.render())
-                                row.note?.let { Text(it) }
+                                row.note?.let { UntrustedText(it, kind = UntrustedKind.Excerpt) }
                                 row.count?.let { Text(it.render()) }
                                 row.expires?.let { Text(stringResource(R.string.contacts_expires, it.render())) }
                             }

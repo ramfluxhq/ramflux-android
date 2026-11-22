@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
@@ -60,7 +61,11 @@ fun KitInfoButton(onClick: () -> Unit, modifier: Modifier = Modifier, label: Str
     }
 }
 
-/** A settings or action row. Label and value wrap instead of clipping; the row grows from its 58 dp frame. */
+/**
+ * A settings or action row. Label and value wrap instead of clipping; the row grows from its 58 dp frame.
+ * With [peer], the label is peer-supplied (a contact or group name): it is neutralised and laid out in its
+ * own content direction, so it cannot reorder the row. The value stays host text.
+ */
 @Composable
 fun KitRow(
     label: String,
@@ -75,12 +80,15 @@ fun KitRow(
     divider: Boolean = true,
     leading: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
+    peer: Boolean = false,
     testTag: String? = null
 ) {
     val theme = LocalRFTheme.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val tappable = enabled && !locked
+    val shownLabel = if (peer) untrustedDisplay(label, UntrustedKind.Name) else label
+    val direction = if (peer) TextDirection.Content else TextDirection.Unspecified
     Row(
         modifier
             .fillMaxWidth()
@@ -102,9 +110,9 @@ fun KitRow(
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.labelGap))) {
             KitText(
-                label,
+                shownLabel,
                 designLine = true,
-                style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.text, RfMetrics.lineTitle)
+                style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.text, RfMetrics.lineTitle).copy(textDirection = direction)
             )
             if (!value.isNullOrEmpty()) {
                 KitText(
@@ -186,7 +194,7 @@ fun KitConversationRow(
                     modifier = Modifier.weight(1f, fill = false),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
+                    style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle).copy(textDirection = TextDirection.Content)
                 )
                 if (muted) KitIcon("bell-off", RfMetrics.metaIcon, theme.secondary)
                 Box(Modifier.weight(1f))
@@ -200,7 +208,7 @@ fun KitConversationRow(
                 if (!sender.isNullOrEmpty()) {
                     KitText(
                         untrustedDisplay(sender, UntrustedKind.Excerpt),
-                        style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody)
+                        style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody).copy(textDirection = TextDirection.Content)
                     )
                 }
                 KitText(
@@ -208,7 +216,7 @@ fun KitConversationRow(
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = kitStyle(theme.size_body, FontWeight.Normal, theme.secondary, RfMetrics.lineBody)
+                    style = kitStyle(theme.size_body, FontWeight.Normal, theme.secondary, RfMetrics.lineBody).copy(textDirection = TextDirection.Content)
                 )
                 if (!badge.isNullOrEmpty()) {
                     Box(

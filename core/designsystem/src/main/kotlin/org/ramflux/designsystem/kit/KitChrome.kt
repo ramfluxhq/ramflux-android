@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -178,7 +179,7 @@ fun KitChatHeader(
                 designLine = true,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
+                style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle).copy(textDirection = TextDirection.Content)
             )
             if (!subtitle.isNullOrEmpty()) {
                 KitText(
@@ -186,7 +187,7 @@ fun KitChatHeader(
                     designLine = true,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineMeta())
+                    style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineMeta()).copy(textDirection = TextDirection.Content)
                 )
             }
         }

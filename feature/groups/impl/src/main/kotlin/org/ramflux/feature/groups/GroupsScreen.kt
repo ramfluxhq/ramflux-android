@@ -17,6 +17,7 @@ import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.kit.KitRow
 import org.ramflux.designsystem.kit.KitRowTrailing
 import org.ramflux.designsystem.kit.KitSearchField
+import org.ramflux.designsystem.kit.UntrustedText
 import org.ramflux.feature.groups.impl.R
 
 @Composable
@@ -122,6 +123,7 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                                     { onAction(GroupsAction.Page(GroupsPage.DETAIL, row.id)) },
                                     value = row.count.render().takeIf { it.isNotEmpty() },
                                     trailing = KitRowTrailing.None,
+                                    peer = true,
                                     testTag = row.id
                                 )
                             }
@@ -140,6 +142,7 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                                     { onAction(GroupsAction.Page(GroupsPage.INVITATION, row.id)) },
                                     value = row.expiry.render().takeIf { it.isNotEmpty() },
                                     trailing = KitRowTrailing.None,
+                                    peer = true,
                                     testTag = row.id
                                 )
                             }
@@ -155,7 +158,7 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                             ) { Text(stringResource(R.string.groups_review_create)) }
                         }
                         GroupsPage.DETAIL -> item("detail") {
-                            Text(state.title ?: state.selected.orEmpty(), style = MaterialTheme.typography.titleLarge)
+                            UntrustedText(state.title ?: state.selected.orEmpty(), style = MaterialTheme.typography.titleLarge)
                             Text(state.selected.orEmpty())
                             Text(stringResource(R.string.groups_epoch, state.epoch.render()))
                             if (!state.authorityFresh) Text(stringResource(R.string.groups_last_confirmed))
@@ -212,7 +215,7 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                                     TextButton(
                                         enabled = !state.busy && state.pending == null,
                                         onClick = { onAction(GroupsAction.Add(contact.id)) }
-                                    ) { Text(contact.title) }
+                                    ) { UntrustedText(contact.title) }
                                 }
                             }
                         }
@@ -233,10 +236,10 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                         GroupsPage.INVITATION -> {
                             items(listOfNotNull(state.selectedInvitation), key = { it.id }) { invitation ->
                                 Column {
-                                    Text(invitation.title, style = MaterialTheme.typography.titleLarge)
+                                    UntrustedText(invitation.title, style = MaterialTheme.typography.titleLarge)
                                     Text(invitation.id)
-                                    Text(stringResource(R.string.groups_creator, invitation.creator))
-                                    Text(stringResource(R.string.groups_inviter, invitation.inviter))
+                                    Text(uiText(R.string.groups_creator, UiText.Untrusted(invitation.creator)).render())
+                                    Text(uiText(R.string.groups_inviter, UiText.Untrusted(invitation.inviter)).render())
                                     Text(invitation.expiry.render())
                                     TextButton(enabled = !state.busy && state.pending == null, onClick = {
                                         onAction(GroupsAction.Invitation(true))
