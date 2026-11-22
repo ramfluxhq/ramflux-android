@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
@@ -20,8 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.UntrustedKind
 
 @Composable
 fun KitComposer(
@@ -43,6 +47,11 @@ fun KitComposer(
     attachmentName: String? = null,
     attachmentState: String? = null,
     onRemoveAttachment: (() -> Unit)? = null,
+    maxLines: Int = 1,
+    enabled: Boolean = true,
+    sendLabel: String = "send",
+    attachLabel: String = "plus",
+    closeLabel: String = "x",
     tag: String? = null
 ) {
     val theme = LocalRFTheme.current
@@ -53,7 +62,7 @@ fun KitComposer(
         if (!mode.isNullOrEmpty()) {
             Row(
                 Modifier
-                    .height(dp(RfMetrics.modeChip))
+                    .heightIn(min = dp(RfMetrics.modeChip))
                     .background(theme.surface, shapeOf(theme.radius_chip))
                     .padding(horizontal = dp(RfMetrics.modePad)),
                 verticalAlignment = Alignment.CenterVertically,
@@ -65,7 +74,7 @@ fun KitComposer(
         }
         if (!option.isNullOrEmpty()) {
             Row(
-                Modifier.fillMaxWidth().height(dp(RfMetrics.optionRow)).padding(horizontal = dp(RfMetrics.headerGap)),
+                Modifier.fillMaxWidth().heightIn(min = dp(RfMetrics.optionRow)).padding(horizontal = dp(RfMetrics.headerGap)),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.approvalGap))
             ) {
@@ -75,7 +84,8 @@ fun KitComposer(
         }
         if (!replyAuthor.isNullOrEmpty()) {
             Row(
-                Modifier.fillMaxWidth().height(
+                Modifier.fillMaxWidth().heightIn(
+                    min =
                     dp(RfMetrics.replyBar)
                 ).padding(start = dp(RfMetrics.gutter), top = dp(RfMetrics.capsulePad), bottom = dp(RfMetrics.capsulePad)),
                 verticalAlignment = Alignment.CenterVertically,
@@ -88,18 +98,28 @@ fun KitComposer(
                     ).clip(shapeOf(RfMetrics.replyRadius)).background(theme.accent)
                 )
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.labelGap))) {
-                    KitText(replyAuthor, style = kitStyle(theme.size_secondary, FontWeight.SemiBold, theme.text, RfMetrics.lineSecondary))
+                    KitText(
+                        untrustedDisplay(replyAuthor, UntrustedKind.Excerpt),
+                        style = kitStyle(theme.size_secondary, FontWeight.SemiBold, theme.text, RfMetrics.lineSecondary),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     if (!replyExcerpt.isNullOrEmpty()) {
-                        KitText(replyExcerpt, style = kitStyle(theme.size_button, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle))
+                        KitText(
+                            untrustedDisplay(replyExcerpt, UntrustedKind.Excerpt),
+                            style = kitStyle(theme.size_button, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
-                if (onCloseReply != null) IconHit("x", RfMetrics.iconInfo, theme.secondary, onCloseReply)
+                if (onCloseReply != null) IconHit("x", RfMetrics.iconInfo, theme.secondary, onCloseReply, closeLabel)
             }
         }
         if (!attachmentName.isNullOrEmpty()) {
             Row(
                 Modifier
-                    .height(dp(RfMetrics.attachment))
+                    .heightIn(min = dp(RfMetrics.attachment))
                     .background(theme.surface, shapeOf(theme.radius_md))
                     .padding(start = dp(RfMetrics.headerGap)),
                 verticalAlignment = Alignment.CenterVertically,
@@ -117,18 +137,20 @@ fun KitComposer(
                         KitText(attachmentState, style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle))
                     }
                 }
-                if (onRemoveAttachment != null) IconHit("x", RfMetrics.fieldIcon, theme.secondary, onRemoveAttachment)
+                if (onRemoveAttachment != null) IconHit("x", RfMetrics.fieldIcon, theme.secondary, onRemoveAttachment, closeLabel)
             }
         }
         Row(
-            Modifier.fillMaxWidth().height(dp(RfMetrics.composerRow)),
+            Modifier.fillMaxWidth().heightIn(min = dp(RfMetrics.composerRow)),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))
         ) {
             Box(
                 Modifier.size(
                     dp(RfMetrics.iconButton)
-                ).alpha(if (attachEnabled) 1f else RfMetrics.disabledAlpha).clickableNoRipple(attachEnabled, onAttach),
+                ).alpha(if (attachEnabled) 1f else RfMetrics.disabledAlpha)
+                    .semantics { contentDescription = attachLabel }
+                    .clickableNoRipple(attachEnabled, onAttach),
                 contentAlignment = Alignment.Center
             ) {
                 KitIcon("plus", RfMetrics.attachIcon, theme.secondary)
@@ -136,7 +158,7 @@ fun KitComposer(
             Row(
                 Modifier
                     .weight(1f)
-                    .height(dp(RfMetrics.composerRow))
+                    .heightIn(min = dp(RfMetrics.composerRow))
                     .clip(shapeOf(RfMetrics.capsuleRadius))
                     .background(theme.input)
                     .border(dp(RfMetrics.stroke), theme.input_border, shapeOf(RfMetrics.capsuleRadius))
@@ -152,8 +174,10 @@ fun KitComposer(
                 BasicTextField(
                     value = value,
                     onValueChange = onValue,
-                    singleLine = true,
-                    textStyle = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.text, RfMetrics.lineTitle),
+                    enabled = enabled,
+                    singleLine = maxLines == 1,
+                    maxLines = maxLines,
+                    textStyle = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.text, RfMetrics.lineTitle).forScript(value),
                     cursorBrush = SolidColor(theme.focus),
                     modifier = Modifier.weight(1f),
                     decorationBox = { inner ->
@@ -173,7 +197,7 @@ fun KitComposer(
                     slotWidth = RfMetrics.send,
                     slotHeight = RfMetrics.send,
                     enabled = sendActive,
-                    label = "send",
+                    label = sendLabel,
                     tag = if (tag == null) null else tag + "-send"
                 ) {
                     Box(

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,6 +27,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.generated.RFDesign
 
@@ -74,7 +76,7 @@ fun KitButton(
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(dp(height))
+                .heightIn(min = dp(height))
                 .alpha(pressedAlpha * disabledAlpha)
                 .kitBackdrop()
                 .background(fill, shape)
@@ -97,7 +99,7 @@ fun KitButton(
         Box(
             modifier
                 .fillMaxWidth()
-                .height(dp(height))
+                .heightIn(min = dp(height))
                 .semantics { contentDescription = label }
                 .clickable(interaction, null, enabled = active, role = Role.Button, onClick = onClick)
                 .kitTag(tag)
@@ -111,7 +113,7 @@ fun KitButton(
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(hit)
+                        .heightIn(min = hit)
                         .semantics { contentDescription = label }
                         .clickable(interaction, null, enabled = active, role = Role.Button, onClick = onClick)
                         .kitTag(tag?.let { "$it-hit" }),
@@ -122,9 +124,11 @@ fun KitButton(
             val hitPx = hit.roundToPx()
             val drawnPx = drawn.roundToPx()
             val placeable = measurables[0].measure(
-                constraints.copy(minWidth = constraints.maxWidth, minHeight = hitPx, maxHeight = hitPx)
+                constraints.copy(minWidth = constraints.maxWidth, minHeight = hitPx, maxHeight = Constraints.Infinity)
             )
-            layout(placeable.width, drawnPx) { placeable.placeRelative(0, (drawnPx - hitPx) / 2) }
+            // The drawn frame keeps the compact height; a label taller than the hit frame grows the button.
+            val height = if (placeable.height > hitPx) placeable.height else drawnPx
+            layout(placeable.width, height) { placeable.placeRelative(0, (height - placeable.height) / 2) }
         }
     }
 }

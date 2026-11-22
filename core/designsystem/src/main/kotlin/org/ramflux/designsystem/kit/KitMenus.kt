@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -27,6 +29,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import org.ramflux.designsystem.LocalRFTheme
 
 data class KitMenuEntry(val label: String, val icon: String, val danger: Boolean = false, val groupBefore: Boolean = false)
@@ -37,7 +40,8 @@ fun KitContextMenu(entries: List<KitMenuEntry>, onSelect: (Int) -> Unit, modifie
     val shape = shapeOf(theme.radius_menu)
     Column(
         modifier
-            .width(dp(RfMetrics.menu))
+            .widthIn(max = dp(RfMetrics.menu))
+            .fillMaxWidth()
             .border(dp(RfMetrics.stroke), theme.overlay_border, shape)
             .background(theme.overlay, shape)
             .kitTag(tag)
@@ -68,11 +72,15 @@ private fun MenuRun(entries: List<KitMenuEntry>, offset: Int, onSelect: (Int) ->
         val visualPx = visual.roundToPx()
         val hitPx = hit.roundToPx()
         val placeables = measurables.map {
-            it.measure(constraints.copy(minWidth = constraints.maxWidth, minHeight = hitPx, maxHeight = hitPx))
+            it.measure(constraints.copy(minWidth = constraints.maxWidth, minHeight = hitPx, maxHeight = Constraints.Infinity))
         }
-        layout(constraints.maxWidth, visualPx * placeables.size) {
+        // Each row draws at least the item height; a label that wraps grows its row and its hit frame.
+        val drawn = placeables.map { maxOf(visualPx, it.height - (hitPx - visualPx)) }
+        layout(constraints.maxWidth, drawn.sum()) {
+            var y = 0
             placeables.forEachIndexed { index, placeable ->
-                placeable.placeRelative(0, index * visualPx - (hitPx - visualPx) / 2)
+                placeable.placeRelative(0, y + (drawn[index] - placeable.height) / 2)
+                y += drawn[index]
             }
         }
     }
@@ -87,7 +95,7 @@ private fun KitMenuItem(entry: KitMenuEntry, hairline: Boolean, hitTag: String, 
     Box(
         Modifier
             .fillMaxWidth()
-            .height(dp(RfMetrics.hit))
+            .heightIn(min = dp(RfMetrics.hit))
             .semantics { contentDescription = entry.label }
             .clickableNoRipple(interaction, true, onClick)
             .kitTag("menu-hit-" + hitTag),
@@ -96,7 +104,7 @@ private fun KitMenuItem(entry: KitMenuEntry, hairline: Boolean, hitTag: String, 
         Row(
             Modifier
                 .fillMaxWidth()
-                .height(dp(RfMetrics.menuItem))
+                .heightIn(min = dp(RfMetrics.menuItem))
                 .background(if (pressed) theme.selected else Color.Transparent)
                 .then(if (hairline) Modifier.kitHairline(theme.line) else Modifier)
                 .padding(horizontal = dp(RfMetrics.menuPad)),
@@ -125,7 +133,7 @@ fun KitReactionBar(
     val shape = shapeOf(theme.radius_menu)
     Row(
         modifier
-            .height(dp(RfMetrics.reaction))
+            .heightIn(min = dp(RfMetrics.reaction))
             .kitBackdrop()
             .border(dp(RfMetrics.stroke), theme.overlay_border, shape)
             .background(theme.overlay, shape)
@@ -144,7 +152,7 @@ fun KitReactionBar(
             ) {
                 Box(
                     Modifier
-                        .size(dp(RfMetrics.reactionCell), dp(RfMetrics.reaction))
+                        .sizeIn(minWidth = dp(RfMetrics.reactionCell), minHeight = dp(RfMetrics.reaction))
                         .kitTag(if (tag == null) null else tag + "-cell-" + index.toString()),
                     contentAlignment = Alignment.Center
                 ) {
@@ -161,7 +169,7 @@ fun KitReactionBar(
         ) {
             Box(
                 Modifier
-                    .size(dp(RfMetrics.reactionCell), dp(RfMetrics.reaction))
+                    .sizeIn(minWidth = dp(RfMetrics.reactionCell), minHeight = dp(RfMetrics.reaction))
                     .background(theme.surface, shapeOf(theme.radius_xs))
                     .kitTag(if (tag == null) null else tag + "-more-cell"),
                 contentAlignment = Alignment.Center
@@ -191,7 +199,7 @@ fun KitDateChip(label: String, modifier: Modifier = Modifier, tag: String? = nul
 fun KitUnreadDivider(label: String, modifier: Modifier = Modifier, tag: String? = null) {
     val theme = LocalRFTheme.current
     Row(
-        modifier.fillMaxWidth().height(dp(RfMetrics.unread)).kitBackdrop().kitTag(tag),
+        modifier.fillMaxWidth().heightIn(min = dp(RfMetrics.unread)).kitBackdrop().kitTag(tag),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.unreadGap))
     ) {

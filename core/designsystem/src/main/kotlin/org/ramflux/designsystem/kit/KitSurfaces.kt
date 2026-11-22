@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -163,7 +163,8 @@ fun KitApprovalCard(
     val theme = LocalRFTheme.current
     Column(
         modifier
-            .width(dp(RfMetrics.approval))
+            .widthIn(max = dp(RfMetrics.approval))
+            .fillMaxWidth()
             .border(dp(RfMetrics.stroke), theme.line, shapeOf(theme.radius_card))
             .background(theme.surface_white, shapeOf(theme.radius_card))
             .kitTag(tag)
@@ -232,7 +233,7 @@ fun KitMonoBlock(value: String, onCopy: () -> Unit, modifier: Modifier = Modifie
 fun KitPairingCode(code: String, modifier: Modifier = Modifier, tag: String? = null) {
     val theme = LocalRFTheme.current
     Box(
-        modifier.fillMaxWidth().height(dp(RfMetrics.pairing)).background(theme.surface, shapeOf(theme.radius_md)).kitTag(tag),
+        modifier.fillMaxWidth().heightIn(min = dp(RfMetrics.pairing)).background(theme.surface, shapeOf(theme.radius_md)).kitTag(tag),
         contentAlignment = Alignment.Center
     ) {
         LtrCode(

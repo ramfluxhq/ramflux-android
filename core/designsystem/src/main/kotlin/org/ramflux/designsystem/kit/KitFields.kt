@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
@@ -64,7 +64,7 @@ fun KitTextField(
             interactionSource = interaction,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(dp(RfMetrics.fieldBox))
+                .heightIn(min = dp(RfMetrics.fieldBox))
                 .background(theme.input, shapeOf(theme.radius_input))
                 .border(dp(borderWidth), border, shapeOf(theme.radius_input))
                 .padding(horizontal = dp(RfMetrics.fieldPad)),
@@ -106,7 +106,7 @@ fun KitSearchField(
     Row(
         modifier
             .fillMaxWidth()
-            .height(dp(RfMetrics.search))
+            .heightIn(min = dp(RfMetrics.search))
             .alpha(if (enabled) 1f else RfMetrics.disabledAlpha)
             .background(theme.surface, shape)
             .then(if (focused) Modifier.border(dp(RfMetrics.focusRing), theme.focus, shape) else Modifier)

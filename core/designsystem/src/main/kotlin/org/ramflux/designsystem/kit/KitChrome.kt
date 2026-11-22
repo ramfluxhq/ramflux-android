@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,6 +25,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import kotlin.math.max
 import org.ramflux.designsystem.LocalRFTheme
 
@@ -35,7 +37,8 @@ data class KitTab(val icon: String, val label: String, val latin: Boolean = fals
 fun KitStatusBar(time: String, modifier: Modifier = Modifier, tag: String? = null) {
     val theme = LocalRFTheme.current
     Row(
-        modifier.fillMaxWidth().height(
+        modifier.fillMaxWidth().heightIn(
+            min =
             dp(RfMetrics.statusBar)
         ).background(theme.bg).kitTag(tag).padding(horizontal = dp(RfMetrics.statusPad)),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -80,7 +83,7 @@ fun KitPageHeader(
     Row(
         modifier
             .fillMaxWidth()
-            .height(dp(RfMetrics.header))
+            .heightIn(min = dp(RfMetrics.header))
             .background(theme.bg)
             .kitHairline(theme.line)
             .kitTag(tag)
@@ -98,6 +101,7 @@ fun KitPageHeader(
             if (title.isNotEmpty()) {
                 KitText(
                     title,
+                    designLine = true,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = if (large) {
@@ -110,6 +114,7 @@ fun KitPageHeader(
             if (large && !subtitle.isNullOrEmpty()) {
                 KitText(
                     subtitle,
+                    designLine = true,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineMeta())
@@ -120,7 +125,7 @@ fun KitPageHeader(
         if (!large && actionLabel != null && onAction != null) {
             Box(
                 Modifier
-                    .height(dp(RfMetrics.hit))
+                    .heightIn(min = dp(RfMetrics.hit))
                     .semantics { contentDescription = actionLabel }
                     .clickableNoRipple(true, onAction)
                     .padding(horizontal = dp(RfMetrics.headerGap)),
@@ -148,7 +153,7 @@ fun KitChatHeader(
     Row(
         modifier
             .fillMaxWidth()
-            .height(dp(RfMetrics.header))
+            .heightIn(min = dp(RfMetrics.header))
             .background(theme.bg)
             .kitHairline(theme.line)
             .kitTag(tag)
@@ -161,6 +166,7 @@ fun KitChatHeader(
         Column(Modifier.weight(1f)) {
             KitText(
                 title,
+                designLine = true,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
@@ -168,6 +174,7 @@ fun KitChatHeader(
             if (!subtitle.isNullOrEmpty()) {
                 KitText(
                     subtitle,
+                    designLine = true,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineMeta())
@@ -183,22 +190,22 @@ fun KitChatHeader(
 fun KitTabBar(tabs: List<KitTab>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, tag: String? = null) {
     val theme = LocalRFTheme.current
     Column(
-        modifier.fillMaxWidth().height(dp(RfMetrics.tabBar)).background(theme.bg).kitHairline(theme.line, top = true).kitTag(tag)
+        modifier.fillMaxWidth().heightIn(min = dp(RfMetrics.tabBar)).background(theme.bg).kitHairline(theme.line, top = true).kitTag(tag)
     ) {
-        Row(Modifier.fillMaxWidth().padding(top = dp(RfMetrics.tabPadTop)).height(dp(RfMetrics.hit))) {
+        Row(Modifier.fillMaxWidth().padding(top = dp(RfMetrics.tabPadTop)).heightIn(min = dp(RfMetrics.hit))) {
             tabs.forEachIndexed { index, tab ->
                 val on = index == selected
                 val tint = if (on) theme.text else theme.secondary
                 Box(
                     Modifier
                         .weight(1f)
-                        .height(dp(RfMetrics.hit))
+                        .heightIn(min = dp(RfMetrics.hit))
                         .semantics { contentDescription = tab.label }
                         .clickableNoRipple(true, { onSelect(index) })
                         .kitTag(tag?.let { "$it-$index" })
                 ) {
                     Column(
-                        Modifier.height(dp(RfMetrics.tab)).align(Alignment.TopCenter),
+                        Modifier.heightIn(min = dp(RfMetrics.tab)).align(Alignment.TopCenter),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.tabGap), Alignment.CenterVertically)
                     ) {
@@ -208,7 +215,7 @@ fun KitTabBar(tabs: List<KitTab>, selected: Int, onSelect: (Int) -> Unit, modifi
                                 Box(
                                     Modifier
                                         .offset(x = dp(RfMetrics.badgeX), y = dp(RfMetrics.badgeY))
-                                        .height(dp(RfMetrics.tabBadge))
+                                        .heightIn(min = dp(RfMetrics.tabBadge))
                                         .widthIn(min = dp(RfMetrics.tabBadgeMin))
                                         .clip(shapeOf(theme.radius_md))
                                         .background(theme.badge)
@@ -257,7 +264,7 @@ fun KitIconButton(
     val theme = LocalRFTheme.current
     val tint = if (enabled) theme.text else theme.control
     if (enabled) {
-        IconHit(icon, RfMetrics.iconAction, tint, onClick, label, tag)
+        IconHit(icon, RfMetrics.iconAction, tint, onClick, label, tag, modifier)
     } else {
         Box(
             modifier.size(dp(RfMetrics.iconButton)).semantics { contentDescription = label }.kitTag(tag),
@@ -275,11 +282,12 @@ internal fun IconHit(
     tint: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit,
     label: String = icon,
-    tag: String? = null
+    tag: String? = null,
+    modifier: Modifier = Modifier
 ) {
     val hit = dp(RfMetrics.hit)
     val slot = dp(RfMetrics.iconButton)
-    Layout(content = {
+    Layout(modifier = modifier, content = {
         Box(
             Modifier
                 .size(hit)
@@ -300,7 +308,11 @@ internal fun IconHit(
     }
 }
 
-/** Reports the drawn slot and places a hit target at least 48 dp on each side. */
+/**
+ * Reports the drawn slot and places a hit target at least 48 dp on each side over it. [slotWidth] and
+ * [slotHeight] are the drawn minimum; content that needs more room, such as text at a large font scale,
+ * grows the slot and the hit target with it.
+ */
 @Composable
 internal fun HitOverlap(
     onClick: () -> Unit,
@@ -316,27 +328,27 @@ internal fun HitOverlap(
     val width = slotWidth?.let { dp(it) }
     val height = slotHeight?.let { dp(it) }
     Layout(modifier = modifier, content = {
+        Box(contentAlignment = Alignment.Center) { content() }
         Box(
             Modifier
                 .semantics {
                     if (label != null) contentDescription = label
                 }
                 .clickableNoRipple(enabled, onClick)
-                .kitTag(tag),
-            contentAlignment = Alignment.Center
-        ) {
-            content()
-        }
+                .kitTag(tag)
+        )
     }) { measurables, constraints ->
         val hitPx = hit.roundToPx()
-        val slotW = width?.roundToPx() ?: constraints.maxWidth
-        val slotH = height?.roundToPx() ?: constraints.maxHeight
-        val hitW = max(slotW, hitPx)
-        val hitH = max(slotH, hitPx)
-        val placeable = measurables[0].measure(
-            constraints.copy(minWidth = hitW, maxWidth = hitW, minHeight = hitH, maxHeight = hitH)
-        )
-        layout(slotW, slotH) { placeable.placeRelative((slotW - hitW) / 2, (slotH - hitH) / 2) }
+        val minW = (width?.roundToPx() ?: 0).coerceIn(constraints.minWidth, constraints.maxWidth)
+        val minH = (height?.roundToPx() ?: 0).coerceIn(constraints.minHeight, constraints.maxHeight)
+        val drawn = measurables[0].measure(constraints.copy(minWidth = minW, minHeight = minH))
+        val hitW = max(drawn.width, hitPx)
+        val hitH = max(drawn.height, hitPx)
+        val target = measurables[1].measure(Constraints.fixed(hitW, hitH))
+        layout(drawn.width, drawn.height) {
+            drawn.placeRelative(0, 0)
+            target.placeRelative((drawn.width - hitW) / 2, (drawn.height - hitH) / 2)
+        }
     }
 }
 

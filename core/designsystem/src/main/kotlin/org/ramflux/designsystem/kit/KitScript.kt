@@ -6,11 +6,13 @@ package org.ramflux.designsystem.kit
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 
 /** What the kit needs to know about the scripts in one string. */
 internal enum class KitScript {
@@ -83,7 +85,13 @@ internal fun TextStyle.forScript(text: String): TextStyle {
 
 private fun androidx.compose.ui.unit.TextUnit.isSpecified(): Boolean = this != androidx.compose.ui.unit.TextUnit.Unspecified
 
-/** Every text drawn by the kit goes through here, so script rules hold in one place. */
+/**
+ * Every text drawn by the kit goes through here, so script rules hold in one place.
+ *
+ * [designLine] makes the text report the design line box (line count times the style line height) when the
+ * platform font is taller than it, as the CJK faces are; the glyphs stay centred and are not clipped. Rows
+ * and headers use it so their design frames hold at the default font scale and grow at larger ones.
+ */
 @Composable
 internal fun KitText(
     text: String,
@@ -91,8 +99,26 @@ internal fun KitText(
     style: TextStyle,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
-    textAlign: TextAlign? = null
+    textAlign: TextAlign? = null,
+    designLine: Boolean = false
 ) {
     val resolved = style.forScript(text).let { if (textAlign == null) it else it.copy(textAlign = textAlign) }
-    Text(text, modifier, style = resolved, maxLines = maxLines, overflow = overflow)
+    if (!designLine || !resolved.lineHeight.isSpecified()) {
+        Text(text, modifier, style = resolved, maxLines = maxLines, overflow = overflow)
+        return
+    }
+    var lines = 1
+    Text(
+        text,
+        modifier.layout { measurable, constraints ->
+            val placeable = measurable.measure(constraints)
+            val box = (resolved.lineHeight.toPx() * lines).roundToInt()
+            val height = minOf(placeable.height, maxOf(box, constraints.minHeight))
+            layout(placeable.width, height) { placeable.placeRelative(0, (height - placeable.height) / 2) }
+        },
+        style = resolved,
+        maxLines = maxLines,
+        overflow = overflow,
+        onTextLayout = { lines = it.lineCount }
+    )
 }

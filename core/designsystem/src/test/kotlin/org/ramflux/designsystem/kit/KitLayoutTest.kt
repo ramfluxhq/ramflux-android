@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -15,6 +16,7 @@ import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
@@ -272,6 +274,52 @@ class KitLayoutTest {
         check(back.left > 300f) { "back at ${back.left}" }
         val hit = compose.onNodeWithTag("menu-hit-0-0", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         check(hit.right == 393f) { "menu row ends at ${hit.right}" }
+    }
+
+    @Test fun textFramesGrowAtFontScaleTwo() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                val density = LocalDensity.current
+                CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                    Column(Modifier.width(360.dp)) {
+                        KitChatHeader("Title", "Subtitle", { KitAvatar("A", 36f, KitAvatarKind.Person) }, {}, tag = "header")
+                        KitRow("Label", {}, icon = "user-round", value = "Value", testTag = "row")
+                        KitButton("Continue with the existing identity on this device", {}, tag = "button")
+                        KitButton("Enter the pairing code shown on the other device", {}, kind = KitButtonKind.Text, tag = "text")
+                        KitTabBar(listOf(KitTab("messages-square", "Messages")), 0, {}, tag = "tabs")
+                        KitComposer("", {}, "Message", {}, {}, tag = "composer")
+                        KitSegmented(listOf("Scan", "Compare the safety number"), 0, {}, tag = "segments")
+                    }
+                }
+            }
+        }
+        fun height(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().size.height
+        check(height("header") > 60) { "header ${height("header")}" }
+        check(height("row") > 58) { "row ${height("row")}" }
+        check(height("button") > 52) { "button ${height("button")}" }
+        check(height("text") > 44) { "text button ${height("text")}" }
+        check(height("tabs") > 83) { "tabs ${height("tabs")}" }
+        check(height("composer") > 60) { "composer ${height("composer")}" }
+        check(height("segments") > 36) { "segments ${height("segments")}" }
+        compose.onNodeWithTag("segments-0", useUnmergedTree = true).assertHeightIsEqualTo(
+            compose.onNodeWithTag(
+                "segments-1",
+                useUnmergedTree = true
+            ).fetchSemanticsNode().let { with(Density(1f)) { it.size.height.toDp() } }
+        )
+    }
+
+    @Test fun wideKitPartsFitANarrowPane() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column(Modifier.width(200.dp)) {
+                    KitContextMenu(listOf(KitMenuEntry("Reply", "reply")), {}, tag = "menu")
+                    KitApprovalCard("Ada", "Pending", "Title", "Scope", "Detail", "Decline", "Approve", {}, {}, tag = "card")
+                }
+            }
+        }
+        compose.onNodeWithTag("menu").assertWidthIsEqualTo(200.dp)
+        compose.onNodeWithTag("card").assertWidthIsEqualTo(200.dp)
     }
 
     private fun colorAt(tag: String, x: Int, y: Int): Int = capture(tag).getPixel(x, y)

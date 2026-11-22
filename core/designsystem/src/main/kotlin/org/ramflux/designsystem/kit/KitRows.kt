@@ -9,10 +9,12 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -80,7 +82,7 @@ fun KitRow(
     Row(
         modifier
             .fillMaxWidth()
-            .height(dp(RfMetrics.row))
+            .heightIn(min = dp(RfMetrics.row))
             .alpha(if (enabled) 1f else RfMetrics.disabledAlpha)
             .kitBackdrop()
             .background(if (pressed && tappable) theme.selected else androidx.compose.ui.graphics.Color.Transparent)
@@ -99,6 +101,7 @@ fun KitRow(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.labelGap))) {
             KitText(
                 label,
+                designLine = true,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.text, RfMetrics.lineTitle)
@@ -106,6 +109,7 @@ fun KitRow(
             if (!value.isNullOrEmpty()) {
                 KitText(
                     value,
+                    designLine = true,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary)
@@ -162,7 +166,8 @@ fun KitConversationRow(
     Row(
         modifier
             .fillMaxWidth()
-            .height(dp(RfMetrics.conversation))
+            .heightIn(min = dp(RfMetrics.conversation))
+            .height(IntrinsicSize.Min)
             .alpha(if (enabled) 1f else RfMetrics.disabledAlpha)
             .kitBackdrop()
             .background(if (pressed && enabled) theme.selected else androidx.compose.ui.graphics.Color.Transparent)
@@ -207,7 +212,7 @@ fun KitConversationRow(
                 if (!badge.isNullOrEmpty()) {
                     Box(
                         Modifier
-                            .height(dp(RfMetrics.listBadge))
+                            .heightIn(min = dp(RfMetrics.listBadge))
                             .background(theme.badge, shapeOf(RfMetrics.listBadgeRadius))
                             .padding(horizontal = dp(RfMetrics.listBadgePad)),
                         contentAlignment = Alignment.Center
