@@ -42,7 +42,7 @@ class LocalizedFactsTest {
     @Test fun pseudoLocaleExpandsHostTextWithoutChangingState() {
         var tag by mutableStateOf("en")
         var label = ""
-        val text = uiText(R.string.ui_conversations_will_appear_here_when_available)
+        val text = uiText(R.string.ui_add_a_contact_to_start_a_conversation)
         compose.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.Locales(LocaleList(tag))) {
                 val current = text.render()

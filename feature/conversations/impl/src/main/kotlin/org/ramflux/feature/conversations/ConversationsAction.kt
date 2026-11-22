@@ -7,5 +7,10 @@ sealed interface ConversationsAction {
     data object LoadMore : ConversationsAction
     data object Back : ConversationsAction
     data object SetupAccount : ConversationsAction
+    data object Compose : ConversationsAction
+    data object OpenRequests : ConversationsAction
+
+    /** The list is on screen (subscribe to changes) or not (cancel the subscription). */
+    data class Visible(val visible: Boolean) : ConversationsAction
     data class Open(val id: String) : ConversationsAction
 }

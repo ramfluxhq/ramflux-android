@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.conversations
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -10,6 +11,8 @@ import kotlinx.collections.immutable.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.ramflux.data.*
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.uiText
@@ -30,11 +33,21 @@ class ConversationsViewModel @Inject constructor(
     private var request: Job? = null
     private var cursor: String? = null
     private var ticket = 0L
+
+    /** Merging, sorting and row projection run here, never on the main thread. */
+    @VisibleForTesting var work: CoroutineDispatcher = Dispatchers.Default
+    private val window = ConversationWindow()
+    private val windowLock = Mutex()
+    private var visible = false
+    private var watch: Job? = null
+    private var watchedAccount: String? = null
     private val lifecycle = viewModelScope.launch {
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect { (phase, _) ->
             request?.cancel()
+            stopWatch()
             ticket++
             cursor = null
+            windowLock.withLock { window.clear() }
             local.value = ConversationsState()
             if (phase == ClientPhase.OPEN) onAction(ConversationsAction.Refresh)
         }
@@ -51,6 +64,12 @@ class ConversationsViewModel @Inject constructor(
             }
             ConversationsAction.Refresh -> if (request?.isActive != true) read(false)
             ConversationsAction.LoadMore -> if (request?.isActive != true && cursor != null) read(true)
+            ConversationsAction.Compose -> viewModelScope.launch { channel.send(ConversationsEvent.Compose) }
+            ConversationsAction.OpenRequests -> viewModelScope.launch { channel.send(ConversationsEvent.Requests) }
+            is ConversationsAction.Visible -> {
+                visible = action.visible
+                if (visible) local.value.accountId?.takeIf { local.value.loaded }?.let(::startWatch) else stopWatch()
+            }
             is ConversationsAction.Open -> if (request?.isActive != true && local.value.rows.any { it.id == action.id }) open(action.id)
         }
     }
@@ -93,7 +112,8 @@ class ConversationsViewModel @Inject constructor(
         val previous = local.value
         if (!more) {
             cursor = null
-            local.value = ConversationsState(loading = true)
+            // A loaded list stays on screen while it reloads (resume, resync); the first load shows the skeleton.
+            local.value = if (previous.loaded) previous.copy(loading = true) else ConversationsState(loading = true)
         } else {
             local.update { it.copy(loading = true, problem = null, problemKind = null, unavailable = null, unavailableReason = null) }
         }
@@ -106,41 +126,39 @@ class ConversationsViewModel @Inject constructor(
                 account(expected, generation, selected.id) ?: return@launch
                 when (result) {
                     is ClientResult.Ready -> {
-                        val rows = result.value.rows.map { row ->
-                            ConversationItem(
-                                row.id, row.title,
-                                if (row.archived) {
-                                    uiText(
-                                        R.string.ui_archived
-                                    )
-                                } else {
-                                    uiText(R.string.ui_conversation)
-                                },
-                                row.unread.toString(), row.isUnread,
-                                row.lastActivity.displayTime()
-                            )
-                        }
-                        val combined = if (more) previous.rows + rows else rows
-                        if (combined.map { it.id }.distinct().size != combined.size ||
-                            (result.value.nextCursor != null && result.value.nextCursor == cursor)
-                        ) {
+                        val next = result.value.nextCursor
+                        if (result.value.rows.map { it.id }.distinct().size != result.value.rows.size || (next != null && next == cursor)) {
                             local.update { it.copy(problem = uiText(R.string.ui_page_conflict_refresh_the_list), hasMore = false) }
                             cursor = null
                             return@launch
                         }
-                        cursor = result.value.nextCursor
-                        val search = directory.searchAvailability()
-                        current(expected, generation)
-                        val afterCapabilities = account(expected, generation, selected.id) ?: return@launch
-                        val fresh = ConversationsState(
-                            accountId = selected.id, accountLabel = afterCapabilities.label ?: afterCapabilities.id,
-                            rows = combined.toPersistentList(), loaded = true, hasMore = cursor != null
-                        )
-                        local.value = when (search) {
-                            is ClientResult.Ready -> fresh.copy(searchAvailable = true)
-                            is ClientResult.Failed -> search.notice(fresh, uiText(R.string.ui_search_availability))
-                            is ClientResult.Unavailable -> search.notice(fresh, uiText(R.string.ui_local_search))
+                        val (rows, added) = withContext(work) {
+                            windowLock.withLock {
+                                if (!more) window.clear()
+                                val kept = window.merge(result.value.rows)
+                                project(window.ordered()) to kept
+                            }
                         }
+                        current(expected, generation)
+                        cursor = next
+                        val search = if (more) null else directory.searchAvailability()
+                        val requests = if (more) previous.requests else directory.pendingRequests(selected.id).countOrNull()
+                        current(expected, generation)
+                        val fresh = ConversationsState(
+                            accountId = selected.id, accountLabel = selected.label ?: selected.id,
+                            rows = rows, loaded = true, hasMore = cursor != null, autoLoad = added > 0, requests = requests,
+                            searchAvailable = previous.searchAvailable,
+                            unavailable = if (more) previous.unavailable else null,
+                            unavailableReason = if (more) previous.unavailableReason else null
+                        )
+                        val unsearchable = fresh.copy(searchAvailable = false)
+                        local.value = when (search) {
+                            null -> fresh
+                            is ClientResult.Ready -> fresh.copy(searchAvailable = true)
+                            is ClientResult.Failed -> search.notice(unsearchable, uiText(R.string.ui_search_availability))
+                            is ClientResult.Unavailable -> search.notice(unsearchable, uiText(R.string.ui_local_search))
+                        }
+                        if (visible) startWatch(selected.id)
                     }
                     is ClientResult.Failed -> local.update { result.notice(it, uiText(R.string.ui_conversations)) }
                     is ClientResult.Unavailable -> local.update { result.notice(it, uiText(R.string.ui_conversations)) }
@@ -163,7 +181,10 @@ class ConversationsViewModel @Inject constructor(
                 current(expected, generation)
                 account(expected, generation, accountId) ?: return@launch
                 when (result) {
-                    is ClientResult.Ready -> channel.send(ConversationsEvent.OpenChat(accountId, id))
+                    is ClientResult.Ready -> {
+                        val title = local.value.rows.firstOrNull { it.id == id }?.title ?: id
+                        channel.send(ConversationsEvent.OpenChat(accountId, id, title))
+                    }
                     is ClientResult.Unavailable -> local.update { result.notice(it, uiText(R.string.ui_chat)) }
                     is ClientResult.Failed -> local.update { result.notice(it, uiText(R.string.ui_chat)) }
                 }
@@ -172,6 +193,64 @@ class ConversationsViewModel @Inject constructor(
             }
         }
     }
+
+    /** One shared subscription per visible list; cancelled when the list leaves the screen. */
+    private fun startWatch(account: String) {
+        if (watch?.isActive == true && watchedAccount == account) return
+        stopWatch()
+        watchedAccount = account
+        val generation = session.status.value.generation
+        watch = viewModelScope.launch {
+            directory.changes(account).collect { result ->
+                if (session.status.value.generation != generation || local.value.accountId != account) return@collect
+                val change = (result as? ClientResult.Ready)?.value ?: return@collect
+                apply(account, change)
+            }
+        }
+    }
+
+    private fun stopWatch() {
+        watch?.cancel()
+        watch = null
+        watchedAccount = null
+    }
+
+    private suspend fun apply(account: String, change: ConversationChange) {
+        when (change) {
+            ConversationChange.Reload -> if (request?.isActive != true) read(false)
+            ConversationChange.Requests -> {
+                val count = directory.pendingRequests(account).countOrNull()
+                if (local.value.accountId == account) local.update { it.copy(requests = count) }
+            }
+            is ConversationChange.Upsert, is ConversationChange.Remove -> {
+                // A page read in flight replaces the window; it already includes this change or reloads.
+                if (request?.isActive == true) return
+                val rows = withContext(work) {
+                    windowLock.withLock {
+                        if (change is ConversationChange.Upsert) window.upsert(change.row, change.titled)
+                        if (change is ConversationChange.Remove) window.remove(change.id)
+                        project(window.ordered())
+                    }
+                }
+                if (local.value.accountId == account && local.value.loaded) local.update { it.copy(rows = rows) }
+            }
+        }
+    }
+
+    /** Row projection for the screen; runs on [work]. */
+    private fun project(rows: List<ConversationSummary>): ImmutableList<ConversationItem> = rows.map { row ->
+        ConversationItem(
+            row.id,
+            row.title,
+            uiText(if (row.archived) R.string.ui_archived else R.string.ui_conversation),
+            row.unread.toString(),
+            row.isUnread,
+            row.lastActivity.displayTime(),
+            muted = row.muted,
+            group = row.group
+        )
+    }.toPersistentList()
+
     private suspend fun current(expected: Long, generation: Long) {
         currentCoroutineContext().ensureActive()
         if (ticket != expected || session.status.value.phase != ClientPhase.OPEN || session.status.value.generation != generation) {
@@ -195,4 +274,5 @@ private fun ClientResult.Unavailable.notice(state: ConversationsState, subject: 
     problem = null,
     problemKind = null
 )
+private fun ClientResult<Int>.countOrNull(): Int? = (this as? ClientResult.Ready)?.value
 private fun Long?.displayTime(): UiText = if (this == null) UiText.Empty else UiText.DateTime(this)

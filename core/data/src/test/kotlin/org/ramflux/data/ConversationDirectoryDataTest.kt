@@ -45,4 +45,24 @@ class ConversationDirectoryDataTest {
         assertTrue(repo.page("account", null) is ClientResult.Failed)
         client.close(); assertTrue(repo.page("account", null) is ClientResult.Failed)
     }
+
+    @Test fun changesUseSpecificTopicsAndMapRowsRemovalRequestsAndUnusableFrames() {
+        assertFalse("*" in DefaultConversationDirectoryRepository.TOPICS)
+        assertTrue(DefaultConversationDirectoryRepository.TOPICS.containsAll(listOf("conversation.changed", "message.received", "contact.requested")))
+        val repo = DefaultConversationDirectoryRepository(object : RepositoryTransport {
+            override suspend fun execute(request: CoreRequest): CoreResult<JsonObject> = CoreResult.Failure(CoreError.Closed())
+            override suspend fun executeSecret(request: SecretRequest): CoreResult<SecretReply> {
+                request.body.close()
+                return CoreResult.Failure(CoreError.Closed())
+            }
+            override fun updates(filter: SubscriptionFilter) = kotlinx.coroutines.flow.emptyFlow<CoreUpdate>()
+        })
+        val row = ConversationDirectoryEntry("c1", null, 2u, false, false, true, 9, "group", muted = true)
+        val upsert = repo.change(ConversationDirectoryEvent("conversation.changed", row)) as ConversationChange.Upsert
+        assertEquals(ConversationSummary("c1", "c1", 2u, false, true, 9, muted = true, group = true), upsert.row)
+        assertFalse(upsert.titled)
+        assertEquals(ConversationChange.Remove("c1"), repo.change(ConversationDirectoryEvent("conversation.changed", row.copy(hidden = true))))
+        assertEquals(ConversationChange.Requests, repo.change(ConversationDirectoryEvent("contact.requested", null)))
+        assertEquals(ConversationChange.Reload, repo.change(ConversationDirectoryEvent("message.received", null)))
+    }
 }

@@ -14,7 +14,9 @@ import org.ramflux.designsystem.UiText
     val summary: UiText,
     val unread: String,
     val hasUnread: Boolean,
-    val timestamp: UiText = UiText.Empty
+    val timestamp: UiText = UiText.Empty,
+    val muted: Boolean = false,
+    val group: Boolean = false
 )
 
 @Immutable data class ConversationsState(
@@ -24,6 +26,10 @@ import org.ramflux.designsystem.UiText
     val loading: Boolean = false,
     val loaded: Boolean = false,
     val hasMore: Boolean = false,
+    /** False after a page that added no row to the bounded window: further pages load on request only. */
+    val autoLoad: Boolean = true,
+    /** Pending inbound contact requests (the message-requests row); null when they could not be read. */
+    val requests: Int? = null,
     val accountRequired: Boolean = false,
     val problem: UiText? = null,
     val problemKind: ClientFailureKind? = null,

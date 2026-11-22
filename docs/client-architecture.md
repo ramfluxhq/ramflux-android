@@ -113,10 +113,19 @@ SDK revision, with Cargo fingerprint validation after a cache restore.
 
 Conversations uses the account-scoped SDK directory with opaque pagination. Hidden
 rows stay hidden and reader-qualified unread counts retain their exact unsigned
-value. Pages recheck the active unlocked account before publication. Refresh on
-resume clears old state; failures never become successful empty lists. The current
-module reads snapshots on entry and refresh.
-Local search and an uninstalled chat feature return typed unavailable.
+value. Pages recheck the active unlocked account before publication; failures never
+become successful empty lists. Every page merges into a bounded window
+(`ConversationWindow`, 1,000 rows) that is ordered recent-first by `last_activity`
+off the main thread and evicts the least recent rows. The SDK pages
+`conversation.directory` by id, not by activity, so recent-first holds within the
+rows loaded so far; after a full scan the window holds the most recent rows overall.
+The end of the list loads the next page automatically until a page adds no row to
+the window, then on request only. While the list is on screen it subscribes through
+the shared event hub to `conversation.changed`, `message.received` and the inbound
+contact-request topics (never `*`): changed rows are upserted in place, removed rows
+dropped, the message-requests row recounted, and `resync_required` reloads the
+window. The SDK directory row has no message preview; rows show the conversation
+kind. Local search and an uninstalled chat feature return typed unavailable.
 
 Chat installs a public account/conversation route and renders on the Kit: chat
 header, bubbles, date chips, unread divider, message actions and `KitComposer`.

@@ -10,24 +10,37 @@
     <string name="ui_conversation">Conversation</string>
     <string name="ui_conversations">Conversations</string>
     <string name="ui_messages">Messages</string>
-    <string name="ui_conversations_will_appear_here_when_available">Conversations will appear here when available.</string>
     <string name="ui_load_more">Load more</string>
-    <string name="ui_loading_conversations">Loading conversations</string>
     <string name="ui_local_search">Local search</string>
-    <string name="ui_no_conversations">No conversations</string>
     <string name="ui_open_an_account">Open an account</string>
     <string name="ui_page_conflict_refresh_the_list">Page conflict. Refresh the list.</string>
     <string name="ui_private_data_is_closed">Private data is closed.</string>
-    <string name="ui_reading_private_data">Reading private data…</string>
     <string name="ui_refresh">Refresh</string>
     <string name="ui_search_availability">Search availability</string>
     <string name="ui_search_conversations">Search conversations</string>
     <string name="ui_set_up_your_account">Set up your account</string>
     <string name="ui_the_active_account_changed_refresh_the_list">The active account changed. Refresh the list.</string>
     <string name="ui_time_unavailable">Time unavailable</string>
-    <string name="ui_unable_to_continue">Unable to continue</string>
     <string name="ui_value_could_not_be_read_code_value">%1$s could not be read (code %2$s).</string>
     <string name="ui_value_is_not_available_in_this_version">%1$s is not available in this version.</string>
     <string name="ui_value_is_not_included_in_this_build_yet">%1$s is not included in this build yet.</string>
     <string name="ui_value_requires_secure_account_access_on_this_device">%1$s requires secure account access on this device.</string>
+    <!-- Header action on the Messages list: start a conversation with a contact. -->
+    <string name="ui_new_message">New message</string>
+    <!-- Row title above the conversation list for pending requests from people who are not contacts. -->
+    <string name="ui_message_requests">Message requests</string>
+    <!-- Row subtitle under the message requests title. -->
+    <string name="ui_messages_from_non_contacts">Messages from people who are not your contacts</string>
+    <!-- Empty state title of the Messages list. -->
+    <string name="ui_no_conversations_yet">No conversations yet</string>
+    <!-- Empty state body of the Messages list. -->
+    <string name="ui_add_a_contact_to_start_a_conversation">Add a contact to start a conversation. Once they accept, the conversation appears here.</string>
+    <!-- Button in the empty Messages list. -->
+    <string name="ui_add_contact">Add contact</string>
+    <!-- Title when the conversation list could not be read. -->
+    <string name="ui_cannot_connect_right_now">Cannot connect right now</string>
+    <!-- Button that reads the conversation list again. -->
+    <string name="ui_retry">Retry</string>
+    <!-- Footnote above the load more button: order is recent-first only within the loaded part of the list. -->
+    <string name="ui_sorted_within_loaded">Sorted by recent activity among the conversations loaded so far.</string>
 </resources>

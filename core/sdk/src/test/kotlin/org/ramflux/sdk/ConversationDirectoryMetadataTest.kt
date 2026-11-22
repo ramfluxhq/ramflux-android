@@ -59,4 +59,23 @@ class ConversationDirectoryMetadataTest {
         assertTrue(rows[3].participants.isEmpty())
         assertTrue(raw.all { it == 0.toByte() })
     }
+
+    @Test fun changeEventsCarryOneRowAndRemovalIsHidden() {
+        fun change(text: String) = ConversationDirectoryMetadataReader.change(SecretReply(SecretBytes.take(text.toByteArray()))).row
+        val row = """{"id":"c1","title":"T","archived":false,"hidden":false,"last_activity":42,"unread_count":3,"is_unread":true,"muted":true}"""
+        val changed = change("""{"method":"conversation.changed","body":$row}""")
+        assertEquals("c1", changed?.id)
+        assertEquals(3uL, changed?.unread)
+        assertEquals(42L, changed?.lastActivity)
+        assertTrue(changed?.muted == true)
+        val received = change("""{"method":"message.received","body":{"message":{"id":"m"},"conversation":$row}}""")
+        assertEquals("c1", received?.id)
+        val removed = change("""{"method":"conversation.changed","body":{"id":"c2","removed":true}}""")
+        assertTrue(removed?.hidden == true)
+        assertNull(change("""{"method":"contact.changed","body":$row}"""))
+        assertNull(change("""{"method":"conversation.changed","body":{"id":"c3"}}"""))
+        val request = ConversationDirectoryMetadataReader.change(SecretReply(SecretBytes.take("""{"method":"contact.requested","body":{}}""".toByteArray())))
+        assertEquals("contact.requested", request.topic)
+        assertNull(request.row)
+    }
 }

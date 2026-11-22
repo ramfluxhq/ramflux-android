@@ -133,9 +133,23 @@ uses the SDK's actual connection-local creation ceremony; recovery and pairing s
 typed custody-provider unavailable until their host flows exist. Successful unknown message content stays successful.
 SDK errors are never converted into fabricated rows or optimistic delivery success.
 
-The product v2 checkpoint lacks dedicated full-text search, Agent
-CRUD/configuration and stranger reports/batch decisions. Their app-side interfaces
-return typed unavailable results, as documented in [client capabilities](client-capabilities.md).
+The pinned C ABI v2 refuses every `search.*` method before admission (`bridge_allowed`
+false in the policy; `c_abi/v2/tests.rs` "local_search_is_refused_before_native_supervisor_admission"),
+so local search stays typed unavailable and has no generated forwarders. The `agent.*`
+methods (AGENT-IDENTITY-01) cross the ABI and are generated into `AgentsRepository`;
+`agent.create` and `agent.creation.decide` are key-export class methods admitted
+because the client opens with `allow_secret_exports`. Stranger reports and batch
+decisions have no SDK method; their app-side interfaces return typed unavailable
+results, as documented in [client capabilities](client-capabilities.md).
+
+Joining an existing account from this phone (`device.pair.join`, request R32) is not
+built. The new device's account code must reach the SDK through its credential
+channel (action `setup`, `crates/ramflux-sdk/src/bus/credentials.rs`), which exists
+only on local-bus socket connections and on `ramflux_pairing_call`. The in-process
+C ABI v2 exports (`c_abi/v2/exports.rs`) have no credential channel, and
+`ramflux_pairing_call` (`c_abi/pairing.rs`) talks to a configured same-user local
+daemon socket, which an Android app does not have. The JNI secret transport carries
+secret request bodies only, so it cannot supply that credential.
 Unified edit/reaction/reply operations follow the SDK message-unification contract. Deferred video, group calls, screen sharing, channel/thread/post
 flows remain outside this module's acceptance.
 

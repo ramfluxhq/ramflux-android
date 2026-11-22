@@ -52,9 +52,12 @@ fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
         ConversationsNavigation(
             onBack = shell::back,
             onSetupAccount = setup,
-            onOpenChat = { account, conversation -> shell.openDetail(ChatRoute(account, conversation)) },
+            // The title argument is ready for ChatRoute's optional title (chat-media branch): pass it at merge.
+            onOpenChat = { account, conversation, _ -> shell.openDetail(ChatRoute(account, conversation)) },
             permissionBanner = { NotificationPermissionBannerNavigation({ shell.navigate(PermissionsRoute()) }) },
-            rooted = true
+            rooted = true,
+            onCompose = { shell.navigate(ContactsRoute) },
+            onRequests = { shell.navigate(ContactsRoute) }
         )
     }
     entry<GroupsRoute>(metadata = pane(PaneRole.LIST)) {
