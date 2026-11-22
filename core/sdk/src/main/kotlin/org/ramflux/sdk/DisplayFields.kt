@@ -8,6 +8,12 @@ internal class DisplayFields(raw: ByteArray) {
     private val parser = ByteJson(raw)
     val root = parser.parse()
     fun field(row: ByteJson.Node, key: String) = parser.field(row, key)
+
+    /** The raw UTF-8 of a non-secret structural node, such as an opaque paging cursor object. */
+    fun raw(node: ByteJson.Node): String {
+        val bytes = parser.copy(node)
+        return try { String(bytes, Charsets.UTF_8) } finally { bytes.fill(0) }
+    }
     fun text(row: ByteJson.Node, key: String, required: Boolean = false): String? {
         val value = field(row, key)
         if (value == null || value.kind == 110) { require(!required); return null }
