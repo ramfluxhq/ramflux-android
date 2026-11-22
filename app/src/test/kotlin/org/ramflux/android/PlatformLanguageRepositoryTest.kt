@@ -68,15 +68,19 @@ class PlatformLanguageRepositoryTest {
         val folders = languages.drop(1).map { it.tag }
         assertEquals(folders.distinct(), folders)
         // The default resource locale (resources.properties) is always offered.
-        assertTrue(folders.contains(context.resources.getXml(R.xml._generated_res_locale_config).let { parser ->
-            var default: String? = null
-            while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
-                if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG && parser.name == "locale-config") {
-                    default = parser.getAttributeValue("http://schemas.android.com/apk/res/android", "defaultLocale")
+        assertTrue(
+            folders.contains(
+                context.resources.getXml(R.xml._generated_res_locale_config).let { parser ->
+                    var default: String? = null
+                    while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+                        if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG && parser.name == "locale-config") {
+                            default = parser.getAttributeValue("http://schemas.android.com/apk/res/android", "defaultLocale")
+                        }
+                    }
+                    default
                 }
-            }
-            default
-        }))
+            )
+        )
     }
 
     @Test fun aPlatformLocaleThePickerCannotNameFollowsTheSystemWithANotice() {

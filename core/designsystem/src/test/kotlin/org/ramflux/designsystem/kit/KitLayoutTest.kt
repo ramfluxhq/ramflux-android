@@ -17,7 +17,10 @@ import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
@@ -396,6 +399,44 @@ class KitLayoutTest {
         }
         val cell = compose.onNodeWithTag("rail-0", useUnmergedTree = true).fetchSemanticsNode().size.height
         check(cell > 48 * compose.density.density) { "rail label did not wrap: $cell" }
+    }
+
+    @Test fun secretWordsStayLeftToRightNumberedAndOutOfTheSemanticsTree() {
+        val words = listOf("apple", "river", "stone", "cloud").map { it.toCharArray() }
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Box(Modifier.width(360.dp)) {
+                        LtrSecretWords(words.size, { index, block -> block(words[index]) }, tag = "words")
+                    }
+                }
+            }
+        }
+        val first = compose.onNodeWithTag("words-0", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val second = compose.onNodeWithTag("words-1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        check(first.top < second.top || first.left < second.left) { "word 1 is not after word 0 left to right: $first $second" }
+        compose.onNodeWithText("1").assertExists()
+        compose.onNodeWithText("4").assertExists()
+        words.forEach { compose.onAllNodesWithText(String(it), substring = true, useUnmergedTree = true).assertCountEquals(0) }
+    }
+
+    @Test fun secretWordsGrowWithTheFontScale() {
+        val words = listOf("apple".toCharArray())
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column(Modifier.width(360.dp)) {
+                    LtrSecretWords(1, { _, block -> block(words[0]) }, tag = "normal")
+                    val density = LocalDensity.current
+                    CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                        LtrSecretWords(1, { _, block -> block(words[0]) }, tag = "large")
+                    }
+                }
+            }
+        }
+        val normal = compose.onNodeWithTag("normal-0", useUnmergedTree = true).fetchSemanticsNode().size.height
+        val large = compose.onNodeWithTag("large-0", useUnmergedTree = true).fetchSemanticsNode().size.height
+        // Platform font scaling is non-linear above 1.3 on recent API levels, so 2.0 grows the line by less than 2x.
+        check(large > normal * 3 / 2) { "secret words ignore the font scale: $normal -> $large" }
     }
 
     private fun frame(tag: String, width: androidx.compose.ui.unit.Dp, content: @androidx.compose.runtime.Composable () -> Unit) {

@@ -6,6 +6,7 @@ package org.ramflux.designsystem.kit
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
@@ -515,6 +516,30 @@ class KitScreenshotTest {
                             LtrCode("apple river stone cloud", numbered = true)
                         }
                     }
+                    variant("secret-words") {
+                        LtrSecretWords(
+                            secretWords.size,
+                            { index, block -> block(secretWords[index]) },
+                            Modifier.padding(horizontal = VARIANT_PAD.dp),
+                            tag = "shot"
+                        )
+                    }
+                    variant("rail") {
+                        androidx.compose.foundation.layout.Box(Modifier.height(RAIL_SAMPLE_HEIGHT.dp)) {
+                            KitNavigationRail(
+                                listOf(
+                                    KitTab("messages-square", text.tab, badge = "3"),
+                                    KitTab("users-round", text.title),
+                                    KitTab("bot", "Agents", latin = true),
+                                    KitTab("ellipsis", text.tab)
+                                ),
+                                0,
+                                {},
+                                bottomInset = KIT_FRAME_INSET,
+                                tag = "shot"
+                            )
+                        }
+                    }
                     variant("untrusted") {
                         androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(horizontal = VARIANT_PAD.dp)) {
                             UntrustedText("Ada\u202Egnp.exe", Modifier.kitTag("shot"))
@@ -674,3 +699,9 @@ class KitScreenshotTest {
         }
     }
 }
+
+private const val RAIL_SAMPLE_HEIGHT = 420
+
+/** Recovery-style words as character arrays, the only form LtrSecretWords accepts. */
+private val secretWords = listOf("apple", "river", "stone", "cloud", "amber", "orbit", "maple", "quartz", "harbor", "tiger", "violet", "zebra")
+    .map { it.toCharArray() }
