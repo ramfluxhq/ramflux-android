@@ -26,9 +26,9 @@ import org.ramflux.designsystem.kit.KitRow
 import org.ramflux.designsystem.kit.KitSummaryCard
 
 @Composable
-internal fun SplashScreen() {
+internal fun SplashScreen(modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
-    StartupFrame("startup-splash", header = { KitPageHeader("") }, footer = {}) {
+    StartupFrame("startup-splash", modifier = modifier, header = { KitPageHeader("") }, footer = {}) {
         Column(
             Modifier.weight(1f).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -68,9 +68,9 @@ internal fun SplashScreen() {
 }
 
 @Composable
-internal fun GatewayScreen(onContinue: () -> Unit, onChangeNode: () -> Unit) {
+internal fun GatewayScreen(onContinue: () -> Unit, onChangeNode: () -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
-    StartupFrame("startup-gateway", header = { KitPageHeader("", tag = "startup-gateway-header") }, footer = {
+    StartupFrame("startup-gateway", modifier = modifier, header = { KitPageHeader("", tag = "startup-gateway-header") }, footer = {
         KitButton(stringResource(R.string.startup_continue), onContinue, Modifier.fillMaxWidth(), tag = "startup-continue")
     }) {
         Wordmark()
@@ -102,10 +102,17 @@ internal fun GatewayScreen(onContinue: () -> Unit, onChangeNode: () -> Unit) {
 }
 
 @Composable
-internal fun WelcomeScreen(onBack: () -> Unit, onCreate: () -> Unit, onLink: () -> Unit, onRecover: () -> Unit) {
+internal fun WelcomeScreen(
+    onBack: () -> Unit,
+    onCreate: () -> Unit,
+    onLink: () -> Unit,
+    onRecover: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val theme = LocalRFTheme.current
     StartupFrame(
         "startup-welcome",
+        modifier = modifier,
         header = { KitPageHeader("", onBack = onBack, tag = "startup-welcome-header") },
         footer = {
             Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
@@ -144,7 +151,14 @@ internal fun WelcomeScreen(onBack: () -> Unit, onCreate: () -> Unit, onLink: () 
 }
 
 @Composable
-internal fun UnlockEntry(label: String, nodeUrl: String, onUnlock: () -> Unit, onChangeNode: () -> Unit, onUnauthorized: () -> Unit) {
+internal fun UnlockEntry(
+    label: String,
+    nodeUrl: String,
+    onUnlock: () -> Unit,
+    onChangeNode: () -> Unit,
+    onUnauthorized: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val theme = LocalRFTheme.current
     val account = label.ifEmpty { stringResource(R.string.startup_account_on_device) }
     val nodeTitle = if (nodeUrl.isEmpty()) {
@@ -157,6 +171,7 @@ internal fun UnlockEntry(label: String, nodeUrl: String, onUnlock: () -> Unit, o
     val nodeBody = if (nodeUrl.isEmpty()) stringResource(R.string.startup_official_detail) else nodeUrl
     StartupFrame(
         "startup-unlock",
+        modifier = modifier,
         header = { KitPageHeader(stringResource(R.string.startup_identity_title), tag = "startup-unlock-header") },
         footer = {
             KitButton(stringResource(R.string.startup_unlock), onUnlock, Modifier.fillMaxWidth(), tag = "startup-unlock-continue")
@@ -196,11 +211,12 @@ internal fun UnlockEntry(label: String, nodeUrl: String, onUnlock: () -> Unit, o
 }
 
 @Composable
-internal fun UnlockDetails(label: String, onBack: () -> Unit, onViewInfo: () -> Unit) {
+internal fun UnlockDetails(label: String, onBack: () -> Unit, onViewInfo: () -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
     val account = label.ifEmpty { stringResource(R.string.startup_account_on_device) }
     StartupFrame(
         "startup-unlock-details",
+        modifier = modifier,
         header = { KitPageHeader(stringResource(R.string.startup_unlock), onBack = onBack, tag = "startup-details-header") },
         footer = {
             KitButton(

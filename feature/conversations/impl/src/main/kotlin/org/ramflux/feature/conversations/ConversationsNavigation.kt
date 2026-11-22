@@ -4,6 +4,7 @@
 package org.ramflux.feature.conversations
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -17,7 +18,8 @@ fun ConversationsNavigation(
     permissionBanner: @Composable () -> Unit = {},
     vm: ConversationsViewModel = hiltViewModel(),
     rooted: Boolean = false,
-    onAtRoot: (Boolean) -> Unit = {}
+    onAtRoot: (Boolean) -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
@@ -35,5 +37,5 @@ fun ConversationsNavigation(
             }
         }
     }
-    ConversationsScreen(state, vm::onAction, permissionBanner, rooted)
+    ConversationsScreen(state, vm::onAction, permissionBanner, rooted, modifier)
 }

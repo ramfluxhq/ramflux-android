@@ -5,8 +5,17 @@ package org.ramflux.feature.appshell
 
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -14,18 +23,26 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.*
 import androidx.navigation3.ui.NavDisplay
 import org.ramflux.data.Appearance
+import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.designsystem.ThemeCatalog
 import org.ramflux.feature.appshell.api.*
+import org.ramflux.navigation.RoutePolicy
+import org.ramflux.navigation.TopLevelNavigator
 
-/** Navigation owns one-shot collection. Feature screens own no coroutine or side effect. */
+/**
+ * Root navigation: the shell home plus global destinations shown over the whole shell. Tab content
+ * lives in the per-tab stacks of [tabs]; while the session is locked, account-scoped keys are dropped
+ * from the root stack and from every tab stack. Navigation owns one-shot collection.
+ */
 @Composable
 fun AppShellNavigation(
     vm: AppShellViewModel = hiltViewModel(),
     routeForFeature: (String) -> NavKey = { FeatureRoute(it) },
     home: (@Composable (navigate: (NavKey) -> Unit) -> Unit)? = null,
     shellReady: Boolean = true,
-    isAccountRoute: (NavKey) -> Boolean = { false },
+    policy: RoutePolicy = RoutePolicy(),
+    tabs: TopLevelNavigator? = null,
     featureEntries: EntryProviderScope<NavKey>.(onBack: () -> Unit, navigate: (NavKey) -> Unit) -> Unit = { _, _ -> }
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -56,8 +73,9 @@ fun AppShellNavigation(
     }
     LaunchedEffect(shellReady) {
         if (shellReady) return@LaunchedEffect
-        val kept = routesWhileLocked(stack.toList(), false, isAccountRoute)
+        val kept = routesWhileLocked(stack.toList(), false, policy::isAccountScoped)
         stack.toList().filterNot { it in kept }.forEach { stack.remove(it) }
+        tabs?.dropAccountScoped(policy::isAccountScoped)
     }
     RamfluxTheme(dark, themeId = state.namedTheme) {
         NavDisplay(
@@ -74,11 +92,20 @@ fun AppShellNavigation(
                 featureEntries({ if (stack.size > 1) stack.removeLastOrNull() }, { stack.add(it) })
                 entry<ShellHome> {
                     val open = shellHome
-                    if (open != null) open { stack.add(it) } else AppShellScreen(state, vm::onAction)
+                    if (open != null) open { stack.add(it) } else ShellPage { AppShellScreen(state, vm::onAction, it) }
                 }
                 // Uninstalled destinations are refused by Data; the app installs supported public routes.
-                entry<FeatureRoute> { AppShellScreen(state, vm::onAction) }
+                entry<FeatureRoute> { ShellPage { AppShellScreen(state, vm::onAction, it) } }
             }
         )
+    }
+}
+
+/** The shell side of the screen contract for a root page: window insets and the width cap. */
+@Composable
+private fun ShellPage(content: @Composable (Modifier) -> Unit) {
+    val theme = LocalRFTheme.current
+    Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.TopCenter) {
+        content(Modifier.widthIn(max = theme.column_max.dp))
     }
 }

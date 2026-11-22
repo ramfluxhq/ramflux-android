@@ -58,4 +58,6 @@
     <string name="startup_unlock_local_title">需要在本机完成解锁</string>
     <string name="startup_view_unlock">查看设备解锁说明</string>
     <string name="startup_welcome_purpose">这部手机可以作为你的主设备。</string>
+    <string name="shell_detail_empty_title">未选择内容</string>
+    <string name="shell_detail_empty_body">在列表中选择一项即可在此打开。</string>
 </resources>

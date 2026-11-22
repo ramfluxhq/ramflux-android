@@ -9,4 +9,6 @@ dependencies {
     api(libs.navigation.runtime)
     api(libs.navigation.ui)
     api(libs.serialization.json)
+    implementation(libs.activity.compose)
+    implementation(libs.lifecycle.navigation)
 }

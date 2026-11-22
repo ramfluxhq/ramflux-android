@@ -3,16 +3,13 @@
 
 package org.ramflux.android.shell
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
@@ -30,13 +27,19 @@ import org.ramflux.designsystem.kit.KitIconButton
 import org.ramflux.designsystem.kit.KitPageHeader
 
 @Composable
-internal fun NavigationEditor(order: String, hidden: String, onOrder: (String) -> Unit, onHidden: (String) -> Unit, onBack: () -> Unit) {
-    BackHandler(onBack = onBack)
+internal fun NavigationEditor(
+    order: String,
+    hidden: String,
+    onOrder: (String) -> Unit,
+    onHidden: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val theme = LocalRFTheme.current
     val gone = shellIds(hidden).toSet()
     val visible = shellIds(order).filter { it !in gone }
     val last = visible.lastIndex
-    Column(Modifier.fillMaxSize().background(theme.bg).statusBarsPadding().navigationBarsPadding()) {
+    Column(modifier.fillMaxSize().background(theme.bg)) {
         KitPageHeader(stringResource(R.string.shell_nav_title), onBack = onBack, tag = "shell-nav-header")
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
             item("note") { EditorNote(stringResource(R.string.shell_nav_note)) }

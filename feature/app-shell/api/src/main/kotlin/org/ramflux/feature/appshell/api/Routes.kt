@@ -9,3 +9,9 @@ import kotlinx.serialization.Serializable
 @Serializable data object ShellHome : NavKey
 @Serializable data object NoticesRoute : NavKey
 @Serializable data class FeatureRoute(val featureId: String) : NavKey
+
+/** Root of the More tab. */
+@Serializable data object MoreRoute : NavKey
+
+/** Editor for the More tab shortcuts, pushed on the More tab. */
+@Serializable data object NavigationEditorRoute : NavKey
