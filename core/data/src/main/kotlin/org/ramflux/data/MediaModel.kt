@@ -25,6 +25,8 @@ data class MediaAttachment(
     val thumbnail: MediaThumbnail? = null,
     /** Epoch seconds after which recipients can no longer import (the 24-hour grant window). */
     val availableUntil: Long? = null,
+    /** The conversation the message belongs to; the media store groups decrypted files by it. */
+    val conversation: String = "",
 ) {
     /** Width over height from data in the message only, clamped so a row never jumps (design 5.9). */
     val aspectRatio: Float

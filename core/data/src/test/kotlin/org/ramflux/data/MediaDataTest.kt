@@ -104,7 +104,7 @@ class MediaDataTest {
         val client = open(abi, "/test/media-import")
         try {
             val repo = DefaultMediaRepository(SdkRepositoryTransport { client }, root, digest, pause = {})
-            val attachment = MediaAttachment("m", 0, MediaKind.FILE, "application/pdf", "report.pdf", 700_000)
+            val attachment = MediaAttachment("m", 0, MediaKind.FILE, "application/pdf", "report.pdf", 700_000, conversation = "c")
             assertNull(repo.localFile("a", attachment))
             val state = repo.download("a", attachment)
             val file = (state as TransferState.Ready).file
@@ -119,6 +119,20 @@ class MediaDataTest {
             assertEquals(repo.outbox("a"), copy.file.parentFile)
             assertNull(repo.copyToOutbox("a", File(root, "missing"), "x", "application/pdf"))
             copy.file.delete()
+            val storage = repo.storage("a")
+            assertEquals(listOf(ConversationUsage("c", 700_000)), storage.conversations)
+            assertEquals(700_000L, storage.total)
+            // A staged file older than the prepare hard deadline is evicted; a fresh one stays.
+            val stale = File(repo.outbox("a"), "stale").apply { writeBytes(ByteArray(10)) }
+            stale.setLastModified(System.currentTimeMillis() - MediaRetention.OUTBOX_MAX_AGE_MS - 1_000)
+            val fresh = File(repo.outbox("a"), "fresh").apply { writeBytes(ByteArray(5)) }
+            assertEquals(10L, repo.evict("a", System.currentTimeMillis()))
+            assertFalse(stale.exists())
+            assertTrue(fresh.delete())
+            repo.purgeConversation("a", "c")
+            assertNull(repo.localFile("a", attachment))
+            assertTrue(repo.storage("a").conversations.isEmpty())
+            repo.download("a", attachment)
             repo.purge("a", "m")
             assertNull(repo.localFile("a", attachment))
             repo.purgeAccount("a")

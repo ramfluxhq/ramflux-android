@@ -662,6 +662,59 @@ class ChatViewModelTest {
         assertEquals("1:02:03", mediaClock(3_723_000))
     }
 
+    @Test fun theGalleryFiltersPagesClientSideFollowsTheCursorAndStaysBounded() = runTest(timeout = 60.seconds) {
+        // 50,000 synthetic rows, every third with an image and every seventh with a file.
+        val total = 50_000
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            paging = { before ->
+                val end = before?.toInt() ?: total
+                val start = (end - 100).coerceAtLeast(0)
+                val rows = (start until end).map { index ->
+                    val media = buildList {
+                        if (index % 3 == 0) add(MediaAttachment("m$index", 0, MediaKind.IMAGE, "image/jpeg", "i.jpg", 10))
+                        if (index % 7 == 0) add(MediaAttachment("m$index", size, MediaKind.FILE, "application/pdf", "f.pdf", 10))
+                    }
+                    MessageSummary("m$index", "peer", false, false, "row $index", index.toLong(), attachments = media)
+                }
+                ClientResult.Ready(TimelinePage(rows, if (start > 0) start.toString() else null))
+            }
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), FakeChatMedia(), FakeChatStager())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        val reads = history.reads
+        vm.onAction(ChatAction.OpenGallery)
+        runCurrent()
+        val first = vm.state.value.gallery!!
+        assertFalse(first.loading)
+        assertTrue(first.hasMore)
+        assertEquals("m49998/0", first.items.first().key)
+        assertTrue(first.items.all { it.kind == AttachmentKind.IMAGE })
+        vm.onAction(ChatAction.GalleryTab(GalleryTab.FILES))
+        runCurrent()
+        assertTrue(vm.state.value.gallery!!.items.all { it.kind == AttachmentKind.FILE })
+        val started = System.nanoTime()
+        repeat(200) {
+            vm.onAction(ChatAction.GalleryMore)
+            runCurrent()
+        }
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+        val gallery = vm.state.value.gallery!!
+        val shown = gallery.items.size
+        vm.onAction(ChatAction.GalleryTab(GalleryTab.MEDIA))
+        runCurrent()
+        // The window stops at 2,000 attachments; nothing beyond it is held in memory.
+        assertEquals(2_000, shown + vm.state.value.gallery!!.items.size)
+        assertFalse(vm.state.value.gallery!!.hasMore)
+        assertTrue(history.reads - reads < 100)
+        println("gallery over 50,000 rows: 2,000-item window filled in ${elapsedMs}ms, ${history.reads - reads} page reads")
+        vm.onAction(ChatAction.CloseGallery)
+        runCurrent()
+        assertNull(vm.state.value.gallery)
+    }
+
     private fun syntheticPages(total: Int): suspend (String?) -> ClientResult<TimelinePage> = { before ->
         val end = before?.toInt() ?: total
         val start = (end - 100).coerceAtLeast(0)

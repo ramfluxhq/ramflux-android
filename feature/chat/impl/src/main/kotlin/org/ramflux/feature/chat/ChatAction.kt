@@ -65,6 +65,16 @@ sealed interface ChatAction {
     data object PreviewSend : ChatAction
     data object PreviewCancel : ChatAction
 
+    data object OpenGallery : ChatAction
+
+    /** The gallery reached its last loaded item. */
+    data object GalleryMore : ChatAction
+    data class GalleryTab(val tab: org.ramflux.feature.chat.GalleryTab) : ChatAction
+    data object CloseGallery : ChatAction
+
+    /** Opens the media storage screen of this account. */
+    data object Storage : ChatAction
+
     /** Shows the next ([delta] 1) or previous (-1) picture or video of the message in the viewer. */
     data class ViewerStep(val delta: Int) : ChatAction
 

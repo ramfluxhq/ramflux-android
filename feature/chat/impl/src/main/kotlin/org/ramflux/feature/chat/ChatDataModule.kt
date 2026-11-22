@@ -10,12 +10,17 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.ramflux.data.AttachmentHost
 import org.ramflux.data.ChatDraftRepository
+import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.DefaultMediaRepository
 import org.ramflux.data.EncryptedChatDraftRepository
 import org.ramflux.data.MediaRepository
 import org.ramflux.data.MediaStager
+import org.ramflux.data.MediaTransfers
 import org.ramflux.data.MessageHistoryRepository
 import org.ramflux.data.UnavailableMediaRepository
 import org.ramflux.media.AndroidMediaStager
@@ -37,6 +42,13 @@ object ChatDataModule {
         (history as? AttachmentHost)?.let {
             DefaultMediaRepository(it.repositoryTransport(), context.applicationContext.noBackupFilesDir, { Blake3PlaintextDigest() })
         } ?: UnavailableMediaRepository()
+
+    /** One queue per process; its downloads end with the unlocked session (see [MediaTransfers]). */
+    @Provides @Singleton
+    fun transfers(@ApplicationContext context: Context, media: MediaRepository, session: ClientSessionRepository): MediaTransfers {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        return MediaTransfers(media, session, scope).also { MediaTransferServiceController(context.applicationContext, it).start(scope) }
+    }
 
     @Provides @Singleton
     fun stager(@ApplicationContext context: Context, media: MediaRepository): MediaStager = AndroidMediaStager(context, media)

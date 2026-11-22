@@ -62,6 +62,7 @@ internal data class TimelinePageExtras(val nextBefore: String?, val media: Map<S
                 MediaAttachment(
                     id, index, MediaAttachment.kindOf(mime), mime, name, size,
                     thumbnailOf((item["inlineThumbnail"] ?: item["inline_thumbnail"]) as? JsonObject), expires,
+                    conversation = row.text("conversation_id")?.takeIf { it.length <= 256 }.orEmpty(),
                 )
             }
         }

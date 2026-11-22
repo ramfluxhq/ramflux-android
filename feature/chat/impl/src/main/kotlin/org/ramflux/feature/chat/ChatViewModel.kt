@@ -24,8 +24,19 @@ class ChatViewModel @Inject constructor(
     private val session: ClientSessionRepository,
     private val drafts: ChatDraftRepository,
     private val media: MediaRepository,
-    private val stager: MediaStager
+    private val stager: MediaStager,
+    private val queue: MediaTransfers
 ) : ViewModel() {
+    /** For hosts without an application-wide transfer queue: downloads then end with this chat. */
+    constructor(
+        history: MessageHistoryRepository,
+        accounts: AccountAccessRepository,
+        session: ClientSessionRepository,
+        drafts: ChatDraftRepository,
+        media: MediaRepository,
+        stager: MediaStager
+    ) : this(history, accounts, session, drafts, media, stager, localQueue(media, session))
+
     /** For hosts that keep no drafts and no media (tests and previews). */
     constructor(
         history: MessageHistoryRepository,
@@ -55,7 +66,14 @@ class ChatViewModel @Inject constructor(
     private val references = HashMap<String, MediaAttachment>()
     private val located = HashMap<String, String>()
     private val transfers = HashMap<String, TransferState>()
-    private val downloads = HashMap<String, Job>()
+    private var transferWatch: Job? = null
+
+    /** Attachments the gallery loaded beyond the timeline window, by key, in gallery order. */
+    private val galleryRefs = LinkedHashMap<String, MediaAttachment>()
+    private val galleryMedia = ArrayList<String>()
+    private val galleryFiles = ArrayList<String>()
+    private var galleryCursor: String? = null
+    private var galleryJob: Job? = null
 
     /** Staged items of the open send preview, in the order they will be sent. */
     private val previewItems = ArrayList<StagedMedia>()
@@ -240,6 +258,11 @@ class ChatViewModel @Inject constructor(
             ChatAction.ForwardMore -> loadForwardTargets(more = true)
             is ChatAction.ForwardTo -> forwardTo(action.conversation)
             ChatAction.CloseForward -> closeForward()
+            ChatAction.OpenGallery -> openGallery()
+            ChatAction.GalleryMore -> loadGallery()
+            is ChatAction.GalleryTab -> local.update { it.copy(gallery = it.gallery?.copy(tab = action.tab)) }.also { publishGallery() }
+            ChatAction.CloseGallery -> closeGallery()
+            ChatAction.Storage -> if (target != null) viewModelScope.launch { channel.send(ChatEvent.Storage) }
         }
     }
     private fun selected(): MessageItem? {
@@ -625,8 +648,7 @@ class ChatViewModel @Inject constructor(
         olderJob?.cancel()
         forwardJob?.cancel()
         forwarding = null
-        downloads.values.forEach { it.cancel() }
-        downloads.clear()
+        closeGallery()
         references.clear()
         located.clear()
         transfers.clear()
@@ -890,19 +912,22 @@ class ChatViewModel @Inject constructor(
             val items = references.values.filter { it.messageId == row.id }.sortedBy { it.index }
             window[index] = row.copy(attachments = items.map { attachmentItem(it, row.own) }.toPersistentList())
         }
+        refreshGallery(messages)
         val viewer = local.value.viewer
         if (viewer != null) {
             val key = viewer.key
-            references[key]?.let { reference ->
+            refOf(key)?.let { reference ->
                 local.update { it.copy(viewer = attachmentItem(reference, false).takeIf { item -> item.status == AttachmentStatus.READY }) }
             }
         }
         publish()
     }
 
+    private fun refOf(key: String): MediaAttachment? = references[key] ?: galleryRefs[key]
+
     private fun openAttachment(key: String) {
         val currentTarget = target ?: return
-        val attachment = references[key] ?: return
+        val attachment = refOf(key) ?: return
         val item = attachmentItem(attachment, false)
         when (item.status) {
             AttachmentStatus.READY -> {
@@ -918,27 +943,47 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /** Downloads go to the application queue, so they continue after this chat closes (session lifetime). */
     private fun download(currentTarget: Target, attachment: MediaAttachment) {
-        val key = keyOf(attachment)
-        if (downloads[key]?.isActive == true || session.status.value.phase != ClientPhase.OPEN) return
-        transfers[key] = TransferState.Queued
-        refreshAttachments(setOf(attachment.messageId))
-        downloads[key] = viewModelScope.launch {
-            val result = media.download(currentTarget.account, attachment)
-            if (target != currentTarget) return@launch
-            if (result is TransferState.Ready) {
-                located[key] = result.file.path
-                transfers.remove(key)
-            } else {
-                transfers[key] = result
+        if (session.status.value.phase != ClientPhase.OPEN) return
+        watchTransfers(currentTarget)
+        queue.download(currentTarget.account, attachment)
+    }
+
+    private fun watchTransfers(currentTarget: Target) {
+        if (transferWatch?.isActive == true) return
+        val prefix = MediaTransfers.prefix(currentTarget.account)
+        transferWatch = viewModelScope.launch {
+            queue.current.collect { all ->
+                if (target != currentTarget) return@collect
+                val changed = HashSet<String>()
+                val seen = HashSet<String>()
+                all.forEach { (full, state) ->
+                    if (!full.startsWith(prefix)) return@forEach
+                    val key = full.removePrefix(prefix)
+                    seen += key
+                    val reference = refOf(key) ?: return@forEach
+                    if (state is TransferState.Ready) {
+                        located[key] = state.file.path
+                        transfers.remove(key)
+                        queue.forget(full)
+                        changed += reference.messageId
+                    } else if (transfers.put(key, state) != state) {
+                        changed += reference.messageId
+                    }
+                }
+                // Cancelled by a lock or session close: the item is downloadable again.
+                transfers.keys.filter { it !in seen }.forEach { key ->
+                    transfers.remove(key)
+                    refOf(key)?.let { changed += it.messageId }
+                }
+                if (changed.isNotEmpty()) refreshAttachments(changed)
             }
-            if (result == TransferState.Revoked) media.purge(currentTarget.account, attachment.messageId)
-            refreshAttachments(setOf(attachment.messageId))
         }
     }
 
     private fun handOver(key: String, use: FileUse) {
-        val item = references[key]?.let { attachmentItem(it, false) } ?: return
+        val item = refOf(key)?.let { attachmentItem(it, false) } ?: return
         val path = item.localPath ?: return
         if (item.status != AttachmentStatus.READY) return
         viewModelScope.launch { channel.send(ChatEvent.File(path, item.mime, item.fileName, use)) }
@@ -1050,6 +1095,96 @@ class ChatViewModel @Inject constructor(
         previewItems.forEach { it.file.delete() }
         previewItems.clear()
         if (local.value.preview != null) local.update { it.copy(preview = null) }
+    }
+
+    /**
+     * The conversation gallery (board B29 to be drawn): a client-side filter over the paged message
+     * source until the SDK can filter by media (request R10). It follows the `next_before` cursor,
+     * reads a few pages per request until it has something to show, and keeps a bounded window.
+     */
+    private fun openGallery() {
+        if (target == null || session.status.value.phase != ClientPhase.OPEN) return
+        closeGallery()
+        local.update { it.copy(gallery = GallerySheet(), selectedId = null) }
+        galleryCursor = null
+        loadGallery(first = true)
+    }
+
+    private fun loadGallery(first: Boolean = false) {
+        val currentTarget = target ?: return
+        val sheet = local.value.gallery ?: return
+        if (galleryJob?.isActive == true || (!first && galleryCursor == null) || galleryRefs.size >= GALLERY_WINDOW) return
+        local.update { it.copy(gallery = sheet.copy(loading = true, problem = null)) }
+        galleryJob = viewModelScope.launch {
+            var cursor = galleryCursor
+            var pages = 0
+            var added = 0
+            while (pages < GALLERY_PAGES_PER_LOAD && added < GALLERY_BATCH) {
+                val result = history.page(currentTarget.account, currentTarget.conversation, cursor)
+                if (target != currentTarget || local.value.gallery == null) return@launch
+                val page = when (result) {
+                    is ClientResult.Ready -> result.value
+                    is ClientResult.Failed -> {
+                        local.update {
+                            it.copy(
+                                gallery = it.gallery?.copy(
+                                    loading = false,
+                                    problem = uiText(R.string.ui_read_failed_code_value, UiText.Number(result.problem.code.toLong()))
+                                )
+                            )
+                        }
+                        return@launch
+                    }
+                    is ClientResult.Unavailable -> {
+                        galleryCursor = null
+                        break
+                    }
+                }
+                pages++
+                val fresh = page.rows.asReversed().filterIsInstance<MessageSummary>().filter { !it.deleted }
+                    .flatMap { it.attachments }.filter { keyOf(it) !in galleryRefs }
+                val files = media.locate(currentTarget.account, fresh)
+                if (target != currentTarget) return@launch
+                fresh.forEachIndexed { index, attachment ->
+                    if (galleryRefs.size >= GALLERY_WINDOW) return@forEachIndexed
+                    val key = keyOf(attachment)
+                    galleryRefs[key] = attachment
+                    files.getOrNull(index)?.let { located[key] = it.path }
+                    if (attachment.kind == MediaKind.FILE) galleryFiles += key else galleryMedia += key
+                    added++
+                }
+                cursor = page.older
+                galleryCursor = cursor
+                if (cursor == null || galleryRefs.size >= GALLERY_WINDOW) break
+            }
+            val more = galleryCursor != null && galleryRefs.size < GALLERY_WINDOW
+            local.update { it.copy(gallery = it.gallery?.copy(loading = false, hasMore = more)) }
+            publishGallery()
+        }
+    }
+
+    /** Re-maps the shown tab from the window; mapping is per item, never a filter over the whole window. */
+    private fun publishGallery() {
+        val sheet = local.value.gallery ?: return
+        val keys = if (sheet.tab == GalleryTab.FILES) galleryFiles else galleryMedia
+        val items = keys.mapNotNull { key -> galleryRefs[key]?.let { attachmentItem(it, false) } }.toPersistentList()
+        local.update { it.copy(gallery = it.gallery?.copy(items = items)) }
+    }
+
+    private fun refreshGallery(messages: Set<String>) {
+        val sheet = local.value.gallery ?: return
+        if (sheet.items.none { it.messageId in messages }) return
+        publishGallery()
+    }
+
+    private fun closeGallery() {
+        galleryJob?.cancel()
+        galleryJob = null
+        galleryRefs.clear()
+        galleryMedia.clear()
+        galleryFiles.clear()
+        galleryCursor = null
+        if (local.value.gallery != null) local.update { it.copy(gallery = null) }
     }
 
     /** Steps the viewer through the ready pictures and videos of the same message. */
@@ -1218,6 +1353,12 @@ private fun kindOf(mime: String) = when (MediaAttachment.kindOf(mime)) {
     MediaKind.FILE -> AttachmentKind.FILE
 }
 private const val OUTBOX_LIMIT = 64
+
+private fun localQueue(media: MediaRepository, session: ClientSessionRepository) =
+    MediaTransfers(media, session, CoroutineScope(SupervisorJob() + Dispatchers.Main))
+private const val GALLERY_WINDOW = 2_000
+private const val GALLERY_BATCH = 30
+private const val GALLERY_PAGES_PER_LOAD = 5
 
 /** Media refusals the person can act on get their own words (design B22); others use the generic text. */
 private fun mediaFailure(problem: ClientProblem): UiText? = when (problem.statusName ?: problem.check) {

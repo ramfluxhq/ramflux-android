@@ -17,6 +17,27 @@ data class MediaDestination(val conversation: String, val group: String?) {
     override fun toString() = "MediaDestination(<redacted>)"
 }
 
+/** Decrypted bytes this device holds for one conversation. */
+data class ConversationUsage(val conversation: String, val bytes: Long) {
+    override fun toString() = "ConversationUsage(<redacted>)"
+}
+
+/** The media store of one account: decrypted originals by conversation plus staged outgoing files. */
+data class MediaStorage(val total: Long, val outbox: Long, val conversations: List<ConversationUsage>) {
+    override fun toString() = "MediaStorage(<redacted>)"
+}
+
+/**
+ * The automatic eviction policy (media design 5.7). Decrypted originals are never removed silently:
+ * after the 24-hour relay window the local copy may be the only one, so they go only when the person
+ * clears them, the message is erased or the account is removed. Staged outgoing files older than the
+ * prepare hard deadline can no longer be sent and are removed; decoded images live only in memory and
+ * are dropped on lock and memory pressure.
+ */
+object MediaRetention {
+    const val OUTBOX_MAX_AGE_MS = 24L * 60 * 60 * 1000
+}
+
 /** Streaming plaintext digest the SDK checks in `attachment.prepare.finish` (unkeyed BLAKE3, 64 hex). */
 interface PlaintextDigest {
     fun update(bytes: ByteArray, offset: Int, length: Int)
@@ -68,6 +89,15 @@ interface MediaRepository {
      * media design 6 rule 8); null when it cannot be copied.
      */
     suspend fun copyToOutbox(account: String, source: File, fileName: String, mime: String): StagedMedia? = null
+
+    /** Usage by conversation for the storage screen, read off the main thread. */
+    suspend fun storage(account: String): MediaStorage = MediaStorage(usage(account), 0, emptyList())
+
+    /** Removes every decrypted original of [conversation] (storage screen, after confirmation). */
+    suspend fun purgeConversation(account: String, conversation: String) = Unit
+
+    /** Applies [MediaRetention] at [nowMs]; returns the bytes removed. */
+    suspend fun evict(account: String, nowMs: Long): Long = 0
 }
 
 class UnavailableMediaRepository : MediaRepository {

@@ -199,4 +199,40 @@
     <string name="chat_viewer_video_failed">此设备无法播放此视频。</string>
     <!-- Elapsed and total video time; %1$s and %2$s are media times in Western digits, shown left to right. -->
     <string name="chat_viewer_time">%1$s / %2$s</string>
+    <!-- Title of the conversation media gallery and its menu entry. -->
+    <string name="gallery_title">媒体和文件</string>
+    <!-- Gallery tab with pictures and videos. -->
+    <string name="gallery_media">媒体</string>
+    <!-- Gallery tab with files. -->
+    <string name="gallery_files">文件</string>
+    <!-- Shown while the gallery reads older messages for media. -->
+    <string name="gallery_loading">正在查找媒体…</string>
+    <!-- Shown when the loaded part of the conversation has no media of the selected kind. -->
+    <string name="gallery_empty">此会话中没有媒体</string>
+    <!-- Title of the media storage screen and its menu entry. -->
+    <string name="storage_title">存储空间</string>
+    <!-- Row with the bytes of decrypted media this account keeps on this device. -->
+    <string name="storage_total">此设备上的媒体</string>
+    <!-- Row with the bytes of outgoing files waiting to be sent. -->
+    <string name="storage_outbox">等待发送</string>
+    <!-- Explains the retention policy on the storage screen. -->
+    <string name="storage_policy">收到的媒体会保留在此设备上，直到你清除或发送者将其移除。超过一天未发送的文件会自动移除。</string>
+    <!-- Shown while the storage screen measures media files. -->
+    <string name="storage_loading">正在计算…</string>
+    <!-- Shown when this account keeps no decrypted media on this device. -->
+    <string name="storage_empty">此设备上没有存储媒体</string>
+    <!-- Button that clears the media of every conversation after confirmation. -->
+    <string name="storage_clear_all">清除所有媒体</string>
+    <!-- Title of the confirmation before clearing one conversation's media. -->
+    <string name="storage_clear_title">清除此会话的媒体？</string>
+    <!-- Title of the confirmation before clearing every conversation's media. -->
+    <string name="storage_clear_all_title">清除所有媒体？</string>
+    <!-- Body of the clear confirmation; after the relay window the local copy may be the only one. -->
+    <string name="storage_clear_body">在此移除的文件可能无法再次下载。保存或分享到 Ramflux 之外的副本不会被移除。</string>
+    <!-- Confirm button that clears media. -->
+    <string name="storage_clear">清除</string>
+    <!-- Ongoing notification while media the person started is still transferring; it names no file or person. -->
+    <string name="transfer_notification_title">正在传输媒体…</string>
+    <!-- Accessibility label of the chat header button that opens the conversation menu. -->
+    <string name="chat_conversation_menu">更多</string>
 </resources>

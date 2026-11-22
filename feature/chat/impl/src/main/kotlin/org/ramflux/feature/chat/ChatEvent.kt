@@ -7,6 +7,7 @@ sealed interface ChatEvent {
     data object Sent : ChatEvent
     data object Details : ChatEvent
     data object Call : ChatEvent
+    data object Storage : ChatEvent
 
     data class Pick(val source: PickSource) : ChatEvent
 

@@ -99,7 +99,8 @@ fun ChatScreen(
     showDetails: Boolean = false,
     showCall: Boolean = false,
     showCamera: Boolean = false,
-    bottomInset: WindowInsets = WindowInsets(0)
+    bottomInset: WindowInsets = WindowInsets(0),
+    showStorage: Boolean = false
 ) {
     val theme = LocalRFTheme.current
     val gap = theme.gap
@@ -108,12 +109,13 @@ fun ChatScreen(
     // Bubble bounds relative to this box, captured on long press so the actions attach to the pressed bubble.
     val anchors = remember { BubbleAnchors() }
     var attachMenu by remember { mutableStateOf(false) }
+    var chatMenu by remember { mutableStateOf(false) }
     // Animated images share two playing slots per chat (media design 4.2).
     val slots = remember { AnimationSlots() }
     CompositionLocalProvider(LocalAnimationSlots provides slots) {
         Box(modifier.fillMaxSize().background(theme.bg).onGloballyPositioned { anchors.root = it }) {
             Column(Modifier.fillMaxSize()) {
-                ChatHeader(state, rooted, onAction, showDetails, showCall)
+                ChatHeader(state, rooted, onAction, showCall) { chatMenu = true }
                 state.headerProblem?.let { problem ->
                     KitTipBar(problem.render(), "circle-alert", Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp))
                 }
@@ -141,6 +143,8 @@ fun ChatScreen(
                 AttachMenu(showCamera, onAction) { attachMenu = false }
             }
             state.viewer?.let { Viewer(it, state.viewerPosition, onAction) }
+            if (chatMenu) ChatMenu(showDetails, showStorage, onAction) { chatMenu = false }
+            state.gallery?.let { Gallery(it, onAction) }
             state.preview?.let { SendPreviewSheet(it, onAction) }
             state.forward?.let { ForwardChooser(it, onAction) }
         }
@@ -163,7 +167,7 @@ private class BubbleAnchors {
 }
 
 @Composable
-private fun ChatHeader(state: ChatState, rooted: Boolean, onAction: (ChatAction) -> Unit, showDetails: Boolean, showCall: Boolean) {
+private fun ChatHeader(state: ChatState, rooted: Boolean, onAction: (ChatAction) -> Unit, showCall: Boolean, onMenu: () -> Unit) {
     val peerTitle = state.title?.render()?.let { Bidi.sanitize(it, UntrustedKind.Name) }?.takeIf { it.isNotBlank() }
     val title = peerTitle ?: stringResource(R.string.ui_conversation)
     val locale = LocalConfiguration.current.locales[0]
@@ -185,10 +189,10 @@ private fun ChatHeader(state: ChatState, rooted: Boolean, onAction: (ChatAction)
             { onAction(ChatAction.Back) }
         },
         onCall = if (showCall && !group) ({ onAction(ChatAction.Call) }) else null,
-        onMore = if (showDetails) ({ onAction(ChatAction.Details) }) else null,
+        onMore = if (state.loaded) onMenu else null,
         backLabel = stringResource(R.string.ui_back),
         callLabel = stringResource(R.string.chat_call),
-        moreLabel = stringResource(R.string.chat_conversation_details),
+        moreLabel = stringResource(R.string.chat_conversation_menu),
         tag = "chat-header"
     )
 }
@@ -561,6 +565,44 @@ private fun androidx.compose.foundation.layout.BoxScope.AttachMenu(
         },
         Modifier.align(Alignment.BottomStart).padding(theme.gap.dp),
         tag = "attach-menu"
+    )
+}
+
+/** The conversation menu: media and files, storage, and details when the host has a details screen. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.ChatMenu(
+    showDetails: Boolean,
+    showStorage: Boolean,
+    onAction: (ChatAction) -> Unit,
+    onClose: () -> Unit
+) {
+    val theme = LocalRFTheme.current
+    Box(
+        Modifier
+            .matchParentSize()
+            .background(theme.scrim)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
+            .testTag("chat-menu-scrim")
+    )
+    val actions = listOfNotNull(
+        ChatAction.OpenGallery,
+        ChatAction.Storage.takeIf { showStorage },
+        ChatAction.Details.takeIf { showDetails }
+    )
+    KitContextMenu(
+        actions.map { action ->
+            when (action) {
+                ChatAction.Storage -> KitMenuEntry(stringResource(R.string.storage_title), "hard-drive")
+                ChatAction.Details -> KitMenuEntry(stringResource(R.string.chat_conversation_details), "info")
+                else -> KitMenuEntry(stringResource(R.string.gallery_title), "layout-grid")
+            }
+        },
+        { index ->
+            onClose()
+            onAction(actions[index])
+        },
+        Modifier.align(Alignment.TopEnd).padding(theme.gap.dp),
+        tag = "chat-menu"
     )
 }
 

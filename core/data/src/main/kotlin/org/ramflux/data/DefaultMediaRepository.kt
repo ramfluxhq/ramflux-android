@@ -43,15 +43,14 @@ class DefaultMediaRepository(
     private val conversations = DefaultConversationsRepository(transport)
     private val enabled = HashSet<String>()
 
-    override fun localFile(account: String, attachment: MediaAttachment): File? =
-        stored(account, attachment.messageId, attachment.index)?.takeIf { it.isFile }
+    override fun localFile(account: String, attachment: MediaAttachment): File? = stored(account, attachment)?.takeIf { it.isFile }
 
     override suspend fun locate(account: String, attachments: List<MediaAttachment>): List<File?> =
         withContext(Dispatchers.IO) { attachments.map { localFile(account, it) } }
 
     override suspend fun download(account: String, attachment: MediaAttachment, progress: (TransferState) -> Unit): TransferState {
         localFile(account, attachment)?.let { return TransferState.Ready(it) }
-        val target = stored(account, attachment.messageId, attachment.index) ?: return TransferState.Failed(1, retryable = false)
+        val target = stored(account, attachment) ?: return TransferState.Failed(1, retryable = false)
         enable(account)?.let { return MediaRefusals.stateFor(it) }
         progress(TransferState.Downloading(null))
         val begun = call(
@@ -82,7 +81,7 @@ class DefaultMediaRepository(
                     is Reply.Body -> status.json.text("state")
                 }
             }
-            val written = readOut(account, importId, generation, target) ?: return TransferState.Failed(16, retryable = true)
+            val written = readOut(account, importId, generation, target, attachment.conversation) ?: return TransferState.Failed(16, retryable = true)
             if (written is TransferState.Ready) {
                 finished = true
                 call(attachments.importFinish(RepositoryContext(account), SecretBody.fields { publicText("import_id", importId) }))
@@ -97,9 +96,10 @@ class DefaultMediaRepository(
         }
     }
 
-    private suspend fun readOut(account: String, importId: String, generation: Long, target: File): TransferState? =
+    private suspend fun readOut(account: String, importId: String, generation: Long, target: File, conversation: String): TransferState? =
         withContext(Dispatchers.IO) {
             target.parentFile?.mkdirs()
+            mark(target.parentFile, conversation)
             val staging = File(target.parentFile, target.name + ".part")
             try {
                 FileOutputStream(staging).use { out ->
@@ -276,8 +276,33 @@ class DefaultMediaRepository(
         withContext(Dispatchers.IO) {
             val folder = folder(account) ?: return@withContext
             val prefix = hash(message) + "-"
-            folder.listFiles()?.filter { it.name.startsWith(prefix) }?.forEach { it.delete() }
+            // One folder per conversation: listing folders, never reading files.
+            folder.listFiles()?.filter { it.isDirectory }?.forEach { conversation ->
+                conversation.listFiles()?.filter { it.name.startsWith(prefix) }?.forEach { it.delete() }
+            }
         }
+    }
+
+    override suspend fun purgeConversation(account: String, conversation: String) {
+        withContext(Dispatchers.IO) {
+            if (!usable(conversation)) return@withContext
+            folder(account)?.let { File(it, hash(conversation)).deleteRecursively() }
+        }
+    }
+
+    override suspend fun storage(account: String): MediaStorage = withContext(Dispatchers.IO) {
+        if (!usable(account)) return@withContext MediaStorage(0, 0, emptyList())
+        val conversations = folder(account)?.listFiles()?.filter { it.isDirectory }?.mapNotNull { folder ->
+            val id = File(folder, MARKER).takeIf { it.isFile }?.readText(Charsets.UTF_8)?.takeIf { usable(it) } ?: return@mapNotNull null
+            ConversationUsage(id, folder.walkTopDown().filter { it.isFile && it.name != MARKER }.sumOf { it.length() })
+        }.orEmpty().filter { it.bytes > 0 }.sortedByDescending { it.bytes }
+        val outbox = outbox(account)?.walkTopDown()?.filter { it.isFile }?.sumOf { it.length() } ?: 0L
+        MediaStorage(conversations.sumOf { it.bytes } + outbox, outbox, conversations)
+    }
+
+    override suspend fun evict(account: String, nowMs: Long): Long = withContext(Dispatchers.IO) {
+        val stale = outbox(account)?.listFiles()?.filter { it.isFile && nowMs - it.lastModified() > MediaRetention.OUTBOX_MAX_AGE_MS }.orEmpty()
+        stale.sumOf { file -> file.length().also { if (!file.delete()) return@sumOf 0L } }
     }
 
     override suspend fun purgeAccount(account: String) {
@@ -289,7 +314,7 @@ class DefaultMediaRepository(
 
     override suspend fun usage(account: String): Long = withContext(Dispatchers.IO) {
         if (!usable(account)) return@withContext 0L
-        File(root, ROOT + "/" + hash(account)).walkTopDown().filter { it.isFile }.sumOf { it.length() }
+        File(root, ROOT + "/" + hash(account)).walkTopDown().filter { it.isFile && it.name != MARKER }.sumOf { it.length() }
     }
 
     override fun outbox(account: String): File? =
@@ -325,9 +350,19 @@ class DefaultMediaRepository(
 
     private fun folder(account: String): File? = if (!usable(account)) null else File(root, ROOT + "/" + hash(account) + "/media")
 
-    private fun stored(account: String, message: String, index: Int): File? {
-        if (!usable(message) || index !in 0 until MediaAttachment.MAX_PER_MESSAGE) return null
-        return folder(account)?.let { File(it, hash(message) + "-" + index) }
+    /** `<account>/media/<conversation>/<message>-<index>`, every part hashed; never the sender's file name. */
+    private fun stored(account: String, attachment: MediaAttachment): File? {
+        val message = attachment.messageId
+        if (!usable(message) || attachment.index !in 0 until MediaAttachment.MAX_PER_MESSAGE) return null
+        val conversation = attachment.conversation.takeIf { usable(it) } ?: UNSORTED
+        return folder(account)?.let { File(File(it, hash(conversation)), hash(message) + "-" + attachment.index) }
+    }
+
+    /** Records which conversation a folder belongs to, inside protected storage, for the storage screen. */
+    private fun mark(folder: File?, conversation: String) {
+        folder ?: return
+        val marker = File(folder, MARKER)
+        if (!marker.isFile && usable(conversation)) marker.writeText(conversation, Charsets.UTF_8)
     }
 
     private fun operation(attachment: MediaAttachment) = "import:" + hash(attachment.messageId).take(32) + ":" + attachment.index
@@ -371,6 +406,8 @@ class DefaultMediaRepository(
     private companion object {
         const val CHUNK = 524_288
         const val ROOT = "media"
+        const val MARKER = ".conversation"
+        const val UNSORTED = "unsorted"
         val json = Json { ignoreUnknownKeys = true }
     }
 }

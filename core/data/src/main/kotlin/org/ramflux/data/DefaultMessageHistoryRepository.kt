@@ -16,6 +16,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.ramflux.sdk.CallHistoryEntry
 import org.ramflux.sdk.CoreError
 import org.ramflux.sdk.CoreResult
 import org.ramflux.sdk.CoreUpdate
@@ -24,7 +25,9 @@ import org.ramflux.sdk.MessageHistoryEntry
 import org.ramflux.sdk.MessageHistoryMetadataReader
 import org.ramflux.sdk.SecretBody
 import org.ramflux.sdk.SubscriptionFilter
-import org.ramflux.sdk.CallHistoryEntry
+
+/** Directory pages read at most to resolve titles for the storage screen. */
+private const val TITLE_PAGES = 50
 
 class DefaultMessageHistoryRepository(private val transport: RepositoryTransport) : MessageHistoryRepository, AttachmentHost {
     constructor(client: org.ramflux.sdk.CoreClient) : this(SdkRepositoryTransport { client })
@@ -174,6 +177,30 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
     }
 
     override suspend fun sendAvailability(): ClientResult<Unit> = ClientResult.Ready(Unit)
+
+    override suspend fun conversationTitles(account: String, conversations: Set<String>): ClientResult<Map<String, String>> {
+        if (!identity(account)) return invalid()
+        val found = HashMap<String, String>()
+        var cursor: String? = null
+        val seen = HashSet<String>()
+        repeat(TITLE_PAGES) {
+            if (found.size == conversations.size) return ClientResult.Ready(found)
+            val body = buildJsonObject { put("limit", 100); cursor?.let { put("cursor", it) } }
+            val reply = when (val result = source.conversationDirectory(RepositoryContext(account), body)) {
+                is CoreResult.Failure -> return ClientResult.Failed(result.error.appProblem())
+                is CoreResult.Success -> result.value
+            }
+            val page = when (val result = org.ramflux.sdk.ConversationDirectoryMetadataReader.read(reply)) {
+                is CoreResult.Failure -> return ClientResult.Failed(result.error.appProblem())
+                is CoreResult.Success -> result.value
+            }
+            page.rows.forEach { row -> if (row.id in conversations && !row.hidden) found[row.id] = row.title.orEmpty() }
+            val next = page.nextCursor ?: return ClientResult.Ready(found)
+            if (next.length > 8192 || !seen.add(next)) return ClientResult.Ready(found)
+            cursor = next
+        }
+        return ClientResult.Ready(found)
+    }
 
     /**
      * Direct conversations only: the directory reader carries the kind but not the group id that

@@ -200,4 +200,40 @@
     <string name="chat_viewer_video_failed">This video cannot be played on this device.</string>
     <!-- Elapsed and total video time; %1$s and %2$s are media times in Western digits, shown left to right. -->
     <string name="chat_viewer_time">%1$s / %2$s</string>
+    <!-- Title of the conversation media gallery and its menu entry. -->
+    <string name="gallery_title">Media and files</string>
+    <!-- Gallery tab with pictures and videos. -->
+    <string name="gallery_media">Media</string>
+    <!-- Gallery tab with files. -->
+    <string name="gallery_files">Files</string>
+    <!-- Shown while the gallery reads older messages for media. -->
+    <string name="gallery_loading">Looking for media…</string>
+    <!-- Shown when the loaded part of the conversation has no media of the selected kind. -->
+    <string name="gallery_empty">No media in this conversation</string>
+    <!-- Title of the media storage screen and its menu entry. -->
+    <string name="storage_title">Storage</string>
+    <!-- Row with the bytes of decrypted media this account keeps on this device. -->
+    <string name="storage_total">Media on this device</string>
+    <!-- Row with the bytes of outgoing files waiting to be sent. -->
+    <string name="storage_outbox">Waiting to send</string>
+    <!-- Explains the retention policy on the storage screen. -->
+    <string name="storage_policy">Received media stays on this device until you clear it or the sender removes it. Unsent files older than a day are removed automatically.</string>
+    <!-- Shown while the storage screen measures media files. -->
+    <string name="storage_loading">Measuring…</string>
+    <!-- Shown when this account keeps no decrypted media on this device. -->
+    <string name="storage_empty">No media stored on this device</string>
+    <!-- Button that clears the media of every conversation after confirmation. -->
+    <string name="storage_clear_all">Clear all media</string>
+    <!-- Title of the confirmation before clearing one conversation's media. -->
+    <string name="storage_clear_title">Clear media of this conversation?</string>
+    <!-- Title of the confirmation before clearing every conversation's media. -->
+    <string name="storage_clear_all_title">Clear all media?</string>
+    <!-- Body of the clear confirmation; after the relay window the local copy may be the only one. -->
+    <string name="storage_clear_body">Files removed here may no longer be available to download again. Copies saved or shared outside Ramflux are not removed.</string>
+    <!-- Confirm button that clears media. -->
+    <string name="storage_clear">Clear</string>
+    <!-- Ongoing notification while media the person started is still transferring; it names no file or person. -->
+    <string name="transfer_notification_title">Transferring media…</string>
+    <!-- Accessibility label of the chat header button that opens the conversation menu. -->
+    <string name="chat_conversation_menu">More</string>
 </resources>

@@ -215,8 +215,13 @@ class ChatScreenTest {
         compose.setContent {
             RamfluxTheme { ChatScreen(state, { actions.add(it) }, clock = clock, showDetails = true, showCall = true) }
         }
-        compose.onNodeWithContentDescription("Conversation details").performClick()
+        compose.onNodeWithContentDescription("More").performClick()
+        compose.onNodeWithText("Media and files").assertExists()
+        compose.onNodeWithText("Conversation details").performClick()
         compose.runOnIdle { assertEquals(ChatAction.Details, actions.last()) }
+        compose.onNodeWithContentDescription("More").performClick()
+        compose.onNodeWithText("Media and files").performClick()
+        compose.runOnIdle { assertEquals(ChatAction.OpenGallery, actions.last()) }
         compose.onNodeWithContentDescription("Call").performClick()
         compose.runOnIdle { assertEquals(ChatAction.Call, actions.last()) }
         compose.runOnIdle { assertTrue(actions.any { it is ChatAction.Shown && it.id == "m" }) }

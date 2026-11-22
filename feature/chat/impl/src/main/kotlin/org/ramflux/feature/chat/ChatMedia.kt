@@ -13,13 +13,22 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +54,7 @@ import org.ramflux.designsystem.kit.KitAlbumGrid
 import org.ramflux.designsystem.kit.KitBubble
 import org.ramflux.designsystem.kit.KitBubbleKind
 import org.ramflux.designsystem.kit.KitButton
+import org.ramflux.designsystem.kit.KitEmpty
 import org.ramflux.designsystem.kit.KitIconButton
 import org.ramflux.designsystem.kit.KitMediaBubble
 import org.ramflux.designsystem.kit.KitMediaGlyph
@@ -52,6 +62,7 @@ import org.ramflux.designsystem.kit.KitMeta
 import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.kit.KitRow
 import org.ramflux.designsystem.kit.KitRowTrailing
+import org.ramflux.designsystem.kit.KitSegmented
 import org.ramflux.designsystem.kit.KitTextField
 import org.ramflux.designsystem.kit.KitTipBar
 import org.ramflux.designsystem.kit.KitZoomableImage
@@ -334,6 +345,82 @@ private fun VideoPane(path: String, modifier: Modifier) {
         }
     }
 }
+
+/**
+ * The conversation gallery (board B29 to be drawn): pictures and videos in a lazy grid, files in a lazy
+ * list, both keyed by attachment; the next history pages load near the end of the window.
+ */
+@Composable
+internal fun BoxScope.Gallery(sheet: GallerySheet, onAction: (ChatAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    BackHandler { onAction(ChatAction.CloseGallery) }
+    val more = { if (sheet.hasMore && !sheet.loading) onAction(ChatAction.GalleryMore) }
+    Column(Modifier.matchParentSize().background(theme.bg).testTag("gallery")) {
+        KitPageHeader(stringResource(R.string.gallery_title), onBack = { onAction(ChatAction.CloseGallery) }, tag = "gallery-header")
+        KitSegmented(
+            listOf(stringResource(R.string.gallery_media), stringResource(R.string.gallery_files)),
+            sheet.tab.ordinal,
+            { onAction(ChatAction.GalleryTab(GalleryTab.entries[it])) },
+            Modifier.fillMaxWidth().padding(theme.gap.dp),
+            tag = "gallery-tabs"
+        )
+        sheet.problem?.let { KitTipBar(it.render(), "circle-alert", Modifier.padding(theme.gap.dp)) }
+        when {
+            sheet.items.isEmpty() && sheet.loading ->
+                KitMeta(stringResource(R.string.gallery_loading), Modifier.fillMaxWidth().padding(theme.gap.dp), centered = true)
+            sheet.items.isEmpty() -> KitEmpty("images", stringResource(R.string.gallery_empty), "")
+            sheet.tab == GalleryTab.MEDIA -> {
+                val grid = rememberLazyGridState()
+                val nearEnd by remember {
+                    derivedStateOf { nearEnd(grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index, grid.layoutInfo.totalItemsCount) }
+                }
+                LaunchedEffect(nearEnd, sheet.items.size) { if (nearEnd) more() }
+                LazyVerticalGrid(
+                    GridCells.Adaptive((theme.gap * 6).dp),
+                    Modifier.weight(1f).fillMaxWidth().testTag("gallery-grid"),
+                    state = grid
+                ) {
+                    items(sheet.items, key = { it.key }, contentType = { it.kind }) { item ->
+                        GalleryTile(item, onAction)
+                    }
+                }
+            }
+            else -> {
+                val list = rememberLazyListState()
+                val nearEnd by remember {
+                    derivedStateOf { nearEnd(list.layoutInfo.visibleItemsInfo.lastOrNull()?.index, list.layoutInfo.totalItemsCount) }
+                }
+                LaunchedEffect(nearEnd, sheet.items.size) { if (nearEnd) more() }
+                LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("gallery-files"), state = list) {
+                    items(sheet.items, key = { it.key }, contentType = { it.kind }) { item ->
+                        val status = statusText(item)
+                        val size = android.text.format.Formatter.formatShortFileSize(LocalContext.current, item.size)
+                        KitRow(
+                            item.fileName.ifEmpty { stringResource(R.string.chat_attach_file) },
+                            { onAction(ChatAction.OpenAttachment(item.key)) },
+                            value = if (status == null) size else stringResource(R.string.chat_file_meta, size, status),
+                            trailing = KitRowTrailing.None,
+                            peer = true,
+                            testTag = "gallery-" + item.key
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GalleryTile(item: AttachmentItem, onAction: (ChatAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    BoxWithConstraints(Modifier.aspectRatio(1f).padding((theme.gap * .125f).dp).background(theme.surface)) {
+        AlbumTile(item, Modifier.fillMaxSize(), maxWidth, play = false, onAction)
+    }
+}
+
+private const val GALLERY_PREFETCH = 12
+
+private fun nearEnd(last: Int?, total: Int) = (last ?: 0) >= total - GALLERY_PREFETCH
 
 /**
  * The send preview of picked photos and videos (board B28 to be drawn): staging progress from this

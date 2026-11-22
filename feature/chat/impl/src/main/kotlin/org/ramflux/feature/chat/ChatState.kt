@@ -87,7 +87,9 @@ enum class LocalDelivery {
     /** The send preview of picked photos and videos, while it is open. */
     val preview: SendPreview? = null,
     /** "2 of 5" in the viewer when the message has more than one picture or video. */
-    val viewerPosition: ViewerPosition? = null
+    val viewerPosition: ViewerPosition? = null,
+    /** The conversation gallery, while it is open. */
+    val gallery: GallerySheet? = null
 ) {
     override fun toString() = "ChatState(<redacted>)"
 }
@@ -107,6 +109,19 @@ enum class LocalDelivery {
     val sending: Boolean = false
 ) {
     override fun toString() = "ForwardSheet(<redacted>)"
+}
+
+enum class GalleryTab { MEDIA, FILES }
+
+/** The conversation gallery: one tab of items from a bounded window over the paged history. */
+@Immutable data class GallerySheet(
+    val tab: GalleryTab = GalleryTab.MEDIA,
+    val items: ImmutableList<AttachmentItem> = persistentListOf(),
+    val loading: Boolean = true,
+    val hasMore: Boolean = false,
+    val problem: UiText? = null
+) {
+    override fun toString() = "GallerySheet(<redacted>)"
 }
 
 @Immutable data class ViewerPosition(val index: Int, val count: Int)

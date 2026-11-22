@@ -148,6 +148,10 @@ interface MessageHistoryRepository {
     /** One page of conversations a message can be forwarded to, following the directory cursor. */
     suspend fun forwardTargets(account: String, cursor: String? = null): ClientResult<ForwardTargetPage> =
         ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)
+
+    /** Titles of [conversations] from the directory, in one pass over its pages; unknown ids are absent. */
+    suspend fun conversationTitles(account: String, conversations: Set<String>): ClientResult<Map<String, String>> =
+        ClientResult.Ready(emptyMap())
 }
 
 private fun unavailable(): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)

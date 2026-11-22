@@ -76,6 +76,7 @@ fun ChatNavigation(
     }
     // The capture target survives the camera activity and process death; it is a cache path, not content.
     var capture by rememberSaveable { mutableStateOf<String?>(null) }
+    var storage by rememberSaveable { mutableStateOf(false) }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
         val target = capture
         capture = null
@@ -131,6 +132,7 @@ fun ChatNavigation(
                 ChatEvent.Sent -> vm.onAction(ChatAction.Refresh)
                 ChatEvent.Details -> details?.invoke()
                 ChatEvent.Call -> call?.invoke()
+                ChatEvent.Storage -> storage = true
                 is ChatEvent.Copy -> clipboard.setText(AnnotatedString(event.text))
             }
         }
@@ -144,8 +146,10 @@ fun ChatNavigation(
             showDetails = onDetails != null,
             showCall = onCall != null,
             showCamera = hasCamera && (onCameraPermission != null || cameraGranted()),
-            bottomInset = bottomInset
+            bottomInset = bottomInset,
+            showStorage = true
         )
+        if (storage) MediaStorageNavigation(accountId, { storage = false })
         notice?.let { text ->
             KitTipBar(stringResource(text), "info", Modifier.align(Alignment.TopCenter).padding(LocalRFTheme.current.gap.dp))
             LaunchedEffect(text) {
