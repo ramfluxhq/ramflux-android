@@ -123,6 +123,13 @@ internal fun Modifier.kitHairline(color: Color, top: Boolean = false): Modifier 
     drawLine(color, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), stroke)
 }
 
+/** A hairline along the end edge (right in left-to-right, left in right-to-left layouts). */
+internal fun Modifier.kitHairlineEnd(color: Color): Modifier = drawBehind {
+    val stroke = RfMetrics.hairline.dp.toPx()
+    val x = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Ltr) size.width - stroke / 2f else stroke / 2f
+    drawLine(color, androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Offset(x, size.height), stroke)
+}
+
 @Composable
 internal fun HitBox(
     tag: String?,

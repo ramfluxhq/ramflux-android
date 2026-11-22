@@ -5,16 +5,20 @@ package org.ramflux.designsystem.kit
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -98,6 +102,7 @@ class KitLayoutTest {
                         ),
                         0,
                         {},
+                        bottomInset = KIT_FRAME_INSET,
                         tag = "tabs"
                     )
                     KitHomeIndicator(tag = "home")
@@ -133,7 +138,7 @@ class KitLayoutTest {
                     KitInfoButton({}, tag = "info")
                     KitPageHeader("Title", onBack = {}, tag = "header")
                     KitChatHeader("Title", null, { KitAvatar("A", 36f, KitAvatarKind.Person) }, {}, tag = "chat")
-                    KitTabBar(listOf(KitTab("messages-square", "Messages")), 0, {}, tag = "tabs")
+                    KitTabBar(listOf(KitTab("messages-square", "Messages")), 0, {}, bottomInset = KIT_FRAME_INSET, tag = "tabs")
                     KitContextMenu(listOf(KitMenuEntry("Reply", "reply")), {}, tag = "menu")
                 }
             }
@@ -286,7 +291,7 @@ class KitLayoutTest {
                         KitRow("Label", {}, icon = "user-round", value = "Value", testTag = "row")
                         KitButton("Continue with the existing identity on this device", {}, tag = "button")
                         KitButton("Enter the pairing code shown on the other device", {}, kind = KitButtonKind.Text, tag = "text")
-                        KitTabBar(listOf(KitTab("messages-square", "Messages")), 0, {}, tag = "tabs")
+                        KitTabBar(listOf(KitTab("messages-square", "Messages")), 0, {}, bottomInset = KIT_FRAME_INSET, tag = "tabs")
                         KitComposer("", {}, "Message", {}, {}, tag = "composer")
                         KitSegmented(listOf("Scan", "Compare the safety number"), 0, {}, tag = "segments")
                     }
@@ -342,6 +347,55 @@ class KitLayoutTest {
         } finally {
             file.delete()
         }
+    }
+
+    @Test fun tabBarBandFollowsTheBottomInset() {
+        val tabs = listOf(KitTab("messages-square", "Messages"), KitTab("ellipsis", "More"))
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column(Modifier.width(393.dp)) {
+                    KitTabBar(tabs, 0, {}, bottomInset = WindowInsets(0, 0, 0, 0), tag = "none")
+                    KitTabBar(tabs, 0, {}, bottomInset = KIT_FRAME_INSET, tag = "frame")
+                    KitTabBar(tabs, 0, {}, bottomInset = WindowInsets(bottom = 48.dp), tag = "tall")
+                }
+            }
+        }
+        // Tab row 8 + 48 dp; the band is the inset less the design frame's 3 dp overlap and the 4 dp hit overhang.
+        compose.onNodeWithTag("none", useUnmergedTree = true).assertHeightIsEqualTo(56.dp)
+        compose.onNodeWithTag("frame", useUnmergedTree = true).assertHeightIsEqualTo(83.dp)
+        compose.onNodeWithTag("tall", useUnmergedTree = true).assertHeightIsEqualTo(97.dp)
+    }
+
+    @Test fun railStacksTheDestinationsWithHitFramesAndPadsTheInset() {
+        val tabs = listOf(KitTab("messages-square", "Messages", badge = "3"), KitTab("users-round", "Groups"), KitTab("ellipsis", "More"))
+        var picked = -1
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Box(Modifier.height(600.dp)) {
+                    KitNavigationRail(tabs, 0, { picked = it }, bottomInset = KIT_FRAME_INSET, tag = "rail")
+                }
+            }
+        }
+        compose.onNodeWithTag("rail", useUnmergedTree = true).assertWidthIsEqualTo(80.dp).assertHeightIsEqualTo(600.dp)
+        (0..2).forEach { compose.onNodeWithTag("rail-$it", useUnmergedTree = true).assertHeightIsAtLeast(48.dp) }
+        val first = compose.onNodeWithTag("rail-0", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val second = compose.onNodeWithTag("rail-1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        check(second.top >= first.bottom) { "rail cells overlap: $first $second" }
+        compose.onNodeWithTag("rail-2", useUnmergedTree = true).performClick()
+        compose.runOnIdle { check(picked == 2) { "picked $picked" } }
+    }
+
+    @Test fun railLabelsWrapAtLargeFontScale() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                val density = LocalDensity.current
+                CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                    KitNavigationRail(listOf(KitTab("users-round", "Communities and channels")), 0, {}, tag = "rail")
+                }
+            }
+        }
+        val cell = compose.onNodeWithTag("rail-0", useUnmergedTree = true).fetchSemanticsNode().size.height
+        check(cell > 48 * compose.density.density) { "rail label did not wrap: $cell" }
     }
 
     private fun frame(tag: String, width: androidx.compose.ui.unit.Dp, content: @androidx.compose.runtime.Composable () -> Unit) {

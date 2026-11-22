@@ -117,6 +117,7 @@ class KitScreenshotTest {
             ),
             0,
             {},
+            bottomInset = KIT_FRAME_INSET,
             tag = "shot"
         )
     }
@@ -445,6 +446,7 @@ class KitScreenshotTest {
                             ),
                             0,
                             {},
+                            bottomInset = KIT_FRAME_INSET,
                             tag = "shot"
                         )
                     }
@@ -573,6 +575,7 @@ class KitScreenshotTest {
             ),
             0,
             {},
+            bottomInset = KIT_FRAME_INSET,
             tag = "shot"
         )
     }

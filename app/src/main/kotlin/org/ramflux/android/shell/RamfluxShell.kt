@@ -26,6 +26,7 @@ import androidx.navigation3.runtime.entryProvider
 import org.ramflux.android.R
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitEmpty
+import org.ramflux.designsystem.kit.KitNavigationRail
 import org.ramflux.designsystem.kit.KitTab
 import org.ramflux.designsystem.kit.KitTabBar
 import org.ramflux.feature.agents.api.AgentsRoute
@@ -68,8 +69,9 @@ class ShellNavigation(
 class ShellShortcutState(val order: String, val hidden: String, val onOrder: (String) -> Unit, val onHidden: (String) -> Unit)
 
 /**
- * The tabbed shell. It owns the outer insets, the bottom bar (outside the navigation display) and
- * the pane width caps; the tab content comes from [entries].
+ * The tabbed shell. It owns the outer insets, the top-level navigation (outside the navigation
+ * display: the Kit tab bar at compact width, the Kit rail at medium and expanded widths) and the pane
+ * width caps; the tab content comes from [entries].
  */
 @Composable
 fun RamfluxShell(
@@ -97,7 +99,10 @@ fun RamfluxShell(
         entryProvider = provider,
         metrics = PaneMetrics(dimensionResource(R.dimen.shell_list_pane_width), theme.column_max.dp),
         insets = insets,
-        bottomBar = { KitTabBar(shellTabs(), navigator.selected, navigator::select, tag = "shell-tabs") },
+        bottomBar = { inset -> KitTabBar(shellTabs(), navigator.selected, navigator::select, bottomInset = inset, tag = "shell-tabs") },
+        rail = { inset ->
+            KitNavigationRail(shellTabs(), navigator.selected, navigator::select, bottomInset = inset, tag = "shell-rail-tabs")
+        },
         modifier = modifier.background(theme.bg),
         tabAtRoot = { rootPages[it] },
         separator = { PaneSeparator() },

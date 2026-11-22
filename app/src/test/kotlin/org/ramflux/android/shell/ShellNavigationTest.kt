@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,10 +36,16 @@ import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.feature.agents.api.AgentsRoute
 import org.ramflux.feature.appshell.api.MoreRoute
 import org.ramflux.feature.appshell.api.NoticesRoute
+import org.ramflux.feature.calls.api.CallsRoute
+import org.ramflux.feature.cards.api.CardsRoute
 import org.ramflux.feature.chat.api.ChatRoute
 import org.ramflux.feature.contacts.api.ContactsRoute
 import org.ramflux.feature.conversations.api.ConversationsRoute
 import org.ramflux.feature.groups.api.GroupsRoute
+import org.ramflux.feature.permissions.api.PermissionsRoute
+import org.ramflux.feature.settings.api.SettingsRoute
+import org.ramflux.feature.tasks.api.TasksRoute
+import org.ramflux.navigation.LocalPaneRole
 import org.ramflux.navigation.PaneRole
 import org.ramflux.navigation.TopLevelNavigator
 import org.ramflux.navigation.pane
@@ -54,7 +62,10 @@ class ShellNavigationTest {
 
     private lateinit var navigator: TopLevelNavigator
 
-    private fun EntryProviderScope<NavKey>.fakeEntries(shell: ShellNavigation) {
+    private fun EntryProviderScope<NavKey>.fakeEntries(
+        shell: ShellNavigation,
+        chat: @Composable (ChatRoute) -> Unit = { BasicText("chat " + it.conversationId) }
+    ) {
         entry<ConversationsRoute>(metadata = pane(PaneRole.LIST)) {
             Column {
                 BasicText("conversation list")
@@ -62,7 +73,7 @@ class ShellNavigationTest {
                 TextButton({ shell.openDetail(ChatRoute("a", "c2")) }) { BasicText("open c2") }
             }
         }
-        entry<ChatRoute>(metadata = pane(PaneRole.DETAIL)) { BasicText("chat " + it.conversationId) }
+        entry<ChatRoute>(metadata = pane(PaneRole.DETAIL)) { chat(it) }
         entry<GroupsRoute>(metadata = pane(PaneRole.LIST)) {
             var taps by rememberSaveable { mutableIntStateOf(0) }
             TextButton({ taps++ }) { BasicText("groups taps $taps") }
@@ -81,10 +92,15 @@ class ShellNavigationTest {
 
     @Composable
     private fun Shell(width: Int) {
+        Shell(width) { fakeEntries(it) }
+    }
+
+    @Composable
+    private fun Shell(width: Int, entries: EntryProviderScope<NavKey>.(ShellNavigation) -> Unit) {
         navigator = rememberTopLevelNavigator(SHELL_TAB_ROOTS)
         DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(width.dp, 800.dp))) {
             RamfluxTheme {
-                RamfluxShell(navigator, SHELL_ROUTE_POLICY, {}, insets = WindowInsets(0, 0, 0, 0)) { fakeEntries(it) }
+                RamfluxShell(navigator, SHELL_ROUTE_POLICY, {}, insets = WindowInsets(0, 0, 0, 0)) { entries(it) }
             }
         }
     }
@@ -107,7 +123,7 @@ class ShellNavigationTest {
         compose.onNodeWithText("open c1").performClick()
         compose.onNodeWithText("chat c1").assertExists()
         compose.onNodeWithText("conversation list").assertExists()
-        compose.onNodeWithTag("shell-bottom-bar").assertExists()
+        compose.onNodeWithTag("shell-rail").assertExists()
         compose.onNodeWithText("open c2").performClick()
         compose.onNodeWithText("chat c2").assertExists()
         compose.activity.onBackPressedDispatcher.onBackPressed()
@@ -158,6 +174,62 @@ class ShellNavigationTest {
         compose.runOnIdle { assertEquals(3, navigator.selected) }
         compose.runOnIdle { navigator.select(0) }
         compose.onNodeWithText("chat c2").assertExists()
+    }
+
+    @Test fun compactUsesTheBottomBarAndWiderWindowsTheRail() {
+        var width by mutableStateOf(393)
+        compose.setContent { Shell(width) }
+        fun assertForm(rail: Boolean) {
+            compose.onNodeWithTag("shell-rail").apply { if (rail) assertExists() else assertDoesNotExist() }
+            compose.onNodeWithTag("shell-bottom-bar").apply { if (rail) assertDoesNotExist() else assertExists() }
+        }
+        assertForm(rail = false)
+        width = 599
+        assertForm(rail = false)
+        width = 600
+        assertForm(rail = true)
+        width = 700
+        assertForm(rail = true)
+        width = 1000
+        assertForm(rail = true)
+        width = 360
+        assertForm(rail = false)
+    }
+
+    @Test fun theRailStaysVisibleOverAPushedPageAndSwitchesTabs() {
+        compose.setContent { Shell(600) }
+        compose.onNodeWithText("open c1").performClick()
+        compose.onNodeWithText("chat c1").assertExists()
+        compose.onNodeWithText("conversation list").assertDoesNotExist()
+        compose.onNodeWithTag("shell-rail").assertExists()
+        compose.onNodeWithTag("shell-rail-tabs-3", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("more hub").assertExists()
+        compose.runOnIdle { assertEquals(3, navigator.selected) }
+    }
+
+    @Test fun theDetailBesideItsListHasNoBackAndAFullPaneDetailHasOne() {
+        var width by mutableStateOf(1000)
+        compose.setContent {
+            Shell(width) { shell -> fakeEntries(shell) { BasicText("chat back=" + (LocalPaneRole.current != PaneRole.DETAIL)) } }
+        }
+        compose.onNodeWithText("open c1").performClick()
+        compose.onNodeWithText("chat back=false").assertExists()
+        width = 393
+        compose.onNodeWithText("chat back=true").assertExists()
+    }
+
+    @Test fun everyAccountRouteDeclaresItselfAccountScoped() {
+        val accountRoutes: List<NavKey> = listOf(
+            ChatRoute("a", "c"),
+            ContactsRoute,
+            TasksRoute,
+            CallsRoute,
+            CardsRoute,
+            SettingsRoute,
+            PermissionsRoute()
+        )
+        accountRoutes.forEach { assertTrue("$it", SHELL_ROUTE_POLICY.isAccountScoped(it)) }
+        SHELL_TAB_ROOTS.forEach { assertFalse("$it", SHELL_ROUTE_POLICY.isAccountScoped(it)) }
     }
 
     @Test fun lockedSessionDropsAccountRoutesFromEveryTab() {

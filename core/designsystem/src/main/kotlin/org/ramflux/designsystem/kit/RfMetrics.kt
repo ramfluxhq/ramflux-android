@@ -37,10 +37,15 @@ internal object RfMetrics {
     val row = 58f
     val rowPadV = 8f
     val conversation = 72f
-    val tabBar = 83f
     val tab = 44f
     val tabPadTop = 8f
     val tabInset = 31f
+
+    /** Home-indicator safe bottom of the 393x852 design frame (tokens frame.mobile.homeIndicatorSafeBottom). */
+    val homeSafeBottom = 34f
+    val rail = 80f
+    val railGap = 4f
+    val railPadH = 4f
     val tabGap = 2f
     val tabIcon = 24f
     val tabBadge = 18f

@@ -9,23 +9,31 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.dp
 import kotlin.math.max
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
@@ -190,16 +198,28 @@ fun KitChatHeader(
     }
 }
 
+/**
+ * The bottom tab bar. [bottomInset] is the window's bottom system inset (home indicator or navigation
+ * bar), supplied by the shell. The design frame draws the 83 dp bar over its 34 dp home-indicator area
+ * with a 31 dp bottom band, so the band below the tab row is the inset less that 3 dp overlap; a window
+ * without a bottom inset gets no band.
+ */
 @Composable
-fun KitTabBar(tabs: List<KitTab>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, tag: String? = null) {
+fun KitTabBar(
+    tabs: List<KitTab>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    bottomInset: WindowInsets = WindowInsets.navigationBars,
+    tag: String? = null
+) {
     val theme = LocalRFTheme.current
-    Column(
-        modifier.fillMaxWidth().heightIn(min = dp(RfMetrics.tabBar)).background(theme.bg).kitHairline(theme.line, top = true).kitTag(tag)
-    ) {
+    val inset = with(LocalDensity.current) { bottomInset.getBottom(this).toDp() }
+    // The 48 dp hit row already reaches 4 dp below the 44 dp tab row into the band.
+    val band = (inset - dp(RfMetrics.homeSafeBottom - RfMetrics.tabInset) - dp(RfMetrics.hit - RfMetrics.tab)).coerceAtLeast(0.dp)
+    Column(modifier.fillMaxWidth().background(theme.bg).kitHairline(theme.line, top = true).kitTag(tag)) {
         Row(Modifier.fillMaxWidth().padding(top = dp(RfMetrics.tabPadTop)).heightIn(min = dp(RfMetrics.hit))) {
             tabs.forEachIndexed { index, tab ->
-                val on = index == selected
-                val tint = if (on) theme.text else theme.secondary
                 Box(
                     Modifier
                         .weight(1f)
@@ -208,51 +228,99 @@ fun KitTabBar(tabs: List<KitTab>, selected: Int, onSelect: (Int) -> Unit, modifi
                         .clickableNoRipple(true, { onSelect(index) })
                         .kitTag(tag?.let { "$it-$index" })
                 ) {
-                    Column(
-                        Modifier.heightIn(min = dp(RfMetrics.tab)).align(Alignment.TopCenter),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.tabGap), Alignment.CenterVertically)
-                    ) {
-                        Box(Modifier.size(dp(RfMetrics.tabIcon))) {
-                            KitIcon(tab.icon, RfMetrics.tabIcon, tint)
-                            if (tab.badge != null) {
-                                Box(
-                                    Modifier
-                                        .offset(x = dp(RfMetrics.badgeX), y = dp(RfMetrics.badgeY))
-                                        .heightIn(min = dp(RfMetrics.tabBadge))
-                                        .widthIn(min = dp(RfMetrics.tabBadgeMin))
-                                        .clip(shapeOf(theme.radius_md))
-                                        .background(theme.badge)
-                                        .padding(horizontal = dp(RfMetrics.tabBadgePad)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    KitText(
-                                        tab.badge,
-                                        style = kitStyle(
-                                            theme.size_mobile_caption,
-                                            FontWeight.SemiBold,
-                                            theme.on_badge,
-                                            RfMetrics.lineTitle
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                        KitText(
-                            tab.label,
-                            style = kitStyle(
-                                theme.size_mobile_caption,
-                                if (on) FontWeight.SemiBold else FontWeight.Medium,
-                                tint,
-                                RfMetrics.lineTitle,
-                                if (tab.latin) RfFonts.latin else RfFonts.ui
-                            )
-                        )
-                    }
+                    KitTabCell(tab, index == selected, Modifier.align(Alignment.TopCenter))
                 }
             }
         }
-        Spacer(Modifier.height(dp(RfMetrics.tabInset - (RfMetrics.hit - RfMetrics.tab))))
+        Spacer(Modifier.height(band))
+    }
+}
+
+/**
+ * The navigation rail used instead of [KitTabBar] at medium and expanded window widths. It offers the
+ * same destinations with the same tab cells, stacked from the top, and pads itself by [bottomInset].
+ * Labels wrap instead of clipping.
+ */
+@Composable
+fun KitNavigationRail(
+    tabs: List<KitTab>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    bottomInset: WindowInsets = WindowInsets.navigationBars,
+    tag: String? = null
+) {
+    val theme = LocalRFTheme.current
+    Column(
+        modifier
+            .fillMaxHeight()
+            .width(dp(RfMetrics.rail))
+            .background(theme.bg)
+            .kitHairlineEnd(theme.line)
+            .kitTag(tag)
+            .windowInsetsPadding(bottomInset)
+            .padding(top = dp(RfMetrics.tabPadTop)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.railGap))
+    ) {
+        tabs.forEachIndexed { index, tab ->
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = dp(RfMetrics.hit))
+                    .semantics { contentDescription = tab.label }
+                    .clickableNoRipple(true, { onSelect(index) })
+                    .kitTag(tag?.let { "$it-$index" })
+                    .padding(horizontal = dp(RfMetrics.railPadH)),
+                contentAlignment = Alignment.Center
+            ) {
+                KitTabCell(tab, index == selected)
+            }
+        }
+    }
+}
+
+/** Icon, optional badge and label of one destination, shared by the tab bar and the rail. */
+@Composable
+private fun KitTabCell(tab: KitTab, on: Boolean, modifier: Modifier = Modifier) {
+    val theme = LocalRFTheme.current
+    val tint = if (on) theme.text else theme.secondary
+    Column(
+        modifier.heightIn(min = dp(RfMetrics.tab)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.tabGap), Alignment.CenterVertically)
+    ) {
+        Box(Modifier.size(dp(RfMetrics.tabIcon))) {
+            KitIcon(tab.icon, RfMetrics.tabIcon, tint)
+            if (tab.badge != null) {
+                Box(
+                    Modifier
+                        .offset(x = dp(RfMetrics.badgeX), y = dp(RfMetrics.badgeY))
+                        .heightIn(min = dp(RfMetrics.tabBadge))
+                        .widthIn(min = dp(RfMetrics.tabBadgeMin))
+                        .clip(shapeOf(theme.radius_md))
+                        .background(theme.badge)
+                        .padding(horizontal = dp(RfMetrics.tabBadgePad)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    KitText(
+                        tab.badge,
+                        style = kitStyle(theme.size_mobile_caption, FontWeight.SemiBold, theme.on_badge, RfMetrics.lineTitle)
+                    )
+                }
+            }
+        }
+        KitText(
+            tab.label,
+            textAlign = TextAlign.Center,
+            style = kitStyle(
+                theme.size_mobile_caption,
+                if (on) FontWeight.SemiBold else FontWeight.Medium,
+                tint,
+                RfMetrics.lineTitle,
+                if (tab.latin) RfFonts.latin else RfFonts.ui
+            )
+        )
     }
 }
 

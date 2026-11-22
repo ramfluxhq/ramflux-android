@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
@@ -38,8 +36,11 @@ private const val LIST_PANE_MAX_FRACTION = 0.45f
  * is hidden, so switching tabs keeps each tab's saved state and ViewModels.
  *
  * The shell owns the outer window insets and the width caps; screens fill the pane they are given.
- * At compact width the bottom bar hides while the selected tab shows more than its root (or its root
- * reports a sub-page through [tabAtRoot]); with two panes or a rail it always stays visible.
+ * The top-level navigation follows [AdaptiveSpec.navigationForm]: the [bottomBar] at compact width and
+ * the [rail] at medium and expanded widths. Both receive the bottom window inset to lay out themselves
+ * (the bar reaches into the home-indicator area as the design frame does). At compact width the bottom
+ * bar hides while the selected tab shows more than its root (or its root reports a sub-page through
+ * [tabAtRoot]); with two panes it always stays visible, and the rail is always visible.
  */
 @Composable
 fun AdaptiveShell(
@@ -47,9 +48,9 @@ fun AdaptiveShell(
     entryProvider: (NavKey) -> NavEntry<NavKey>,
     metrics: PaneMetrics,
     insets: WindowInsets,
-    bottomBar: @Composable () -> Unit,
+    bottomBar: @Composable (bottomInset: WindowInsets) -> Unit,
     modifier: Modifier = Modifier,
-    rail: (@Composable () -> Unit)? = null,
+    rail: (@Composable (bottomInset: WindowInsets) -> Unit)? = null,
     tabAtRoot: (Int) -> Boolean = { true },
     separator: @Composable () -> Unit = {},
     emptyDetail: @Composable () -> Unit = {}
@@ -71,14 +72,11 @@ fun AdaptiveShell(
         val useRail = rail != null && spec.navigationForm == NavigationForm.RAIL
         val bottomVisible = !useRail && (spec.twoPane || (navigator.atRoot && tabAtRoot(navigator.selected)))
         BackHandler(enabled = navigator.atRoot && navigator.selected != 0) { navigator.pop() }
+        val bottomInset = insets.only(WindowInsetsSides.Bottom)
         Column(Modifier.fillMaxSize().windowInsetsPadding(insets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
             Row(Modifier.weight(1f).fillMaxWidth()) {
-                if (useRail) Box(Modifier.fillMaxHeight().testTag("shell-rail")) { rail?.invoke() }
-                val content = if (bottomVisible) {
-                    Modifier.consumeWindowInsets(insets.only(WindowInsetsSides.Bottom))
-                } else {
-                    Modifier.windowInsetsPadding(insets.only(WindowInsetsSides.Bottom))
-                }
+                if (useRail) Box(Modifier.fillMaxHeight().testTag("shell-rail")) { rail(bottomInset) }
+                val content = if (bottomVisible) Modifier.consumeWindowInsets(bottomInset) else Modifier.windowInsetsPadding(bottomInset)
                 Box(Modifier.weight(1f).fillMaxHeight().then(content)) {
                     NavDisplay(
                         entries = decorated[navigator.selected],
@@ -87,10 +85,7 @@ fun AdaptiveShell(
                     )
                 }
             }
-            if (bottomVisible) {
-                Box(Modifier.fillMaxWidth().testTag("shell-bottom-bar")) { bottomBar() }
-                Spacer(Modifier.windowInsetsBottomHeight(insets))
-            }
+            if (bottomVisible) Box(Modifier.fillMaxWidth().testTag("shell-bottom-bar")) { bottomBar(bottomInset) }
         }
     }
 }
