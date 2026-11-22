@@ -46,7 +46,7 @@ class ChatScreenshotTest(
     @get:Rule val compose = createComposeRule()
     companion object {
         private val locales = listOf("en", "zh-CN", "en-XA", "ar-XB")
-        private val kinds = listOf("loading", "error", "empty", "rows", "group", "bidi", "board", "actions", "outbox")
+        private val kinds = listOf("loading", "error", "empty", "rows", "group", "bidi", "board", "actions", "outbox", "media")
 
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}-dark{1}-{2}-locale{3}-font{4}")
@@ -67,6 +67,46 @@ class ChatScreenshotTest(
             "error" -> ChatState(problem = uiText(R.string.ui_unable_to_continue))
             "empty" -> ChatState(loaded = true, title = UiText.Data("Project"))
             "board", "actions" -> ChatBoards.conversation(selected = kind == "actions")
+            // Media M1 states; there is no media board yet, so this follows the file bubble of MOB-B02.
+            "media" -> ChatState(
+                conversationId = "conversation-id",
+                title = UiText.Data("Project"),
+                loaded = true,
+                rows = persistentListOf(
+                    MessageItem(
+                        "p",
+                        "Peer",
+                        false,
+                        false,
+                        UiText.Data(""),
+                        at(10, 20),
+                        attachments = persistentListOf(
+                            AttachmentItem("p", 0, AttachmentKind.IMAGE, "photo.jpg", 2_400_000, 4f / 3f, AttachmentStatus.AVAILABLE),
+                            AttachmentItem(
+                                "p",
+                                1,
+                                AttachmentKind.FILE,
+                                "Quarterly report\u202Efdp.exe",
+                                48_000,
+                                4f / 3f,
+                                AttachmentStatus.EXPIRED
+                            )
+                        )
+                    ),
+                    MessageItem(
+                        "q",
+                        "Self",
+                        true,
+                        false,
+                        UiText.Data("Slides attached."),
+                        at(10, 22),
+                        receipt = Receipt.DELIVERED,
+                        attachments = persistentListOf(
+                            AttachmentItem("q", 0, AttachmentKind.FILE, "slides.pdf", 1_200_000, 4f / 3f, AttachmentStatus.LOADING)
+                        )
+                    )
+                )
+            )
             // Boards MOB-B05 (send failed) and MOB-B08 (offline, queued).
             "outbox" -> ChatState(
                 conversationId = "conversation-id",

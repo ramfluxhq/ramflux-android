@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -21,14 +22,17 @@ class ChatViewModel @Inject constructor(
     private val history: MessageHistoryRepository,
     private val accounts: AccountAccessRepository,
     private val session: ClientSessionRepository,
-    private val drafts: ChatDraftRepository
+    private val drafts: ChatDraftRepository,
+    private val media: MediaRepository,
+    private val stager: MediaStager
 ) : ViewModel() {
-    /** For hosts that keep no drafts (tests and previews). */
+    /** For hosts that keep no drafts and no media (tests and previews). */
     constructor(
         history: MessageHistoryRepository,
         accounts: AccountAccessRepository,
-        session: ClientSessionRepository
-    ) : this(history, accounts, session, NoChatDrafts)
+        session: ClientSessionRepository,
+        drafts: ChatDraftRepository = NoChatDrafts
+    ) : this(history, accounts, session, drafts, UnavailableMediaRepository(), NoMediaStager)
 
     private data class Target(val account: String, val conversation: String, val group: String?)
     private var target: Target? = null
@@ -46,6 +50,12 @@ class ChatViewModel @Inject constructor(
     private var unreadAtOpen = 0L
     private var dividerPlaced = false
     private var draftJob: Job? = null
+
+    /** Attachment references of the window by key, the files this device holds, and transfers in flight. */
+    private val references = HashMap<String, MediaAttachment>()
+    private val located = HashMap<String, String>()
+    private val transfers = HashMap<String, TransferState>()
+    private val downloads = HashMap<String, Job>()
     private val local = MutableStateFlow(ChatState())
     private val channel = Channel<ChatEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
@@ -65,6 +75,7 @@ class ChatViewModel @Inject constructor(
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect { (phase, _) ->
             // Lock or session loss: seal the draft before the in-memory state is dropped.
             sealDraft()
+            stager.dropMemory()
             request?.cancel()
             watch?.cancel()
             watchTarget = null
@@ -118,9 +129,6 @@ class ChatViewModel @Inject constructor(
                     compose(local.value.composer)
                 }
             }
-            ChatAction.Attachments -> if (target != null && !local.value.sending) {
-                viewModelScope.launch { channel.send(ChatEvent.Attachments) }
-            }
             ChatAction.Back -> {
                 sealDraft()
                 request?.cancel()
@@ -168,10 +176,19 @@ class ChatViewModel @Inject constructor(
                 if (text != null && !row.deleted && !row.placeholder) viewModelScope.launch { channel.send(ChatEvent.Copy(text)) }
             }
             ChatAction.DeleteForMe -> mutate(local.value.selectedId) { account, conversation, id, operation ->
-                history.delete(account, conversation, id, MessageDeleteScope.LOCAL, operation)
+                history.delete(account, conversation, id, MessageDeleteScope.LOCAL, operation).also {
+                    if (it is ClientResult.Ready) media.purge(account, id)
+                }
             }
             ChatAction.DeleteForEveryone -> mutate(local.value.selectedId) { account, conversation, id, operation ->
-                history.delete(account, conversation, id, MessageDeleteScope.EVERYONE, operation)
+                val hasMedia = references.values.any { it.messageId == id }
+                history.delete(account, conversation, id, MessageDeleteScope.EVERYONE, operation).also {
+                    if (it is ClientResult.Ready && hasMedia) {
+                        // The SDK does not retire relay grants on erase (request R7); the author does it here.
+                        media.revoke(account, id)
+                        media.purge(account, id)
+                    }
+                }
             }
             ChatAction.CancelComposer -> {
                 val editing = local.value.composer == ComposerMode.EDIT
@@ -192,6 +209,18 @@ class ChatViewModel @Inject constructor(
             ChatAction.Details -> if (target != null) viewModelScope.launch { channel.send(ChatEvent.Details) }
             ChatAction.Call -> if (target != null && local.value.groupId == null) viewModelScope.launch { channel.send(ChatEvent.Call) }
             ChatAction.Pause -> sealDraft()
+            is ChatAction.OpenAttachment -> openAttachment(action.key)
+            ChatAction.CloseViewer -> local.update { it.copy(viewer = null) }
+            is ChatAction.SaveAttachment -> handOver(action.key, FileUse.SAVE)
+            is ChatAction.ShareAttachment -> handOver(action.key, FileUse.SHARE)
+            is ChatAction.Pick -> if (target != null && local.value.canSend) {
+                viewModelScope.launch {
+                    channel.send(
+                        ChatEvent.Pick(action.image)
+                    )
+                }
+            }
+            is ChatAction.Picked -> stage(action.uri, action.image)
         }
     }
     private fun selected(): MessageItem? {
@@ -365,7 +394,18 @@ class ChatViewModel @Inject constructor(
         val generation = session.status.value.generation
         viewModelScope.launch {
             if (!accountStillOpen(currentTarget, generation)) return@launch
-            val sent = history.send(currentTarget.account, currentTarget.conversation, outgoing.text, outgoing.operation)
+            val staged = outgoing.staged
+            val sent = if (staged == null) {
+                history.send(currentTarget.account, currentTarget.conversation, outgoing.text, outgoing.operation)
+            } else {
+                media.send(
+                    currentTarget.account,
+                    MediaDestination(currentTarget.conversation, currentTarget.group),
+                    outgoing.text,
+                    listOf(staged),
+                    outgoing.operation
+                )
+            }
             if (target != currentTarget || generation != session.status.value.generation) return@launch
             when (sent) {
                 is ClientResult.Ready -> {
@@ -431,6 +471,7 @@ class ChatViewModel @Inject constructor(
 
     /** Merges the newest page into the window: rows from the first overlap onwards are replaced. */
     private fun merge(page: TimelinePage) {
+        remember(page.rows)
         val mapped = page.rows.map(::itemOf)
         if (window.isEmpty()) {
             window.addAll(mapped)
@@ -464,6 +505,7 @@ class ChatViewModel @Inject constructor(
                 when (result) {
                     is ClientResult.Ready -> {
                         val known = window.mapTo(HashSet(window.size)) { it.id }
+                        remember(result.value.rows)
                         window.addAll(0, result.value.rows.map(::itemOf).filter { it.id !in known })
                         older = result.value.older
                         if (window.size > WINDOW) {
@@ -511,7 +553,28 @@ class ChatViewModel @Inject constructor(
     /** Publishes the window plus the outbox as the timeline, and places the unread divider once. */
     private fun publish() {
         val pending = outbox.map { (id, outgoing) ->
-            MessageItem(id, "", true, false, UiText.Data(outgoing.text), outgoing.sentAt, delivery = outgoing.delivery)
+            val staged = outgoing.staged
+            val attachments = if (staged == null) {
+                persistentListOf()
+            } else {
+                persistentListOf(
+                    AttachmentItem(
+                        id, 0, kindOf(staged.mime), staged.fileName, staged.file.length(), MediaAttachment.DEFAULT_RATIO,
+                        if (outgoing.delivery == LocalDelivery.SENDING) AttachmentStatus.SENDING else AttachmentStatus.FAILED,
+                        staged.file.path, staged.mime
+                    )
+                )
+            }
+            MessageItem(
+                id,
+                "",
+                true,
+                false,
+                UiText.Data(outgoing.text),
+                outgoing.sentAt,
+                delivery = outgoing.delivery,
+                attachments = attachments
+            )
         }
         if (!dividerPlaced && window.isNotEmpty()) {
             dividerPlaced = true
@@ -541,6 +604,11 @@ class ChatViewModel @Inject constructor(
 
     private fun resetTimeline() {
         olderJob?.cancel()
+        downloads.values.forEach { it.cancel() }
+        downloads.clear()
+        references.clear()
+        located.clear()
+        transfers.clear()
         window.clear()
         older = null
         detached = false
@@ -732,9 +800,150 @@ class ChatViewModel @Inject constructor(
             row.placeholder,
             row.service,
             receiptLabel(row.receipts),
-            row.reactions.map { ReactionCount(it.token, it.count) }.toPersistentList()
+            row.reactions.map { ReactionCount(it.token, it.count) }.toPersistentList(),
+            attachments = if (row.deleted) persistentListOf() else row.attachments.map { attachmentItem(it, row.own) }.toPersistentList()
         )
     }
+
+    /** Records the attachment references of new rows, purges erased ones and looks up held files. */
+    private fun remember(rows: List<TimelineSummary>) {
+        val currentTarget = target ?: return
+        val fresh = ArrayList<MediaAttachment>()
+        rows.forEach { row ->
+            val message = row as? MessageSummary ?: return@forEach
+            if (message.deleted) {
+                if (references.values.any { it.messageId == message.id }) {
+                    references.keys.removeAll { it.startsWith(message.id + "/") }
+                    viewModelScope.launch { media.purge(currentTarget.account, message.id) }
+                }
+                return@forEach
+            }
+            message.attachments.forEach { attachment ->
+                val key = keyOf(attachment)
+                if (references.put(key, attachment) == null) fresh += attachment
+            }
+        }
+        if (fresh.isEmpty()) return
+        viewModelScope.launch {
+            val files = media.locate(currentTarget.account, fresh)
+            if (target != currentTarget) return@launch
+            var changed = false
+            fresh.forEachIndexed { index, attachment ->
+                files.getOrNull(index)?.let {
+                    located[keyOf(attachment)] = it.path
+                    changed = true
+                }
+            }
+            if (changed) refreshAttachments(fresh.mapTo(HashSet()) { it.messageId })
+        }
+    }
+
+    private fun attachmentItem(attachment: MediaAttachment, own: Boolean): AttachmentItem {
+        val key = keyOf(attachment)
+        val path = located[key]
+        val status = when (val transfer = transfers[key]) {
+            null -> when {
+                path != null -> AttachmentStatus.READY
+                !own && attachment.availableUntil?.let { System.currentTimeMillis() / 1000 > it } == true -> AttachmentStatus.EXPIRED
+                else -> AttachmentStatus.AVAILABLE
+            }
+            is TransferState.Ready -> AttachmentStatus.READY
+            is TransferState.Downloading, TransferState.Queued -> AttachmentStatus.LOADING
+            TransferState.Expired -> AttachmentStatus.EXPIRED
+            TransferState.Revoked -> AttachmentStatus.REVOKED
+            TransferState.NotGrantee -> AttachmentStatus.NOT_ON_DEVICE
+            TransferState.BlockedByPolicy -> AttachmentStatus.HIDDEN
+            else -> AttachmentStatus.FAILED
+        }
+        return AttachmentItem(
+            attachment.messageId, attachment.index, kindOf(attachment.declaredMime), attachment.fileName, attachment.size,
+            attachment.aspectRatio, status, path, attachment.declaredMime
+        )
+    }
+
+    /** Re-maps only the rows whose attachments changed. */
+    private fun refreshAttachments(messages: Set<String>) {
+        for (index in window.indices) {
+            val row = window[index] as? MessageItem ?: continue
+            if (row.id !in messages) continue
+            val items = references.values.filter { it.messageId == row.id }.sortedBy { it.index }
+            window[index] = row.copy(attachments = items.map { attachmentItem(it, row.own) }.toPersistentList())
+        }
+        val viewer = local.value.viewer
+        if (viewer != null) {
+            val key = viewer.key
+            references[key]?.let { reference ->
+                local.update { it.copy(viewer = attachmentItem(reference, false).takeIf { item -> item.status == AttachmentStatus.READY }) }
+            }
+        }
+        publish()
+    }
+
+    private fun openAttachment(key: String) {
+        val currentTarget = target ?: return
+        val attachment = references[key] ?: return
+        val item = attachmentItem(attachment, false)
+        when (item.status) {
+            AttachmentStatus.READY -> {
+                val path = item.localPath ?: return
+                if (item.kind == AttachmentKind.IMAGE || item.kind == AttachmentKind.ANIMATED) {
+                    local.update { it.copy(viewer = item) }
+                } else {
+                    viewModelScope.launch { channel.send(ChatEvent.File(path, item.mime, item.fileName, FileUse.OPEN)) }
+                }
+            }
+            AttachmentStatus.AVAILABLE, AttachmentStatus.FAILED, AttachmentStatus.HIDDEN -> download(currentTarget, attachment)
+            else -> Unit
+        }
+    }
+
+    private fun download(currentTarget: Target, attachment: MediaAttachment) {
+        val key = keyOf(attachment)
+        if (downloads[key]?.isActive == true || session.status.value.phase != ClientPhase.OPEN) return
+        transfers[key] = TransferState.Queued
+        refreshAttachments(setOf(attachment.messageId))
+        downloads[key] = viewModelScope.launch {
+            val result = media.download(currentTarget.account, attachment)
+            if (target != currentTarget) return@launch
+            if (result is TransferState.Ready) {
+                located[key] = result.file.path
+                transfers.remove(key)
+            } else {
+                transfers[key] = result
+            }
+            if (result == TransferState.Revoked) media.purge(currentTarget.account, attachment.messageId)
+            refreshAttachments(setOf(attachment.messageId))
+        }
+    }
+
+    private fun handOver(key: String, use: FileUse) {
+        val item = references[key]?.let { attachmentItem(it, false) } ?: return
+        val path = item.localPath ?: return
+        if (item.status != AttachmentStatus.READY) return
+        viewModelScope.launch { channel.send(ChatEvent.File(path, item.mime, item.fileName, use)) }
+    }
+
+    private fun stage(uri: String, image: Boolean) {
+        val currentTarget = target ?: return
+        if (session.status.value.phase != ClientPhase.OPEN || outbox.size >= OUTBOX_LIMIT) return
+        viewModelScope.launch {
+            val staged = if (image) stager.image(currentTarget.account, uri) else stager.file(currentTarget.account, uri)
+            if (target != currentTarget) {
+                staged?.file?.delete()
+                return@launch
+            }
+            if (staged == null) {
+                local.update { it.copy(problem = uiText(R.string.chat_media_not_staged)) }
+                return@launch
+            }
+            val operation = UUID.randomUUID().toString()
+            val id = LOCAL_PREFIX + operation
+            outbox[id] = Outgoing(operation, "", System.currentTimeMillis() / 1000, LocalDelivery.SENDING, staged = staged)
+            publish()
+            deliver(currentTarget, id)
+        }
+    }
+
     private suspend fun current(expected: Long, generation: Long, expectedTarget: Target) {
         currentCoroutineContext().ensureActive()
         if (expected != ticket || generation != session.status.value.generation ||
@@ -750,7 +959,8 @@ private data class Outgoing(
     val text: String,
     val sentAt: Long,
     var delivery: LocalDelivery,
-    var definite: Boolean = false
+    var definite: Boolean = false,
+    val staged: StagedMedia? = null
 ) {
     override fun toString() = "Outgoing(<redacted>)"
 }
@@ -758,6 +968,15 @@ private data class Outgoing(
 /** Status names of failures that mean "no live session"; such sends wait in the queue. */
 private val OFFLINE = setOf("authority_unavailable", "unavailable", "offline", "closed")
 private const val LOCAL_PREFIX = "local:"
+
+private fun keyOf(attachment: MediaAttachment) = attachment.messageId + "/" + attachment.index
+
+private fun kindOf(mime: String) = when (MediaAttachment.kindOf(mime)) {
+    MediaKind.IMAGE -> AttachmentKind.IMAGE
+    MediaKind.ANIMATED -> AttachmentKind.ANIMATED
+    MediaKind.VIDEO -> AttachmentKind.VIDEO
+    MediaKind.FILE -> AttachmentKind.FILE
+}
 private const val OUTBOX_LIMIT = 64
 private const val WINDOW = 1_000
 private const val DRAFT_DEBOUNCE_MS = 400L

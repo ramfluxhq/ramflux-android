@@ -30,6 +30,9 @@ interface MediaRepository {
     /** The decrypted original when this device already holds it. */
     fun localFile(account: String, attachment: MediaAttachment): File?
 
+    /** [localFile] for many attachments, off the main thread. */
+    suspend fun locate(account: String, attachments: List<MediaAttachment>): List<File?> = attachments.map { localFile(account, it) }
+
     /** Imports and stores one attachment; [progress] receives each state change. Cancellation cancels the import. */
     suspend fun download(account: String, attachment: MediaAttachment, progress: (TransferState) -> Unit = {}): TransferState
 
@@ -77,6 +80,24 @@ class UnavailableMediaRepository : MediaRepository {
     override suspend fun purgeAccount(account: String) = Unit
     override suspend fun usage(account: String): Long = 0
     override fun outbox(account: String): File? = null
+}
+
+/** Stages picker results into the account outbox (platform code; see core/media). Uris are opaque strings. */
+interface MediaStager {
+    /** Re-encodes an image from its pixels; null when it cannot be decoded within the caps. */
+    suspend fun image(account: String, uri: String): StagedMedia?
+
+    /** Copies a document byte for byte; null when it cannot be read or exceeds the client cap. */
+    suspend fun file(account: String, uri: String): StagedMedia?
+
+    /** Drops decoded images held in memory (lock, account change). */
+    fun dropMemory()
+}
+
+object NoMediaStager : MediaStager {
+    override suspend fun image(account: String, uri: String): StagedMedia? = null
+    override suspend fun file(account: String, uri: String): StagedMedia? = null
+    override fun dropMemory() = Unit
 }
 
 /** Implemented by the message repository, which owns the one SDK transport of the composition root. */

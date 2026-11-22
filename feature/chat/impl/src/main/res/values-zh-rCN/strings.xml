@@ -89,4 +89,48 @@
     <string name="chat_reaction_count">%1$s %2$d</string>
     <!-- Separator between short status words under a message, as in "Not sent · Retry". -->
     <string name="chat_meta_separator">·</string>
+    <!-- Problem shown when a picked photo or file could not be prepared for sending. -->
+    <string name="chat_media_not_staged">所选内容无法准备发送。</string>
+    <!-- Status inside a media bubble that is not on this device yet; tapping downloads it. -->
+    <string name="chat_media_download">点按下载</string>
+    <!-- Status inside a media bubble while it downloads; the SDK reports no byte progress. -->
+    <string name="chat_media_loading">正在下载…</string>
+    <!-- Status inside a media bubble whose download failed; tapping retries. -->
+    <string name="chat_media_failed">下载失败 · 点按重试</string>
+    <!-- Status of an attachment whose 24-hour access window has passed. -->
+    <string name="chat_media_expired">已不可用</string>
+    <!-- Status of an attachment the sender removed. -->
+    <string name="chat_media_revoked">发送者已移除</string>
+    <!-- Status of an attachment this device holds no key for (paired after it was sent). -->
+    <string name="chat_media_not_on_device">此设备无法查看</string>
+    <!-- Status of an attachment from an untrusted sender; nothing is shown until tapped. -->
+    <string name="chat_media_hidden">点按显示</string>
+    <!-- Status inside an own media bubble while it is prepared and uploaded. -->
+    <string name="chat_media_sending">正在发送…</string>
+    <!-- Accessibility label of an image bubble. -->
+    <string name="chat_media_image">图片</string>
+    <!-- Accessibility label of a video bubble. -->
+    <string name="chat_media_video">视频</string>
+    <!-- Attach menu entry that opens the system photo picker. -->
+    <string name="chat_attach_photo">照片</string>
+    <!-- Attach menu entry that opens the system document picker. -->
+    <string name="chat_attach_file">文件</string>
+    <!-- Viewer action that saves the image to the photo library. -->
+    <string name="chat_media_save">保存</string>
+    <!-- Viewer action that opens the system share sheet. -->
+    <string name="chat_media_share">分享</string>
+    <!-- Viewer action that closes the full-screen image. -->
+    <string name="chat_media_close">关闭</string>
+    <!-- Title of the confirmation before a file is opened in another app. -->
+    <string name="chat_media_open_title">在其他应用中打开？</string>
+    <!-- Body of the open confirmation; %1$s is the file name, shown isolated. -->
+    <string name="chat_media_open_body">%1$s 将交给此设备上的其他应用。Ramflux 之外的副本之后不会被删除。</string>
+    <!-- Confirm button of the open confirmation. -->
+    <string name="chat_media_open">打开</string>
+    <!-- Notice after an image was saved to the photo library. -->
+    <string name="chat_media_saved">已保存到相册</string>
+    <!-- Notice when no app can open or save the file. -->
+    <string name="chat_media_no_app">此设备上没有可打开此文件的应用。</string>
+    <!-- File bubble meta line; %1$s is the file size, %2$s the transfer status. -->
+    <string name="chat_file_meta">%1$s · %2$s</string>
 </resources>

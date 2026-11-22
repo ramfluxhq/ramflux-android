@@ -46,6 +46,9 @@ class DefaultMediaRepository(
     override fun localFile(account: String, attachment: MediaAttachment): File? =
         stored(account, attachment.messageId, attachment.index)?.takeIf { it.isFile }
 
+    override suspend fun locate(account: String, attachments: List<MediaAttachment>): List<File?> =
+        withContext(Dispatchers.IO) { attachments.map { localFile(account, it) } }
+
     override suspend fun download(account: String, attachment: MediaAttachment, progress: (TransferState) -> Unit): TransferState {
         localFile(account, attachment)?.let { return TransferState.Ready(it) }
         val target = stored(account, attachment.messageId, attachment.index) ?: return TransferState.Failed(1, retryable = false)

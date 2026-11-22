@@ -79,7 +79,9 @@ enum class LocalDelivery {
     val hasOlder: Boolean = false,
     val loadingOlder: Boolean = false,
     /** At least one send waits for a live session; the timeline shows the offline notice. */
-    val queued: Boolean = false
+    val queued: Boolean = false,
+    /** The image shown full screen, when one is open. */
+    val viewer: AttachmentItem? = null
 ) {
     override fun toString() = "ChatState(<redacted>)"
 }

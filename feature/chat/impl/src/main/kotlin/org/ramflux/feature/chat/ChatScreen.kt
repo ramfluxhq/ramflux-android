@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.chat
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -25,7 +26,9 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -63,16 +66,20 @@ import org.ramflux.designsystem.kit.KitContextMenu
 import org.ramflux.designsystem.kit.KitDateChip
 import org.ramflux.designsystem.kit.KitEmpty
 import org.ramflux.designsystem.kit.KitFailedMark
+import org.ramflux.designsystem.kit.KitIconButton
+import org.ramflux.designsystem.kit.KitMediaBubble
 import org.ramflux.designsystem.kit.KitMenuEntry
 import org.ramflux.designsystem.kit.KitMeta
 import org.ramflux.designsystem.kit.KitReaction
 import org.ramflux.designsystem.kit.KitReactionBar
 import org.ramflux.designsystem.kit.KitTipBar
 import org.ramflux.designsystem.kit.KitUnreadDivider
+import org.ramflux.designsystem.kit.KitZoomableImage
 import org.ramflux.designsystem.kit.kitBubbleCap
 import org.ramflux.designsystem.render
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
+import org.ramflux.media.rememberMediaImage
 
 /**
  * The chat screen renders [state] and emits [ChatAction] only. It fills the space the caller gives it: it
@@ -95,6 +102,7 @@ fun ChatScreen(
     val selected = state.selectedId?.let { id -> state.rows.firstOrNull { it.id == id } as? MessageItem }
     // Bubble bounds relative to this box, captured on long press so the actions attach to the pressed bubble.
     val anchors = remember { BubbleAnchors() }
+    var attachMenu by remember { mutableStateOf(false) }
     Box(modifier.fillMaxSize().background(theme.bg).onGloballyPositioned { anchors.root = it }) {
         Column(Modifier.fillMaxSize()) {
             ChatHeader(state, rooted, onAction, showDetails, showCall)
@@ -116,11 +124,15 @@ fun ChatScreen(
                 }
             }
             Notices(state)
-            Composer(state, onAction)
+            Composer(state, onAction) { attachMenu = true }
         }
         if (selected != null && actionsFor(selected).isNotEmpty()) {
             MessageActions(selected, state, stamps, anchors.pressed, onAction)
         }
+        if (attachMenu) {
+            AttachMenu(onAction) { attachMenu = false }
+        }
+        state.viewer?.let { Viewer(it, onAction) }
     }
 }
 
@@ -354,31 +366,91 @@ private fun Message(
                     KitFailedMark(stringResource(R.string.chat_not_sent))
                     Spacer(Modifier.width((LocalRFTheme.current.gap * .5f).dp))
                 }
-                Bubble(
-                    row,
-                    own,
-                    state.groupId != null,
-                    stamps,
-                    cap,
-                    Modifier.onGloballyPositioned { bubble[0] = it }.then(
-                        if (open) {
-                            Modifier
-                                .pointerInput(row.id) { detectTapGestures(onLongPress = { select() }) }
-                                .semantics {
-                                    onLongClick(actionsLabel) {
-                                        select()
-                                        true
-                                    }
+                val press = Modifier.onGloballyPositioned { bubble[0] = it }.then(
+                    if (open) {
+                        Modifier
+                            .pointerInput(row.id) { detectTapGestures(onLongPress = { select() }) }
+                            .semantics {
+                                onLongClick(actionsLabel) {
+                                    select()
+                                    true
                                 }
-                        } else {
-                            Modifier
-                        }
-                    )
+                            }
+                    } else {
+                        Modifier
+                    }
                 )
+                Column(
+                    horizontalAlignment = if (own) Alignment.End else Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy((LocalRFTheme.current.gap * .25f).dp)
+                ) {
+                    row.attachments.forEach { item -> Attachment(item, own, stamps.time(row.sentAt), cap, onAction) }
+                    val text = (row.content as? UiText.Data)?.value
+                    if (row.attachments.isEmpty() || !text.isNullOrBlank()) {
+                        Bubble(row, own, state.groupId != null, stamps, cap, press)
+                    } else {
+                        Box(press)
+                    }
+                }
             }
             if (row.reactions.isNotEmpty()) Reactions(row.reactions)
             if (row.delivery == LocalDelivery.FAILED) FailedLine(row.id, onAction)
         }
+    }
+}
+
+/** One attachment: images and video as a media box sized from message data, everything else as a file row. */
+@Composable
+private fun Attachment(item: AttachmentItem, own: Boolean, time: String?, cap: Dp, onAction: (ChatAction) -> Unit) {
+    val status = when (item.status) {
+        AttachmentStatus.HIDDEN -> stringResource(R.string.chat_media_hidden)
+        AttachmentStatus.AVAILABLE -> stringResource(R.string.chat_media_download)
+        AttachmentStatus.LOADING -> stringResource(R.string.chat_media_loading)
+        AttachmentStatus.READY -> null
+        AttachmentStatus.FAILED -> stringResource(R.string.chat_media_failed)
+        AttachmentStatus.EXPIRED -> stringResource(R.string.chat_media_expired)
+        AttachmentStatus.REVOKED -> stringResource(R.string.chat_media_revoked)
+        AttachmentStatus.NOT_ON_DEVICE -> stringResource(R.string.chat_media_not_on_device)
+        AttachmentStatus.SENDING -> stringResource(R.string.chat_media_sending)
+    }
+    val icon = when (item.status) {
+        AttachmentStatus.HIDDEN -> "eye"
+        AttachmentStatus.AVAILABLE, AttachmentStatus.FAILED -> if (item.kind == AttachmentKind.FILE) "download" else "image-down"
+        AttachmentStatus.LOADING, AttachmentStatus.SENDING -> "loader-circle"
+        AttachmentStatus.EXPIRED -> "timer-off"
+        AttachmentStatus.REVOKED, AttachmentStatus.NOT_ON_DEVICE -> "ban"
+        AttachmentStatus.READY -> if (item.kind == AttachmentKind.VIDEO) "play" else null
+    }
+    val open = { onAction(ChatAction.OpenAttachment(item.key)) }
+    val size = android.text.format.Formatter.formatShortFileSize(LocalContext.current, item.size)
+    if (item.kind == AttachmentKind.FILE || (item.kind == AttachmentKind.VIDEO && item.status != AttachmentStatus.READY)) {
+        KitBubble(
+            "",
+            Modifier.clickable(onClick = open).testTag("attachment-" + item.key),
+            kind = KitBubbleKind.File,
+            time = time,
+            fileName = item.fileName.ifEmpty { stringResource(R.string.chat_attach_file) },
+            fileMeta = if (status == null) size else stringResource(R.string.chat_file_meta, size, status),
+            fileIcon = icon ?: "file-text",
+            maxWidth = cap
+        )
+    } else {
+        // Only files this device decrypted are decoded; senders' thumbnails are not in the message yet (R1).
+        val path = item.localPath?.takeIf { item.status == AttachmentStatus.READY || item.status == AttachmentStatus.SENDING }
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val target = with(density) { cap.roundToPx() }
+        KitMediaBubble(
+            rememberMediaImage(path, target),
+            item.aspect,
+            own,
+            icon = icon,
+            status = status,
+            time = time,
+            description = stringResource(if (item.kind == AttachmentKind.VIDEO) R.string.chat_media_video else R.string.chat_media_image),
+            maxWidth = cap,
+            onClick = open,
+            tag = "attachment-" + item.key
+        )
     }
 }
 
@@ -470,7 +542,7 @@ private fun Notices(state: ChatState) {
 }
 
 @Composable
-private fun Composer(state: ChatState, onAction: (ChatAction) -> Unit) {
+private fun Composer(state: ChatState, onAction: (ChatAction) -> Unit, onAttach: () -> Unit) {
     val target = state.actionTarget?.let { id -> state.rows.firstOrNull { it.id == id } as? MessageItem }
     val author = when (state.composer) {
         ComposerMode.SEND -> null
@@ -484,9 +556,9 @@ private fun Composer(state: ChatState, onAction: (ChatAction) -> Unit) {
         { onAction(ChatAction.Draft(it)) },
         stringResource(R.string.chat_composer_placeholder),
         { onAction(ChatAction.Send) },
-        { onAction(ChatAction.Attachments) },
+        onAttach,
         sendActive = state.canSend && !state.sending && state.draft.isNotBlank(),
-        attachEnabled = !state.loading && !state.sending,
+        attachEnabled = state.canSend && !state.sending && state.composer == ComposerMode.SEND,
         replyAuthor = author,
         replyExcerpt = if (author == null) null else target?.content?.render(),
         onCloseReply = if (state.composer == ComposerMode.SEND) null else ({ onAction(ChatAction.CancelComposer) }),
@@ -497,6 +569,52 @@ private fun Composer(state: ChatState, onAction: (ChatAction) -> Unit) {
         closeLabel = stringResource(R.string.ui_cancel),
         tag = "composer"
     )
+}
+
+/** Photo picker (no storage permission) or document picker; both copy the item into the outbox. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.AttachMenu(onAction: (ChatAction) -> Unit, onClose: () -> Unit) {
+    val theme = LocalRFTheme.current
+    Box(
+        Modifier
+            .matchParentSize()
+            .background(theme.scrim)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
+            .testTag("attach-scrim")
+    )
+    KitContextMenu(
+        listOf(
+            KitMenuEntry(stringResource(R.string.chat_attach_photo), "images"),
+            KitMenuEntry(stringResource(R.string.chat_attach_file), "paperclip")
+        ),
+        { index ->
+            onClose()
+            onAction(ChatAction.Pick(image = index == 0))
+        },
+        Modifier.align(Alignment.BottomStart).padding(theme.gap.dp),
+        tag = "attach-menu"
+    )
+}
+
+/** Full-screen image with zoom; save and share go through the system, the window keeps its secure flag. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.Viewer(item: AttachmentItem, onAction: (ChatAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    BackHandler { onAction(ChatAction.CloseViewer) }
+    BoxWithConstraints(Modifier.matchParentSize().background(theme.bg).testTag("media-viewer")) {
+        val target = with(androidx.compose.ui.platform.LocalDensity.current) { (maxOf(maxWidth, maxHeight) * 2).roundToPx() }
+        rememberMediaImage(item.localPath, target)?.let {
+            KitZoomableImage(it, stringResource(R.string.chat_media_image))
+        }
+        Row(
+            Modifier.align(Alignment.TopEnd).padding(theme.gap.dp),
+            horizontalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp)
+        ) {
+            KitIconButton("download", stringResource(R.string.chat_media_save), { onAction(ChatAction.SaveAttachment(item.key)) })
+            KitIconButton("forward", stringResource(R.string.chat_media_share), { onAction(ChatAction.ShareAttachment(item.key)) })
+            KitIconButton("x", stringResource(R.string.chat_media_close), { onAction(ChatAction.CloseViewer) }, tag = "viewer-close")
+        }
+    }
 }
 
 /** The actions the read model and the SDK support for a message; nothing else is offered. */

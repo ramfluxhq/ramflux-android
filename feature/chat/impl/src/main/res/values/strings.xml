@@ -89,4 +89,48 @@
     <string name="chat_reaction_count">%1$s %2$d</string>
     <!-- Separator between short status words under a message, as in "Not sent · Retry". -->
     <string name="chat_meta_separator">·</string>
+    <!-- Problem shown when a picked photo or file could not be prepared for sending. -->
+    <string name="chat_media_not_staged">The selected item could not be prepared for sending.</string>
+    <!-- Status inside a media bubble that is not on this device yet; tapping downloads it. -->
+    <string name="chat_media_download">Tap to download</string>
+    <!-- Status inside a media bubble while it downloads; the SDK reports no byte progress. -->
+    <string name="chat_media_loading">Downloading…</string>
+    <!-- Status inside a media bubble whose download failed; tapping retries. -->
+    <string name="chat_media_failed">Download failed · tap to retry</string>
+    <!-- Status of an attachment whose 24-hour access window has passed. -->
+    <string name="chat_media_expired">No longer available</string>
+    <!-- Status of an attachment the sender removed. -->
+    <string name="chat_media_revoked">Removed by sender</string>
+    <!-- Status of an attachment this device holds no key for (paired after it was sent). -->
+    <string name="chat_media_not_on_device">Not available on this device</string>
+    <!-- Status of an attachment from an untrusted sender; nothing is shown until tapped. -->
+    <string name="chat_media_hidden">Tap to show</string>
+    <!-- Status inside an own media bubble while it is prepared and uploaded. -->
+    <string name="chat_media_sending">Sending…</string>
+    <!-- Accessibility label of an image bubble. -->
+    <string name="chat_media_image">Image</string>
+    <!-- Accessibility label of a video bubble. -->
+    <string name="chat_media_video">Video</string>
+    <!-- Attach menu entry that opens the system photo picker. -->
+    <string name="chat_attach_photo">Photo</string>
+    <!-- Attach menu entry that opens the system document picker. -->
+    <string name="chat_attach_file">File</string>
+    <!-- Viewer action that saves the image to the photo library. -->
+    <string name="chat_media_save">Save</string>
+    <!-- Viewer action that opens the system share sheet. -->
+    <string name="chat_media_share">Share</string>
+    <!-- Viewer action that closes the full-screen image. -->
+    <string name="chat_media_close">Close</string>
+    <!-- Title of the confirmation before a file is opened in another app. -->
+    <string name="chat_media_open_title">Open in another app?</string>
+    <!-- Body of the open confirmation; %1$s is the file name, shown isolated. -->
+    <string name="chat_media_open_body">%1$s will be handed to another app on this device. Copies outside Ramflux are not removed later.</string>
+    <!-- Confirm button of the open confirmation. -->
+    <string name="chat_media_open">Open</string>
+    <!-- Notice after an image was saved to the photo library. -->
+    <string name="chat_media_saved">Saved to Photos</string>
+    <!-- Notice when no app can open or save the file. -->
+    <string name="chat_media_no_app">No app on this device can open this file.</string>
+    <!-- File bubble meta line; %1$s is the file size, %2$s the transfer status. -->
+    <string name="chat_file_meta">%1$s · %2$s</string>
 </resources>

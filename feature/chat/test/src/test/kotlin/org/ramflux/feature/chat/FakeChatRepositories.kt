@@ -39,6 +39,17 @@ class FakeChatHistory : MessageHistoryRepository {
         reactions.add(token)
         return ClientResult.Ready(Unit)
     }
+    val deleted = mutableListOf<Pair<String, MessageDeleteScope>>()
+    override suspend fun delete(
+        account: String,
+        conversation: String,
+        message: String,
+        scope: MessageDeleteScope,
+        operationId: String
+    ): ClientResult<Unit> {
+        deleted.add(message to scope)
+        return ClientResult.Ready(Unit)
+    }
     var heading: ClientResult<ConversationHeader> = ClientResult.Ready(ConversationHeader(null))
     override suspend fun header(account: String, conversation: String) = heading
     var capability: ClientResult<Unit> = ClientResult.Unavailable(
@@ -124,5 +135,51 @@ class FakeChatDrafts : ChatDraftRepository {
     }
     override suspend fun clearAccount(account: String) {
         stored.keys.removeAll { it.startsWith("$account/") }
+    }
+}
+
+class FakeChatMedia : MediaRepository {
+    val held = mutableMapOf<String, java.io.File>()
+    var downloadResult: (MediaAttachment) -> TransferState = { TransferState.Ready(java.io.File("/tmp/" + it.messageId)) }
+    val downloads = mutableListOf<String>()
+    val revoked = mutableListOf<String>()
+    val purged = mutableListOf<String>()
+    val sent = mutableListOf<List<StagedMedia>>()
+    var sendResult: ClientResult<SendReceipt> = ClientResult.Ready(SendReceipt("media"))
+    override fun localFile(account: String, attachment: MediaAttachment) = held[attachment.messageId + "/" + attachment.index]
+    override suspend fun download(account: String, attachment: MediaAttachment, progress: (TransferState) -> Unit): TransferState {
+        downloads.add(attachment.messageId)
+        return downloadResult(attachment)
+    }
+    override suspend fun send(
+        account: String,
+        destination: MediaDestination,
+        caption: String,
+        items: List<StagedMedia>,
+        operationId: String,
+        progress: (TransferState) -> Unit
+    ): ClientResult<SendReceipt> {
+        sent.add(items)
+        return sendResult
+    }
+    override suspend fun revoke(account: String, message: String): ClientResult<Unit> {
+        revoked.add(message)
+        return ClientResult.Ready(Unit)
+    }
+    override suspend fun purge(account: String, message: String) {
+        purged.add(message)
+    }
+    override suspend fun purgeAccount(account: String) = Unit
+    override suspend fun usage(account: String): Long = 0
+    override fun outbox(account: String): java.io.File? = null
+}
+
+class FakeChatStager : MediaStager {
+    var dropped = 0
+    override suspend fun image(account: String, uri: String) =
+        StagedMedia(java.io.File("/tmp/staged-" + uri.hashCode()), "IMG_1.jpg", "image/jpeg")
+    override suspend fun file(account: String, uri: String): StagedMedia? = null
+    override fun dropMemory() {
+        dropped++
     }
 }

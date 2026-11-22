@@ -441,6 +441,66 @@ class ChatViewModelTest {
         assertEquals(listOf("\u2764\uFE0F"), history.reactions)
     }
 
+    @Test fun attachmentsDownloadOnTapOpenTheViewerAndErasureRevokesAndPurges() = runTest(timeout = 5.seconds) {
+        val image = MediaAttachment("p", 0, MediaKind.IMAGE, "image/jpeg", "photo.jpg", 2048)
+        val file = MediaAttachment("p", 1, MediaKind.FILE, "application/pdf", "report.pdf", 10)
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(MessageSummary("p", "me", true, false, "", 10, attachments = listOf(image, file)))) }
+        }
+        val media = FakeChatMedia()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, FakeChatStager())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        val items = (vm.state.value.rows.single() as MessageItem).attachments
+        assertEquals(listOf(AttachmentStatus.AVAILABLE, AttachmentStatus.AVAILABLE), items.map { it.status })
+        assertTrue(media.downloads.isEmpty())
+        vm.onAction(ChatAction.OpenAttachment("p/0"))
+        runCurrent()
+        assertEquals(listOf("p"), media.downloads)
+        assertEquals(AttachmentStatus.READY, (vm.state.value.rows.single() as MessageItem).attachments[0].status)
+        vm.onAction(ChatAction.OpenAttachment("p/0"))
+        runCurrent()
+        assertEquals("p/0", vm.state.value.viewer?.key)
+        vm.onAction(ChatAction.CloseViewer)
+        media.downloadResult = { TransferState.Expired }
+        vm.onAction(ChatAction.OpenAttachment("p/1"))
+        runCurrent()
+        assertEquals(AttachmentStatus.EXPIRED, (vm.state.value.rows.single() as MessageItem).attachments[1].status)
+        vm.onAction(ChatAction.Select("p"))
+        vm.onAction(ChatAction.DeleteForEveryone)
+        runCurrent()
+        assertEquals(listOf("p"), media.revoked)
+        assertTrue(media.purged.contains("p"))
+    }
+
+    @Test fun pickedImagesAreStagedAndSentThroughTheMediaRepository() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+        val media = FakeChatMedia().apply {
+            sendResult = ClientResult.Failed(
+                ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.REFUSED, statusName = "recipient_limit")
+            )
+        }
+        val stager = FakeChatStager()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, stager)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Picked("content://picked", image = true))
+        runCurrent()
+        assertEquals(1, media.sent.size)
+        assertEquals("IMG_1.jpg", media.sent.single().single().fileName)
+        val row = vm.state.value.rows.single() as MessageItem
+        assertEquals(LocalDelivery.FAILED, row.delivery)
+        assertEquals(AttachmentStatus.FAILED, row.attachments.single().status)
+        media.sendResult = ClientResult.Ready(SendReceipt("media"))
+        vm.onAction(ChatAction.Retry(row.id))
+        runCurrent()
+        assertEquals(2, media.sent.size)
+        assertTrue(vm.state.value.rows.isEmpty())
+    }
+
     private fun syntheticPages(total: Int): suspend (String?) -> ClientResult<TimelinePage> = { before ->
         val end = before?.toInt() ?: total
         val start = (end - 100).coerceAtLeast(0)
