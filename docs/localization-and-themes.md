@@ -6,7 +6,17 @@ Chinese uses `values-zh-rCN`. `UiText.Resource` stores a resource reference and
 immutable arguments in State. Rendering resolves the current configuration locale,
 so a locale change does not repeat repository work. `UiText.Data` is only display
 data, such as peer text; it is never interpreted as a resource key. Dates and exact
-unsigned counts use locale-aware platform formatters, and quantities use plurals.
+unsigned counts use locale-aware platform formatters, and quantities use plurals:
+`UiText.Quantity` passes the real quantity to the platform plural rules, so every CLDR
+category (zero, one, two, few, many, other) is selected per locale. Peer text and codes
+inserted into a host sentence use `UiText.Untrusted` and `UiText.Code`, which render
+inside bidirectional isolates; codes always use ASCII digits.
+
+Fonts follow the script, not the language. The bundled Hanken Grotesk and JetBrains
+Mono faces cover Latin only; the theme uses Hanken Grotesk when the UI locale's likely
+script is Latin and the platform sans otherwise. Kit text with non-Latin letters uses
+the platform sans without letter spacing, and scripts with marks above or below the
+line keep a full, taller line box. See `core/designsystem/KIT.md`.
 
 Settings offers English, Simplified Chinese and follow-system, with an explicit
 Apply action. The device-local language repository confirms an IO preference

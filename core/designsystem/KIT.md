@@ -6,9 +6,40 @@ Hand-written Compose components for the mobile design. Tokens live in
 
 ## Fonts
 
-`RfFonts.ui` is the platform sans (Roboto for Latin, Noto Sans CJK for Chinese).
-`RfFonts.latin` is bundled Hanken Grotesk. `RfFonts.mono` is bundled JetBrains Mono.
-Licenses are in `NOTICE` and `third_party/`.
+`RfFonts.ui` is the platform sans; it selects the face per script (Roboto for Latin, Noto Sans CJK,
+Noto Naskh Arabic, Noto Sans Devanagari and so on) with that face's line metrics. `RfFonts.latin` is
+bundled Hanken Grotesk and `RfFonts.mono` is bundled JetBrains Mono; both cover Latin only. Licenses
+are in `NOTICE` and `third_party/`.
+
+- The theme typography uses Hanken Grotesk only when the UI locale's likely script is Latin
+  (`RfFonts.forLocale`); every other locale uses the platform sans. There is no per-language branch.
+- Kit text goes through `KitText`. A string with any non-Latin letter drops the bundled Latin face and
+  any letter spacing. Scripts with marks above or below the line (Arabic, Hebrew, Indic scripts, Thai,
+  Lao, Tibetan, Myanmar, Khmer) keep the full line box and at least a 1.6 line height, so marks are not
+  clipped.
+- Rows and headers report the design line box when the platform font is taller (CJK), so their design
+  frames hold at font scale 1.0; the glyphs are centred and not clipped.
+
+## Right-to-left, bidirectional text and sizing
+
+- Layout uses start and end only; custom layouts place with `placeRelative`.
+- Directional icons (chevron-left, chevron-right, reply, forward, list-checks, clipboard-list) carry
+  `autoMirrored` in their drawable; no other icon mirrors. `KitIconMirrorTest` pins the table. Icons are
+  drawn only through the kit, so screens cannot flip them.
+- Kit text takes its direction from its content (`TextDirection.Content`).
+- `LtrCode` shows safety numbers, fingerprints, pairing codes, the six-digit code, device ids, recovery
+  words and URLs: always left-to-right, mono, ASCII digits from the raw value, groups never reversed,
+  one accessibility node per group. `KitPairingCode` and `KitMonoBlock` use it.
+- `UntrustedText` shows display names, group names, file names and message excerpts as their own
+  first-strong paragraph. `Bidi.sanitize` replaces embedding, override and isolate controls with U+FFFD
+  in names and file names (marks are removed) and removes them from excerpts (marks are kept). A file
+  name shows its real extension in a left-to-right isolate after the base name.
+- To insert peer text or a code into a host sentence, pass `UiText.Untrusted` or `UiText.Code` as the
+  resource argument; it is rendered inside an isolate. Never concatenate peer text with host text.
+- Frames that hold text use minimum heights and grow with the font scale; widths come from the
+  container. The context menu and approval card shrink below their design width in a narrow pane.
+- Plurals use `UiText.Quantity`, which hands the real quantity to the platform rules, so every CLDR
+  category works.
 
 ## States the design does not draw
 
