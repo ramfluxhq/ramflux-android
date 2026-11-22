@@ -48,7 +48,10 @@ object ClientModule {
 
     @Provides fun accountStatus(data: AndroidClientData): AccountStatusRepository = data.accountStatus
 
-    @Provides fun language(data: AndroidClientData): LanguageRepository = data.language
+    /** The platform per-app language on API 33+, the device-local store before that. */
+    @Provides @Singleton
+    fun language(@ApplicationContext context: Context, data: AndroidClientData): LanguageRepository =
+        appLanguageRepository(context, data.language)
 
     @Provides @Singleton
     fun osPermissions(@ApplicationContext context: Context): OsPermissionsRepository = AndroidOsPermissionsRepository(context)

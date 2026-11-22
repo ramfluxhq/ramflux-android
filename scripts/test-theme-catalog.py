@@ -33,6 +33,26 @@ class ThemeCatalogTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 compiler.compile_catalog(themes, ROOT / 'core/designsystem/src/main/kotlin/org/ramflux/designsystem/RFTokens.kt', base / 'java', base / 'res')
 
+    def test_another_locale_maps_to_its_resource_folder_without_code_changes(self):
+        with tempfile.TemporaryDirectory(prefix='rf-theme-locale-') as scratch:
+            base = Path(scratch)
+            themes = base / 'themes'
+            shutil.copytree(ROOT / 'core/designsystem/src/main/assets/ramflux/themes', themes)
+            for path in themes.glob('*.json'):
+                data = json.loads(path.read_text())
+                data['names'].update({'pt-BR': data['names']['en'], 'sr-Latn': data['names']['en']})
+                path.write_text(json.dumps(data))
+            compiler.compile_catalog(themes, ROOT / 'core/designsystem/src/main/kotlin/org/ramflux/designsystem/RFTokens.kt', base / 'java', base / 'res')
+            self.assertTrue((base / 'res/values-pt-rBR/theme_names.xml').exists())
+            self.assertTrue((base / 'res/values-b+sr+Latn/theme_names.xml').exists())
+            self.assertTrue((base / 'res/values-zh-rCN/theme_names.xml').exists())
+            for path in themes.glob('*.json'):
+                data = json.loads(path.read_text())
+                del data['names']['en']
+                path.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, 'default en'):
+                compiler.compile_catalog(themes, ROOT / 'core/designsystem/src/main/kotlin/org/ramflux/designsystem/RFTokens.kt', base / 'java', base / 'res')
+
     def test_shipped_text_and_control_token_pairs_meet_contrast(self):
         def luminance(token):
             values = token['$value']['components']
