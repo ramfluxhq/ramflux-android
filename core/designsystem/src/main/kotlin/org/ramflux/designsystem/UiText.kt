@@ -29,6 +29,12 @@ sealed interface UiText {
     data class Unsigned(val value: ULong) : UiText
     data class DateTime(val epochSeconds: Long) : UiText
     data class Quantity(@param:PluralsRes val id: Int, val value: ULong) : UiText
+
+    /** Peer data inserted into a host sentence: sanitised and isolated, so it cannot reorder the sentence. */
+    data class Untrusted(val value: String, val kind: UntrustedKind = UntrustedKind.Name) : UiText
+
+    /** A code, fingerprint, phrase or URL inserted into a host sentence: always left-to-right, ASCII digits. */
+    data class Code(val value: String) : UiText
 }
 fun uiText(@StringRes id: Int, vararg args: UiText): UiText = UiText.Resource(id, args.toList().toPersistentList())
 
@@ -39,6 +45,8 @@ fun UiText.render(): String {
         UiText.Empty -> ""
         is UiText.Resource -> if (args.isEmpty()) stringResource(id) else stringResource(id, *args.map { it.render() }.toTypedArray())
         is UiText.Data -> value
+        is UiText.Untrusted -> Bidi.isolate(value, kind)
+        is UiText.Code -> Bidi.ltr(value)
         is UiText.Unsigned -> NumberFormat.getIntegerInstance(locale).format(BigInteger(value.toString()))
         is UiText.Number -> NumberFormat.getIntegerInstance(locale).format(value)
         is UiText.Quantity -> pluralStringResource(

@@ -22,7 +22,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import org.ramflux.designsystem.LocalRFTheme
 
 enum class KitWarningTone { Warning, Danger }
@@ -208,7 +207,7 @@ fun KitApprovalCard(
 }
 
 @Composable
-fun KitMonoBlock(value: String, onCopy: () -> Unit, modifier: Modifier = Modifier, tag: String? = null) {
+fun KitMonoBlock(value: String, onCopy: () -> Unit, modifier: Modifier = Modifier, groupSize: Int = 0, tag: String? = null) {
     val theme = LocalRFTheme.current
     Row(
         modifier
@@ -224,11 +223,7 @@ fun KitMonoBlock(value: String, onCopy: () -> Unit, modifier: Modifier = Modifie
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))
     ) {
-        KitText(
-            value,
-            modifier = Modifier.weight(1f),
-            style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody, RfFonts.mono)
-        )
+        LtrCode(value, Modifier.weight(1f), groupSize = groupSize)
         IconHit("copy", RfMetrics.iconInfo, theme.secondary, onCopy)
     }
 }
@@ -240,17 +235,13 @@ fun KitPairingCode(code: String, modifier: Modifier = Modifier, tag: String? = n
         modifier.fillMaxWidth().height(dp(RfMetrics.pairing)).background(theme.surface, shapeOf(theme.radius_md)).kitTag(tag),
         contentAlignment = Alignment.Center
     ) {
-        KitText(
+        LtrCode(
             code,
-            textAlign = TextAlign.Center,
-            style = kitStyle(
-                RfMetrics.pairingSize,
-                FontWeight.SemiBold,
-                theme.text,
-                RfMetrics.lineTitle,
-                RfFonts.mono,
-                RfMetrics.pairingTrack
-            )
+            size = RfMetrics.pairingSize,
+            weight = FontWeight.SemiBold,
+            tracking = RfMetrics.pairingTrack,
+            line = RfMetrics.lineTitle,
+            centered = true
         )
     }
 }
