@@ -23,18 +23,22 @@ import org.ramflux.designsystem.kit.KitSearchField
 import org.ramflux.designsystem.render
 import org.ramflux.feature.conversations.impl.R
 
+/**
+ * Screen contract: fills the pane it is given ([modifier]); the shell owns window insets and the
+ * width cap. [rooted] means the screen is a tab root or list pane and shows no back affordance.
+ */
 @Composable
 fun ConversationsScreen(
     state: ConversationsState,
     onAction: (ConversationsAction) -> Unit,
     permissionBanner: @Composable () -> Unit = {},
-    rooted: Boolean = false
+    rooted: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     val theme = LocalRFTheme.current
-    val bars = if (rooted) WindowInsets.statusBars else WindowInsets.safeDrawing
-    Scaffold(contentWindowInsets = bars) { insets ->
-        Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
-            Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
+    Surface(modifier.fillMaxSize(), color = theme.bg) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            Column(Modifier.fillMaxSize()) {
                 ConversationsHeader(state, onAction, rooted)
                 LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("conversations-list")) {
                     item("permission-banner") { permissionBanner() }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <!-- List pane width beside a detail: the design phone frame width (frame.mobile.width) until tablet artboards exist. -->
+    <dimen name="shell_list_pane_width">393dp</dimen>
+</resources>

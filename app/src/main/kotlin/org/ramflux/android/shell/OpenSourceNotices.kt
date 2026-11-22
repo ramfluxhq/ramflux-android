@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -28,7 +27,7 @@ import org.ramflux.designsystem.kit.KitPageHeader
 private const val NOTICE_CAP = 16384
 
 @Composable
-internal fun OpenSourceNotices(onBack: () -> Unit) {
+internal fun OpenSourceNotices(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
     val context = LocalContext.current
     val body = remember(context) {
@@ -36,7 +35,7 @@ internal fun OpenSourceNotices(onBack: () -> Unit) {
             Char(10).toString().repeat(2) +
             readNotice(context, "notices/jetbrains-mono-ofl.txt")
     }
-    Column(Modifier.fillMaxSize().background(theme.bg).statusBarsPadding()) {
+    Column(modifier.fillMaxSize().background(theme.bg)) {
         KitPageHeader(stringResource(R.string.shell_notices_title), onBack = onBack, tag = "shell-notices")
         Text(
             body,

@@ -14,39 +14,21 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import org.ramflux.android.shell.OpenSourceNotices
+import org.ramflux.android.shell.RamfluxShell
+import org.ramflux.android.shell.SHELL_ROUTE_POLICY
+import org.ramflux.android.shell.SHELL_TAB_ROOTS
 import org.ramflux.android.shell.StartupHost
 import org.ramflux.android.shell.StartupModel
 import org.ramflux.android.shell.StartupPlace
 import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
-import org.ramflux.feature.agents.AgentsNavigation
-import org.ramflux.feature.agents.api.AgentsRoute
 import org.ramflux.feature.appshell.AppShellNavigation
-import org.ramflux.feature.appshell.api.FeatureRoute
-import org.ramflux.feature.appshell.api.NoticesRoute
-import org.ramflux.feature.calls.CallsNavigation
-import org.ramflux.feature.calls.api.CallsRoute
-import org.ramflux.feature.cards.CardsNavigation
-import org.ramflux.feature.cards.api.CardsRoute
-import org.ramflux.feature.chat.ChatNavigation
-import org.ramflux.feature.chat.api.ChatRoute
-import org.ramflux.feature.contacts.ContactsNavigation
-import org.ramflux.feature.contacts.api.ContactsRoute
-import org.ramflux.feature.conversations.ConversationsNavigation
-import org.ramflux.feature.conversations.api.ConversationsRoute
-import org.ramflux.feature.groups.GroupsNavigation
-import org.ramflux.feature.groups.api.GroupsRoute
 import org.ramflux.feature.onboarding.OnboardingNavigation
 import org.ramflux.feature.onboarding.api.OnboardingRoute
-import org.ramflux.feature.permissions.NotificationPermissionBannerNavigation
 import org.ramflux.feature.permissions.PermissionsNavigation
 import org.ramflux.feature.permissions.api.PermissionEntry
 import org.ramflux.feature.permissions.api.PermissionsRoute
-import org.ramflux.feature.settings.SettingsNavigation
-import org.ramflux.feature.settings.api.SettingsRoute
-import org.ramflux.feature.tasks.TasksNavigation
-import org.ramflux.feature.tasks.api.TasksRoute
+import org.ramflux.navigation.rememberTopLevelNavigator
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -60,64 +42,18 @@ class MainActivity : ComponentActivity() {
             AppLanguageProvider(locale.value.tag) {
                 val startup: StartupModel = hiltViewModel()
                 val startupUi by startup.ui.collectAsStateWithLifecycle()
+                // The tab stacks live here, above the startup gate, so a locked session can drop
+                // account routes from them before the shell is shown again.
+                val tabs = rememberTopLevelNavigator(SHELL_TAB_ROOTS)
                 AppShellNavigation(
                     shellReady = startupUi.place == StartupPlace.SHELL,
-                    isAccountRoute = { it is ChatRoute },
-                    routeForFeature = {
-                        when (it) {
-                            "onboarding" -> OnboardingRoute()
-                            "conversations" -> ConversationsRoute
-                            "settings" -> SettingsRoute
-                            "contacts" -> ContactsRoute
-                            "groups" -> GroupsRoute
-                            "calls" -> CallsRoute
-                            "agents" -> AgentsRoute
-                            "tasks" -> TasksRoute
-                            "cards" -> CardsRoute
-                            else -> FeatureRoute(it)
-                        }
-                    },
-                    home = { navigate -> StartupHost(navigate) }
+                    policy = SHELL_ROUTE_POLICY,
+                    tabs = tabs,
+                    home = { navigate ->
+                        StartupHost(navigate, shell = { RamfluxShell(tabs, SHELL_ROUTE_POLICY, navigate) })
+                    }
                 ) { onBack, navigate ->
-                    entry<CallsRoute> { CallsNavigation(onBack, { navigate(OnboardingRoute()) }) }
-                    entry<CardsRoute> { CardsNavigation(onBack) }
-                    entry<TasksRoute> { TasksNavigation(onBack, { navigate(OnboardingRoute()) }) }
-                    entry<AgentsRoute> { AgentsNavigation(onBack, { navigate(OnboardingRoute()) }) }
-                    entry<GroupsRoute> {
-                        GroupsNavigation(
-                            onBack,
-                            { navigate(OnboardingRoute()) },
-                            { account, conversation, group -> navigate(ChatRoute(account, conversation, group)) }
-                        )
-                    }
-                    entry<ContactsRoute> { ContactsNavigation(onBack, { navigate(OnboardingRoute()) }) }
                     entry<PermissionsRoute> { route -> PermissionsNavigation(route, onBack) }
-                    entry<SettingsRoute> {
-                        SettingsNavigation(
-                            onBack,
-                            { navigate(OnboardingRoute()) },
-                            { navigate(OnboardingRoute()) },
-                            onPermissions = { navigate(PermissionsRoute()) }
-                        )
-                    }
-                    entry<ChatRoute> { route ->
-                        ChatNavigation(
-                            route.accountId,
-                            route.conversationId,
-                            onBack,
-                            groupId = route.groupId,
-                            onAttachments = { navigate(PermissionsRoute(PermissionEntry.ATTACHMENTS)) }
-                        )
-                    }
-                    entry<ConversationsRoute> {
-                        ConversationsNavigation(
-                            onBack = onBack,
-                            onSetupAccount = { navigate(OnboardingRoute()) },
-                            onOpenChat = { account, conversation -> navigate(ChatRoute(account, conversation)) },
-                            permissionBanner = { NotificationPermissionBannerNavigation({ navigate(PermissionsRoute()) }) }
-                        )
-                    }
-                    entry<NoticesRoute> { OpenSourceNotices(onBack) }
                     entry<OnboardingRoute> { route ->
                         OnboardingNavigation(
                             onBack = onBack,

@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -18,9 +17,16 @@ import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.kit.KitRow
 
 @Composable
-internal fun MoreHub(order: String, hidden: String, onOpen: (String) -> Unit, onEditNavigation: () -> Unit, onNotices: () -> Unit) {
+internal fun MoreHub(
+    order: String,
+    hidden: String,
+    onOpen: (String) -> Unit,
+    onEditNavigation: () -> Unit,
+    onNotices: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val theme = LocalRFTheme.current
-    Column(Modifier.fillMaxSize().background(theme.bg).statusBarsPadding()) {
+    Column(modifier.fillMaxSize().background(theme.bg)) {
         KitPageHeader(stringResource(R.string.shell_tab_more), large = true, tag = "shell-more-header")
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
             moreShortcutIds(order, hidden).forEach { id ->
