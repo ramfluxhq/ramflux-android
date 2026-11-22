@@ -79,8 +79,17 @@ its reply fails. Registration uses fixed 64-slot storage; cleanup makes at most
 five attempts with backoff outside the native guard. Exhaustion retains the token
 and exposes cleanup pending; it never closes the client to recover a submit OOM.
 
-Ordinary `execute` rejects all subscription methods. Only `updates` creates and
-owns the native subscription. There is one active event collector per core queue. Collection holds the subscription
+Ordinary `execute` rejects all subscription methods. Only the internal `updates` creates and
+owns the native subscription, and only the shared `EventHub` (`CoreClient.events`) calls it:
+every repository collector shares one native subscription whose topics are the union of the
+collectors' topics. Each collector has a bounded buffer of 64 events; a collector that falls
+behind gets its own `resync_required` while the others continue, so a slow pane never stalls the
+native pump. On native overflow or an in-band `stream.lagged` frame the hub resets the native
+queue, sends `resync_required` to every collector (they reload their snapshots; their flows stay
+open) and reopens. A collector whose topics are not covered reopens with the union, and the others
+reload. The subscription follows one account at a time and is cancelled with its last collector.
+`RepositoryTransport.resetEvents` is therefore a no-op on the SDK transport. Below the hub there
+is one active native collector per core queue. Collection holds the subscription
 operation token until `awaitClose` cancels the producer, then cancels/releases that
 same token. Recollection and reset join preceding cleanup; a fast restart cannot
 race a dying subscription. The SDK clears the previous queue on successful

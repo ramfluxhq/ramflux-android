@@ -121,7 +121,7 @@ class ConversationsViewModel @Inject constructor(
                             )
                         }
                         val combined = if (more) previous.rows + rows else rows
-                        if (combined.size > 1000 || combined.map { it.id }.distinct().size != combined.size ||
+                        if (combined.map { it.id }.distinct().size != combined.size ||
                             (result.value.nextCursor != null && result.value.nextCursor == cursor)
                         ) {
                             local.update { it.copy(problem = uiText(R.string.ui_page_conflict_refresh_the_list), hasMore = false) }

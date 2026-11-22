@@ -196,6 +196,15 @@ class ShellNavigationTest {
         assertForm(rail = false)
     }
 
+    @Test fun atTwoPaneWidthWithTheRailTheDetailIsNotNarrowerThanTheList() {
+        compose.setContent { Shell(700) }
+        compose.onNodeWithText("open c1").performClick()
+        compose.onNodeWithTag("shell-rail").assertExists()
+        val list = compose.onNodeWithTag("pane-list").fetchSemanticsNode().size.width
+        val detail = compose.onNodeWithTag("pane-detail").fetchSemanticsNode().size.width
+        assertTrue("detail $detail must not be narrower than list $list", detail >= list)
+    }
+
     @Test fun theRailStaysVisibleOverAPushedPageAndSwitchesTabs() {
         compose.setContent { Shell(600) }
         compose.onNodeWithText("open c1").performClick()

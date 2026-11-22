@@ -95,10 +95,12 @@ internal class DefaultTaskDirectoryRepository(transport: RepositoryTransport) : 
         finally { synchronized(journal) { entry.running = false } }
     }
     override suspend fun contextualAvailability(): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.TASKS, UnavailableReason.FEATURE_NOT_INSTALLED)
-    override fun updates(account: String): Flow<ClientResult<Unit>> = events.updates(SubscriptionFilter(account, buildJsonObject { put("topics", buildJsonArray { add("*") }) })).map { update -> when(update) {
+    override fun updates(account: String): Flow<ClientResult<Unit>> = events.updates(SubscriptionFilter(account, buildJsonObject { put("topics", buildJsonArray { add("task.changed") }) })).map { update -> when(update) {
         is CoreUpdate.Events -> { update.body.close(); ClientResult.Ready(Unit) }
         is CoreUpdate.Failure -> ClientResult.Failed(update.error.appProblem())
-        is CoreUpdate.Terminal -> ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 27, ClientOutcome.NONE))
+        // The shared event hub has already reset the native queue: reload the snapshot.
+        is CoreUpdate.Terminal -> if (update.kind == "resync_required") ClientResult.Ready(Unit)
+            else ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 27, ClientOutcome.NONE))
     } }
     private fun TaskDisplay.app() = TaskRecord(id, conversation, version, title, state, requester, assignee, steps.map { TaskStep(it.id, it.title, it.state, it.intervention) }, result, pending, stalled)
     private fun valid(value: String) = value.isNotBlank() && value.length <= 4096

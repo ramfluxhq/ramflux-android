@@ -20,15 +20,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.min
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-
-private const val LIST_PANE_MAX_FRACTION = 0.45f
 
 /**
  * The adaptive shell: one Navigation 3 display for the selected tab, with the top-level navigation
@@ -57,9 +54,6 @@ fun AdaptiveShell(
 ) {
     BoxWithConstraints(modifier.fillMaxSize().testTag("adaptive-shell")) {
         val spec = AdaptiveSpec(maxWidth.value.toInt(), maxHeight.value.toInt())
-        // The list never takes more than LIST_PANE_MAX_FRACTION of the window, so a 700 dp window
-        // still leaves the detail the larger pane.
-        val paneMetrics = metrics.copy(listPaneWidth = min(metrics.listPaneWidth, maxWidth * LIST_PANE_MAX_FRACTION))
         val decorated = navigator.stacks.mapIndexed { index, stack ->
             key(index) {
                 rememberDecoratedNavEntries(
@@ -80,7 +74,7 @@ fun AdaptiveShell(
                 Box(Modifier.weight(1f).fillMaxHeight().then(content)) {
                     NavDisplay(
                         entries = decorated[navigator.selected],
-                        sceneStrategies = listOf(PaneSceneStrategy(spec.twoPane, paneMetrics, separator, emptyDetail)),
+                        sceneStrategies = listOf(PaneSceneStrategy(spec.twoPane, metrics, separator, emptyDetail)),
                         onBack = { navigator.pop() }
                     )
                 }

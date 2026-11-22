@@ -51,12 +51,12 @@ class SdkRepositoryTransport internal constructor(private val currentClient: () 
     override fun updates(filter: SubscriptionFilter): Flow<CoreUpdate> = flow {
         val client = currentClient()
         if (client == null) emit(CoreUpdate.Failure(CoreError.Closed()))
-        else emitAll(client.updates(filter))
+        else emitAll(client.events.subscribe(filter))
     }
-    override suspend fun resetEvents(generation: ULong): CoreResult<JsonObject> {
-        val client = currentClient() ?: return CoreResult.Failure(CoreError.Closed())
-        return client.resetEventsAfterSnapshot(generation)
-    }
+
+    /** The shared event hub resets the native queue itself before it reports a resync. */
+    override suspend fun resetEvents(generation: ULong): CoreResult<JsonObject> =
+        if (currentClient() == null) CoreResult.Failure(CoreError.Closed()) else CoreResult.Success(JsonObject(emptyMap()))
 }
 
 /** Carries the SDK's exact descriptor body without a parallel message schema. */

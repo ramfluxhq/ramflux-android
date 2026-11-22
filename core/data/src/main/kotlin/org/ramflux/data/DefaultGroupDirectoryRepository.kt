@@ -74,7 +74,9 @@ internal class DefaultGroupDirectoryRepository(transport: RepositoryTransport) :
         when(update) {
             is CoreUpdate.Events -> { update.body.close(); ClientResult.Ready(Unit) }
             is CoreUpdate.Failure -> ClientResult.Failed(update.error.appProblem())
-            is CoreUpdate.Terminal -> ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 27, ClientOutcome.NONE))
+            // The shared event hub has already reset the native queue: reload the snapshot.
+            is CoreUpdate.Terminal -> if (update.kind == "resync_required") ClientResult.Ready(Unit)
+                else ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 27, ClientOutcome.NONE))
         }
     }
     override suspend fun mutate(account: String, change: GroupChange, operationId: String): ClientResult<GroupOutcome> {
