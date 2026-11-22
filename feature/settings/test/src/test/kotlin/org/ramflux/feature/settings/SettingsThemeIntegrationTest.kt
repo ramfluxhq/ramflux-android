@@ -29,7 +29,7 @@ class SettingsThemeIntegrationTest {
     @Test fun settingsTapChangesPaletteAndPersistsWithoutRepeatingAccountReads() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("appearance", Context.MODE_PRIVATE).edit().clear().commit()
-        val preferences = AndroidClientData(context, "a".repeat(64)).appearance
+        val preferences = AndroidClientData(context, "a".repeat(64), TEST_LANGUAGES).appearance
         runBlocking { withTimeout(5_000) { preferences.appearance.first { !it.loading } } }
         val accounts = FakeSettingsAccounts().apply { result = ClientResult.Ready(AccountCatalog(emptyList(), null)) }
         val devices = FakeDeviceDirectory()
@@ -59,7 +59,7 @@ class SettingsThemeIntegrationTest {
         assertSame(original, identity)
         assertEquals(accountReads, accounts.reads)
         assertEquals(0, devices.reads)
-        val restored = AndroidClientData(context, "a".repeat(64)).appearance
+        val restored = AndroidClientData(context, "a".repeat(64), TEST_LANGUAGES).appearance
         runBlocking { withTimeout(5_000) { assertEquals("dark", restored.appearance.first { !it.loading }.themeId) } }
     }
 }

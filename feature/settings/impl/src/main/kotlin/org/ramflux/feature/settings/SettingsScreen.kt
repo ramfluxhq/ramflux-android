@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 import org.ramflux.data.AppLanguage
 import org.ramflux.designsystem.*
 import org.ramflux.designsystem.kit.*
@@ -138,16 +139,10 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, mod
                         }
                         SettingsPage.LANGUAGE -> {
                             item("language-help") { Text(stringResource(R.string.settings_language_help)) }
-                            for (language in AppLanguage.entries) item("language:" + language.tag) {
+                            for (language in state.languages) item("language:" + language.tag) {
                                 ThemeChoiceRow(
                                     "language:" + language.tag,
-                                    stringResource(
-                                        when (language) {
-                                            AppLanguage.SYSTEM -> R.string.settings_system
-                                            AppLanguage.ENGLISH -> R.string.settings_english
-                                            AppLanguage.SIMPLIFIED_CHINESE -> R.string.settings_chinese
-                                        }
-                                    ),
+                                    if (language == AppLanguage.SYSTEM) stringResource(R.string.settings_system) else languageName(language),
                                     state.selectedLanguage == language,
                                     !state.savingLanguage
                                 ) { onAction(SettingsAction.Language(language)) }
@@ -241,4 +236,10 @@ private fun ThemeChoiceRow(id: String, label: String, selected: Boolean, enabled
         RadioButton(selected = selected, onClick = null, enabled = enabled)
         Text(label)
     }
+}
+
+/** A language's own name in that language (its endonym), as language pickers show it. */
+private fun languageName(language: AppLanguage): String {
+    val locale = Locale.forLanguageTag(language.tag)
+    return locale.getDisplayName(locale).replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
 }

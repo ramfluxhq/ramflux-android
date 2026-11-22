@@ -21,10 +21,11 @@ import org.ramflux.data.AppLanguage
 import org.ramflux.data.ClientResult
 import org.ramflux.data.LanguageRepository
 import org.ramflux.data.LanguageSnapshot
+import org.ramflux.data.appLanguages
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-private class StoredLanguage(initial: AppLanguage) : LanguageRepository {
+private class StoredLanguage(initial: AppLanguage, override val languages: List<AppLanguage>) : LanguageRepository {
     override val language = MutableStateFlow(LanguageSnapshot(initial, loading = false))
     override suspend fun setLanguage(value: AppLanguage): ClientResult<Unit> {
         language.value = LanguageSnapshot(value, loading = false)
@@ -38,12 +39,15 @@ class PlatformLanguageRepositoryTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val platform = context.getSystemService(LocaleManager::class.java)
 
+    /** The app's languages, from its generated locale config. */
+    private val languages = appLanguages(context.resources, R.xml._generated_res_locale_config)
+
     private fun settled(repository: LanguageRepository) = runBlocking { withTimeout(5_000) { repository.language.first { !it.loading } } }
 
     @Test fun thePickerWritesThePlatformPerAppLanguage() {
-        val repository = appLanguageRepository(context, StoredLanguage(AppLanguage.SYSTEM))
+        val repository = appLanguageRepository(context, StoredLanguage(AppLanguage.SYSTEM, languages))
         assertEquals(AppLanguage.SYSTEM, settled(repository).value)
-        for (choice in AppLanguage.entries) {
+        for (choice in languages) {
             assertTrue(runBlocking { repository.setLanguage(choice) } is ClientResult.Ready)
             assertEquals(choice.tag, platform.applicationLocales.toLanguageTags())
             assertEquals(choice, repository.language.value.value)
@@ -51,25 +55,42 @@ class PlatformLanguageRepositoryTest {
     }
 
     @Test fun aChangeInSystemSettingsIsReadBack() {
-        val repository = appLanguageRepository(context, StoredLanguage(AppLanguage.SYSTEM))
+        val repository = appLanguageRepository(context, StoredLanguage(AppLanguage.SYSTEM, languages))
         settled(repository)
-        val chosen = AppLanguage.entries.last()
+        val chosen = languages.last()
         platform.applicationLocales = LocaleList.forLanguageTags(chosen.tag)
         context.resources.configuration.let { (context as android.app.Application).onConfigurationChanged(Configuration(it)) }
         assertEquals(chosen, repository.language.value.value)
     }
 
+    @Test fun theLanguagesAreTheGeneratedLocaleConfig() {
+        assertEquals(AppLanguage.SYSTEM, languages.first())
+        val folders = languages.drop(1).map { it.tag }
+        assertEquals(folders.distinct(), folders)
+        // The default resource locale (resources.properties) is always offered.
+        assertTrue(folders.contains(context.resources.getXml(R.xml._generated_res_locale_config).let { parser ->
+            var default: String? = null
+            while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+                if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG && parser.name == "locale-config") {
+                    default = parser.getAttributeValue("http://schemas.android.com/apk/res/android", "defaultLocale")
+                }
+            }
+            default
+        }))
+    }
+
     @Test fun aPlatformLocaleThePickerCannotNameFollowsTheSystemWithANotice() {
-        platform.applicationLocales = LocaleList.forLanguageTags("fr")
-        val repository = appLanguageRepository(context, StoredLanguage(AppLanguage.SYSTEM))
+        val unknown = listOf("fr", "de", "ja", "sw").first { tag -> languages.none { it.tag == tag } }
+        platform.applicationLocales = LocaleList.forLanguageTags(unknown)
+        val repository = appLanguageRepository(context, StoredLanguage(AppLanguage.SYSTEM, languages))
         val snapshot = settled(repository)
         assertEquals(AppLanguage.SYSTEM, snapshot.value)
         assertNotNull(snapshot.problem)
     }
 
     @Test fun aChoiceFromTheDeviceStoreMovesToThePlatformOnce() {
-        val chosen = AppLanguage.entries.last()
-        val stored = StoredLanguage(chosen)
+        val chosen = languages.last()
+        val stored = StoredLanguage(chosen, languages)
         val repository = appLanguageRepository(context, stored)
         runBlocking { withTimeout(5_000) { repository.language.first { !it.loading && it.value == chosen } } }
         assertEquals(chosen.tag, platform.applicationLocales.toLanguageTags())

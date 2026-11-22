@@ -54,6 +54,7 @@ class SettingsViewModel @Inject constructor(
                 Appearance.DARK -> "dark"
             },
             savingTheme = appearance.loading || savingTheme,
+            languages = language.languages.toPersistentList(),
             selectedLanguage = screen.languageDraft ?: locale.value,
             savedLanguage = locale.value,
             savingLanguage = locale.loading || screen.savingLanguage,

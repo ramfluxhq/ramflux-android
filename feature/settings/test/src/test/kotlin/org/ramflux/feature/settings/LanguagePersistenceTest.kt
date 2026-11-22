@@ -21,16 +21,16 @@ class LanguagePersistenceTest {
             val context = ApplicationProvider.getApplicationContext<Context>()
             val store = context.getSharedPreferences("language", Context.MODE_PRIVATE)
             store.edit().clear().commit()
-            val language = AndroidClientData(context, "a".repeat(64)).language
+            val language = AndroidClientData(context, "a".repeat(64), TEST_LANGUAGES).language
             assertEquals(AppLanguage.SYSTEM, language.language.first { !it.loading }.value)
-            assertTrue(language.setLanguage(AppLanguage.SIMPLIFIED_CHINESE) is ClientResult.Ready)
+            assertTrue(language.setLanguage(AppLanguage("zh-CN")) is ClientResult.Ready)
             assertEquals("zh-CN", store.getString("language_tag", null))
             assertEquals(
-                AppLanguage.SIMPLIFIED_CHINESE,
-                AndroidClientData(context, "a".repeat(64)).language.language.first { !it.loading }.value
+                AppLanguage("zh-CN"),
+                AndroidClientData(context, "a".repeat(64), TEST_LANGUAGES).language.language.first { !it.loading }.value
             )
             store.edit().putString("language_tag", "unsupported").commit()
-            val unknown = AndroidClientData(context, "a".repeat(64)).language.language.first { !it.loading }
+            val unknown = AndroidClientData(context, "a".repeat(64), TEST_LANGUAGES).language.language.first { !it.loading }
             assertEquals(AppLanguage.SYSTEM, unknown.value)
             assertNotNull(unknown.problem)
             assertTrue(language.setLanguage(AppLanguage.SYSTEM) is ClientResult.Ready)

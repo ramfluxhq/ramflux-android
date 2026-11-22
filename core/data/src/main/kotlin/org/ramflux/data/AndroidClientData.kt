@@ -5,8 +5,11 @@ package org.ramflux.data
 
 import android.content.Context
 
-/** One composition-root instance owns the one native writer and the app preference store. */
-class AndroidClientData(context: Context, expectedDescriptor: String) {
+/**
+ * One composition-root instance owns the one native writer and the app preference store. [languages] are
+ * the host languages the app offers (see [appLanguages]).
+ */
+class AndroidClientData(context: Context, expectedDescriptor: String, languages: List<AppLanguage>) {
     private val driver = AndroidClientLifecycleDriver(context.applicationContext, expectedDescriptor)
     val session: ClientSessionRepository = DefaultClientSessionRepository(driver)
     val accounts: AccountAccessRepository = DefaultAccountAccessRepository(driver.transport)
@@ -22,6 +25,6 @@ class AndroidClientData(context: Context, expectedDescriptor: String) {
     val contacts: ContactDirectoryRepository = DefaultContactDirectoryRepository(driver.transport)
     val devices: DeviceDirectoryRepository = DefaultDeviceDirectoryRepository(driver.transport)
     val accountStatus: AccountStatusRepository = DefaultAccountStatusRepository(driver.transport)
-    val language: LanguageRepository = AndroidLanguageRepository(context.applicationContext)
+    val language: LanguageRepository = AndroidLanguageRepository(context.applicationContext, languages)
     val appearance: AppearanceRepository = AndroidAppearanceRepository(context.applicationContext)
 }

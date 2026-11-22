@@ -38,6 +38,7 @@ internal class PlatformLanguageRepository(context: Context, private val stored: 
     private val manager = requireNotNull(context.getSystemService(LocaleManager::class.java))
     private val mutable = MutableStateFlow(LanguageSnapshot(loading = true))
     override val language: StateFlow<LanguageSnapshot> = mutable.asStateFlow()
+    override val languages: List<AppLanguage> get() = stored.languages
 
     init {
         context.registerComponentCallbacks(
@@ -67,12 +68,12 @@ internal class PlatformLanguageRepository(context: Context, private val stored: 
 
     private fun read(): LanguageSnapshot {
         val tag = manager.applicationLocales.toLanguageTags()
-        val language = AppLanguage.entries.find { it.tag == tag }
+        val language = languages.find { it.tag == tag }
         return if (language != null) {
             LanguageSnapshot(language, loading = false)
         } else {
-            // A platform choice the picker cannot name (for example a resource locale added before the
-            // picker learns it): resources still follow the platform; the picker shows a notice.
+            // A platform choice the app has no resources for: resources still follow the platform's
+            // fallback; the picker shows a notice.
             LanguageSnapshot(
                 AppLanguage.SYSTEM,
                 loading = false,

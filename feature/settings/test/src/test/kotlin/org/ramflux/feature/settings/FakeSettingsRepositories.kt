@@ -67,8 +67,15 @@ class FakeSettingsSession : ClientSessionRepository {
     override suspend fun availability(feature: ClientFeature): ClientResult<Unit> = ClientResult.Ready(Unit)
 }
 
+/**
+ * Languages of the settings test fixtures: follow-system, the two locales this module has resources for,
+ * and a language without resources, which the picker must offer just the same.
+ */
+val TEST_LANGUAGES = listOf(AppLanguage.SYSTEM, AppLanguage("en"), AppLanguage("zh-CN"), AppLanguage("de"))
+
 class FakeSettingsLanguage : LanguageRepository {
     override val language = MutableStateFlow(LanguageSnapshot(loading = false))
+    override val languages = TEST_LANGUAGES
     var result: ClientResult<Unit> = ClientResult.Ready(Unit)
     override suspend fun setLanguage(value: AppLanguage): ClientResult<Unit> {
         if (result is ClientResult.Ready) language.value = LanguageSnapshot(value, loading = false)
