@@ -15,14 +15,29 @@ category (zero, one, two, few, many, other) is selected per locale. Peer text an
 inserted into a host sentence use `UiText.Untrusted` and `UiText.Code`, which render
 inside bidirectional isolates; codes always use ASCII digits.
 
+Codes users compare (safety numbers in groups of five, fingerprints, pairing codes,
+URLs) render through `LtrCode`: left to right, mono, ASCII digits, groups that never
+reverse. The recovery phrase never becomes a String; `LtrSecretWords` draws the
+borrowed character arrays numbered and left to right at the font scale, with nothing
+in the accessibility tree. The secret entry field is left to right in every locale
+and asks for an ASCII keyboard for recovery words. Peer names, group names, senders
+and previews keep their own content direction after bidi controls are neutralised.
+Directional icons mirror through `android:autoMirrored`, written by
+`scripts/sync-lucide-drawables.py` from `core/designsystem/kit-icons.json`, the table
+`KitIconMirrorTest` pins.
+
 Fonts follow the script, not the language. The bundled Hanken Grotesk and JetBrains
 Mono faces cover Latin only; the theme uses Hanken Grotesk when the UI locale's likely
 script is Latin and the platform sans otherwise. Kit text with non-Latin letters uses
 the platform sans without letter spacing, and scripts with marks above or below the
 line keep a full, taller line box. See `core/designsystem/KIT.md`.
 
-Settings offers the picker's languages and follow-system, with an explicit Apply
-action. On API 33 and later the platform per-app language is the single source of
+Settings offers follow-system and every language of the app's locale config, with
+an explicit Apply action. `AppLanguage` is a tag, not a list: `appLanguages` reads the
+generated locale config (the same source as the platform's per-app language screen,
+built from the resource folders), the data root hands it to the language
+repositories, and the picker names each language by its own name. Debug builds list
+the pseudo-locales too, because the build adds them to the locale config. On API 33 and later the platform per-app language is the single source of
 truth: the picker writes it through `PlatformLanguageRepository`, the system's
 per-app language screen offers the same locales, a change made there is read back
 on the resulting configuration change, and a choice stored by earlier releases is

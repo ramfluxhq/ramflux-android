@@ -37,8 +37,10 @@ One design pixel is one dp, so the 2 px deviation limit of the UI flow is 2 dp,
 design frame with:
 
 - the board's content as fixtures (names, rows, counts and times as on the PNG;
-  module B list content lives in `test-support/fixtures/conversations`, shared with
-  the conversations screenshot test);
+  module B list content lives in `test-support/fixtures/conversations` and the chat
+  boards' content and clock in `test-support/fixtures/chat`, shared with the
+  conversations and chat screenshot tests; the chat boards render the Kit chat
+  screen inside the shell with the 24-hour clock);
 - the board's system bars as window insets (59 dp status bar, 34 dp home indicator,
   from `mobile-kit-tokens.json`), so the app content sits where the board draws it;
 - the real shell (`RamfluxShell` with its tab bar and panes) around tab screens;
@@ -51,10 +53,10 @@ Board content the state model cannot produce today (rendered as far as the model
 allows, and part of the expected deviations): the message-requests row of B01
 (written as a plain conversation), avatar kinds (agent, group, channel, requests),
 pinned, muted and read markers, relative day labels, the tab badge, the account
-subtitle suffix, header actions; chat day separators, unread divider, file bubbles
-and header avatar (B02, DK01); agent rows and agent search (D01, D01E); the
-`#channel` suffix of group rows (C01). A07 (no client screen) and F03 (contacts)
-are not captured.
+subtitle suffix, header actions; the chat header's call and more actions and the
+file bubble (B02, DK01); agent rows and agent search (D01, D01E); the `#channel`
+suffix of group rows (C01). A07 (no client screen) and F03 (contacts) are not
+captured.
 
 ## Comparison
 
@@ -79,7 +81,10 @@ blue, listed regions boxed), plus `report.tsv` and `report.md`.
 pixel anti-aliasing shift passes, masked regions are ignored, shifted, missing and
 extra content fails with the right region, a reviewed deviation passes while a new
 one fails, and altered or stale references are rejected. `compare-kit-previews.py`
-remains the comparison for Kit component previews.
+remains the comparison for Kit component previews; it recognises locale variant
+captures by the shipped resource locales, not by a list of languages. Kit variants
+without a master (`roborazzi-variants`) and the board comparison output are CI
+artefacts.
 
 ## Expected deviations
 
@@ -105,11 +110,14 @@ parameter lists instead of adding test classes or per-locale copies:
 
 `review()` is every size, locale and theme at 1.0 plus 2.0 on the narrowest and the
 short window; `compact()` is the phone frame only. Only 393x852 captures at 1.0
-are compared with boards. `ShellBoardScreenshotTest.matrix` renders the messages
-tab with a conversation open (two panes from 700 dp) and the unlock screens over
-`review()`, and fails when security text is ellipsized or overflows unless the line
-is listed in `app/src/test/resources/shell-matrix/known-clipped-text.tsv` (reviewed
-Kit clipping, wave 2 work).
+are compared with boards. `ShellBoardScreenshotTest.matrix` renders over
+`review()`: the messages tab with a conversation open (the rail from 600 dp, two panes
+from 700 dp), the groups and agents tabs, the settings, contacts safety number, tasks,
+calls, cards and permissions screens inside the shell, the root-stack onboarding
+page with the recovery phrase, and the unlock screens. It fails when security text
+(unlock, safety number, recovery phrase) is ellipsized or overflows unless the line
+is listed in `app/src/test/resources/shell-matrix/known-clipped-text.tsv`; the list
+is empty since the wave-1 integration and an entry needs a reviewed reason.
 
 Screenshot tests run only when `CI=true`: `AndroidTestingPlugin` and
 `AndroidAppPlugin` exclude `*ScreenshotTest*` otherwise. This is deliberate, the

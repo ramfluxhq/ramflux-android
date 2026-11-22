@@ -24,12 +24,15 @@ are in `NOTICE` and `third_party/`.
 
 - Layout uses start and end only; custom layouts place with `placeRelative`.
 - Directional icons (chevron-left, chevron-right, reply, forward, list-checks, clipboard-list) carry
-  `autoMirrored` in their drawable; no other icon mirrors. `KitIconMirrorTest` pins the table. Icons are
-  drawn only through the kit, so screens cannot flip them.
+  `autoMirrored` in their drawable; no other icon mirrors. The table is `kit-icons.json`:
+  `scripts/sync-lucide-drawables.py` writes the flags from it and `KitIconMirrorTest` pins the drawables to
+  it. Icons are drawn only through the kit, so screens cannot flip them.
 - Kit text takes its direction from its content (`TextDirection.Content`).
 - `LtrCode` shows safety numbers, fingerprints, pairing codes, the six-digit code, device ids, recovery
   words and URLs: always left-to-right, mono, ASCII digits from the raw value, groups never reversed,
-  one accessibility node per group. `KitPairingCode` and `KitMonoBlock` use it.
+  one accessibility node per group. `KitPairingCode` and `KitMonoBlock` use it. `LtrSecretWords` applies
+  the same rules to secrets that must never become a String (the recovery phrase): it draws borrowed
+  character arrays, numbered and at the font scale, and exposes no text to accessibility.
 - `UntrustedText` shows display names, group names, file names and message excerpts as their own
   first-strong paragraph. `Bidi.sanitize` replaces embedding, override and isolate controls with U+FFFD
   in names and file names (marks are removed) and removes them from excerpts (marks are kept). A file
@@ -38,6 +41,12 @@ are in `NOTICE` and `third_party/`.
   resource argument; it is rendered inside an isolate. Never concatenate peer text with host text.
 - Frames that hold text use minimum heights and grow with the font scale; widths come from the
   container. The context menu and approval card shrink below their design width in a narrow pane.
+  `KitRow` labels and values and `KitPageHeader` titles wrap instead of ellipsizing; a header text action
+  is capped at 128 dp and wraps. `KitRow(peer = true)` treats its label as peer text. Text reporting the
+  design line box absorbs at most a quarter of each line when the platform face is taller.
+- `KitTabBar` takes the window's bottom inset and draws over the home-indicator area as the design frame
+  does (the 83 dp bar over the 34 dp inset). `KitNavigationRail` offers the same destinations at medium and
+  expanded widths, 80 dp wide, labels wrapping.
 - Plurals use `UiText.Quantity`, which hands the real quantity to the platform rules, so every CLDR
   category works.
 
