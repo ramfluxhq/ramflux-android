@@ -199,7 +199,8 @@ fun KitBubble(
                         untrustedDisplay(body, UntrustedKind.Excerpt),
                         modifier = Modifier.weight(1f, fill = false),
                         style = kitStyle(theme.size_mobile_body, FontWeight.Normal, text, RfMetrics.lineBubble)
-                            .copy(textDirection = TextDirection.Content, textAlign = TextAlign.Start)
+                            .copy(textDirection = TextDirection.Content, textAlign = TextAlign.Start),
+                        designLine = true
                     )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.replyRadius)),

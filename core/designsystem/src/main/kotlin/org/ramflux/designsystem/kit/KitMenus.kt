@@ -221,7 +221,7 @@ fun KitDateChip(label: String, modifier: Modifier = Modifier, tag: String? = nul
                 shapeOf(theme.radius_chip)
             ).padding(horizontal = dp(RfMetrics.chipPadH), vertical = dp(RfMetrics.chipPadV))
         ) {
-            KitText(label, style = kitStyle(theme.size_meta, FontWeight.Medium, theme.secondary, RfMetrics.lineTitle))
+            KitText(label, style = kitStyle(theme.size_meta, FontWeight.Medium, theme.secondary, RfMetrics.lineTitle), designLine = true)
         }
     }
 }
