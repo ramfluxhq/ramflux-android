@@ -15,6 +15,39 @@ import org.ramflux.designsystem.UiText
 
 @Immutable data class CallItem(override val id: String, override val sentAt: Long?) : TimelineItem
 
+/** An input value the person has entered on a card, before it is sent with a button. */
+sealed interface CardValue {
+    data class Text(val value: String) : CardValue {
+        override fun toString() = "Text(<redacted>)"
+    }
+    data class Flag(val value: Boolean) : CardValue
+    data class Choices(val values: List<String>) : CardValue {
+        override fun toString() = "Choices(<redacted>)"
+    }
+}
+
+/**
+ * An agent surface in the timeline (beta flow 13). [root] is present only when the SDK allows rendering
+ * (the author is one of this account's own agents); otherwise [fallback] shows as plain text. Controls
+ * are active only while [actionable]: current, open and in sync.
+ */
+@Immutable data class CardItem(
+    override val id: String,
+    override val sentAt: Long?,
+    val ref: String,
+    val root: org.ramflux.data.CardNode?,
+    val fallback: String,
+    val actionable: Boolean,
+    val closed: Boolean,
+    val outOfSync: Boolean,
+    val values: ImmutableMap<String, CardValue> = persistentMapOf(),
+    val sending: Boolean = false,
+    val sent: Boolean = false,
+    val problem: UiText? = null
+) : TimelineItem {
+    override fun toString() = "CardItem(<redacted>)"
+}
+
 /** The strongest delivery state the read model reports for an own message. */
 enum class Receipt { SENT, DELIVERED, READ }
 

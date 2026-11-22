@@ -227,6 +227,36 @@ class ChatScreenTest {
         compose.runOnIdle { assertTrue(actions.any { it is ChatAction.Shown && it.id == "m" }) }
     }
 
+    @Test fun cardsShowPlaceholdersForUnsupportedPartsAndActOnlyWhenActionable() {
+        val actions = mutableListOf<ChatAction>()
+        val root = org.ramflux.data.CardGroup(
+            "root",
+            false,
+            false,
+            listOf(
+                org.ramflux.data.CardText("t", "Pick a day", false),
+                org.ramflux.data.CardButton("go", "Go", true, false),
+                org.ramflux.data.CardButton("web", "Open", false, true),
+                org.ramflux.data.CardUnsupported("pic", "Image")
+            )
+        )
+        val live = CardItem("card:a", stamp, "a", root, "Fallback words", actionable = true, closed = false, outOfSync = false)
+        val stale = live.copy(id = "card:b", ref = "b", actionable = false, outOfSync = true)
+        compose.setContent {
+            RamfluxTheme { ChatScreen(ChatState(loaded = true, rows = persistentListOf(live, stale)), { actions.add(it) }, clock = clock) }
+        }
+        compose.onAllNodesWithText("Not supported on this phone").assertCountEquals(2)
+        compose.onAllNodesWithText("Fallback words").assertCountEquals(2)
+        compose.onNodeWithText("Out of date. Waiting for the agent.").assertExists()
+        compose.onAllNodesWithTag("card-link-web", useUnmergedTree = true).onFirst().assertIsNotEnabled()
+        val buttons = compose.onAllNodesWithTag("card-button-go")
+        buttons.assertCountEquals(2)
+        // The out-of-date card's button is off; the current one acts (semantics, as it may be scrolled away).
+        buttons.filter(isEnabled()).assertCountEquals(1)
+        buttons.filter(isEnabled()).onFirst().performSemanticsAction(SemanticsActions.OnClick)
+        compose.runOnIdle { assertEquals(listOf(ChatAction.CardPress("a", "go")), actions.filterIsInstance<ChatAction.CardPress>()) }
+    }
+
     @Test fun anArabicMessageInAnEnglishInterfaceIsRightToLeft() {
         val arabic = "\u0645\u0631\u062D\u0628\u0627 \u0628\u0643"
         compose.setContent {

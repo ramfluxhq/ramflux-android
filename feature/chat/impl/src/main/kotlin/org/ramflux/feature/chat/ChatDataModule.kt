@@ -14,14 +14,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.ramflux.data.AttachmentHost
+import org.ramflux.data.CardSurfaceRepository
 import org.ramflux.data.ChatDraftRepository
 import org.ramflux.data.ClientSessionRepository
+import org.ramflux.data.DefaultCardSurfaceRepository
 import org.ramflux.data.DefaultMediaRepository
 import org.ramflux.data.EncryptedChatDraftRepository
 import org.ramflux.data.MediaRepository
 import org.ramflux.data.MediaStager
 import org.ramflux.data.MediaTransfers
 import org.ramflux.data.MessageHistoryRepository
+import org.ramflux.data.UnavailableCardSurfaceRepository
 import org.ramflux.data.UnavailableMediaRepository
 import org.ramflux.media.AndroidMediaStager
 import org.ramflux.media.Blake3PlaintextDigest
@@ -42,6 +45,12 @@ object ChatDataModule {
         (history as? AttachmentHost)?.let {
             DefaultMediaRepository(it.repositoryTransport(), context.applicationContext.noBackupFilesDir, { Blake3PlaintextDigest() })
         } ?: UnavailableMediaRepository()
+
+    /** Agent surfaces share the message repository's SDK transport; BLAKE3 commits the action arguments. */
+    @Provides @Singleton
+    fun cards(history: MessageHistoryRepository): CardSurfaceRepository =
+        (history as? AttachmentHost)?.let { DefaultCardSurfaceRepository(it.repositoryTransport(), { Blake3PlaintextDigest() }) }
+            ?: UnavailableCardSurfaceRepository()
 
     /** One queue per process; its downloads end with the unlocked session (see [MediaTransfers]). */
     @Provides @Singleton

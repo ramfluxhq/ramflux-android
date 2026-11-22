@@ -72,6 +72,12 @@ sealed interface ChatAction {
     data class GalleryTab(val tab: org.ramflux.feature.chat.GalleryTab) : ChatAction
     data object CloseGallery : ChatAction
 
+    /** The person changed input [pointer] of card [ref]. */
+    data class CardInput(val ref: String, val pointer: String, val value: CardValue) : ChatAction
+
+    /** The person pressed button [button] of card [ref]; the action binds the version and hash shown. */
+    data class CardPress(val ref: String, val button: String) : ChatAction
+
     /** Opens the media storage screen of this account. */
     data object Storage : ChatAction
 

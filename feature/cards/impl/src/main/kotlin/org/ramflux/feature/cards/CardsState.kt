@@ -11,5 +11,7 @@ import org.ramflux.feature.cards.impl.R
     val canCheck: Boolean = false,
     val closed: Boolean = false,
     val unavailable: UiText? = uiText(R.string.cards_missing),
-    val problem: UiText? = null
+    val problem: UiText? = null,
+    /** Agent cards are available and appear in the conversations they belong to. */
+    val inConversations: Boolean = false
 )

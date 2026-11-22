@@ -236,4 +236,40 @@
     <string name="transfer_notification_title">Transferring media…</string>
     <!-- Accessibility label of the chat header button that opens the conversation menu. -->
     <string name="chat_conversation_menu">More</string>
+    <!-- Shown under an agent card that this device may only show as plain text (not one of this account's own agents). -->
+    <string name="card_plain">Shown as plain text</string>
+    <!-- Shown when part of an agent card cannot be drawn on this phone; the author's fallback text follows. -->
+    <string name="card_partly_unsupported">Part of this card is not supported on this phone. The agent\'s text version:</string>
+    <!-- Placeholder for one card component this phone does not draw. -->
+    <string name="card_component_unsupported">Not supported on this phone</string>
+    <!-- Shown under a link button on a card; links need a confirmation screen that is not available yet. -->
+    <string name="card_link_unsupported">Links from cards cannot be opened on this phone yet.</string>
+    <!-- Status of a card the agent has closed; it has no active controls. -->
+    <string name="card_closed">Closed</string>
+    <!-- Status of a card whose state is behind the agent's; controls stay off until it catches up. -->
+    <string name="card_out_of_sync">Out of date. Waiting for the agent.</string>
+    <!-- Status while a card action is sent to the agent. -->
+    <string name="card_sending">Sending…</string>
+    <!-- Status after a card action was handed to the network. -->
+    <string name="card_sent">Sent</string>
+    <!-- Shown when the card changed after the person saw it, so the action was refused. -->
+    <string name="card_changed">This card changed after you saw it. Review it and try again.</string>
+    <!-- Shown when it is not known whether a card action reached the agent; pressing again retries the same action. -->
+    <string name="card_outcome_unknown">Not sure the agent received this. Press again to retry.</string>
+    <!-- Shown when card actions are not available on this device. -->
+    <string name="card_unavailable">Card actions are not available here.</string>
+    <!-- Requester line of an approval card from one of the person's agents. -->
+    <string name="card_approval_requester">Your agent</string>
+    <!-- Status of an open approval request on a card. -->
+    <string name="card_approval_pending">Waiting for a decision</string>
+    <!-- Label of the scope line of an approval card. -->
+    <string name="card_approval_scope">Decision</string>
+    <!-- Scope detail of an approval card that belongs to a task. -->
+    <string name="card_approval_task">Decide this request in Tasks.</string>
+    <!-- Scope detail of an approval card without a task. -->
+    <string name="card_approval_elsewhere">This request is decided outside the card.</string>
+    <!-- Decline label of an approval card. -->
+    <string name="card_approval_decline">Decline</string>
+    <!-- Approve label of an approval card. -->
+    <string name="card_approval_approve">Approve</string>
 </resources>

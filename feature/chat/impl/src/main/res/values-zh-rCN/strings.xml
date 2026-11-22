@@ -235,4 +235,40 @@
     <string name="transfer_notification_title">正在传输媒体…</string>
     <!-- Accessibility label of the chat header button that opens the conversation menu. -->
     <string name="chat_conversation_menu">更多</string>
+    <!-- Shown under an agent card that this device may only show as plain text (not one of this account's own agents). -->
+    <string name="card_plain">以纯文本显示</string>
+    <!-- Shown when part of an agent card cannot be drawn on this phone; the author's fallback text follows. -->
+    <string name="card_partly_unsupported">此卡片的部分内容在本机不受支持。智能体的文本版本：</string>
+    <!-- Placeholder for one card component this phone does not draw. -->
+    <string name="card_component_unsupported">本机不支持此内容</string>
+    <!-- Shown under a link button on a card; links need a confirmation screen that is not available yet. -->
+    <string name="card_link_unsupported">本机暂不能打开卡片中的链接。</string>
+    <!-- Status of a card the agent has closed; it has no active controls. -->
+    <string name="card_closed">已关闭</string>
+    <!-- Status of a card whose state is behind the agent's; controls stay off until it catches up. -->
+    <string name="card_out_of_sync">内容已过期，正在等待智能体。</string>
+    <!-- Status while a card action is sent to the agent. -->
+    <string name="card_sending">正在发送…</string>
+    <!-- Status after a card action was handed to the network. -->
+    <string name="card_sent">已发送</string>
+    <!-- Shown when the card changed after the person saw it, so the action was refused. -->
+    <string name="card_changed">此卡片在你查看后已更改，请重新查看后再试。</string>
+    <!-- Shown when it is not known whether a card action reached the agent; pressing again retries the same action. -->
+    <string name="card_outcome_unknown">无法确定智能体是否已收到，再次点按可重试。</string>
+    <!-- Shown when card actions are not available on this device. -->
+    <string name="card_unavailable">此处无法使用卡片操作。</string>
+    <!-- Requester line of an approval card from one of the person's agents. -->
+    <string name="card_approval_requester">你的智能体</string>
+    <!-- Status of an open approval request on a card. -->
+    <string name="card_approval_pending">等待决定</string>
+    <!-- Label of the scope line of an approval card. -->
+    <string name="card_approval_scope">决定</string>
+    <!-- Scope detail of an approval card that belongs to a task. -->
+    <string name="card_approval_task">请在“任务”中决定此请求。</string>
+    <!-- Scope detail of an approval card without a task. -->
+    <string name="card_approval_elsewhere">此请求不在卡片中决定。</string>
+    <!-- Decline label of an approval card. -->
+    <string name="card_approval_decline">拒绝</string>
+    <!-- Approve label of an approval card. -->
+    <string name="card_approval_approve">批准</string>
 </resources>

@@ -10,6 +10,9 @@
     <string name="cards_access">查看卡片需要安全的账户访问权限。</string>
     <string name="cards_failed">无法检查卡片是否可用</string>
     <string name="cards_error_code">可用性检查失败（代码 %1$s）。</string>
-    <string name="cards_unverified">无法验证卡片的可用性。</string>
+    <!-- Shown on the cards screen when agent cards are available; they appear in their conversations. -->
+    <string name="cards_in_conversations">卡片显示在会话中</string>
+    <!-- Body under the cards title: where agent cards and their actions are shown. -->
+    <string name="cards_in_conversations_body">你的智能体发送的卡片会显示在对应的聊天中，你可以在那里作答。</string>
     <string name="cards_closed">私密数据已关闭。</string>
 </resources>

@@ -215,3 +215,35 @@ class FakeChatStager : MediaStager {
         dropped++
     }
 }
+
+class FakeChatCards : CardSurfaceRepository {
+    val surfaces = LinkedHashMap<String, CardSurface>()
+    val gets = mutableListOf<String>()
+    val presses = mutableListOf<CardPress>()
+    var actResult: ClientResult<Unit> = ClientResult.Ready(Unit)
+    private var ids = 0
+    override suspend fun page(account: String, conversation: String, cursor: String?) = ClientResult.Ready(
+        CardSurfacePage(surfaces.values.map { CardSurfaceRef(it.ref, it.version, it.hash, it.closed, it.outOfSync) }, null)
+    )
+    override suspend fun get(account: String, ref: String): ClientResult<CardSurface?> {
+        gets.add(ref)
+        return ClientResult.Ready(surfaces[ref])
+    }
+    override suspend fun act(account: String, press: CardPress): ClientResult<Unit> {
+        presses.add(press)
+        return actResult
+    }
+    override fun newMessageId() = "id" + ++ids
+
+    fun card(ref: String, at: Long, version: Long = 1, outOfSync: Boolean = false) = CardSurface(
+        ref, "s-$ref", "c", "agent", version, "h$version", false, outOfSync, true, "fallback", at,
+        CardGroup(
+            "root",
+            false,
+            false,
+            listOf(CardTextInput("note", "Note", "", "/note", "", false, false), CardButton("go", "Go", true, false))
+        ),
+        mapOf("go" to CardButtonSpec("submit", null, emptyMap(), mapOf("note" to "/note"))),
+        mapOf("/note" to kotlinx.serialization.json.JsonPrimitive(""))
+    ).also { surfaces[ref] = it }
+}

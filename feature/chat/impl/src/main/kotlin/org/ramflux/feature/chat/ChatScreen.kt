@@ -350,6 +350,7 @@ private fun TimelineList(
                         stamps.time(row.sentAt)?.let { KitMeta(it, centered = true) }
                     }
                     is MessageItem -> Message(row, state, stamps, cap, padded, actionsLabel, anchors, onAction)
+                    is CardItem -> CardView(row, cap, padded, onAction)
                 }
             }
         }

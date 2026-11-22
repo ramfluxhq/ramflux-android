@@ -214,6 +214,15 @@ class KitLayoutTest {
         compose.onNodeWithTag("album-5").assertHeightIsEqualTo(300.dp)
     }
 
+    @Test fun anEmptyStateCanCarryACompactOutlinedAction() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                KitEmpty("inbox", "Empty", "", action = "Retry", onAction = {}, tag = "empty", compactAction = true)
+            }
+        }
+        compose.onNodeWithTag("empty-action", useUnmergedTree = true).assertHeightIsEqualTo(44.dp)
+    }
+
     @Test fun nestedHitsStayFortyEightInsideTheMasterFrame() {
         compose.mainClock.autoAdvance = false
         compose.setContent {

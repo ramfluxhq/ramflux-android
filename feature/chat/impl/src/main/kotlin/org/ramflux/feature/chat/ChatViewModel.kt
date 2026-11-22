@@ -9,6 +9,7 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -25,7 +26,8 @@ class ChatViewModel @Inject constructor(
     private val drafts: ChatDraftRepository,
     private val media: MediaRepository,
     private val stager: MediaStager,
-    private val queue: MediaTransfers
+    private val queue: MediaTransfers,
+    private val cards: CardSurfaceRepository
 ) : ViewModel() {
     /** For hosts without an application-wide transfer queue: downloads then end with this chat. */
     constructor(
@@ -35,7 +37,7 @@ class ChatViewModel @Inject constructor(
         drafts: ChatDraftRepository,
         media: MediaRepository,
         stager: MediaStager
-    ) : this(history, accounts, session, drafts, media, stager, localQueue(media, session))
+    ) : this(history, accounts, session, drafts, media, stager, localQueue(media, session), UnavailableCardSurfaceRepository())
 
     /** For hosts that keep no drafts and no media (tests and previews). */
     constructor(
@@ -74,6 +76,12 @@ class ChatViewModel @Inject constructor(
     private val galleryFiles = ArrayList<String>()
     private var galleryCursor: String? = null
     private var galleryJob: Job? = null
+
+    /** Agent surfaces of the conversation by reference, with the person's input values and send state. */
+    private val surfaces = LinkedHashMap<String, CardSurface>()
+    private val cardValues = HashMap<String, LinkedHashMap<String, CardValue>>()
+    private val cardSends = HashMap<String, CardSend>()
+    private var cardJob: Job? = null
 
     /** Staged items of the open send preview, in the order they will be sent. */
     private val previewItems = ArrayList<StagedMedia>()
@@ -258,6 +266,11 @@ class ChatViewModel @Inject constructor(
             ChatAction.ForwardMore -> loadForwardTargets(more = true)
             is ChatAction.ForwardTo -> forwardTo(action.conversation)
             ChatAction.CloseForward -> closeForward()
+            is ChatAction.CardInput -> if (surfaces[action.ref]?.actionable == true && cardSends[action.ref]?.sending != true) {
+                cardValues.getOrPut(action.ref) { LinkedHashMap() }[action.pointer] = action.value
+                publish()
+            }
+            is ChatAction.CardPress -> pressCard(action.ref, action.button)
             ChatAction.OpenGallery -> openGallery()
             ChatAction.GalleryMore -> loadGallery()
             is ChatAction.GalleryTab -> local.update { it.copy(gallery = it.gallery?.copy(tab = action.tab)) }.also { publishGallery() }
@@ -368,6 +381,7 @@ class ChatViewModel @Inject constructor(
                             )
                         }
                         publish()
+                        loadCards(currentTarget)
                         if (capability is ClientResult.Ready) resendQueued()
                     }
                     is ClientResult.Failed -> local.update {
@@ -623,7 +637,7 @@ class ChatViewModel @Inject constructor(
         }
         local.update {
             it.copy(
-                rows = (window + pending).toPersistentList(),
+                rows = withCards(window + pending).toPersistentList(),
                 hasOlder = older != null,
                 queued = outbox.values.any { item -> item.delivery == LocalDelivery.QUEUED }
             )
@@ -645,6 +659,10 @@ class ChatViewModel @Inject constructor(
 
     private fun resetTimeline() {
         previewCancel()
+        cardJob?.cancel()
+        surfaces.clear()
+        cardValues.clear()
+        cardSends.clear()
         olderJob?.cancel()
         forwardJob?.cancel()
         forwarding = null
@@ -1187,6 +1205,98 @@ class ChatViewModel @Inject constructor(
         if (local.value.gallery != null) local.update { it.copy(gallery = null) }
     }
 
+    /**
+     * Reads the conversation's surfaces (`surface.list`, following its cursor) and fetches only those
+     * whose version, hash or status changed (`surface.get`). Runs after each timeline read.
+     */
+    private fun loadCards(currentTarget: Target) {
+        if (cardJob?.isActive == true) return
+        cardJob = viewModelScope.launch {
+            var cursor: String? = null
+            var changed = false
+            repeat(CARD_PAGES) {
+                val result = cards.page(currentTarget.account, currentTarget.conversation, cursor)
+                val page = (result as? ClientResult.Ready)?.value ?: return@repeat
+                for (meta in page.rows) {
+                    val held = surfaces[meta.ref]
+                    if (held != null && held.version == meta.version && held.hash == meta.hash && held.closed == meta.closed &&
+                        held.outOfSync == meta.outOfSync
+                    ) {
+                        continue
+                    }
+                    val fresh = (cards.get(currentTarget.account, meta.ref) as? ClientResult.Ready)?.value ?: continue
+                    if (target != currentTarget) return@launch
+                    if (held != null && held.version != fresh.version) cardValues.remove(meta.ref)
+                    surfaces[meta.ref] = fresh
+                    changed = true
+                    if (surfaces.size > CARD_WINDOW) surfaces.remove(surfaces.keys.first())
+                }
+                cursor = page.next ?: return@repeat
+            }
+            if (changed && target == currentTarget) publish()
+        }
+    }
+
+    private fun pressCard(ref: String, button: String) {
+        val currentTarget = target ?: return
+        val surface = surfaces[ref] ?: return
+        val send = cardSends[ref]
+        if (!surface.actionable || send?.sending == true || session.status.value.phase != ClientPhase.OPEN) return
+        val values = cardValues[ref].orEmpty().mapValues { (_, value) -> value.json() }
+        // An uncertain earlier press is retried with the same message id, so the SDK can reconcile it.
+        val messageId = send?.messageId?.takeIf { send.uncertain } ?: cards.newMessageId()
+        cardSends[ref] = CardSend(messageId, sending = true)
+        publish()
+        viewModelScope.launch {
+            val result = cards.act(currentTarget.account, CardPress(surface, button, values, messageId))
+            if (target != currentTarget) return@launch
+            cardSends[ref] = when (result) {
+                is ClientResult.Ready -> CardSend(messageId, sent = true)
+                is ClientResult.Failed -> CardSend(
+                    messageId,
+                    uncertain = result.problem.outcome == ClientOutcome.UNKNOWN,
+                    problem = cardFailure(result.problem)
+                )
+                is ClientResult.Unavailable -> CardSend(messageId, problem = uiText(R.string.card_unavailable))
+            }
+            publish()
+            if (result is ClientResult.Ready) loadCards(currentTarget)
+        }
+    }
+
+    /** Places each card by its creation time; the window is already in reading order. */
+    private fun withCards(rows: List<TimelineItem>): List<TimelineItem> {
+        if (surfaces.isEmpty()) return rows
+        val out = ArrayList<TimelineItem>(rows.size + surfaces.size)
+        out.addAll(rows)
+        surfaces.values.sortedBy { it.createdAt ?: Long.MAX_VALUE }.forEach { surface ->
+            val item = cardItem(surface)
+            val at = surface.createdAt
+            val later = if (at == null) -1 else out.indexOfFirst { (it.sentAt ?: Long.MAX_VALUE) > at }
+            val index = if (later < 0) out.size else later
+            out.add(index, item)
+        }
+        return out
+    }
+
+    private fun cardItem(surface: CardSurface): CardItem {
+        val send = cardSends[surface.ref]
+        return CardItem(
+            "card:" + surface.ref,
+            surface.createdAt,
+            surface.ref,
+            surface.root,
+            surface.fallback,
+            surface.actionable,
+            surface.closed,
+            surface.outOfSync,
+            cardValues[surface.ref].orEmpty().toPersistentMap(),
+            sending = send?.sending == true,
+            sent = send?.sent == true,
+            problem = send?.problem
+        )
+    }
+
     /** Steps the viewer through the ready pictures and videos of the same message. */
     private fun viewerStep(delta: Int) {
         val open = local.value.viewer ?: return
@@ -1353,6 +1463,32 @@ private fun kindOf(mime: String) = when (MediaAttachment.kindOf(mime)) {
     MediaKind.FILE -> AttachmentKind.FILE
 }
 private const val OUTBOX_LIMIT = 64
+private const val CARD_PAGES = 4
+private const val CARD_WINDOW = 200
+
+private data class CardSend(
+    val messageId: String,
+    val sending: Boolean = false,
+    val sent: Boolean = false,
+    val uncertain: Boolean = false,
+    val problem: UiText? = null
+)
+
+private fun CardValue.json(): kotlinx.serialization.json.JsonElement = when (this) {
+    is CardValue.Text -> kotlinx.serialization.json.JsonPrimitive(value)
+    is CardValue.Flag -> kotlinx.serialization.json.JsonPrimitive(value)
+    is CardValue.Choices -> kotlinx.serialization.json.JsonArray(values.map { kotlinx.serialization.json.JsonPrimitive(it) })
+}
+
+/** A surface that moved on since it was shown refuses the action; the card says so instead of a code. */
+private fun cardFailure(problem: ClientProblem): UiText = when (problem.statusName ?: problem.check) {
+    "conflict", "stale", "closed", "not_created" -> uiText(R.string.card_changed)
+    else -> if (problem.outcome == ClientOutcome.UNKNOWN) {
+        uiText(R.string.card_outcome_unknown)
+    } else {
+        coded(problem, R.string.ui_action_failed_code_value, R.string.ui_action_failed_status_value)
+    }
+}
 
 private fun localQueue(media: MediaRepository, session: ClientSessionRepository) =
     MediaTransfers(media, session, CoroutineScope(SupervisorJob() + Dispatchers.Main))

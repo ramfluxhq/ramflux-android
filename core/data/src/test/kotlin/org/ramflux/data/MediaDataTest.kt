@@ -80,6 +80,36 @@ class MediaDataTest {
         }
     }
 
+    @Test fun groupMediaPreparesForTheGroupIdAndSendsToTheConversationId() = runTest(timeout = 5.seconds) {
+        val root = Files.createTempDirectory("media").toFile()
+        val abi = FakeAbi().apply {
+            onSubmitted = { frame ->
+                completionBody = when (frame["method"]?.jsonPrimitive?.content) {
+                    "attachment.prepare.begin" -> json("""{"prepare_id":"p1","generation":1,"state":"accepting"}""")
+                    "conversation.send" -> json("""{"message_id":"m","conversation_id":"conv-x","delivery_state":"submitted"}""")
+                    else -> json("""{"state":"accepted"}""")
+                }
+            }
+        }
+        val client = open(abi, "/test/media-group")
+        try {
+            val repo = DefaultMediaRepository(SdkRepositoryTransport { client }, root, digest, pause = {})
+            val staged = java.io.File(repo.outbox("a"), "f").apply { writeBytes(ByteArray(10)) }
+            // A group made on desktop or the CLI: the conversation id is not the group id.
+            repo.send("a", MediaDestination("conv-x", "group-y"), "", listOf(StagedMedia(staged, "f.bin", "application/pdf")), "op")
+            val begin = abi.submitted.first { it["method"]?.jsonPrimitive?.content == "attachment.prepare.begin" }["body"]!!.jsonObject
+            assertEquals("group", begin["kind"]?.jsonPrimitive?.content)
+            assertEquals("group-y", begin["group_id"]?.jsonPrimitive?.content)
+            assertNull(begin["peer"])
+            val send = abi.submitted.first { it["method"]?.jsonPrimitive?.content == "conversation.send" }["body"]!!.jsonObject
+            assertEquals("conv-x", send["conversation_id"]?.jsonPrimitive?.content)
+            assertEquals("group-y", send["group_id"]?.jsonPrimitive?.content)
+        } finally {
+            client.close()
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun downloadPollsReadsOutStoresAndFinishesThenPurges() = runTest(timeout = 5.seconds) {
         val root = Files.createTempDirectory("media").toFile()
         var polls = 0
