@@ -1,29 +1,40 @@
 # Localization and theme data
 
 Host labels, notices and accessibility text use Android resources in each feature
-implementation and the design system. Default resources are English; Simplified
-Chinese uses `values-zh-rCN`. `UiText.Resource` stores a resource reference and
+implementation and the design system. Default resources are English
+(`app/src/main/res/resources.properties`); every other locale is whatever
+`values-*` folders exist (today Simplified Chinese, `values-zh-rCN`). No code,
+script or check names the languages: the locale config is generated from the
+resource folders, and adding a language is a resources-only change. `UiText.Resource` stores a resource reference and
 immutable arguments in State. Rendering resolves the current configuration locale,
 so a locale change does not repeat repository work. `UiText.Data` is only display
 data, such as peer text; it is never interpreted as a resource key. Dates and exact
 unsigned counts use locale-aware platform formatters, and quantities use plurals.
 
-Settings offers English, Simplified Chinese and follow-system, with an explicit
-Apply action. The device-local language repository confirms an IO preference
-commit before publishing the active selection. The composition root observes
-that selection through `AppLanguageProvider`, supplying the resource context,
-configuration and layout direction to the existing navigation tree. Its
+Settings offers the picker's languages and follow-system, with an explicit Apply
+action. On API 33 and later the platform per-app language is the single source of
+truth: the picker writes it through `PlatformLanguageRepository`, the system's
+per-app language screen offers the same locales, a change made there is read back
+on the resulting configuration change, and a choice stored by earlier releases is
+moved to the platform once. On API 28 to 32 the device-local language repository
+confirms an IO preference commit before publishing the active selection. The
+composition root observes the selection through `AppLanguageProvider`, supplying
+the resource context, configuration and layout direction to the existing
+navigation tree. Its
 `ContextThemeWrapper` retains the Activity as its base, so Hilt and Activity
 services stay reachable for system and explicit locales. Choosing a
 language does not call the SDK, change peer data or modify account permissions.
 Unknown stored locales fall back to the inherited configuration with a typed
 notice; failed commits leave the active selection unchanged.
 
-Debug builds enable Android pseudo-locales. Screenshot cases cover English,
-Simplified Chinese and expanded English in both shipped themes. The resource
-guard checks matching launch-locale keys/placeholders, direct host text and
-hard-coded colors/dimensions. Its regression check proves that missing keys,
-malformed formats and direct text are rejected.
+Debug builds enable Android pseudo-locales. The shared screenshot matrix covers
+English, Simplified Chinese, expanded English (en-XA) and right-to-left (ar-XB) in
+both shipped themes and at font scale 1.0 and 2.0 (see
+[design alignment](design-alignment.md)). The resource guard discovers the shipped
+locales from the resource folders and checks matching keys/placeholders in every
+module for each of them, theme names in each of them, direct host text and
+hard-coded colors/dimensions. Its regression check proves that missing keys, an
+incomplete added locale, malformed formats and direct text are rejected.
 
 Theme definitions live in `core/designsystem/src/main/assets/ramflux/themes`.
 Each JSON file has a stable identifier, a light/dark system-bar mode, localized
@@ -36,8 +47,8 @@ validates bounded input, compiles all token sets into typed theme bindings and
 localized resource names, and generates launcher/window colors. It does not edit
 the shared generator output. Adding another valid theme file adds it to the
 catalog and picker without changing application code. Every theme needs the same
-complete name locales, including English and Simplified Chinese. Additional
-locale tags produce Android BCP 47 resource folders.
+complete name locales, including the default locale and every shipped locale. Any
+BCP 47 tag maps to its Android resource folder.
 
 `RamfluxTheme` maps every Material color role, typography and shape to the active
 tokens. Dynamic color is disabled. Handwritten layout spacing derives from the
