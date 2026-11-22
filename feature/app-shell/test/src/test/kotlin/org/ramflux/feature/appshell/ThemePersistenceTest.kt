@@ -28,7 +28,7 @@ class ThemePersistenceTest {
     @Test fun namedThemePersistsAndSystemThemeSwitchesWithoutReplacingComposition() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("appearance", Context.MODE_PRIVATE).edit().clear().commit()
-        val preferences = AndroidClientData(context, "a".repeat(64)).appearance
+        val preferences = AndroidClientData(context, "a".repeat(64), listOf(AppLanguage.SYSTEM)).appearance
         runBlocking { withTimeout(5_000) { preferences.appearance.first { !it.loading } } }
         var systemDark by mutableStateOf(false)
         var background = Color.Unspecified
@@ -50,7 +50,7 @@ class ThemePersistenceTest {
         compose.waitForIdle()
         assertEquals(requireNotNull(ThemeCatalog.find("dark")).tokens.bg, background)
         assertSame(original, identity)
-        val restored = AndroidClientData(context, "a".repeat(64)).appearance
+        val restored = AndroidClientData(context, "a".repeat(64), listOf(AppLanguage.SYSTEM)).appearance
         runBlocking { withTimeout(5_000) { assertEquals("dark", restored.appearance.first { !it.loading }.themeId) } }
         runBlocking { withTimeout(5_000) { assertTrue(preferences.setAppearance(Appearance.SYSTEM) is ClientResult.Ready) } }
         compose.waitForIdle()
