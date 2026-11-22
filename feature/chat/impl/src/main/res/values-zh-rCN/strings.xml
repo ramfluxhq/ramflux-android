@@ -6,7 +6,6 @@
     <string name="ui_back">返回</string>
     <string name="ui_conversation">会话</string>
     <string name="ui_loading_messages">正在加载消息</string>
-    <string name="ui_message">消息</string>
     <string name="ui_message_content_is_unavailable">消息内容不可用。</string>
     <string name="ui_message_deleted">消息已删除</string>
     <string name="ui_message_history_is_unavailable">消息历史不可用。</string>
@@ -28,7 +27,6 @@
     <string name="ui_this_conversation_has_no_messages">此会话暂无消息。</string>
     <string name="ui_unable_to_continue">无法继续</string>
     <string name="ui_conversation_details_unavailable">会话详情不可用</string>
-    <string name="ui_time_unavailable">时间不可用</string>
     <string name="ui_call_record_unavailable">通话记录 · 详情不可用</string>
     <string name="ui_attach">添加附件</string>
     <string name="ui_delivery_submitted">已提交</string>
@@ -53,4 +51,16 @@
     <string name="ui_editing">正在编辑</string>
     <string name="ui_reaction_ack">已确认</string>
     <string name="ui_the_message_was_not_sent_status_value">消息未发送（%1$s，代码 %2$s）。</string>
+    <!-- Placeholder inside the empty message composer. -->
+    <string name="chat_composer_placeholder">输入消息…</string>
+    <!-- Date chip above the messages sent today. -->
+    <string name="chat_date_today">今天</string>
+    <!-- Date chip above the messages sent yesterday. -->
+    <string name="chat_date_yesterday">昨天</string>
+    <!-- Divider label above the first unread message. -->
+    <string name="chat_unread_divider">以下为未读消息</string>
+    <!-- Composer bar title while replying; %1$s is the peer display name, shown isolated from this sentence. -->
+    <string name="chat_replying_to">回复 %1$s</string>
+    <!-- Accessibility label of the long-press action that opens the message actions. -->
+    <string name="chat_message_actions">消息操作</string>
 </resources>

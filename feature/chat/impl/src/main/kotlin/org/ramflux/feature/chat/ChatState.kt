@@ -5,12 +5,18 @@ package org.ramflux.feature.chat
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
 import org.ramflux.designsystem.UiText
+/** Timeline entries carry typed values; the screen formats times and dates for the current locale. */
 @Immutable sealed interface TimelineItem {
     val id: String
-    val time: UiText
+
+    /** Creation time in epoch seconds, or null when the read model has none. */
+    val sentAt: Long?
 }
 
-@Immutable data class CallItem(override val id: String, override val time: UiText) : TimelineItem
+@Immutable data class CallItem(override val id: String, override val sentAt: Long?) : TimelineItem
+
+/** The strongest delivery state the read model reports for an own message. */
+enum class Receipt { SENT, DELIVERED, READ }
 
 enum class ComposerMode { SEND, REPLY, EDIT }
 
@@ -20,13 +26,13 @@ enum class ComposerMode { SEND, REPLY, EDIT }
     val own: Boolean,
     val deleted: Boolean,
     val content: UiText,
-    override val time: UiText = UiText.Empty,
+    override val sentAt: Long? = null,
     val revision: Long = 0,
     val edited: Boolean = false,
     val replyPreview: UiText? = null,
     val placeholder: Boolean = false,
     val service: Boolean = false,
-    val receipt: UiText? = null,
+    val receipt: Receipt? = null,
     val reaction: UiText? = null
 ) : TimelineItem {
     override fun toString() = "MessageItem(<redacted>)"
@@ -51,7 +57,9 @@ enum class ComposerMode { SEND, REPLY, EDIT }
     val selectedId: String? = null,
     val peerTyping: Boolean = false,
     val deliveryNotice: UiText? = null,
-    val typingProblem: UiText? = null
+    val typingProblem: UiText? = null,
+    /** The first unread message, when the read model reports one; the timeline draws the unread divider above it. */
+    val firstUnreadId: String? = null
 ) {
     override fun toString() = "ChatState(<redacted>)"
 }

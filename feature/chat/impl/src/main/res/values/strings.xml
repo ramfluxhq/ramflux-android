@@ -6,7 +6,6 @@
     <string name="ui_back">Back</string>
     <string name="ui_conversation">Conversation</string>
     <string name="ui_loading_messages">Loading messages</string>
-    <string name="ui_message">Message</string>
     <string name="ui_message_content_is_unavailable">Message content is unavailable.</string>
     <string name="ui_message_deleted">Message deleted</string>
     <string name="ui_message_history_is_unavailable">Message history is unavailable.</string>
@@ -28,7 +27,6 @@
     <string name="ui_this_conversation_has_no_messages">This conversation has no messages.</string>
     <string name="ui_unable_to_continue">Unable to continue</string>
     <string name="ui_conversation_details_unavailable">Conversation details unavailable</string>
-    <string name="ui_time_unavailable">Time unavailable</string>
     <string name="ui_call_record_unavailable">Call record · details unavailable</string>
     <string name="ui_attach">Attach</string>
     <string name="ui_delivery_submitted">Submitted</string>
@@ -53,4 +51,16 @@
     <string name="ui_editing">Editing</string>
     <string name="ui_reaction_ack">Acknowledged</string>
     <string name="ui_the_message_was_not_sent_status_value">The message was not sent (%1$s, code %2$s).</string>
+    <!-- Placeholder inside the empty message composer. -->
+    <string name="chat_composer_placeholder">Message…</string>
+    <!-- Date chip above the messages sent today. -->
+    <string name="chat_date_today">Today</string>
+    <!-- Date chip above the messages sent yesterday. -->
+    <string name="chat_date_yesterday">Yesterday</string>
+    <!-- Divider label above the first unread message. -->
+    <string name="chat_unread_divider">Unread messages</string>
+    <!-- Composer bar title while replying; %1$s is the peer display name, shown isolated from this sentence. -->
+    <string name="chat_replying_to">Replying to %1$s</string>
+    <!-- Accessibility label of the long-press action that opens the message actions. -->
+    <string name="chat_message_actions">Message actions</string>
 </resources>

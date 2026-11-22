@@ -10,6 +10,7 @@ sealed interface ChatAction {
     data object Attachments : ChatAction
     data object Back : ChatAction
     data class Select(val id: String) : ChatAction
+    data object Dismiss : ChatAction
     data object Reply : ChatAction
     data object Edit : ChatAction
     data object React : ChatAction
