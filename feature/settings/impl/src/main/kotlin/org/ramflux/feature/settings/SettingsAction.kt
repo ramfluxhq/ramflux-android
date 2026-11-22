@@ -12,7 +12,11 @@ sealed interface SettingsAction {
     data object Connections : SettingsAction
     data class Page(val page: SettingsPage) : SettingsAction
     data class Theme(val id: String?) : SettingsAction
+
+    /** Asks for confirmation; nothing is revoked until [ConfirmRevoke]. */
     data class Revoke(val id: String) : SettingsAction
+    data object ConfirmRevoke : SettingsAction
+    data object CancelRevoke : SettingsAction
 
     /** Explicit lock: only the account code opens the account again on this phone. */
     data object Lock : SettingsAction

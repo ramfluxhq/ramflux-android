@@ -54,4 +54,12 @@
     <string name="settings_lock_account">锁定账户</string>
     <!-- Explains what locking does; the account code is six digits. -->
     <string name="settings_lock_account_help">在本机关闭你的账户数据。用六位账户码可再次打开。</string>
+    <!-- Title of the confirmation before another device is revoked. -->
+    <string name="settings_revoke_confirm_title">撤销此设备？</string>
+    <!-- Explains the consequence of revoking a device. -->
+    <string name="settings_revoke_confirm_body">该设备会立即失去此账户的访问权限，它已保存的消息仍留在设备上。此操作无法撤回；如需再次使用，请重新关联。</string>
+    <!-- Destructive button that revokes the device. -->
+    <string name="settings_revoke_confirm">撤销设备</string>
+    <!-- Button that closes the revoke confirmation without revoking. -->
+    <string name="settings_cancel">取消</string>
 </resources>

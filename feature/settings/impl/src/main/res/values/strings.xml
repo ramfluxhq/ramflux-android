@@ -54,4 +54,12 @@
     <string name="settings_lock_account">Lock account</string>
     <!-- Explains what locking does; the account code is six digits. -->
     <string name="settings_lock_account_help">Closes your account data on this phone. Your six-digit account code opens it again.</string>
+    <!-- Title of the confirmation before another device is revoked. -->
+    <string name="settings_revoke_confirm_title">Revoke this device?</string>
+    <!-- Explains the consequence of revoking a device. -->
+    <string name="settings_revoke_confirm_body">The device loses access to this account at once. Messages it already holds stay on it. This cannot be undone; link it again to use it.</string>
+    <!-- Destructive button that revokes the device. -->
+    <string name="settings_revoke_confirm">Revoke device</string>
+    <!-- Button that closes the revoke confirmation without revoking. -->
+    <string name="settings_cancel">Cancel</string>
 </resources>

@@ -196,6 +196,30 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, mod
                             if (state.devicesLoaded && state.devices.isEmpty()) {
                                 item("no-devices") { Text(stringResource(R.string.settings_empty_devices)) }
                             }
+                            state.confirmRevoke?.let { device ->
+                                item("confirm-revoke") {
+                                    Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                                        KitSecurityWarning(
+                                            stringResource(R.string.settings_revoke_confirm_title),
+                                            stringResource(R.string.settings_revoke_confirm_body),
+                                            KitWarningTone.Danger
+                                        )
+                                        LtrCode(device, tag = "revoke-device-id")
+                                        KitButton(
+                                            stringResource(R.string.settings_revoke_confirm),
+                                            { onAction(SettingsAction.ConfirmRevoke) },
+                                            kind = KitButtonKind.Destructive,
+                                            tag = "confirm-revoke"
+                                        )
+                                        KitButton(
+                                            stringResource(R.string.settings_cancel),
+                                            { onAction(SettingsAction.CancelRevoke) },
+                                            kind = KitButtonKind.Secondary,
+                                            tag = "cancel-revoke"
+                                        )
+                                    }
+                                }
+                            }
                             items(state.devices, key = { "device:" + it.id }, contentType = { "device" }) { device ->
                                 KitRow(
                                     device.id,

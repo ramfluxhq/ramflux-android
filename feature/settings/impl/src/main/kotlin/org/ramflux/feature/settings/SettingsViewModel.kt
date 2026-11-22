@@ -146,8 +146,17 @@ class SettingsViewModel @Inject constructor(
                 }
             }
             is SettingsAction.Revoke -> if (local.value.devices.any { it.id == action.id && !it.local }) {
+                local.update { it.copy(confirmRevoke = action.id) }
+            }
+            SettingsAction.CancelRevoke -> local.update { it.copy(confirmRevoke = null) }
+            SettingsAction.ConfirmRevoke -> {
+                val device = local.value.confirmRevoke ?: return
+                local.update { it.copy(confirmRevoke = null) }
+                if (local.value.devices.none { it.id == device && !it.local }) return
                 val account = activeAccount ?: return
-                capability { devices.revoke(account, action.id) }
+                capability {
+                    devices.revoke(account, device).also { if (it is ClientResult.Ready) read() }
+                }
             }
             SettingsAction.Lock -> {
                 val account = activeAccount ?: return

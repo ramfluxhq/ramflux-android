@@ -34,6 +34,8 @@ enum class SettingsPage { GENERAL, APPEARANCE, LANGUAGE, DEVICES, BACKUP }
     val devices: ImmutableList<SettingsDevice> = persistentListOf(),
     val devicesLoaded: Boolean = false,
     val deviceProblem: UiText? = null,
+    /** The device whose revocation waits for confirmation. */
+    val confirmRevoke: String? = null,
     val status: SettingsStatus? = null,
     val statusProblem: UiText? = null,
     val problem: UiText? = null,
