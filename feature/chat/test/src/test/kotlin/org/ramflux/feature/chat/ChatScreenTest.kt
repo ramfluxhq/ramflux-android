@@ -2,7 +2,11 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.chat
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
@@ -12,6 +16,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -84,6 +89,38 @@ class ChatScreenTest {
         compose.onNodeWithText("conversation-id", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Refresh").assertDoesNotExist()
         compose.onNodeWithContentDescription("Back").assertExists()
+    }
+
+    @Test fun ownGroupMessagesSitOnTheEndSideAndOnlyIncomingOnesShowTheSender() {
+        compose.setContent {
+            RamfluxTheme {
+                Box(Modifier.width(300.dp).testTag("frame")) {
+                    ChatScreen(
+                        ChatState(
+                            conversationId = "conversation-id",
+                            groupId = "group-id",
+                            title = UiText.Data("Team"),
+                            loaded = true,
+                            rows = persistentListOf(
+                                MessageItem("in", "Peer name", false, false, UiText.Data("Incoming text"), stamp),
+                                MessageItem("mine", "Self name", true, false, UiText.Data("Own text"), stamp)
+                            )
+                        ),
+                        {},
+                        clock = clock
+                    )
+                }
+            }
+        }
+        val incoming = compose.onNodeWithTag("in", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val own = compose.onNodeWithTag("mine", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val frame = compose.onNodeWithTag("frame").fetchSemanticsNode().boundsInRoot
+        val gutter = frame.width / 10f
+        assertTrue("incoming starts at the start side: $incoming in $frame", incoming.left - frame.left < gutter)
+        assertTrue("own ends at the end side: $own in $frame", frame.right - own.right < gutter)
+        assertTrue("own is not on the start side: $own", own.left - frame.left > gutter)
+        compose.onNodeWithText("Peer name", substring = true).assertExists()
+        compose.onNodeWithText("Self name", substring = true).assertDoesNotExist()
     }
 
     @Test fun aDetailPaneHidesTheBackControl() {

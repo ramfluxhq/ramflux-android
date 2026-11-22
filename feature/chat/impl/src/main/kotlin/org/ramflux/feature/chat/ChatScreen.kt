@@ -261,7 +261,7 @@ private fun Message(
     actionsLabel: String,
     onAction: (ChatAction) -> Unit
 ) {
-    val own = row.own && state.groupId == null
+    val own = row.own
     val open = actionsFor(row).isNotEmpty()
     Box(modifier, contentAlignment = if (own) Alignment.CenterEnd else Alignment.CenterStart) {
         Column(horizontalAlignment = if (own) Alignment.End else Alignment.Start) {
@@ -386,7 +386,7 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
 ) {
     val theme = LocalRFTheme.current
     val gap = theme.gap
-    val own = row.own && state.groupId == null
+    val own = row.own
     val actions = actionsFor(row)
     val entries = actions.map { action ->
         when (action) {
