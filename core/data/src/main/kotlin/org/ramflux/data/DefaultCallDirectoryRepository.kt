@@ -3,6 +3,7 @@
 
 package org.ramflux.data
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.*
 import org.ramflux.sdk.*
@@ -60,17 +61,41 @@ internal class DefaultCallDirectoryRepository(transport: RepositoryTransport) : 
         catch(_: Exception) { val result = unknown(); synchronized(journal) { entry.result = result }; return result }
     }
     override suspend fun audioAvailability(): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CALLS, UnavailableReason.FEATURE_NOT_INSTALLED)
-    override fun updates(account: String): Flow<ClientResult<Unit>> = source.updates(SubscriptionFilter(account,
-        buildJsonObject { put("topics", buildJsonArray { add("*") }) })).map { update -> when(update) {
-            is CoreUpdate.Events -> { update.body.close(); ClientResult.Ready(Unit) }
-            is CoreUpdate.Failure -> ClientResult.Failed(update.error.appProblem())
-            is CoreUpdate.Terminal -> ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 27, ClientOutcome.NONE))
-        } }
+
+    /**
+     * The SDK publishes no call topic on the event bus, so call state is read again on a fixed rhythm
+     * while a call screen collects this flow (never a wildcard subscription); it stops with the collector.
+     */
+    override fun updates(account: String): Flow<ClientResult<Unit>> = flow {
+        while (true) {
+            delay(POLL_MS)
+            emit(ClientResult.Ready(Unit))
+        }
+    }
+
+    override suspend fun invite(account: String, conversation: String, operationId: String): ClientResult<CallRecord> {
+        if (account.isBlank() || account.length > 4096 || conversation.isBlank() || conversation.length > 256 ||
+            !Regex("[a-z0-9-]{1,128}").matches(operationId)) return invalid()
+        val body = SecretBody.fields { publicText("conversation_id", conversation) }
+        return decode(source.invite(RepositoryContext(account, operationId), body), CallMetadataReader::record) { it.app() }
+    }
+
+    override suspend fun answer(account: String, call: CallRecord, operationId: String): ClientResult<CallRecord> {
+        if (account.isBlank() || account.length > 4096 || !Regex("[a-z0-9-]{1,128}").matches(operationId) ||
+            call.direction != CallDirection.INCOMING || call.phase != CallPhase.INCOMING_RINGING) return invalid()
+        val body = SecretBody.fields { publicText("call_id", call.id) }
+        return decode(source.answer(RepositoryContext(account, operationId), body), CallMetadataReader::record) {
+            val actual = it.app()
+            require(actual.sameCall(call))
+            actual
+        }
+    }
     private fun CallDisplay.app() = CallRecord(id, conversation, peer,
         when(direction) { "incoming" -> CallDirection.INCOMING; "outgoing" -> CallDirection.OUTGOING; else -> CallDirection.UNKNOWN },
         when(state) { "incoming_ringing" -> CallPhase.INCOMING_RINGING; "outgoing_ringing" -> CallPhase.OUTGOING_RINGING; "connecting" -> CallPhase.CONNECTING; "active" -> CallPhase.ACTIVE; "ended" -> CallPhase.ENDED; else -> CallPhase.UNKNOWN },
         sequence, generation, created, answered, ended, endReason, failure, peerReason)
     private fun CallRecord.sameCall(other: CallRecord) = id == other.id && conversation == other.conversation && peer == other.peer && direction == other.direction
+    private companion object { const val POLL_MS = 2_000L }
     private fun invalid() = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
     private fun unknown() = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.UNKNOWN))
     private fun <T> ClientResult<T>.failure(): ClientResult<Nothing> = when(this) { is ClientResult.Failed -> this; is ClientResult.Unavailable -> this; is ClientResult.Ready -> invalid() }
