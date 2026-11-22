@@ -41,7 +41,11 @@ object ConversationBoards {
     val loading = ConversationsState(accountId = ACCOUNT_ID, accountLabel = ACCOUNT, loading = true)
 
     /** MOB-B01X cannot connect: a first read that failed (the closed-session text is the closest real reason). */
-    val cannotConnect = ConversationsState(accountId = ACCOUNT_ID, accountLabel = ACCOUNT, problem = uiText(R.string.ui_private_data_is_closed))
+    val cannotConnect = ConversationsState(
+        accountId = ACCOUNT_ID,
+        accountLabel = ACCOUNT,
+        problem = uiText(R.string.ui_private_data_is_closed)
+    )
 
     /** MOB-B12 no conversations yet. */
     val empty = ConversationsState(accountId = ACCOUNT_ID, accountLabel = ACCOUNT, loaded = true, requests = 0)
