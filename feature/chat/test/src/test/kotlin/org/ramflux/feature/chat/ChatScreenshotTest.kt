@@ -14,9 +14,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.unit.*
 import com.github.takahirom.roborazzi.captureRoboImage
-import java.time.Clock
-import java.time.LocalDateTime
-import java.time.ZoneId
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Rule
 import org.junit.Test
@@ -27,12 +24,13 @@ import org.ramflux.designsystem.kit.KitHomeIndicator
 import org.ramflux.designsystem.kit.KitStatusBar
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
+import org.ramflux.testing.fixtures.ChatBoards
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
  * One parameter matrix for the chat screen: width x theme x state x locale x font scale. The board state
- * reproduces MOB-B02 (fX3lF) at the 393 x 852 design frame with the system bars drawn by the kit; the
+ * reproduces MOB-B02 (fX3lF) from the shared board fixture at the 393 x 852 design frame with the system bars drawn by the kit; the
  * actions state reproduces MOB-B03 (FfJ3N). ar-XB is the right-to-left pseudo-locale and en-XA the expanded one.
  */
 @OptIn(ExperimentalTestApi::class)
@@ -59,10 +57,8 @@ class ChatScreenshotTest(
             return (light + dark + large).flatMap { row -> locales.map { tag -> arrayOf(row[0], row[1], row[2], tag, row[3]) } }
         }
 
-        private val zone = ZoneId.of("Asia/Shanghai")
-        private val clock = Clock.fixed(LocalDateTime.of(2026, 11, 20, 10, 30).atZone(zone).toInstant(), zone)
-        private fun at(hour: Int, minute: Int, daysAgo: Long = 0) =
-            LocalDateTime.of(2026, 11, 20, hour, minute).minusDays(daysAgo).atZone(zone).toEpochSecond()
+        private val clock = ChatBoards.clock
+        private fun at(hour: Int, minute: Int, daysAgo: Long = 0) = ChatBoards.at(hour, minute, daysAgo)
     }
 
     @Test fun screen() {
@@ -70,7 +66,7 @@ class ChatScreenshotTest(
             "loading" -> ChatState(loading = true)
             "error" -> ChatState(problem = uiText(R.string.ui_unable_to_continue))
             "empty" -> ChatState(loaded = true, title = UiText.Data("Project"))
-            "board", "actions" -> board(kind == "actions")
+            "board", "actions" -> ChatBoards.conversation(selected = kind == "actions")
             "bidi" -> ChatState(
                 conversationId = "conversation-id",
                 groupId = "group-id",
@@ -161,42 +157,6 @@ class ChatScreenshotTest(
     }
 
     private fun framed(kind: String) = kind == "board" || kind == "actions"
-
-    private fun board(selected: Boolean) = ChatState(
-        conversationId = "conversation-id",
-        title = UiText.Data("\u6797\u60A6"),
-        loaded = true,
-        canSend = true,
-        rows = persistentListOf(
-            MessageItem(
-                "b1",
-                "\u6797\u60A6",
-                false,
-                false,
-                UiText.Data("\u65B0\u7248\u8D44\u6599\u6211\u6574\u7406\u597D\u4E86\uFF0C\u4F60\u6709\u7A7A\u65F6\u770B\u4E00\u4E0B\u3002"),
-                at(10, 21)
-            ),
-            MessageItem(
-                "b2",
-                "Self",
-                true,
-                false,
-                UiText.Data("\u6536\u5230\uFF0C\u6211\u4F1A\u628A\u95EE\u9898\u9010\u9879\u56DE\u590D\u3002"),
-                at(10, 23),
-                receipt = Receipt.READ
-            ),
-            MessageItem(
-                "b3",
-                "\u6797\u60A6",
-                false,
-                false,
-                UiText.Data("\u597D\u7684\uFF0C\u9644\u4EF6\u91CC\u7684\u7248\u672C\u8BF4\u660E\u4E5F\u8BF7\u4E00\u8D77\u770B\u3002"),
-                at(10, 24)
-            )
-        ),
-        firstUnreadId = "b3",
-        selectedId = if (selected) "b2" else null
-    )
 }
 
 private const val HEIGHT = 852

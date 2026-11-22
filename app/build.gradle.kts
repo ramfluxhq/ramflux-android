@@ -10,6 +10,7 @@ android {
     testOptions.unitTests.isIncludeAndroidResources = true
     sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/screenshot/kotlin"))
     sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/fixtures/conversations/kotlin"))
+    sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/fixtures/chat/kotlin"))
 }
 dependencies {
     implementation(project(":feature:permissions:impl"))
