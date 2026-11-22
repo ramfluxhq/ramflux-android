@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -54,7 +53,7 @@ fun KitTextField(
         modifier.fillMaxWidth().alpha(if (enabled) 1f else RfMetrics.fieldDisabledAlpha).kitBackdrop().kitTag(tag),
         verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.fieldGap))
     ) {
-        Text(label, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
+        KitText(label, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
         BasicTextField(
             value = value,
             onValueChange = onValue,
@@ -73,7 +72,7 @@ fun KitTextField(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))) {
                     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty() && placeholder.isNotEmpty()) {
-                            Text(
+                            KitText(
                                 placeholder,
                                 style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle)
                             )
@@ -85,9 +84,9 @@ fun KitTextField(
             }
         )
         if (error != null) {
-            Text(error, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.danger, RfMetrics.lineSecondary))
+            KitText(error, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.danger, RfMetrics.lineSecondary))
         } else if (helper != null) {
-            Text(helper, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
+            KitText(helper, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
         }
     }
 }
@@ -128,7 +127,10 @@ fun KitSearchField(
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
                     if (value.isEmpty()) {
-                        Text(placeholder, style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle))
+                        KitText(
+                            placeholder,
+                            style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle)
+                        )
                     }
                     inner()
                 }

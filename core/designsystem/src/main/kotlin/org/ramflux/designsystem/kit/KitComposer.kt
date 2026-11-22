@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,7 +59,7 @@ fun KitComposer(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))
             ) {
-                Text(mode, style = kitStyle(theme.size_secondary, FontWeight.Medium, theme.text, RfMetrics.lineSecondary))
+                KitText(mode, style = kitStyle(theme.size_secondary, FontWeight.Medium, theme.text, RfMetrics.lineSecondary))
                 KitIcon("chevron-down", RfMetrics.chevron, theme.secondary)
             }
         }
@@ -71,7 +70,7 @@ fun KitComposer(
                 horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.approvalGap))
             ) {
                 KitCheckbox(optionChecked, onOption, size = RfMetrics.optionBox, radius = theme.radius_xs, strokeColor = theme.line_strong)
-                Text(option, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
+                KitText(option, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
             }
         }
         if (!replyAuthor.isNullOrEmpty()) {
@@ -89,9 +88,9 @@ fun KitComposer(
                     ).clip(shapeOf(RfMetrics.replyRadius)).background(theme.accent)
                 )
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.labelGap))) {
-                    Text(replyAuthor, style = kitStyle(theme.size_secondary, FontWeight.SemiBold, theme.text, RfMetrics.lineSecondary))
+                    KitText(replyAuthor, style = kitStyle(theme.size_secondary, FontWeight.SemiBold, theme.text, RfMetrics.lineSecondary))
                     if (!replyExcerpt.isNullOrEmpty()) {
-                        Text(replyExcerpt, style = kitStyle(theme.size_button, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle))
+                        KitText(replyExcerpt, style = kitStyle(theme.size_button, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle))
                     }
                 }
                 if (onCloseReply != null) IconHit("x", RfMetrics.iconInfo, theme.secondary, onCloseReply)
@@ -113,9 +112,9 @@ fun KitComposer(
                     KitIcon("file-text", RfMetrics.fileGlyph, theme.text)
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.labelGap))) {
-                    Text(attachmentName, style = kitStyle(theme.size_body, FontWeight.Medium, theme.text, RfMetrics.lineBody))
+                    KitText(attachmentName, style = kitStyle(theme.size_body, FontWeight.Medium, theme.text, RfMetrics.lineBody))
                     if (!attachmentState.isNullOrEmpty()) {
-                        Text(attachmentState, style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle))
+                        KitText(attachmentState, style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle))
                     }
                 }
                 if (onRemoveAttachment != null) IconHit("x", RfMetrics.fieldIcon, theme.secondary, onRemoveAttachment)
@@ -160,7 +159,7 @@ fun KitComposer(
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (value.isEmpty()) {
-                                Text(
+                                KitText(
                                     placeholder,
                                     style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle)
                                 )

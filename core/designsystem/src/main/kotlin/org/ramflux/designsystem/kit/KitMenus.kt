@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -73,7 +72,7 @@ private fun MenuRun(entries: List<KitMenuEntry>, offset: Int, onSelect: (Int) ->
         }
         layout(constraints.maxWidth, visualPx * placeables.size) {
             placeables.forEachIndexed { index, placeable ->
-                placeable.place(0, index * visualPx - (hitPx - visualPx) / 2)
+                placeable.placeRelative(0, index * visualPx - (hitPx - visualPx) / 2)
             }
         }
     }
@@ -104,7 +103,7 @@ private fun KitMenuItem(entry: KitMenuEntry, hairline: Boolean, hitTag: String, 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
         ) {
-            Text(
+            KitText(
                 entry.label,
                 modifier = Modifier.weight(1f),
                 style = kitStyle(theme.size_mobile_body, FontWeight.Normal, tint, RfMetrics.lineTitle)
@@ -149,7 +148,7 @@ fun KitReactionBar(
                         .kitTag(if (tag == null) null else tag + "-cell-" + index.toString()),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(reaction, style = kitStyle(theme.size_page, FontWeight.Normal, theme.text, RfMetrics.lineTitle))
+                    KitText(reaction, style = kitStyle(theme.size_page, FontWeight.Normal, theme.text, RfMetrics.lineTitle))
                 }
             }
         }
@@ -183,7 +182,7 @@ fun KitDateChip(label: String, modifier: Modifier = Modifier, tag: String? = nul
                 shapeOf(theme.radius_chip)
             ).padding(horizontal = dp(RfMetrics.chipPadH), vertical = dp(RfMetrics.chipPadV))
         ) {
-            Text(label, style = kitStyle(theme.size_meta, FontWeight.Medium, theme.secondary, RfMetrics.lineTitle))
+            KitText(label, style = kitStyle(theme.size_meta, FontWeight.Medium, theme.secondary, RfMetrics.lineTitle))
         }
     }
 }
@@ -197,7 +196,11 @@ fun KitUnreadDivider(label: String, modifier: Modifier = Modifier, tag: String? 
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.unreadGap))
     ) {
         Box(Modifier.weight(1f).height(dp(RfMetrics.unreadLine)).background(theme.line_strong))
-        Text(label, textAlign = TextAlign.Center, style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle))
+        KitText(
+            label,
+            textAlign = TextAlign.Center,
+            style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
+        )
         Box(Modifier.weight(1f).height(dp(RfMetrics.unreadLine)).background(theme.line_strong))
     }
 }

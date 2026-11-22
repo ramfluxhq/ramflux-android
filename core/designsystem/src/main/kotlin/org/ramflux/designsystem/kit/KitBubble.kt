@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,7 +78,7 @@ fun KitBubble(
             if (kind == KitBubbleKind.Incoming && (!sender.isNullOrEmpty() || !agentTag.isNullOrEmpty())) {
                 Row(horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap)), verticalAlignment = Alignment.CenterVertically) {
                     if (!sender.isNullOrEmpty()) {
-                        Text(sender, style = kitStyle(theme.size_secondary, FontWeight.SemiBold, theme.text, RfMetrics.lineSecondary))
+                        KitText(sender, style = kitStyle(theme.size_secondary, FontWeight.SemiBold, theme.text, RfMetrics.lineSecondary))
                     }
                     if (!agentTag.isNullOrEmpty()) {
                         Box(
@@ -89,7 +88,7 @@ fun KitBubble(
                                 .padding(horizontal = dp(RfMetrics.chipPadH)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
+                            KitText(
                                 agentTag,
                                 style = kitStyle(
                                     theme.size_mobile_caption,
@@ -112,14 +111,14 @@ fun KitBubble(
                         KitIcon(fileIcon, RfMetrics.fileGlyph, theme.text)
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.labelGap))) {
-                        Text(fileName.orEmpty(), style = kitStyle(theme.size_body, FontWeight.Medium, theme.text, RfMetrics.lineBody))
+                        KitText(fileName.orEmpty(), style = kitStyle(theme.size_body, FontWeight.Medium, theme.text, RfMetrics.lineBody))
                         if (!fileMeta.isNullOrEmpty() || !time.isNullOrEmpty()) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap)),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 if (!fileMeta.isNullOrEmpty()) {
-                                    Text(
+                                    KitText(
                                         fileMeta,
                                         style = kitStyle(
                                             theme.size_mobile_caption,
@@ -132,7 +131,7 @@ fun KitBubble(
                                     )
                                 }
                                 if (!time.isNullOrEmpty()) {
-                                    Text(
+                                    KitText(
                                         time,
                                         style = kitStyle(
                                             theme.size_mobile_caption,
@@ -149,7 +148,7 @@ fun KitBubble(
                 }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap)), verticalAlignment = Alignment.Bottom) {
-                    Text(
+                    KitText(
                         body,
                         modifier = Modifier.weight(1f, fill = false),
                         style = kitStyle(theme.size_mobile_body, FontWeight.Normal, text, RfMetrics.lineBubble)
@@ -159,13 +158,13 @@ fun KitBubble(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (!edited.isNullOrEmpty()) {
-                            Text(
+                            KitText(
                                 edited,
                                 style = kitStyle(theme.size_mobile_caption, FontWeight.Normal, meta, RfMetrics.lineTitle, RfFonts.latin)
                             )
                         }
                         if (!time.isNullOrEmpty()) {
-                            Text(
+                            KitText(
                                 time,
                                 style = kitStyle(theme.size_mobile_caption, FontWeight.Normal, meta, RfMetrics.lineTitle, RfFonts.latin)
                             )

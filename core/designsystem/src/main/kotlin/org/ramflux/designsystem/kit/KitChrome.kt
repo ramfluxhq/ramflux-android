@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,7 +41,7 @@ fun KitStatusBar(time: String, modifier: Modifier = Modifier, tag: String? = nul
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(time, style = kitStyle(theme.size_body, FontWeight.SemiBold, theme.text, RfMetrics.lineBody, RfFonts.latin))
+        KitText(time, style = kitStyle(theme.size_body, FontWeight.SemiBold, theme.text, RfMetrics.lineBody, RfFonts.latin))
         Row(horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.statusGap)), verticalAlignment = Alignment.CenterVertically) {
             KitIcon("signal", RfMetrics.statusIcon, theme.text)
             KitIcon("wifi", RfMetrics.statusIcon, theme.text)
@@ -97,7 +96,7 @@ fun KitPageHeader(
         }
         Column(Modifier.weight(1f)) {
             if (title.isNotEmpty()) {
-                Text(
+                KitText(
                     title,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -109,7 +108,7 @@ fun KitPageHeader(
                 )
             }
             if (large && !subtitle.isNullOrEmpty()) {
-                Text(
+                KitText(
                     subtitle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -127,7 +126,7 @@ fun KitPageHeader(
                     .padding(horizontal = dp(RfMetrics.headerGap)),
                 Alignment.Center
             ) {
-                Text(actionLabel, style = kitStyle(theme.size_body, FontWeight.SemiBold, theme.text, RfMetrics.lineBody))
+                KitText(actionLabel, style = kitStyle(theme.size_body, FontWeight.SemiBold, theme.text, RfMetrics.lineBody))
             }
         }
         actions.forEach { action -> IconHit(action.icon, RfMetrics.iconAction, theme.text, action.onClick, action.label) }
@@ -160,14 +159,14 @@ fun KitChatHeader(
         IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack, tag = tag?.let { "$it-back" })
         avatar()
         Column(Modifier.weight(1f)) {
-            Text(
+            KitText(
                 title,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
             )
             if (!subtitle.isNullOrEmpty()) {
-                Text(
+                KitText(
                     subtitle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -216,7 +215,7 @@ fun KitTabBar(tabs: List<KitTab>, selected: Int, onSelect: (Int) -> Unit, modifi
                                         .padding(horizontal = dp(RfMetrics.tabBadgePad)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
+                                    KitText(
                                         tab.badge,
                                         style = kitStyle(
                                             theme.size_mobile_caption,
@@ -228,7 +227,7 @@ fun KitTabBar(tabs: List<KitTab>, selected: Int, onSelect: (Int) -> Unit, modifi
                                 }
                             }
                         }
-                        Text(
+                        KitText(
                             tab.label,
                             style = kitStyle(
                                 theme.size_mobile_caption,
@@ -297,7 +296,7 @@ internal fun IconHit(
         val placeable = measurables[0].measure(
             constraints.copy(minWidth = hitPx, maxWidth = hitPx, minHeight = hitPx, maxHeight = hitPx)
         )
-        layout(slotPx, slotPx) { placeable.place((slotPx - hitPx) / 2, (slotPx - hitPx) / 2) }
+        layout(slotPx, slotPx) { placeable.placeRelative((slotPx - hitPx) / 2, (slotPx - hitPx) / 2) }
     }
 }
 
@@ -337,7 +336,7 @@ internal fun HitOverlap(
         val placeable = measurables[0].measure(
             constraints.copy(minWidth = hitW, maxWidth = hitW, minHeight = hitH, maxHeight = hitH)
         )
-        layout(slotW, slotH) { placeable.place((slotW - hitW) / 2, (slotH - hitH) / 2) }
+        layout(slotW, slotH) { placeable.placeRelative((slotW - hitW) / 2, (slotH - hitH) / 2) }
     }
 }
 

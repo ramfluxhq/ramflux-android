@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -90,7 +89,7 @@ fun KitButton(
                 modifier = Modifier.padding(horizontal = dp(RfMetrics.buttonPadH))
             ) {
                 if (loading) KitSpinner(RfMetrics.tileGlyph, labelColor, Modifier.kitTag(tag?.let { "$it-spinner" }))
-                Text(label, style = kitStyle(theme.size_mobile_body, weight, labelColor, RfMetrics.lineTitle))
+                KitText(label, style = kitStyle(theme.size_mobile_body, weight, labelColor, RfMetrics.lineTitle))
             }
         }
     }
@@ -125,7 +124,7 @@ fun KitButton(
             val placeable = measurables[0].measure(
                 constraints.copy(minWidth = constraints.maxWidth, minHeight = hitPx, maxHeight = hitPx)
             )
-            layout(placeable.width, drawnPx) { placeable.place(0, (drawnPx - hitPx) / 2) }
+            layout(placeable.width, drawnPx) { placeable.placeRelative(0, (drawnPx - hitPx) / 2) }
         }
     }
 }

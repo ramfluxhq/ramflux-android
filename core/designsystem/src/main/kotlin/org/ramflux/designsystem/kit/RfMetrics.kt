@@ -15,14 +15,13 @@ internal object RfMetrics {
     val bubbleWidthFraction = 0.78f
     val agentRadiusRatio = 0.28f
     val fullTurn = 360f
-    val screen = 393f
-    val content = 361f
     val gutter = 16f
     val lineTight = 1.25f
     val lineTitle = 1.3f
     val lineBody = 1.45f
     val lineBubble = 1.35f
     val lineSecondary = 1.4f
+    val lineTallScript = 1.6f
     val buttonHeight = 52f
     val buttonCompact = 44f
     val buttonPadH = 20f
@@ -87,7 +86,6 @@ internal object RfMetrics {
     val bubblePadV = 8f
     val bubblePadH = 12f
     val bubbleGap = 4f
-    val bubbleMaster = 260f
     val metaIcon = 14f
     val agentTag = 18f
     val avatar18 = 18f

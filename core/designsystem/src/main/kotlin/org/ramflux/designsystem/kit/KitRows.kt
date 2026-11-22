@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -98,14 +97,14 @@ fun KitRow(
             KitIconTile(icon)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.labelGap))) {
-            Text(
+            KitText(
                 label,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.text, RfMetrics.lineTitle)
             )
             if (!value.isNullOrEmpty()) {
-                Text(
+                KitText(
                     value,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -120,7 +119,7 @@ fun KitRow(
                     shapeOf(theme.radius_chip)
                 ).padding(horizontal = dp(RfMetrics.tagPadH), vertical = dp(RfMetrics.tagPadV))
             ) {
-                Text(tagLabel, style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.warning, RfMetrics.lineMetaRow()))
+                KitText(tagLabel, style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.warning, RfMetrics.lineMetaRow()))
             }
         }
         if (trailingContent != null) {
@@ -179,7 +178,7 @@ fun KitConversationRow(
             verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.summaryGap), Alignment.CenterVertically)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))) {
-                Text(
+                KitText(
                     title,
                     modifier = Modifier.weight(1f, fill = false),
                     maxLines = 1,
@@ -188,7 +187,7 @@ fun KitConversationRow(
                 )
                 if (muted) KitIcon("bell-off", RfMetrics.metaIcon, theme.secondary)
                 Box(Modifier.weight(1f))
-                Text(
+                KitText(
                     time,
                     style = kitStyle(theme.size_mobile_caption, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle, RfFonts.latin)
                 )
@@ -196,9 +195,9 @@ fun KitConversationRow(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))) {
                 if (read) KitIcon("check-check", RfMetrics.metaIcon, theme.secondary)
                 if (!sender.isNullOrEmpty()) {
-                    Text(sender, style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody))
+                    KitText(sender, style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody))
                 }
-                Text(
+                KitText(
                     preview,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
@@ -213,7 +212,7 @@ fun KitConversationRow(
                             .padding(horizontal = dp(RfMetrics.listBadgePad)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(badge, style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.on_badge, RfMetrics.lineTitle))
+                        KitText(badge, style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.on_badge, RfMetrics.lineTitle))
                     }
                 }
                 if (pinned) KitIcon("pin", RfMetrics.metaIcon, theme.secondary)

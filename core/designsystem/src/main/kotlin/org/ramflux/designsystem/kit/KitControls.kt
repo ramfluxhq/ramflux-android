@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -128,7 +127,7 @@ fun KitSegmented(
                         .then(if (on) Modifier.background(theme.surface_white, shapeOf(theme.radius_sm)) else Modifier),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
+                    KitText(
                         label,
                         style = kitStyle(
                             theme.size_secondary,

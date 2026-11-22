@@ -6,13 +6,16 @@ package org.ramflux.designsystem.kit
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziOptions
@@ -252,6 +255,23 @@ class KitLayoutTest {
         val width = compose.onNodeWithTag("loading").fetchSemanticsNode().size.width
         check(width == 361) { "loading width $width" }
         compose.onNodeWithTag("loading-spinner", useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun headerBackAndMenuIconsSitAtTheStartInRightToLeft() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Column(Modifier.width(393.dp)) {
+                        KitPageHeader("\u0639\u0646\u0648\u0627\u0646", onBack = {}, tag = "header")
+                        KitContextMenu(listOf(KitMenuEntry("\u0631\u062f", "reply")), {}, tag = "menu")
+                    }
+                }
+            }
+        }
+        val back = compose.onNodeWithTag("header-back", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        check(back.left > 300f) { "back at ${back.left}" }
+        val hit = compose.onNodeWithTag("menu-hit-0-0", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        check(hit.right == 393f) { "menu row ends at ${hit.right}" }
     }
 
     private fun colorAt(tag: String, x: Int, y: Int): Int = capture(tag).getPixel(x, y)
