@@ -164,4 +164,9 @@ class GroupDirectoryDataTest {
             assertTrue(oracle.abi.cancelled.isNotEmpty())
         } finally { client.close() }
     }
+
+    @Test fun groupUpdatesUseSpecificJournalTopics() {
+        assertFalse("*" in GROUP_TOPICS)
+        assertEquals(listOf("group.changed", "conversation.changed"), GROUP_TOPICS)
+    }
 }

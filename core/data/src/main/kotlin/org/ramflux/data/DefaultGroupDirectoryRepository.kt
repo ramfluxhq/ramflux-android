@@ -70,7 +70,14 @@ internal class DefaultGroupDirectoryRepository(transport: RepositoryTransport) :
     override suspend fun conversation(account: String, group: String): ClientResult<String> = decoded(source.history(RepositoryContext(account), buildJsonObject {
         put("group_id", group); put("conversation_id", group); put("limit", 0)
     }), { GroupMetadataReader.conversation(it, group) }) { it }
-    override fun updates(account: String): Flow<ClientResult<Unit>> = source.updates(SubscriptionFilter(account, buildJsonObject { put("topics", buildJsonArray { add("*") }) })).map { update ->
+    /**
+     * Journal topics of the pinned SDK (`bus/journal/project.rs`): `group.changed` follows the group,
+     * member and ban projections; `conversation.changed` the group conversation rows. The SDK projects
+     * no topic of its own for inbound invitations; they reload on resume and on resync.
+     */
+    override fun updates(account: String): Flow<ClientResult<Unit>> = source.updates(SubscriptionFilter(account, buildJsonObject {
+        put("topics", buildJsonArray { GROUP_TOPICS.forEach { add(it) } })
+    })).map { update ->
         when(update) {
             is CoreUpdate.Events -> { update.body.close(); ClientResult.Ready(Unit) }
             is CoreUpdate.Failure -> ClientResult.Failed(update.error.appProblem())
@@ -184,3 +191,5 @@ internal class DefaultGroupDirectoryRepository(transport: RepositoryTransport) :
         }
     }
 }
+
+internal val GROUP_TOPICS = listOf("group.changed", "conversation.changed")
