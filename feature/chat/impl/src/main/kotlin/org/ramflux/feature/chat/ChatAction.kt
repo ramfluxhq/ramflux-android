@@ -40,11 +40,21 @@ sealed interface ChatAction {
     data class SaveAttachment(val key: String) : ChatAction
     data class ShareAttachment(val key: String) : ChatAction
 
-    /** Opens the system photo picker ([image]) or the document picker. */
-    data class Pick(val image: Boolean) : ChatAction
+    /** Opens the system photo picker, the document picker or the system camera. */
+    data class Pick(val source: PickSource) : ChatAction
 
-    /** A picker result; [uri] is the opaque content URI the picker returned. */
-    data class Picked(val uri: String, val image: Boolean) : ChatAction
+    /** Picker results; [uris] are the opaque content URIs the picker or the camera returned. */
+    data class Picked(val uris: List<String>, val source: PickSource) : ChatAction
+
+    /** Opens the forward chooser for message [messageId] (the selected one when null), or one item of it. */
+    data class Forward(val messageId: String? = null, val index: Int? = null) : ChatAction
+
+    /** The forward chooser reached its last loaded conversation. */
+    data object ForwardMore : ChatAction
+
+    /** Sends the message being forwarded to [conversation] again, with new keys. */
+    data class ForwardTo(val conversation: String) : ChatAction
+    data object CloseForward : ChatAction
 
     /** The screen left the foreground; the draft is sealed to storage now. */
     data object Pause : ChatAction

@@ -92,6 +92,29 @@ class TimelinePagingDataTest {
         assertTrue(topics.containsAll(listOf("message.received", "message.updated", "message.transient")))
     }
 
+    @Test fun forwardTargetsListVisibleDirectConversationsAndFollowTheCursor() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi().apply {
+            completionBody = Json.parseToJsonElement(
+                """{"conversations":[""" +
+                    """{"id":"d","title":"Dana","kind":"direct","unread_count":0,"is_unread":false,"archived":false,"hidden":false},""" +
+                    """{"id":"g","title":"Team","kind":"group","unread_count":0,"is_unread":false,"archived":false,"hidden":false},""" +
+                    """{"id":"h","title":"Hidden","kind":"direct","unread_count":0,"is_unread":false,"archived":false,"hidden":true}""" +
+                    """],"next_cursor":"page-2"}""",
+            ).jsonObject
+        }
+        val client = open(abi, "/test/forward")
+        try {
+            val repo = DefaultMessageHistoryRepository(SdkRepositoryTransport { client })
+            val page = (repo.forwardTargets("a") as ClientResult.Ready).value
+            assertEquals(listOf("d"), page.rows.map { it.conversation })
+            assertNull(page.rows.single().group)
+            assertEquals("page-2", page.next)
+            repo.forwardTargets("a", page.next)
+            assertEquals("page-2", abi.submitted.last()["body"]?.jsonObject?.get("cursor")?.jsonPrimitive?.content)
+            assertTrue(repo.forwardTargets("", null) is ClientResult.Failed)
+        } finally { client.close() }
+    }
+
     private suspend fun open(abi: FakeAbi, root: String) =
         (CoreClient.open(abi, root, "a".repeat(64)) as CoreResult.Success).value
 

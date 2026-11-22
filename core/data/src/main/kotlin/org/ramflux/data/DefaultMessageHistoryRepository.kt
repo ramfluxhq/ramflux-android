@@ -175,6 +175,28 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
 
     override suspend fun sendAvailability(): ClientResult<Unit> = ClientResult.Ready(Unit)
 
+    /**
+     * Direct conversations only: the directory reader carries the kind but not the group id that
+     * `attachment.prepare.begin` needs for a group, so groups are not offered until it does.
+     */
+    override suspend fun forwardTargets(account: String, cursor: String?): ClientResult<ForwardTargetPage> {
+        if (!identity(account) || (cursor?.length ?: 0) > 8192) return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
+        val body = buildJsonObject { put("limit", 100); cursor?.let { put("cursor", it) } }
+        val reply = when (val result = source.conversationDirectory(RepositoryContext(account), body)) {
+            is CoreResult.Failure -> return ClientResult.Failed(result.error.appProblem())
+            is CoreResult.Success -> result.value
+        }
+        return when (val page = org.ramflux.sdk.ConversationDirectoryMetadataReader.read(reply)) {
+            is CoreResult.Failure -> ClientResult.Failed(page.error.appProblem())
+            is CoreResult.Success -> ClientResult.Ready(
+                ForwardTargetPage(
+                    page.value.rows.filter { !it.hidden && it.kind == "direct" }.map { ForwardTarget(it.id, it.title ?: "") },
+                    page.value.nextCursor?.takeIf { it.length <= 8192 }
+                )
+            )
+        }
+    }
+
     override suspend fun send(account: String, conversation: String, text: String, operationId: String): ClientResult<SendReceipt> {
         if (!identity(account) || !identity(conversation) || !usable(text) || !identity(operationId)) return invalid()
         return retain(sendScope(account, conversation), text, operationId, sends) { id ->

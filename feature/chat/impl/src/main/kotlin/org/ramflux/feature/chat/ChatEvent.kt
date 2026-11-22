@@ -8,7 +8,7 @@ sealed interface ChatEvent {
     data object Details : ChatEvent
     data object Call : ChatEvent
 
-    data class Pick(val image: Boolean) : ChatEvent
+    data class Pick(val source: PickSource) : ChatEvent
 
     /** A decrypted app-private file to hand to the system (view after confirmation, share or save). */
     data class File(val path: String, val mime: String, val name: String, val use: FileUse) : ChatEvent {
@@ -22,3 +22,6 @@ sealed interface ChatEvent {
 }
 
 enum class FileUse { OPEN, SHARE, SAVE }
+
+/** Where new media comes from: the system photo picker, the document picker or the system camera. */
+enum class PickSource { PHOTO, FILE, CAMERA }

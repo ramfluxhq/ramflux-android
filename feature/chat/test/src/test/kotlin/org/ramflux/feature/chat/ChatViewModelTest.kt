@@ -487,7 +487,7 @@ class ChatViewModelTest {
         observe(vm)
         runCurrent()
         load(vm)
-        vm.onAction(ChatAction.Picked("content://picked", image = true))
+        vm.onAction(ChatAction.Picked(listOf("content://picked"), PickSource.PHOTO))
         runCurrent()
         assertEquals(1, media.sent.size)
         assertEquals("IMG_1.jpg", media.sent.single().single().fileName)
@@ -499,6 +499,89 @@ class ChatViewModelTest {
         runCurrent()
         assertEquals(2, media.sent.size)
         assertTrue(vm.state.value.rows.isEmpty())
+    }
+
+    @Test fun cameraCapturesGoThroughTheCameraStagingPath() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+        val media = FakeChatMedia()
+        val stager = FakeChatStager()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, stager)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Picked(listOf("content://capture"), PickSource.CAMERA))
+        runCurrent()
+        assertEquals(listOf("content://capture"), stager.captures)
+        assertEquals(1, media.sent.size)
+    }
+
+    @Test fun forwardingReEncryptsEveryItemForTheChosenConversation() = runTest(timeout = 5.seconds) {
+        val image = MediaAttachment("p", 0, MediaKind.IMAGE, "image/jpeg", "photo.jpg", 2048)
+        val file = MediaAttachment("p", 1, MediaKind.FILE, "application/pdf", "report.pdf", 10)
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = {
+                ClientResult.Ready(listOf(MessageSummary("p", "peer", false, false, "caption", 10, attachments = listOf(image, file))))
+            }
+            targets = { cursor ->
+                if (cursor == null) {
+                    ClientResult.Ready(ForwardTargetPage(listOf(ForwardTarget("c", "Self"), ForwardTarget("d1", "Dana")), "next"))
+                } else {
+                    ClientResult.Ready(ForwardTargetPage(listOf(ForwardTarget("d2", "Eve")), null))
+                }
+            }
+        }
+        val media = FakeChatMedia().apply { held["p/0"] = java.io.File("/tmp/held-image") }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, FakeChatStager())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Select("p"))
+        vm.onAction(ChatAction.Forward())
+        runCurrent()
+        val sheet = vm.state.value.forward!!
+        assertNull(vm.state.value.selectedId)
+        // The open conversation is never offered; the next directory page follows the cursor.
+        assertEquals(listOf("d1"), sheet.rows.map { it.conversation })
+        assertTrue(sheet.hasMore)
+        vm.onAction(ChatAction.ForwardMore)
+        runCurrent()
+        assertEquals(listOf(null, "next"), history.targetCursors)
+        assertEquals(listOf("d1", "d2"), vm.state.value.forward!!.rows.map { it.conversation })
+        vm.onAction(ChatAction.ForwardTo("d2"))
+        runCurrent()
+        // The held item is copied, the missing one is imported first; both go out under a new operation.
+        assertEquals(listOf("p"), media.downloads)
+        assertEquals(listOf("/tmp/held-image", "/tmp/p"), media.copied)
+        assertEquals("d2", media.destinations.single().conversation)
+        assertEquals("caption", media.captions.single())
+        assertEquals(2, media.sent.single().size)
+        assertNull(vm.state.value.forward)
+        assertEquals(uiText(R.string.chat_forward_sent), vm.state.value.deliveryNotice)
+    }
+
+    @Test fun aFailedForwardKeepsTheChooserOpenWithTheReason() = runTest(timeout = 5.seconds) {
+        val image = MediaAttachment("p", 0, MediaKind.IMAGE, "image/jpeg", "photo.jpg", 2048)
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(MessageSummary("p", "peer", false, false, "", 10, attachments = listOf(image)))) }
+            targets = { ClientResult.Ready(ForwardTargetPage(listOf(ForwardTarget("d1", "Dana")), null)) }
+        }
+        val media = FakeChatMedia().apply { downloadResult = { TransferState.Expired } }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, FakeChatStager())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Forward("p", 0))
+        runCurrent()
+        vm.onAction(ChatAction.ForwardTo("d1"))
+        runCurrent()
+        assertTrue(media.sent.isEmpty())
+        assertNotNull(vm.state.value.forward?.problem)
+        assertFalse(vm.state.value.forward!!.sending)
+        vm.onAction(ChatAction.CloseForward)
+        runCurrent()
+        assertNull(vm.state.value.forward)
     }
 
     private fun syntheticPages(total: Int): suspend (String?) -> ClientResult<TimelinePage> = { before ->

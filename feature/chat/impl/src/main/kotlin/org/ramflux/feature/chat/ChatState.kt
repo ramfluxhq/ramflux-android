@@ -81,9 +81,28 @@ enum class LocalDelivery {
     /** At least one send waits for a live session; the timeline shows the offline notice. */
     val queued: Boolean = false,
     /** The image shown full screen, when one is open. */
-    val viewer: AttachmentItem? = null
+    val viewer: AttachmentItem? = null,
+    /** The forward chooser, while it is open. */
+    val forward: ForwardSheet? = null
 ) {
     override fun toString() = "ChatState(<redacted>)"
+}
+
+/** One conversation the chooser offers; [title] is peer-controlled. */
+@Immutable data class ForwardRow(val conversation: String, val title: String) {
+    override fun toString() = "ForwardRow(<redacted>)"
+}
+
+/** The forward chooser: a paged list of conversations, following the directory cursor. */
+@Immutable data class ForwardSheet(
+    val rows: ImmutableList<ForwardRow> = persistentListOf(),
+    val loading: Boolean = true,
+    val hasMore: Boolean = false,
+    val problem: UiText? = null,
+    /** The message is being re-sent; the chooser shows progress without a percentage. */
+    val sending: Boolean = false
+) {
+    override fun toString() = "ForwardSheet(<redacted>)"
 }
 
 enum class AttachmentKind { IMAGE, ANIMATED, VIDEO, FILE }

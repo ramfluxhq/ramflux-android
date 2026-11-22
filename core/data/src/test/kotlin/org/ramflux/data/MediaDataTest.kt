@@ -3,6 +3,7 @@
 
 package org.ramflux.data
 
+import java.io.File
 import java.nio.file.Files
 import java.util.Base64
 import kotlin.time.Duration.Companion.seconds
@@ -112,6 +113,12 @@ class MediaDataTest {
             assertEquals("attachment.import.finish", abi.submitted.last()["method"]?.jsonPrimitive?.content)
             assertEquals(file, repo.localFile("a", attachment))
             assertEquals(700_000L, repo.usage("a"))
+            // Forwarding copies the original into the outbox; the stored file stays where it was.
+            val copy = repo.copyToOutbox("a", file, "report.pdf", "application/pdf")!!
+            assertArrayEquals(plain, copy.file.readBytes())
+            assertEquals(repo.outbox("a"), copy.file.parentFile)
+            assertNull(repo.copyToOutbox("a", File(root, "missing"), "x", "application/pdf"))
+            copy.file.delete()
             repo.purge("a", "m")
             assertNull(repo.localFile("a", attachment))
             repo.purgeAccount("a")

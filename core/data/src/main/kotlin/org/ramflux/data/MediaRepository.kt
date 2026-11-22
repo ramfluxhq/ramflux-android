@@ -60,6 +60,12 @@ interface MediaRepository {
 
     /** The app-private folder where outgoing files are staged before prepare. */
     fun outbox(account: String): File?
+
+    /**
+     * Copies a decrypted original into the outbox so it can be sent again with a new key (forwarding,
+     * media design 6 rule 8); null when it cannot be copied.
+     */
+    suspend fun copyToOutbox(account: String, source: File, fileName: String, mime: String): StagedMedia? = null
 }
 
 class UnavailableMediaRepository : MediaRepository {
@@ -89,6 +95,9 @@ interface MediaStager {
 
     /** Copies a document byte for byte; null when it cannot be read or exceeds the client cap. */
     suspend fun file(account: String, uri: String): StagedMedia?
+
+    /** [image] for a photo the system camera wrote into the app's capture folder; the capture is deleted afterwards. */
+    suspend fun camera(account: String, uri: String): StagedMedia? = image(account, uri)
 
     /** Drops decoded images held in memory (lock, account change). */
     fun dropMemory()

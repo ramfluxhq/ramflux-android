@@ -214,13 +214,13 @@ class ChatViewModel @Inject constructor(
             is ChatAction.SaveAttachment -> handOver(action.key, FileUse.SAVE)
             is ChatAction.ShareAttachment -> handOver(action.key, FileUse.SHARE)
             is ChatAction.Pick -> if (target != null && local.value.canSend) {
-                viewModelScope.launch {
-                    channel.send(
-                        ChatEvent.Pick(action.image)
-                    )
-                }
+                viewModelScope.launch { channel.send(ChatEvent.Pick(action.source)) }
             }
-            is ChatAction.Picked -> stage(action.uri, action.image)
+            is ChatAction.Picked -> action.uris.firstOrNull()?.let { stage(it, action.source) }
+            is ChatAction.Forward -> openForward(action.messageId ?: local.value.selectedId, action.index)
+            ChatAction.ForwardMore -> loadForwardTargets(more = true)
+            is ChatAction.ForwardTo -> forwardTo(action.conversation)
+            ChatAction.CloseForward -> closeForward()
         }
     }
     private fun selected(): MessageItem? {
@@ -604,6 +604,8 @@ class ChatViewModel @Inject constructor(
 
     private fun resetTimeline() {
         olderJob?.cancel()
+        forwardJob?.cancel()
+        forwarding = null
         downloads.values.forEach { it.cancel() }
         downloads.clear()
         references.clear()
@@ -923,11 +925,15 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch { channel.send(ChatEvent.File(path, item.mime, item.fileName, use)) }
     }
 
-    private fun stage(uri: String, image: Boolean) {
+    private fun stage(uri: String, source: PickSource) {
         val currentTarget = target ?: return
         if (session.status.value.phase != ClientPhase.OPEN || outbox.size >= OUTBOX_LIMIT) return
         viewModelScope.launch {
-            val staged = if (image) stager.image(currentTarget.account, uri) else stager.file(currentTarget.account, uri)
+            val staged = when (source) {
+                PickSource.PHOTO -> stager.image(currentTarget.account, uri)
+                PickSource.CAMERA -> stager.camera(currentTarget.account, uri)
+                PickSource.FILE -> stager.file(currentTarget.account, uri)
+            }
             if (target != currentTarget) {
                 staged?.file?.delete()
                 return@launch
@@ -942,6 +948,124 @@ class ChatViewModel @Inject constructor(
             publish()
             deliver(currentTarget, id)
         }
+    }
+
+    /** What the open forward chooser re-sends: one message, or one item of it. */
+    private data class Forwarding(val target: Target, val messageId: String, val index: Int?, val cursor: String?)
+    private var forwarding: Forwarding? = null
+    private var forwardJob: Job? = null
+
+    private fun openForward(messageId: String?, index: Int?) {
+        val currentTarget = target ?: return
+        val row = local.value.rows.firstOrNull { it.id == messageId } as? MessageItem ?: return
+        if (!forwardable(row) || session.status.value.phase != ClientPhase.OPEN) return
+        forwardJob?.cancel()
+        forwarding = Forwarding(currentTarget, row.id, index, null)
+        local.update { it.copy(selectedId = null, viewer = null, forward = ForwardSheet()) }
+        loadForwardTargets(more = false)
+    }
+
+    private fun loadForwardTargets(more: Boolean) {
+        val job = forwarding ?: return
+        val sheet = local.value.forward ?: return
+        if (forwardJob?.isActive == true || (more && (!sheet.hasMore || sheet.sending))) return
+        local.update { it.copy(forward = sheet.copy(loading = true, problem = null)) }
+        forwardJob = viewModelScope.launch {
+            val result = history.forwardTargets(job.target.account, if (more) job.cursor else null)
+            if (forwarding?.messageId != job.messageId || target != job.target) return@launch
+            val open = local.value.forward ?: return@launch
+            when (result) {
+                is ClientResult.Ready -> {
+                    forwarding = job.copy(cursor = result.value.next)
+                    val known = if (more) open.rows else persistentListOf()
+                    val ids = known.mapTo(HashSet()) { it.conversation }
+                    val fresh = result.value.rows.filter { it.conversation != job.target.conversation && ids.add(it.conversation) }
+                    // A bounded window: the chooser keeps at most FORWARD_WINDOW conversations.
+                    val rows = (known + fresh.map { ForwardRow(it.conversation, it.title) }).take(FORWARD_WINDOW)
+                    local.update {
+                        it.copy(
+                            forward = open.copy(
+                                rows = rows.toPersistentList(),
+                                loading = false,
+                                hasMore = result.value.next != null && rows.size < FORWARD_WINDOW
+                            )
+                        )
+                    }
+                }
+                is ClientResult.Failed -> local.update {
+                    it.copy(
+                        forward = open.copy(
+                            loading = false,
+                            problem = uiText(R.string.ui_read_failed_code_value, UiText.Number(result.problem.code.toLong()))
+                        )
+                    )
+                }
+                is ClientResult.Unavailable -> local.update {
+                    it.copy(forward = open.copy(loading = false, problem = uiText(R.string.chat_forward_unavailable)))
+                }
+            }
+        }
+    }
+
+    /**
+     * Forwarding re-encrypts (media design 6 rule 8): each item is imported if needed, copied into the
+     * outbox and prepared again for the new conversation; keys and grants are never reused.
+     */
+    private fun forwardTo(conversation: String) {
+        val job = forwarding ?: return
+        val sheet = local.value.forward ?: return
+        if (sheet.sending || sheet.rows.none { it.conversation == conversation }) return
+        val row = window.firstOrNull { it.id == job.messageId } as? MessageItem ?: return
+        val items = references.values.filter { it.messageId == job.messageId && (job.index == null || it.index == job.index) }
+            .sortedBy { it.index }
+        val caption = if (job.index == null) (row.content as? UiText.Data)?.value.orEmpty() else ""
+        val generation = session.status.value.generation
+        local.update { it.copy(forward = sheet.copy(sending = true, problem = null)) }
+        forwardJob?.cancel()
+        forwardJob = viewModelScope.launch {
+            val account = job.target.account
+            val staged = ArrayList<StagedMedia>(items.size)
+            var failure: ClientProblem? = null
+            for (item in items) {
+                val held = media.localFile(account, item) ?: (media.download(account, item) as? TransferState.Ready)?.file
+                val copy = held?.let {
+                    media.copyToOutbox(account, it, item.fileName.ifEmpty { "file" }, item.declaredMime.ifEmpty { OCTET })
+                }
+                if (copy == null) {
+                    failure = ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.NONE)
+                    break
+                }
+                staged += copy
+            }
+            val operation = UUID.randomUUID().toString()
+            val sent = when {
+                failure != null -> ClientResult.Failed(failure)
+                staged.isEmpty() -> history.send(account, conversation, caption, operation)
+                else -> media.send(account, MediaDestination(conversation, null), caption, staged, operation)
+            }
+            if (sent !is ClientResult.Ready) staged.forEach { it.file.delete() }
+            val stale = forwarding?.messageId != job.messageId || target != job.target
+            if (stale || generation != session.status.value.generation) return@launch
+            when (sent) {
+                is ClientResult.Ready -> {
+                    forwarding = null
+                    local.update { it.copy(forward = null, deliveryNotice = uiText(R.string.chat_forward_sent)) }
+                }
+                is ClientResult.Failed -> local.update { state ->
+                    state.copy(forward = state.forward?.copy(sending = false, problem = sendFailure(sent.problem)))
+                }
+                is ClientResult.Unavailable -> local.update { state ->
+                    state.copy(forward = state.forward?.copy(sending = false, problem = uiText(R.string.chat_forward_unavailable)))
+                }
+            }
+        }
+    }
+
+    private fun closeForward() {
+        // A re-send that the SDK may already have admitted is not cancelled; only the chooser closes.
+        if (local.value.forward?.sending != true) forwardJob?.cancel()
+        forwarding = null
+        local.update { it.copy(forward = null) }
     }
 
     private suspend fun current(expected: Long, generation: Long, expectedTarget: Target) {
@@ -978,6 +1102,15 @@ private fun kindOf(mime: String) = when (MediaAttachment.kindOf(mime)) {
     MediaKind.FILE -> AttachmentKind.FILE
 }
 private const val OUTBOX_LIMIT = 64
+private const val FORWARD_WINDOW = 500
+private const val OCTET = "application/octet-stream"
+
+/** A message can be forwarded when the SDK accepted it and it still has text or attachments. */
+internal fun forwardable(row: MessageItem) = row.delivery == null && !row.deleted && !row.placeholder && !row.service &&
+    (row.attachments.isNotEmpty() || (row.content as? UiText.Data)?.value?.isNotBlank() == true) &&
+    row.attachments.none { it.status in UNFORWARDABLE }
+
+private val UNFORWARDABLE = setOf(AttachmentStatus.REVOKED, AttachmentStatus.EXPIRED, AttachmentStatus.NOT_ON_DEVICE)
 private const val WINDOW = 1_000
 private const val DRAFT_DEBOUNCE_MS = 400L
 

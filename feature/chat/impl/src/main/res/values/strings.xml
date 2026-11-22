@@ -133,4 +133,20 @@
     <string name="chat_media_no_app">No app on this device can open this file.</string>
     <!-- File bubble meta line; %1$s is the file size, %2$s the transfer status. -->
     <string name="chat_file_meta">%1$s · %2$s</string>
+    <!-- Attach menu entry that opens the system camera for one photo. -->
+    <string name="chat_attach_camera">Camera</string>
+    <!-- Message action that sends the message again to another conversation. -->
+    <string name="chat_action_forward">Forward</string>
+    <!-- Title of the chooser that picks the conversation to forward a message to. -->
+    <string name="chat_forward_title">Forward to</string>
+    <!-- Shown in the forward chooser when no direct conversation can receive the message. -->
+    <string name="chat_forward_empty">No conversation to forward to</string>
+    <!-- Shown in the forward chooser while the message is encrypted and sent again; no percentage is known. -->
+    <string name="chat_forward_sending">Forwarding…</string>
+    <!-- Notice after a forwarded message was handed to the network. -->
+    <string name="chat_forward_sent">Forwarded</string>
+    <!-- Shown when forwarding is not available on this device or for this message. -->
+    <string name="chat_forward_unavailable">Forwarding is not available here.</string>
+    <!-- Accessibility label of the button that closes the forward chooser. -->
+    <string name="chat_forward_close">Close</string>
 </resources>

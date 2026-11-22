@@ -75,6 +75,15 @@ data class TimelinePage(val rows: List<TimelineSummary>, val older: String?) {
     override fun toString() = "TimelinePage(<redacted>)"
 }
 
+/** A conversation a message can be forwarded to; [title] is peer-controlled. [group] is set for group conversations. */
+data class ForwardTarget(val conversation: String, val title: String, val group: String? = null) {
+    override fun toString() = "ForwardTarget(<redacted>)"
+}
+
+data class ForwardTargetPage(val rows: List<ForwardTarget>, val next: String?) {
+    override fun toString() = "ForwardTargetPage(<redacted>)"
+}
+
 interface MessageHistoryRepository {
     suspend fun read(account: String, conversation: String): ClientResult<List<TimelineSummary>>
 
@@ -135,6 +144,10 @@ interface MessageHistoryRepository {
     ): ClientResult<Unit> = unavailable()
     suspend fun setTyping(account: String, conversation: String, active: Boolean): ClientResult<Unit> = unavailable()
     fun updates(account: String): Flow<ClientResult<ChatSignal>> = emptyFlow()
+
+    /** One page of conversations a message can be forwarded to, following the directory cursor. */
+    suspend fun forwardTargets(account: String, cursor: String? = null): ClientResult<ForwardTargetPage> =
+        ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)
 }
 
 private fun unavailable(): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)

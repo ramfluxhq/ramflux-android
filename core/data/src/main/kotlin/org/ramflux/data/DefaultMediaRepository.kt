@@ -295,6 +295,23 @@ class DefaultMediaRepository(
     override fun outbox(account: String): File? =
         if (!usable(account)) null else File(root, ROOT + "/" + hash(account) + "/outbox").apply { mkdirs() }
 
+    override suspend fun copyToOutbox(account: String, source: File, fileName: String, mime: String): StagedMedia? =
+        withContext(Dispatchers.IO) {
+            val folder = outbox(account) ?: return@withContext null
+            if (!source.isFile || fileName.isEmpty() || mime.isEmpty()) return@withContext null
+            val copy = File.createTempFile("forward", ".bin", folder)
+            try {
+                source.copyTo(copy, overwrite = true)
+                StagedMedia(copy, fileName, mime)
+            } catch (cancelled: CancellationException) {
+                copy.delete()
+                throw cancelled
+            } catch (_: Exception) {
+                copy.delete()
+                null
+            }
+        }
+
     /** `attachment.enable` once per account and process; a repeat with the same pin is harmless. */
     private suspend fun enable(account: String): ClientProblem? {
         if (synchronized(enabled) { account in enabled }) return null

@@ -2,13 +2,17 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.chat
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -16,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -46,7 +51,9 @@ fun ChatNavigation(
     onAttachments: () -> Unit = {},
     rooted: Boolean = false,
     onDetails: (() -> Unit)? = null,
-    onCall: (() -> Unit)? = null
+    onCall: (() -> Unit)? = null,
+    onCameraPermission: (() -> Unit)? = null,
+    bottomInset: WindowInsets = WindowInsets(0)
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
@@ -59,10 +66,36 @@ fun ChatNavigation(
     var notice by remember { mutableStateOf<Int?>(null) }
     // The system photo picker needs no storage permission; documents come through the document picker.
     val photos = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) vm.onAction(ChatAction.Picked(uri.toString(), image = true))
+        if (uri != null) vm.onAction(ChatAction.Picked(listOf(uri.toString()), PickSource.PHOTO))
     }
     val documents = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) vm.onAction(ChatAction.Picked(uri.toString(), image = false))
+        if (uri != null) vm.onAction(ChatAction.Picked(listOf(uri.toString()), PickSource.FILE))
+    }
+    // The capture target survives the camera activity and process death; it is a cache path, not content.
+    var capture by rememberSaveable { mutableStateOf<String?>(null) }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        val target = capture
+        capture = null
+        if (saved && target != null) {
+            vm.onAction(ChatAction.Picked(listOf(target), PickSource.CAMERA))
+        } else {
+            scope.launch { ChatFileHandover.discardCapture(context) }
+        }
+    }
+    val cameraPermission by rememberUpdatedState(onCameraPermission)
+    val hasCamera = remember(context) { context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) }
+    fun cameraGranted() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    fun takePhoto() {
+        // The camera permission is asked only through the permissions feature, which explains it first.
+        if (!cameraGranted()) {
+            cameraPermission?.invoke()
+            return
+        }
+        scope.launch {
+            val target = ChatFileHandover.captureTarget(context) ?: return@launch
+            capture = target.toString()
+            camera.launch(target)
+        }
     }
     fun hand(file: ChatEvent.File) {
         scope.launch {
@@ -86,10 +119,10 @@ fun ChatNavigation(
         vm.events.collect { event ->
             when (event) {
                 ChatEvent.Back -> back()
-                is ChatEvent.Pick -> if (event.image) {
-                    photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                } else {
-                    documents.launch(ANY_DOCUMENT)
+                is ChatEvent.Pick -> when (event.source) {
+                    PickSource.PHOTO -> photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    PickSource.CAMERA -> takePhoto()
+                    PickSource.FILE -> documents.launch(ANY_DOCUMENT)
                 }
                 is ChatEvent.File -> if (event.use == FileUse.OPEN) confirm = event else hand(event)
                 ChatEvent.Sent -> vm.onAction(ChatAction.Refresh)
@@ -100,7 +133,16 @@ fun ChatNavigation(
         }
     }
     Box(modifier) {
-        ChatScreen(state, vm::onAction, Modifier, rooted, showDetails = onDetails != null, showCall = onCall != null)
+        ChatScreen(
+            state,
+            vm::onAction,
+            Modifier,
+            rooted,
+            showDetails = onDetails != null,
+            showCall = onCall != null,
+            showCamera = hasCamera && (onCameraPermission != null || cameraGranted()),
+            bottomInset = bottomInset
+        )
         notice?.let { text ->
             KitTipBar(stringResource(text), "info", Modifier.align(Alignment.TopCenter).padding(LocalRFTheme.current.gap.dp))
             LaunchedEffect(text) {

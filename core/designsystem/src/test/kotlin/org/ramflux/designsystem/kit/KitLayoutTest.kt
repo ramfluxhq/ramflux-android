@@ -174,6 +174,29 @@ class KitLayoutTest {
         compose.onNodeWithTag("row", useUnmergedTree = true).assertIsNotEnabled()
     }
 
+    @Test fun composerBandReachesOverTheHomeIndicatorAndKeepsItsControlsAbove() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column {
+                    KitComposer("x", {}, "\u6d88\u606f", {}, {}, sendActive = true, tag = "plain")
+                    KitComposer(
+                        "x",
+                        {},
+                        "\u6d88\u606f",
+                        {},
+                        {},
+                        sendActive = true,
+                        tag = "banded",
+                        bottomInset = WindowInsets(bottom = 34.dp)
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("plain").assertHeightIsEqualTo(60.dp)
+        compose.onNodeWithTag("banded").assertHeightIsEqualTo(94.dp)
+        compose.onNodeWithTag("banded-send", useUnmergedTree = true).assertHeightIsEqualTo(48.dp)
+    }
+
     @Test fun nestedHitsStayFortyEightInsideTheMasterFrame() {
         compose.mainClock.autoAdvance = false
         compose.setContent {

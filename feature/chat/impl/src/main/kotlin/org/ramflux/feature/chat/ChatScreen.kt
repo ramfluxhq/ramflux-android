@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -70,8 +71,11 @@ import org.ramflux.designsystem.kit.KitIconButton
 import org.ramflux.designsystem.kit.KitMediaBubble
 import org.ramflux.designsystem.kit.KitMenuEntry
 import org.ramflux.designsystem.kit.KitMeta
+import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.kit.KitReaction
 import org.ramflux.designsystem.kit.KitReactionBar
+import org.ramflux.designsystem.kit.KitRow
+import org.ramflux.designsystem.kit.KitRowTrailing
 import org.ramflux.designsystem.kit.KitTipBar
 import org.ramflux.designsystem.kit.KitUnreadDivider
 import org.ramflux.designsystem.kit.KitZoomableImage
@@ -94,7 +98,9 @@ fun ChatScreen(
     rooted: Boolean = false,
     clock: Clock = Clock.systemDefaultZone(),
     showDetails: Boolean = false,
-    showCall: Boolean = false
+    showCall: Boolean = false,
+    showCamera: Boolean = false,
+    bottomInset: WindowInsets = WindowInsets(0)
 ) {
     val theme = LocalRFTheme.current
     val gap = theme.gap
@@ -124,15 +130,16 @@ fun ChatScreen(
                 }
             }
             Notices(state)
-            Composer(state, onAction) { attachMenu = true }
+            Composer(state, onAction, bottomInset) { attachMenu = true }
         }
         if (selected != null && actionsFor(selected).isNotEmpty()) {
             MessageActions(selected, state, stamps, anchors.pressed, onAction)
         }
         if (attachMenu) {
-            AttachMenu(onAction) { attachMenu = false }
+            AttachMenu(showCamera, onAction) { attachMenu = false }
         }
         state.viewer?.let { Viewer(it, onAction) }
+        state.forward?.let { ForwardChooser(it, onAction) }
     }
 }
 
@@ -542,7 +549,7 @@ private fun Notices(state: ChatState) {
 }
 
 @Composable
-private fun Composer(state: ChatState, onAction: (ChatAction) -> Unit, onAttach: () -> Unit) {
+private fun Composer(state: ChatState, onAction: (ChatAction) -> Unit, bottomInset: WindowInsets, onAttach: () -> Unit) {
     val target = state.actionTarget?.let { id -> state.rows.firstOrNull { it.id == id } as? MessageItem }
     val author = when (state.composer) {
         ComposerMode.SEND -> null
@@ -567,13 +574,21 @@ private fun Composer(state: ChatState, onAction: (ChatAction) -> Unit, onAttach:
         sendLabel = stringResource(R.string.ui_send),
         attachLabel = stringResource(R.string.ui_attach),
         closeLabel = stringResource(R.string.ui_cancel),
-        tag = "composer"
+        tag = "composer",
+        bottomInset = bottomInset
     )
 }
 
-/** Photo picker (no storage permission) or document picker; both copy the item into the outbox. */
+/**
+ * Photo picker (no storage permission), the system camera (after the permission flow) or the document
+ * picker; each copies the item into the outbox.
+ */
 @Composable
-private fun androidx.compose.foundation.layout.BoxScope.AttachMenu(onAction: (ChatAction) -> Unit, onClose: () -> Unit) {
+private fun androidx.compose.foundation.layout.BoxScope.AttachMenu(
+    showCamera: Boolean,
+    onAction: (ChatAction) -> Unit,
+    onClose: () -> Unit
+) {
     val theme = LocalRFTheme.current
     Box(
         Modifier
@@ -582,14 +597,18 @@ private fun androidx.compose.foundation.layout.BoxScope.AttachMenu(onAction: (Ch
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
             .testTag("attach-scrim")
     )
+    val sources = listOfNotNull(PickSource.PHOTO, PickSource.CAMERA.takeIf { showCamera }, PickSource.FILE)
     KitContextMenu(
-        listOf(
-            KitMenuEntry(stringResource(R.string.chat_attach_photo), "images"),
-            KitMenuEntry(stringResource(R.string.chat_attach_file), "paperclip")
-        ),
+        sources.map { source ->
+            when (source) {
+                PickSource.PHOTO -> KitMenuEntry(stringResource(R.string.chat_attach_photo), "images")
+                PickSource.CAMERA -> KitMenuEntry(stringResource(R.string.chat_attach_camera), "camera")
+                PickSource.FILE -> KitMenuEntry(stringResource(R.string.chat_attach_file), "paperclip")
+            }
+        },
         { index ->
             onClose()
-            onAction(ChatAction.Pick(image = index == 0))
+            onAction(ChatAction.Pick(sources[index]))
         },
         Modifier.align(Alignment.BottomStart).padding(theme.gap.dp),
         tag = "attach-menu"
@@ -611,14 +630,70 @@ private fun androidx.compose.foundation.layout.BoxScope.Viewer(item: AttachmentI
             horizontalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp)
         ) {
             KitIconButton("download", stringResource(R.string.chat_media_save), { onAction(ChatAction.SaveAttachment(item.key)) })
-            KitIconButton("forward", stringResource(R.string.chat_media_share), { onAction(ChatAction.ShareAttachment(item.key)) })
+            KitIconButton(
+                "forward",
+                stringResource(R.string.chat_action_forward),
+                { onAction(ChatAction.Forward(item.messageId, item.index)) }
+            )
+            KitIconButton("share-2", stringResource(R.string.chat_media_share), { onAction(ChatAction.ShareAttachment(item.key)) })
             KitIconButton("x", stringResource(R.string.chat_media_close), { onAction(ChatAction.CloseViewer) }, tag = "viewer-close")
         }
     }
 }
 
+/**
+ * The forward chooser over the timeline: a lazy, keyed list of direct conversations that loads the next
+ * directory page near its end. Titles are peer-controlled names.
+ */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.ForwardChooser(sheet: ForwardSheet, onAction: (ChatAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    BackHandler { onAction(ChatAction.CloseForward) }
+    val listState = rememberLazyListState()
+    val nearEnd by remember {
+        derivedStateOf {
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            last >= listState.layoutInfo.totalItemsCount - OLDER_PREFETCH
+        }
+    }
+    LaunchedEffect(nearEnd, sheet.hasMore, sheet.rows.size) {
+        if (nearEnd && sheet.hasMore && !sheet.loading) onAction(ChatAction.ForwardMore)
+    }
+    Column(Modifier.matchParentSize().background(theme.bg).testTag("forward-chooser")) {
+        KitPageHeader(
+            stringResource(R.string.chat_forward_title),
+            actionLabel = stringResource(R.string.chat_forward_close),
+            onAction = { onAction(ChatAction.CloseForward) },
+            tag = "forward-header"
+        )
+        sheet.problem?.let { KitTipBar(it.render(), "circle-alert", Modifier.padding(theme.gap.dp)) }
+        if (sheet.sending) KitMeta(stringResource(R.string.chat_forward_sending), Modifier.padding(theme.gap.dp), centered = true)
+        when {
+            sheet.rows.isEmpty() && sheet.loading -> KitMeta(
+                stringResource(R.string.ui_loading_messages),
+                Modifier.fillMaxWidth().padding(theme.gap.dp),
+                centered = true
+            )
+            sheet.rows.isEmpty() && sheet.problem == null -> KitEmpty("forward", stringResource(R.string.chat_forward_empty), "")
+            else -> LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
+                items(sheet.rows, key = { it.conversation }, contentType = { "target" }) { row ->
+                    val name = row.title.ifBlank { stringResource(R.string.ui_conversation) }
+                    KitRow(
+                        name,
+                        { onAction(ChatAction.ForwardTo(row.conversation)) },
+                        enabled = !sheet.sending,
+                        trailing = KitRowTrailing.None,
+                        peer = row.title.isNotBlank(),
+                        testTag = "forward-" + row.conversation
+                    )
+                }
+            }
+        }
+    }
+}
+
 /** The actions the read model and the SDK support for a message; nothing else is offered. */
-private enum class MessageAction { REPLY, COPY, EDIT, DELETE_FOR_ME, DELETE_FOR_EVERYONE, DISCARD }
+private enum class MessageAction { REPLY, FORWARD, COPY, EDIT, DELETE_FOR_ME, DELETE_FOR_EVERYONE, DISCARD }
 
 private fun actionsFor(row: MessageItem): List<MessageAction> = buildList {
     if (row.delivery != null) {
@@ -628,6 +703,7 @@ private fun actionsFor(row: MessageItem): List<MessageAction> = buildList {
         return@buildList
     }
     if (!row.deleted && !row.placeholder) add(MessageAction.REPLY)
+    if (forwardable(row)) add(MessageAction.FORWARD)
     if (!row.deleted && !row.placeholder && row.content is UiText.Data) add(MessageAction.COPY)
     if (row.own && !row.deleted && !row.placeholder && !row.service && row.content is UiText.Data) add(MessageAction.EDIT)
     if (!row.deleted) {
@@ -662,6 +738,7 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
     val entries = actions.map { action ->
         when (action) {
             MessageAction.REPLY -> KitMenuEntry(stringResource(R.string.ui_reply), "reply")
+            MessageAction.FORWARD -> KitMenuEntry(stringResource(R.string.chat_action_forward), "forward")
             MessageAction.COPY -> KitMenuEntry(stringResource(R.string.chat_action_copy), "copy")
             MessageAction.EDIT -> KitMenuEntry(stringResource(R.string.ui_edit), "pencil")
             MessageAction.DELETE_FOR_ME -> KitMenuEntry(
@@ -704,6 +781,7 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
             onAction(
                 when (actions[index]) {
                     MessageAction.REPLY -> ChatAction.Reply
+                    MessageAction.FORWARD -> ChatAction.Forward()
                     MessageAction.COPY -> ChatAction.Copy
                     MessageAction.EDIT -> ChatAction.Edit
                     MessageAction.DELETE_FOR_ME -> ChatAction.DeleteForMe

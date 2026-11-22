@@ -5,6 +5,8 @@ package org.ramflux.media
 
 import android.content.Context
 import android.net.Uri
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.ramflux.data.MediaRepository
 import org.ramflux.data.MediaStager
 import org.ramflux.data.StagedMedia
@@ -21,6 +23,16 @@ class AndroidMediaStager(context: Context, private val media: MediaRepository) :
     override suspend fun file(account: String, uri: String): StagedMedia? {
         val outbox = media.outbox(account) ?: return null
         return MediaNormalizer.file(resolver, Uri.parse(uri), outbox)
+    }
+
+    /** The camera wrote EXIF (possibly with location); only the re-encoded pixels leave, the capture is removed. */
+    override suspend fun camera(account: String, uri: String): StagedMedia? {
+        val parsed = Uri.parse(uri)
+        return try {
+            image(account, uri)
+        } finally {
+            withContext(Dispatchers.IO) { runCatching { resolver.delete(parsed, null, null) } }
+        }
     }
 
     override fun dropMemory() = MediaImages.clear()

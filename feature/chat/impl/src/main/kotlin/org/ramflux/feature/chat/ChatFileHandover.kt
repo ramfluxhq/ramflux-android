@@ -7,6 +7,7 @@ import android.content.ActivityNotFoundException
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
@@ -21,6 +22,7 @@ import kotlinx.coroutines.withContext
  */
 internal object ChatFileHandover {
     private const val FOLDER = "media-handover"
+    private const val CAPTURE = "media-capture"
     private val UNSAFE = setOf('/', '\\') + (0x202A..0x202E).map { it.toChar() } + (0x2066..0x2069).map { it.toChar() }
 
     suspend fun open(context: Context, path: String, mime: String, name: String): Boolean {
@@ -60,6 +62,25 @@ internal object ChatFileHandover {
             }
         }
     }
+
+    /**
+     * A new, empty file the system camera writes one photo into, behind a write grant. Earlier captures
+     * are removed first; the stager deletes this one after re-encoding it without metadata.
+     */
+    suspend fun captureTarget(context: Context): Uri? = withContext(Dispatchers.IO) {
+        try {
+            val folder = File(context.cacheDir, CAPTURE)
+            folder.deleteRecursively()
+            folder.mkdirs()
+            val file = File.createTempFile("capture", ".jpg", folder)
+            FileProvider.getUriForFile(context, context.packageName + ".chatmedia", file)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Removes a capture the camera did not complete. */
+    suspend fun discardCapture(context: Context) = withContext(Dispatchers.IO) { File(context.cacheDir, CAPTURE).deleteRecursively() }
 
     private suspend fun copy(context: Context, path: String, name: String) = withContext(Dispatchers.IO) {
         try {

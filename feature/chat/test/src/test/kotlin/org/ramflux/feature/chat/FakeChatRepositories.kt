@@ -89,6 +89,14 @@ class FakeChatHistory : MessageHistoryRepository {
         signals.tryEmit(ClientResult.Ready(value))
     }
     fun peer(conversation: String, active: Boolean, expiresAtMs: Long) = PeerTyping(conversation, active, expiresAtMs)
+    var targets: suspend (String?) -> ClientResult<ForwardTargetPage> = {
+        ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)
+    }
+    val targetCursors = mutableListOf<String?>()
+    override suspend fun forwardTargets(account: String, cursor: String?): ClientResult<ForwardTargetPage> {
+        targetCursors.add(cursor)
+        return targets(cursor)
+    }
     var typingCalls = 0
     var typingResult: ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)
     override suspend fun setTyping(account: String, conversation: String, active: Boolean): ClientResult<Unit> {
@@ -145,6 +153,9 @@ class FakeChatMedia : MediaRepository {
     val revoked = mutableListOf<String>()
     val purged = mutableListOf<String>()
     val sent = mutableListOf<List<StagedMedia>>()
+    val destinations = mutableListOf<MediaDestination>()
+    val captions = mutableListOf<String>()
+    val copied = mutableListOf<String>()
     var sendResult: ClientResult<SendReceipt> = ClientResult.Ready(SendReceipt("media"))
     override fun localFile(account: String, attachment: MediaAttachment) = held[attachment.messageId + "/" + attachment.index]
     override suspend fun download(account: String, attachment: MediaAttachment, progress: (TransferState) -> Unit): TransferState {
@@ -160,6 +171,8 @@ class FakeChatMedia : MediaRepository {
         progress: (TransferState) -> Unit
     ): ClientResult<SendReceipt> {
         sent.add(items)
+        destinations.add(destination)
+        captions.add(caption)
         return sendResult
     }
     override suspend fun revoke(account: String, message: String): ClientResult<Unit> {
@@ -172,10 +185,19 @@ class FakeChatMedia : MediaRepository {
     override suspend fun purgeAccount(account: String) = Unit
     override suspend fun usage(account: String): Long = 0
     override fun outbox(account: String): java.io.File? = null
+    override suspend fun copyToOutbox(account: String, source: java.io.File, fileName: String, mime: String): StagedMedia {
+        copied.add(source.path)
+        return StagedMedia(java.io.File("/tmp/outbox-" + copied.size), fileName, mime)
+    }
 }
 
 class FakeChatStager : MediaStager {
     var dropped = 0
+    val captures = mutableListOf<String>()
+    override suspend fun camera(account: String, uri: String): StagedMedia? {
+        captures.add(uri)
+        return image(account, uri)
+    }
     override suspend fun image(account: String, uri: String) =
         StagedMedia(java.io.File("/tmp/staged-" + uri.hashCode()), "IMG_1.jpg", "image/jpeg")
     override suspend fun file(account: String, uri: String): StagedMedia? = null
