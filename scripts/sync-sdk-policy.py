@@ -68,7 +68,7 @@ object SdkMethodPolicy {
     val methods: Map<String, MethodPolicy> = mapOf(
 ''' + rows + '\n    )\n}\n' + cas)
 # All repository surfaces come from the same immutable method inventory.
-groups = {"Accounts": ["account", "identity"], "Nodes": ["node"], "Conversations": ["conversation", "message", "object", "stream"], "Contacts": ["contact"], "Groups": ["group"], "Agents": ["bot", "agent"], "Devices": ["device"], "Permissions": ["grant", "mcp"], "Tasks": ["task"], "Surfaces": ["surface", "a2i", "a2ui"], "Calls": ["call"], "Settings": ["sync"]}
+groups = {"Accounts": ["account", "identity"], "Nodes": ["node"], "Conversations": ["conversation", "message", "object", "stream"], "Contacts": ["contact"], "Groups": ["group"], "Agents": ["bot", "agent"], "Devices": ["device"], "Permissions": ["grant", "mcp"], "Tasks": ["task"], "Surfaces": ["surface", "a2i", "a2ui"], "Calls": ["call"], "Settings": ["sync"], "Attachments": ["attachment"]}
 for name, prefixes in groups.items():
     selected = [m for m in policy["methods"] if m["name"].split(".")[0] in prefixes and m["name"] != "account.create"]
     declarations, implementations = [], []
