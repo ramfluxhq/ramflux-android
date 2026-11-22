@@ -109,7 +109,11 @@ fun SemanticsNodeInteractionsProvider.clippedTexts(): List<String> =
             val layouts = mutableListOf<TextLayoutResult>()
             node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(layouts)
             val clipped = layouts.any { layout ->
-                layout.hasVisualOverflow || (0 until layout.lineCount).any { layout.isLineEllipsized(it) }
+                val paragraph = layout.multiParagraph
+                // A pixel of rounding between the paragraph and its layout box is not clipping.
+                paragraph.didExceedMaxLines ||
+                    paragraph.height - layout.size.height > 1f ||
+                    (0 until layout.lineCount).any { layout.isLineEllipsized(it) }
             }
             if (clipped) node.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ") { it.text } ?: "<text>" else null
         }
