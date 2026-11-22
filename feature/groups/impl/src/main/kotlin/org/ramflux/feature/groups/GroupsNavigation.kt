@@ -4,6 +4,7 @@
 package org.ramflux.feature.groups
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -15,7 +16,8 @@ fun GroupsNavigation(
     onChat: (String, String, String) -> Unit,
     vm: GroupsViewModel = hiltViewModel(),
     rooted: Boolean = false,
-    onAtRoot: (Boolean) -> Unit = {}
+    onAtRoot: (Boolean) -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
@@ -37,5 +39,5 @@ fun GroupsNavigation(
             }
         }
     }
-    GroupsScreen(state, vm::onAction, rooted)
+    GroupsScreen(state, vm::onAction, rooted, modifier = modifier)
 }

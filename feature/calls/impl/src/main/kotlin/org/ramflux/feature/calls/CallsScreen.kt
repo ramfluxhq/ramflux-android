@@ -29,9 +29,9 @@ import org.ramflux.designsystem.kit.KitRow
 import org.ramflux.designsystem.kit.KitRowTrailing
 import org.ramflux.feature.calls.impl.R
 @Composable
-fun CallsScreen(state: CallsState, onAction: (CallsAction) -> Unit) {
+fun CallsScreen(state: CallsState, onAction: (CallsAction) -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
-    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets.safeDrawing) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 val subtitle = state.account.orEmpty()

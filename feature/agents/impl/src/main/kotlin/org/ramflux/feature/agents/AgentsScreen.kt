@@ -17,10 +17,10 @@ import org.ramflux.designsystem.kit.KitEmpty
 import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.feature.agents.impl.R
 @Composable
-fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, rooted: Boolean = false) {
+fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, rooted: Boolean = false, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
     val bars = if (rooted) WindowInsets.statusBars else WindowInsets.safeDrawing
-    Scaffold(contentWindowInsets = bars) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = bars) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
                 if (rooted && state.mode == AgentCapability.DIRECTORY) {
