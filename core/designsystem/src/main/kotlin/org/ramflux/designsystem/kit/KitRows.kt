@@ -60,6 +60,7 @@ fun KitInfoButton(onClick: () -> Unit, modifier: Modifier = Modifier, label: Str
     }
 }
 
+/** A settings or action row. Label and value wrap instead of clipping; the row grows from its 58 dp frame. */
 @Composable
 fun KitRow(
     label: String,
@@ -103,16 +104,12 @@ fun KitRow(
             KitText(
                 label,
                 designLine = true,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.text, RfMetrics.lineTitle)
             )
             if (!value.isNullOrEmpty()) {
                 KitText(
                     value,
                     designLine = true,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                     style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary)
                 )
             }

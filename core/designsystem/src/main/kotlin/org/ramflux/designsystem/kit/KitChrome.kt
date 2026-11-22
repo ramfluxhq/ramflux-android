@@ -75,6 +75,7 @@ fun KitHomeIndicator(modifier: Modifier = Modifier, tag: String? = null) {
     }
 }
 
+/** A page header. Titles and subtitles wrap instead of clipping; the header grows from its 60 dp frame. */
 @Composable
 fun KitPageHeader(
     title: String,
@@ -111,8 +112,6 @@ fun KitPageHeader(
                 KitText(
                     title,
                     designLine = true,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                     style = if (large) {
                         kitStyle(theme.size_mobile_large_title, FontWeight.Bold, theme.text, RfMetrics.lineTight)
                     } else {
@@ -124,8 +123,6 @@ fun KitPageHeader(
                 KitText(
                     subtitle,
                     designLine = true,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                     style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineMeta())
                 )
             }
