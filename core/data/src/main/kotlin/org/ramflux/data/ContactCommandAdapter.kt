@@ -58,9 +58,9 @@ internal class ContactCommandAdapter(transport: RepositoryTransport) {
         try {
             val result = when (command.operation) {
                 ContactOperation.ADD -> source.add(context, body)
-                ContactOperation.ACCEPT -> source.requestAccept(context, body)
-                ContactOperation.DECLINE -> source.requestDecline(context, body)
-                ContactOperation.BLOCK -> source.requestBlock(context, body)
+                ContactOperation.ACCEPT -> source.accept(context, body)
+                ContactOperation.DECLINE -> source.decline(context, body)
+                ContactOperation.BLOCK -> source.block(context, body)
                 else -> { body.close(); return failed(1, ClientOutcome.NONE) }
             }
             val decoded = when (result) {

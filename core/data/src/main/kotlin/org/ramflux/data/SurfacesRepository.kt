@@ -14,8 +14,6 @@ interface SurfacesRepository {
     suspend fun a2iAppend(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun a2iList(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun a2iList_pending(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
-    suspend fun a2uiAction(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
-    suspend fun a2uiRender(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun surfaceAction(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun surfaceGet(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun surfaceList(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
@@ -36,12 +34,6 @@ class DefaultSurfacesRepository(transport: RepositoryTransport) : SdkRepository(
 
     override suspend fun a2iList_pending(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("a2i.list_pending", "a2i", context, SecretBody.publicJson("a2i.list_pending", body))
-
-    override suspend fun a2uiAction(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
-        executeSecret("a2ui.action", "a2ui", context, body)
-
-    override suspend fun a2uiRender(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
-        executeSecret("a2ui.render", "a2ui", context, body)
 
     override suspend fun surfaceAction(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("surface.action", "surface", context, body)

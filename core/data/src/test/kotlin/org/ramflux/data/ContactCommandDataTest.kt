@@ -34,8 +34,8 @@ class ContactCommandDataTest {
             val denied = ContactCommand("account", "denied-id", ContactOperation.ACCEPT, "request", "peer")
             assertEquals(ClientOutcome.REFUSED, (repo.submit(denied, false) as ClientResult.Failed).problem.outcome)
             assertTrue(abi.submitted.isEmpty())
-            val cases = listOf(ContactOperation.ADD to "contact.add", ContactOperation.ACCEPT to "contact.request.accept",
-                ContactOperation.DECLINE to "contact.request.decline", ContactOperation.BLOCK to "contact.request.block")
+            val cases = listOf(ContactOperation.ADD to "contact.add", ContactOperation.ACCEPT to "contact.accept",
+                ContactOperation.DECLINE to "contact.decline", ContactOperation.BLOCK to "contact.block")
             for ((index, case) in cases.withIndex()) {
                 val (operation, method) = case
                 val target = if (operation == ContactOperation.ADD) "peer" else "request-$index"
