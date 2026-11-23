@@ -45,9 +45,8 @@ private val LocalUnclaimedBottomInset = compositionLocalOf { NO_INSET }
 private val BottomInsetDecorator = NavEntryDecorator<NavKey>(decorate = { entry ->
     val inset = LocalUnclaimedBottomInset.current
     if (entry.ownsBottomInset()) {
-        Box(Modifier.fillMaxSize().consumeWindowInsets(inset)) {
-            CompositionLocalProvider(LocalShellBottomInset provides inset) { entry.Content() }
-        }
+        // Not consumed here: the entry pads its bottom band with windowInsetsPadding(inset) itself.
+        CompositionLocalProvider(LocalShellBottomInset provides inset) { entry.Content() }
     } else {
         Box(Modifier.fillMaxSize().windowInsetsPadding(inset)) { entry.Content() }
     }
