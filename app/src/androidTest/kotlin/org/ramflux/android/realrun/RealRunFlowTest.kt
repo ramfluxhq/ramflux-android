@@ -488,7 +488,17 @@ class RealRunFlowTest {
                 // The file name is drawn with bidi isolates around its extension: match the stem on the attachment card.
                 val stem = file.substringBefore('.')
                 val selector = By.res(java.util.regex.Pattern.compile("attachment-(?!local:).+")).hasDescendant(By.textContains(stem))
-                fun card(): UiObject2? = ui.device.findObject(selector)
+
+                // The card may sit above the visible part of the timeline (new rows scroll it away): look upwards too.
+                fun card(): UiObject2? {
+                    ui.device.findObject(selector)?.let { return it }
+                    val timeline = ui.device.findObject(By.res("chat-timeline")) ?: return null
+                    repeat(3) {
+                        runCatching { timeline.scroll(androidx.test.uiautomator.Direction.UP, 0.5f) }
+                        ui.device.findObject(selector)?.let { return it }
+                    }
+                    return null
+                }
                 if (!ui.eventually(30_000) { card() != null }) fail("the attachment card of $file is not shown; ${ui.screen()}")
                 card()?.click()
                 val downloaded = ui.eventually(90_000, 2_000) {
@@ -890,7 +900,8 @@ class RealRunFlowTest {
             }
         }
         // The add page stays open after the request; the list is one back away.
-        if (ui.find("contacts-send", 1_000) != null) ui.device.pressBack()
+        // Back may first close the keyboard, so press until the add page is gone.
+        repeat(3) { if (ui.find("contacts-send", 1_000) != null) ui.device.pressBack() }
         if (!ui.eventually(90_000, 3_000) {
                 if (ui.hasText(peerName(peer))) {
                     true
