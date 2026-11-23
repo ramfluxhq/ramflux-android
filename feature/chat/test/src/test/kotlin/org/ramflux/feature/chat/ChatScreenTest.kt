@@ -257,6 +257,22 @@ class ChatScreenTest {
         compose.runOnIdle { assertEquals(listOf(ChatAction.CardPress("a", "go")), actions.filterIsInstance<ChatAction.CardPress>()) }
     }
 
+    @Test fun buttonsInAHorizontalCardGroupShareTheRow() {
+        val root = org.ramflux.data.CardGroup(
+            "root",
+            true,
+            false,
+            listOf(org.ramflux.data.CardButton("yes", "Approve", true, false), org.ramflux.data.CardButton("no", "Decline", false, false))
+        )
+        val card = CardItem("card:a", stamp, "a", root, "Fallback", actionable = true, closed = false, outOfSync = false)
+        compose.setContent { RamfluxTheme { ChatScreen(ChatState(loaded = true, rows = persistentListOf(card)), {}, clock = clock) } }
+        val yes = compose.onNodeWithTag("card-button-yes").fetchSemanticsNode().boundsInRoot
+        val no = compose.onNodeWithTag("card-button-no").fetchSemanticsNode().boundsInRoot
+        assertTrue("both buttons are visible", yes.width > 0f && no.width > 0f)
+        assertEquals(yes.width, no.width, 1f)
+        assertEquals(yes.top, no.top, 1f)
+    }
+
     @Test fun theReactionPlusOpensThePlatformEmojiPicker() {
         val state = ChatState(
             loaded = true,

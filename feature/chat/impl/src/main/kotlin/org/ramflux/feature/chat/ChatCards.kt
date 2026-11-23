@@ -108,7 +108,10 @@ private fun Node(node: CardNode, card: CardItem, enabled: Boolean, onAction: (Ch
                 Modifier
             }
             if (node.horizontal) {
-                Row(framed, horizontalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp)) { content() }
+                // Children share the row; a full-width button would otherwise squeeze its neighbours to nothing.
+                Row(framed.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp)) {
+                    node.children.forEach { child -> Box(Modifier.weight(1f)) { Node(child, card, enabled, onAction) } }
+                }
             } else {
                 Column(framed, verticalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp)) { content() }
             }
