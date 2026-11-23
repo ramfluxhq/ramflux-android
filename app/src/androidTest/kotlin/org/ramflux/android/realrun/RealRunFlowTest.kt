@@ -43,8 +43,9 @@ class RealRunFlowTest {
         assumeTrue("real run not requested (rf_realrun=1)", args.enabled)
         control = PeerControl(args.control)
         ui = Ui(control)
-        // Marks each flow in the app's debug trace (debug builds log it), so app-logcat.txt lines can be placed.
-        org.ramflux.data.clientDebugEvent("realrun.flow.start")
+        // Marks each flow under the app's debug trace tag, so app-logcat.txt lines can be placed. Logged directly: the
+        // suite's classes may not share the app's installed trace sink.
+        android.util.Log.w("ramflux.abi", "realrun.flow.start")
     }
 
     private fun flow(id: String, needsAccount: Boolean = true, block: () -> String) {
@@ -447,6 +448,7 @@ class RealRunFlowTest {
         } else {
             "alice: rf contact add --card exit ${added.optInt("exit")}: ${added.optString("stderr").takeLast(200)}"
         }
+        notes += importCard("alice")
         // This device's id from My devices; alice's attachment send addresses it directly.
         ensureShell()
         openSettings()
@@ -489,20 +491,26 @@ class RealRunFlowTest {
             for (caption in captions) {
                 ui.text(caption, 90_000) ?: fail("message $caption from alice did not appear; ${notes.joinToString("; ")}")
             }
-            // rf dm send --attach declares application/octet-stream for every file, so both arrive as file cards.
+            // rf dm send --attach declares the sniffed media type: the PNG arrives as an image tile (no file name drawn),
+            // the text file as a file card named by its stem.
             val pending = listOf(ui.str("chat_media_download"), ui.str("chat_media_loading"))
+            val incoming = java.util.regex.Pattern.compile("attachment-(?!local:).+")
             for (file in listOf("rr-image.png", "rr-file.txt")) {
                 // The file name is drawn with bidi isolates around its extension: match the stem on the attachment card.
                 val stem = file.substringBefore('.')
-                val selector = By.res(java.util.regex.Pattern.compile("attachment-(?!local:).+")).hasDescendant(By.textContains(stem))
+                fun visible(): UiObject2? = if (file.endsWith(".png")) {
+                    ui.device.findObjects(By.res(incoming)).lastOrNull { it.findObject(By.textContains("rr-file")) == null }
+                } else {
+                    ui.device.findObject(By.res(incoming).hasDescendant(By.textContains(stem)))
+                }
 
                 // The card may sit above the visible part of the timeline (new rows scroll it away): look upwards too.
                 fun card(): UiObject2? {
-                    ui.device.findObject(selector)?.let { return it }
+                    visible()?.let { return it }
                     val timeline = ui.device.findObject(By.res("chat-timeline")) ?: return null
                     repeat(3) {
                         runCatching { timeline.scroll(androidx.test.uiautomator.Direction.UP, 0.5f) }
-                        ui.device.findObject(selector)?.let { return it }
+                        visible()?.let { return it }
                     }
                     return null
                 }
@@ -578,6 +586,8 @@ class RealRunFlowTest {
         val notes = mutableListOf<String>()
         addContact("bob")
         notes += "bob added as a contact"
+        // Group media goes to every member's home node: the phone holds alice's card from flow 08 and imports bob's.
+        notes += importCard("bob")
         ensureShell()
         val name = "rr-group-" + token()
         ui.tap("shell-tabs-1")
@@ -604,6 +614,8 @@ class RealRunFlowTest {
             ui.tap("groups-open-invite", Ui.LONG)
             ui.text(peerName(peer), 30_000)?.click() ?: fail("$peer is not offered in the invite picker: ${ui.screen()}")
             ui.tap("host-confirmation-confirm", Ui.SHORT)
+            // The app returns to the member list once the SDK answered the add; the picker also shows the principal.
+            ui.find("groups-open-invite", 90_000) ?: fail("the app did not return to the member list after adding $peer: ${ui.screen()}")
             val principal = peerArg(peer, "principal")
             if (!ui.eventually(90_000, 2_000) {
                     ui.hasText(principal) || ui.hasText(principal.removePrefix("principal-")) || ui.hasText(peerName(peer))
@@ -627,8 +639,8 @@ class RealRunFlowTest {
         val groupId = group!!.optString("group_id")
         val groupConversation = group!!.optString("conversation_id").ifEmpty { groupId }
         notes += "alice lists the group"
-        // Phone sends; alice and bob read it.
-        ui.device.pressBack()
+        // Phone sends; alice and bob read it. The members page's own back control returns to the group's detail.
+        ui.find("groups-header-back", 5_000)?.click() ?: ui.device.pressBack()
         ui.tap("groups-open-chat", Ui.LONG)
         val fromPhone = "rr-gphone-" + token()
         send(fromPhone)
@@ -654,6 +666,42 @@ class RealRunFlowTest {
         ui.text(fromBob, 90_000) ?: fail("bob's group message did not appear on the phone; ${notes.joinToString("; ")}")
         ui.shot("09-group-chat")
         notes += "bob's group message appeared on the phone"
+        // The phone sends an image in the group through the same test-image interception as the direct chat (the
+        // shared phone's own photos are never offered); alice imports it, and the bytes must be the phone's PNG.
+        val groupImage = File(ui.targetContext.cacheDir, "media-capture").apply { mkdirs() }.resolve("rr-group.png")
+        groupImage.writeBytes(testPng())
+        val groupExpected = sha256(groupImage.readBytes())
+        val groupUri = Uri.parse("content://${ui.packageName}.chatmedia/capture/rr-group.png")
+        val pick = ui.stubPicker(setOf(MediaStore.ACTION_PICK_IMAGES, Intent.ACTION_OPEN_DOCUMENT, Intent.ACTION_GET_CONTENT), groupUri)
+        try {
+            (ui.desc(ui.str("ui_attach"), Ui.SHORT) ?: fail("no attach control in the group composer")).click()
+            ui.need("attach-menu")
+            ui.tapText(ui.str("chat_attach_photo"))
+            if (!ui.eventually(10_000, 500) { pick.hits > 0 }) fail("the app did not request the photo picker in the group")
+            ui.tap("preview-send", 20_000)
+        } finally {
+            ui.removeMonitor(pick)
+        }
+        var groupImported: JSONObject? = null
+        val groupDelivered = ui.eventually(150_000, 5_000) {
+            val read = control.rf("alice", "group", "read", "--group", groupId, "--conversation", groupConversation)
+            val rows = jsonRows(read, "messages")
+            val row = rows.lastOrNull { !it.optBoolean("is_own", true) && it.toString().contains("media") } ?: return@eventually false
+            val out = control.freshPath("alice-group-import.bin")
+            val result = control.rf(
+                "alice", "attachment", "import", "--message", row.optString("id"), "--index", "0", "--output", out, timeoutSecs = 120
+            )
+            if (result.optInt("exit") != 0) return@eventually false
+            groupImported = control.fileInfo(out)
+            true
+        }
+        ui.shot("09-group-image")
+        if (!groupDelivered) fail("alice never received an importable image in the group; ${ui.screen()}; ${notes.joinToString("; ")}")
+        if (groupImported?.optString("sha256") != groupExpected) {
+            val size = groupImported?.optLong("size")
+            fail("alice imported $size bytes of the group image with a different sha256; ${notes.joinToString("; ")}")
+        }
+        notes += "alice imported identical bytes of the phone's group image (64 by 64 PNG)"
         notes.joinToString("; ")
     }
 
@@ -810,6 +858,70 @@ class RealRunFlowTest {
         }
     }
 
+    // Flow 5 (invitations): the Groups tab reads group.invitations.list together with the group list; it must load
+    // without an error. Both peers are contacts by now, so the SDK joins their groups directly and no invitation is held.
+
+    @Test fun f13_invitationList() = flow("13-invitations") {
+        ensureShell()
+        ui.tap("shell-tabs-1")
+        val shown = ui.first("groups-header", "groups-empty", "groups-error", timeout = Ui.LONG)
+            ?: fail("the Groups tab did not load: ${ui.screen()}")
+        ui.device.waitForIdle()
+        val codeFailure = ui.str("groups_error_code", "\u0000").substringBefore('\u0000')
+        val failed = shown == "groups-error" || ui.find("groups-error", 3_000) != null
+        if (failed || (codeFailure.isNotBlank() && ui.hasText(codeFailure))) {
+            fail("the group and invitation lists did not load: ${ui.screen()}")
+        }
+        val pending = ui.hasText(ui.str("groups_invitations"))
+        ui.shot("13-invitations")
+        "group.invitations.list loaded with the group list and no error; " +
+            if (pending) "pending invitations are listed" else "no pending invitation (both peers are contacts; their groups join directly)"
+    }
+
+    // Flow 10 (account actions): sign out on this phone, then sign back in with the run's code.
+
+    @Test fun f14_signOutAndBack() = flow("14-sign-out") {
+        ensureShell()
+        openSettings()
+        ui.tap("account-security")
+        if (!reach("sign-out")) fail("Account and security has no Sign out row: ${ui.screen()}")
+        ui.tap("sign-out")
+        if (!reach("confirm-exit")) fail("Sign out asked for no confirmation: ${ui.screen()}")
+        ui.shot("14-sign-out-confirm")
+        ui.tap("confirm-exit")
+        val locked = ui.first("onboarding-header", "startup-unlock-header", "unlock-account-name", "shell-locked", timeout = Ui.LONG)
+            ?: fail("no signed-out state after Sign out: ${ui.screen()}")
+        ui.shot("14-signed-out")
+        unlock()
+        // After an unlock the app reopens the screens that were open: here Account and security.
+        val back = ui.first("lock-account", "sign-out", "shell-tabs", timeout = Ui.LONG)
+            ?: fail("signing back in opened neither the account screen nor the shell: ${ui.screen()}")
+        ensureShell()
+        "account.sign_out accepted; the signed-out state showed '$locked' and offered the account; signed back in with the " +
+            "six-digit code and the app reopened '$back'"
+    }
+
+    // Flow 10 (account actions), the last step of a run: remove the account from this phone. It erases the account, so
+    // nothing may run after it on this install.
+
+    @Test fun f15_removeFromPhone() = flow("15-remove-local") {
+        ensureShell()
+        val name = RunState["name"] ?: blocked("needs flow 01 (display name)")
+        openSettings()
+        ui.tap("account-security")
+        if (!reach("remove-account")) fail("Account and security has no Remove from this phone row: ${ui.screen()}")
+        ui.tap("remove-account")
+        if (!reach("confirm-exit")) fail("Remove from this phone asked for no confirmation: ${ui.screen()}")
+        ui.shot("15-remove-confirm")
+        ui.tap("confirm-exit")
+        val after = ui.first("startup-gateway", "startup-welcome", "onboarding-header", "startup-unlock-header", timeout = Ui.LONG)
+            ?: fail("no start state after the removal: ${ui.screen()}")
+        val stillListed = ui.eventually(5_000) { ui.hasText(name) }
+        ui.shot("15-removed")
+        if (stillListed) fail("the removed account '$name' is still offered: ${ui.screen()}")
+        "account.remove_local accepted; the app returned to '$after' and no longer offers '$name'"
+    }
+
     /** Brings the app to its unlocked shell with the tab bar shown. */
     private fun ensureShell() {
         if (!ui.foreground()) ui.launch() else ui.portrait()
@@ -900,6 +1012,36 @@ class RealRunFlowTest {
     private fun openSettings() {
         ui.tap("shell-tabs-3")
         ui.tap("shell-more-settings", Ui.SHORT)
+    }
+
+    /**
+     * The phone pins [peer]'s home node from the peer's card: the SDK refuses media to a contact known only by a lookup
+     * (typed authority_unavailable) until the sender has imported that contact's card (contact.add with the card).
+     */
+    private fun importCard(peer: String): String {
+        val card = control.rf(peer, "contact", "card").optJSONObject("json")?.optString("card").orEmpty()
+        if (!card.startsWith("ramflux-card:")) return "$peer's contact card could not be read"
+        ensureShell()
+        ui.tap("shell-tabs-3")
+        ui.tap("shell-more-contacts", Ui.SHORT)
+        ui.tap("contacts-add")
+        ui.fill(null, card)
+        ui.tap("contacts-send")
+        confirmIfAsked()
+        ui.shot("card-$peer")
+        return "the phone imported $peer's contact card"
+    }
+
+    /** Scrolls [tag] into view, again when the list recomposed under the scroll (a stale node). */
+    private fun reach(tag: String): Boolean {
+        repeat(3) {
+            try {
+                return ui.scrollTo(tag)
+            } catch (_: androidx.test.uiautomator.StaleObjectException) {
+                ui.device.waitForIdle()
+            }
+        }
+        return false
     }
 
     private fun confirmIfAsked() {

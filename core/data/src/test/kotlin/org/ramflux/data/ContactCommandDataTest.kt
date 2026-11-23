@@ -37,7 +37,7 @@ class ContactCommandDataTest {
             val unread = ContactCommand("account", "verify-early", ContactOperation.VERIFY, "root", "peer")
             assertTrue(repo.submit(unread, true) is ClientResult.Failed)
             assertEquals(ContactSafety("1234", "ab", SafetyState.UNVERIFIED, verifiable = true), (repo.safety("account", "root") as ClientResult.Ready).value)
-            abi.completionBody = Json.parseToJsonElement("""{"verification_state":"verified"}""").jsonObject
+            abi.completionBody = Json.parseToJsonElement("""{"verificationState":"verified"}""").jsonObject
             assertTrue(repo.submit(ContactCommand("account", "verify-1", ContactOperation.VERIFY, "root", "peer"), true) is ClientResult.Ready)
             val verify = abi.submitted.last()
             assertEquals("contact.verify", verify["method"]?.jsonPrimitive?.content)

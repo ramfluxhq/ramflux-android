@@ -176,8 +176,8 @@ class GroupDirectoryDataTest {
             assertEquals(ConversationHeader("Actual name", "g"), (repo.groupHeader("account", "g", "canonical-conversation") as ClientResult.Ready).value)
             val count = oracle.abi.submitted.size
             assertTrue(repo.groupHeader("account", "g", "other-conversation") is ClientResult.Failed)
-            // The list row names no conversation here, so group.history decides after group.list.
-            assertEquals(listOf("group.list", "group.history"), oracle.abi.submitted.drop(count).map { it["method"]?.jsonPrimitive?.content })
+            // Neither the list row nor the group's metadata names a conversation here, so group.history decides last.
+            assertEquals(listOf("group.list", "group.members", "group.history"), oracle.abi.submitted.drop(count).map { it["method"]?.jsonPrimitive?.content })
             assertTrue(repo.groupHeader("account", "wrong-group", "canonical-conversation") is ClientResult.Failed)
         } finally { client.close() }
     }

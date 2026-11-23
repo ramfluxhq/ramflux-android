@@ -24,7 +24,8 @@ data class GroupChange(val operation: GroupOperation, val group: String, val epo
     val role: GroupRole = GroupRole.MEMBER, val invitation: GroupInvitation? = null) {
     override fun toString() = "GroupChange(<redacted>)"
 }
-data class GroupOutcome(val group: String, val waiting: Boolean, val expired: Boolean, val request: String?)
+/** [conversation] is the conversation the SDK bound to the group when the reply names it (a creation reply does). */
+data class GroupOutcome(val group: String, val waiting: Boolean, val expired: Boolean, val request: String?, val conversation: String? = null)
 data class PendingGroupOperation(val operationId: String, val change: GroupChange)
 interface GroupDirectoryRepository {
     /** Unpaged; for the creation read-back only. Lists read [groupPage]. */

@@ -120,7 +120,7 @@ close erase its allocation. `consumeChars` decodes escapes/UTF-8 into a temporar
 CharArray, passes it to the native host, then erases it. The host must not create
 immutable Strings from those characters. Event payloads use the same owned type.
 Errors from secret operations expose numeric status/effect, never parsed secret
-error details. `check-secret-boundary.py` guards decoder entrypoints and all 214
+error details. `check-secret-boundary.py` guards decoder entrypoints and all 231
 SDK classifications of the pinned policy in CI.
 
 ### Reply size limits
@@ -244,13 +244,18 @@ phone may decrypt or must fetch, and the wake path) and, for incoming calls, the
 No Firebase Cloud Messaging or other push dependency is added until that design exists.
 
 Joining an existing account from this phone (`device.pair.join`, request R32) is not
-built. The new device's account code must reach the SDK through its credential
-channel (action `setup`, `crates/ramflux-sdk/src/bus/credentials.rs`), which exists
-only on local-bus socket connections and on `ramflux_pairing_call`. The in-process
-C ABI v2 exports (`c_abi/v2/exports.rs`) have no credential channel, and
-`ramflux_pairing_call` (`c_abi/pairing.rs`) talks to a configured same-user local
-daemon socket, which an Android app does not have. The JNI secret transport carries
-secret request bodies only, so it cannot supply that credential.
+built yet. The pinned SDK offers the in-process credential channel it needs:
+`ramflux_v2_set_credential_provider` installs a native callback that answers
+`device.credential.request` (action `setup` for a join: the new code twice) with
+SDK-owned buffers. Using it needs a JNI callback into an erasable code entry and a
+join screen; the plain-HTTP local test node does not advertise `device_pairing_v2`,
+so a join cannot be exercised against it.
+
+Card sessions (`card.session.open/update/present/event/slot/submit/suspend/resume/dispose`)
+are in the pinned policy and cross the bridge through the ordinary execute and secret
+transports (`event`, `slot` and `submit` take secret bodies). The native build does not
+enable the SDK's `card-runtime` feature, so they answer as unavailable until the card
+renderer is linked; `ramflux_v2_card_trust_package` is exported but not bound.
 Unified edit/reaction/reply operations follow the SDK message-unification contract. Deferred video, group calls, screen sharing, channel/thread/post
 flows remain outside this module's acceptance.
 

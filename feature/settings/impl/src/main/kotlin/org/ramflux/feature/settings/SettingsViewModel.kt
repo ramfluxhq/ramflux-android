@@ -172,6 +172,19 @@ class SettingsViewModel @Inject constructor(
                     accounts.lock(account).also { if (it is ClientResult.Ready) event(SettingsEvent.OpenAccount) }
                 }
             }
+            is SettingsAction.AccountExit -> if (activeAccount != null) local.update { it.copy(confirmExit = action.exit) }
+            SettingsAction.CancelAccountExit -> local.update { it.copy(confirmExit = null) }
+            SettingsAction.ConfirmAccountExit -> {
+                val exit = local.value.confirmExit ?: return
+                local.update { it.copy(confirmExit = null) }
+                val account = activeAccount ?: return
+                capability {
+                    when (exit) {
+                        SettingsAccountExit.SIGN_OUT -> accounts.signOut(account)
+                        SettingsAccountExit.REMOVE -> accounts.removeLocal(account)
+                    }.also { if (it is ClientResult.Ready) event(SettingsEvent.OpenAccount) }
+                }
+            }
             SettingsAction.StartPairing -> startPairing()
             is SettingsAction.InvitationAsText -> pairing { it.copy(invitationAsText = action.text) }
             is SettingsAction.ComparePairing -> pairingStep(

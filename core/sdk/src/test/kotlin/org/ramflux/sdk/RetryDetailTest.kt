@@ -16,7 +16,7 @@ class RetryDetailTest {
     ) as CoreResult.Failure
 
     @Test fun aSecretRefusalKeepsOnlyThePublicWait() {
-        val failure = secretFailure("""{"reason_code":"unlock_retry_later","retry_after_secs":240}""")
+        val failure = secretFailure("""{"reason_code":"unlock_retry_later","retry_after_ms":240000}""")
         assertEquals("UnlockRetryLater", failure.error.statusName)
         assertEquals(240L, failure.details!!["retry_after_secs"]!!.jsonPrimitive.long)
         assertEquals(setOf("retry_after_secs"), failure.details!!.keys)
@@ -25,6 +25,6 @@ class RetryDetailTest {
     @Test fun aRefusalWithoutAWaitHasNoDetails() {
         assertNull(secretFailure("""{"reason_code":"unlock_attempts_exhausted"}""").details)
         assertNull(secretFailure("null").details)
-        assertNull(secretFailure("""{"retry_after_secs":"240"}""").details)
+        assertNull(secretFailure("""{"retry_after_ms":"240000"}""").details)
     }
 }

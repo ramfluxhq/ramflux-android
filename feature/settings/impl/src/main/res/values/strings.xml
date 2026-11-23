@@ -218,4 +218,22 @@
     <string name="settings_my_card_too_long">This card is too long for a QR code. Share it as text.</string>
     <!-- Button that shares the card text with another app. -->
     <string name="settings_my_card_share">Share contact card</string>
+    <!-- Settings group with the ways the account leaves this phone (sign-out, removal). -->
+    <string name="settings_account_exit">Leave this phone</string>
+    <!-- Settings row that signs the account out on this phone. -->
+    <string name="settings_sign_out">Sign out</string>
+    <!-- Explains signing out: drafts and cached media are erased, the account data stays and the six-digit code opens it again. -->
+    <string name="settings_sign_out_help">Closes the account and erases drafts and cached media. Your six-digit account code opens it again.</string>
+    <!-- Title of the confirmation before signing out. -->
+    <string name="settings_sign_out_confirm_title">Sign out on this phone?</string>
+    <!-- Consequence of signing out. -->
+    <string name="settings_sign_out_confirm_body">Unsent drafts, queued messages and cached media of this account are erased from this phone. The account stays on this phone and opens again with its account code.</string>
+    <!-- Settings row that removes the account and its data from this phone. -->
+    <string name="settings_remove_account">Remove from this phone</string>
+    <!-- Explains removal: local data only, nothing on the node. -->
+    <string name="settings_remove_account_help">Deletes the account\'s keys and data on this phone. Your other devices and the node keep it.</string>
+    <!-- Title of the confirmation before removal. -->
+    <string name="settings_remove_account_confirm_title">Remove this account from this phone?</string>
+    <!-- Consequence of removal; recovery needs a backup, the recovery phrase or another device. -->
+    <string name="settings_remove_account_confirm_body">The account\'s keys, messages and media on this phone are deleted. This cannot be undone here: to use it on this phone again you need a backup, the recovery phrase or another of your devices.</string>
 </resources>

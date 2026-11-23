@@ -31,7 +31,11 @@ object ClientModule {
 
     @Provides fun session(data: AndroidClientData): ClientSessionRepository = data.session
 
-    @Provides fun accounts(data: AndroidClientData): AccountAccessRepository = data.accounts
+    /** Sign-out and local removal erase the host stores, so the hook is registered before the repository is handed out. */
+    @Provides fun accounts(data: AndroidClientData, stores: Set<@JvmSuppressWildcards AccountScopedStore>): AccountAccessRepository {
+        stores.forEach(data.accountStores::register)
+        return data.accounts
+    }
 
     @Provides fun ceremony(data: AndroidClientData): AccountCeremonyRepository = data.ceremony
 
@@ -76,7 +80,7 @@ object ClientModule {
     @Provides fun appearance(data: AndroidClientData): AppearanceRepository = data.appearance
 
     @Provides fun confirmTrace(): ConfirmTrace = if (BuildConfig.DEBUG) {
-        ConfirmTrace { message -> Log.d("ramflux.abi", message) }
+        ConfirmTrace { message -> Log.w(DEBUG_TAG, message) }
     } else {
         ConfirmTrace {}
     }

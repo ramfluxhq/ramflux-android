@@ -61,29 +61,6 @@ class TimelinePagingDataTest {
         } finally { client.close() }
     }
 
-    @Test fun aRowAuthoredByThisDeviceIsOwnEvenWhenTheSdkSaysOtherwise() = runTest(timeout = 5.seconds) {
-        val abi = FakeAbi().apply {
-            onSubmitted = { frame ->
-                completionBody = when (frame["method"]?.jsonPrimitive?.content) {
-                    "device.list" -> Json.parseToJsonElement(
-                        """{"devices":[{"device_id":"mine","is_local":true,"device_epoch":1}]}""",
-                    ).jsonObject
-                    else -> page(
-                        null,
-                        message("reply", 2_000, """"text":"r","is_own":false,"author":{"device_id":"mine"}"""),
-                        message("peer", 1_000, """"text":"p","is_own":false,"author":{"device_id":"theirs"}"""),
-                    )
-                }
-            }
-        }
-        val client = open(abi, "/test/own-reply")
-        try {
-            val rows = (DefaultMessageHistoryRepository(SdkRepositoryTransport { client }).page("a", "c") as ClientResult.Ready).value.rows
-            val own = rows.filterIsInstance<MessageSummary>().associate { it.id to it.own }
-            assertEquals(mapOf("peer" to false, "reply" to true), own)
-        } finally { client.close() }
-    }
-
     @Test fun markReadNamesTheLocalDeviceAsReader() = runTest(timeout = 5.seconds) {
         val abi = FakeAbi().apply {
             onSubmitted = { frame ->

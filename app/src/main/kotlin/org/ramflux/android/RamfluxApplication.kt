@@ -9,6 +9,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 import org.ramflux.android.notify.MessageNotificationService
+import org.ramflux.data.clientDebugEvent
 import org.ramflux.data.installProcessDebugTrace
 
 @HiltAndroidApp
@@ -17,10 +18,25 @@ class RamfluxApplication : Application() {
 
     @Inject lateinit var notifications: MessageNotificationService
     override fun onCreate() {
-        // Debug builds only. Warning level: some vendor builds suppress debug-level logs of apps by default.
-        if (BuildConfig.DEBUG) installProcessDebugTrace { message -> Log.w("ramflux.abi", message) }
+        // Debug builds only. The log line is kept for an attached logcat; the file is what a phone that drops an app's
+        // own log lines still keeps (see DebugTraceFile).
+        if (BuildConfig.DEBUG) {
+            val file = DebugTraceFile(java.io.File(noBackupFilesDir, DEBUG_TRACE_FILE))
+            installProcessDebugTrace { message ->
+                Log.w(DEBUG_TAG, message)
+                file.write(message)
+            }
+            // One line per process start, so a capture shows whether the sink was installed at all.
+            clientDebugEvent("app.start")
+        }
         super.onCreate()
         ProcessLifecycleOwner.get().lifecycle.addObserver(sessionLifecycle)
         notifications.start()
     }
 }
+
+/** The debug trace's log tag (debug and realrun builds only; codes and names, never content). */
+internal const val DEBUG_TAG = "ramflux.abi"
+
+/** The debug trace file in no-backup storage (debug and realrun builds only). */
+internal const val DEBUG_TRACE_FILE = "debug-trace.log"

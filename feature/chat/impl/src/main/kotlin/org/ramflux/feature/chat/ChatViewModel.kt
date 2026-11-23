@@ -76,6 +76,13 @@ class ChatViewModel @Inject constructor(
     private var dividerPlaced = false
     private var draftJob: Job? = null
 
+    /**
+     * The target whose sealed draft is known: restored from the store, or typed since the state was reset. Until then the
+     * composer is empty only because the draft has not been read yet, and sealing it would erase the stored draft (a blank
+     * save deletes it): a session transition while the restore is in flight lost the draft across background and lock.
+     */
+    private var draftKnown: Target? = null
+
     /** Attachment references of the window by key, the files this device holds, and transfers in flight. */
     private val references = HashMap<String, MediaAttachment>()
     private val located = HashMap<String, String>()
@@ -171,6 +178,7 @@ class ChatViewModel @Inject constructor(
             is ChatAction.Draft -> if (!local.value.sending && target != null && session.status.value.phase == ClientPhase.OPEN) {
                 val text = action.text.take(65536)
                 local.update { it.copy(draft = text) }
+                if (local.value.composer != ComposerMode.EDIT) draftKnown = target
                 if (local.value.composer == ComposerMode.SEND) syncTyping(text.isNotBlank())
                 if (local.value.composer != ComposerMode.EDIT) scheduleDraftSave()
             }
@@ -310,12 +318,16 @@ class ChatViewModel @Inject constructor(
                     problem = uiText(
                         R.string.ui_account_state_could_not_be_read_code_value,
                         UiText.Number(catalog.problem.code.toLong())
-                    )
+                    ),
+                    draft = local.value.draft
                 )
                 return false
             }
             is ClientResult.Unavailable -> {
-                local.value = ChatState(unavailable = uiText(R.string.ui_account_access_is_unavailable_value, catalog.reason.description()))
+                local.value = ChatState(
+                    unavailable = uiText(R.string.ui_account_access_is_unavailable_value, catalog.reason.description()),
+                    draft = local.value.draft
+                )
                 return false
             }
         }
@@ -328,7 +340,10 @@ class ChatViewModel @Inject constructor(
             } else {
                 R.string.ui_the_active_account_changed_return_to_conversations
             }
-            local.value = ChatState(problem = uiText(notice))
+            // Right after an unlock the same account can read as not yet open for a moment; its draft is kept so the next
+            // successful read restores the timeline around the same composer text. Another active account drops it.
+            val sameAccount = selected != null && (value.activeId == null || value.activeId == expectedTarget.account)
+            local.value = ChatState(problem = uiText(notice), draft = if (sameAccount) local.value.draft else "")
         }
         return valid
     }
@@ -350,7 +365,7 @@ class ChatViewModel @Inject constructor(
                 if (currentTarget.group != null &&
                     (groupHeader !is ClientResult.Ready || groupHeader.value.groupId != currentTarget.group)
                 ) {
-                    local.value = ChatState(problem = uiText(R.string.ui_conversation_details_unavailable))
+                    local.value = ChatState(problem = uiText(R.string.ui_conversation_details_unavailable), draft = local.value.draft)
                     return@launch
                 }
                 val result = history.page(currentTarget.account, currentTarget.conversation, null)
@@ -759,6 +774,7 @@ class ChatViewModel @Inject constructor(
         detached = false
         outbox.clear()
         outboxRestored = null
+        draftKnown = null
         persistedOutbox = null
         sendReady = false
         lastMarked = null
@@ -781,17 +797,29 @@ class ChatViewModel @Inject constructor(
         val currentTarget = target ?: return
         draftJob?.cancel()
         val state = local.value
-        if (state.composer == ComposerMode.EDIT || state.conversationId != currentTarget.conversation) return
+        if (state.composer == ComposerMode.EDIT || state.conversationId != currentTarget.conversation) {
+            clientDebugEvent("chat.draft.seal.skipped")
+            return
+        }
+        if (draftKnown != currentTarget) {
+            clientDebugEvent("chat.draft.seal.unknown")
+            return
+        }
         val text = state.draft
-        viewModelScope.launch(NonCancellable) { drafts.save(currentTarget.account, currentTarget.conversation, text) }
+        viewModelScope.launch(NonCancellable) {
+            val saved = drafts.save(currentTarget.account, currentTarget.conversation, text)
+            clientDebugEvent("chat.draft.seal.empty:" + text.isEmpty() + ".saved:" + (saved is ClientResult.Ready))
+        }
     }
 
     private fun restoreDraft(next: Target) {
         viewModelScope.launch {
-            val text = drafts.load(next.account, next.conversation) ?: return@launch
-            if (target == next && session.status.value.phase == ClientPhase.OPEN && local.value.draft.isEmpty()) {
-                local.update { it.copy(draft = text) }
-            }
+            val text = drafts.load(next.account, next.conversation)
+            val current = target == next && session.status.value.phase == ClientPhase.OPEN
+            clientDebugEvent("chat.draft.restore.found:" + (text != null) + ".current:" + current)
+            if (!current) return@launch
+            if (text != null && local.value.draft.isEmpty()) local.update { it.copy(draft = text) }
+            if (local.value.composer != ComposerMode.EDIT) draftKnown = next
         }
     }
 
@@ -1539,7 +1567,9 @@ private data class Outgoing(
 }
 
 /** Status names of failures that mean "no live session"; such sends wait in the queue. */
-private val OFFLINE = setOf("authority_unavailable", "unavailable", "offline", "closed")
+// authority_unavailable is not offline: the SDK has no home node for the contact until its card is imported (it carries
+// no reason code yet), so the send ends as not sent with a retry and the card hint.
+private val OFFLINE = setOf("unavailable", "offline", "closed")
 private const val LOCAL_PREFIX = "local:"
 
 private fun keyOf(attachment: MediaAttachment) = attachment.messageId + "/" + attachment.index
@@ -1586,6 +1616,7 @@ private const val GALLERY_PAGES_PER_LOAD = 5
 
 /** Media refusals the person can act on get their own words (design B22); others use the generic text. */
 private fun mediaFailure(problem: ClientProblem): UiText? = when (problem.statusName ?: problem.check) {
+    AUTHORITY_UNAVAILABLE -> uiText(R.string.chat_send_needs_card)
     "recipient_limit" -> uiText(R.string.chat_media_recipient_limit)
     "peer_upgrade_required" -> uiText(R.string.chat_media_peer_upgrade)
     "file_too_large", "quota_exceeded", "disk_full" -> uiText(R.string.chat_media_too_large)
@@ -1657,8 +1688,13 @@ private fun actionFailure(problem: ClientProblem): UiText = when (problem.outcom
     )
 }
 
-private fun failedNotice(problem: ClientProblem): UiText? =
-    if (problem.outcome == ClientOutcome.UNKNOWN) null else uiText(R.string.ui_delivery_failed)
+private fun failedNotice(problem: ClientProblem): UiText? = when {
+    problem.outcome == ClientOutcome.UNKNOWN -> null
+    problem.statusName == AUTHORITY_UNAVAILABLE -> uiText(R.string.chat_send_needs_card)
+    else -> uiText(R.string.ui_delivery_failed)
+}
+
+private const val AUTHORITY_UNAVAILABLE = "authority_unavailable"
 
 private fun typingNotice(result: ClientResult<Unit>): UiText? = when (result) {
     is ClientResult.Ready -> null

@@ -11,7 +11,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 internal object ReplyCodec {
-    var debugTrace: SdkDebugTrace? = null
+    /** Installed once on the main thread at start, read from every worker thread. */
+    @Volatile var debugTrace: SdkDebugTrace? = null
 
     fun submitRefusal(reply: NativeReply, operationId: String? = null): CoreResult.Failure = try {
         CoreResult.Failure(error(if (reply.code == 0) 16 else reply.code, Effect.NONE), operationId)
@@ -145,15 +146,16 @@ internal object ReplyCodec {
     }
 
     /**
-     * The only refusal detail lifted from a secret method's error frame: the public wait the SDK
-     * reports in `response.body.retry_after_secs` (for example a rate-limited account code check).
+     * The only refusal detail lifted from a secret method's error frame: the public wait the C ABI
+     * projects into `response.body.retry_after_ms` (for example a rate-limited account code check,
+     * `c_abi/v2/native_error.rs`). It is handed on in whole seconds, rounded up.
      */
     private fun retryDetails(parser: ByteJson, envelope: ByteJson.Node): JsonObject? = try {
         val response = parser.field(envelope, "response")?.takeIf { it.kind == 123 }
         val body = response?.let { parser.field(it, "body") }?.takeIf { it.kind == 123 }
-        val wait = body?.let { parser.field(it, "retry_after_secs") }
-        if (wait == null || wait.kind == 34 || wait.end - wait.start > 9) null
-        else JsonObject(mapOf(RETRY_AFTER_SECS to JsonPrimitive(parser.integer(wait))))
+        val wait = body?.let { parser.field(it, "retry_after_ms") }
+        if (wait == null || wait.kind == 34 || wait.end - wait.start > 10) null
+        else JsonObject(mapOf(RETRY_AFTER_SECS to JsonPrimitive((parser.integer(wait).toLong() + 999) / 1000)))
     } catch (_: IllegalArgumentException) {
         null
     }

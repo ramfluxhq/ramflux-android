@@ -42,7 +42,7 @@ class FakeAccountAccess : AccountAccessRepository {
     var networking: (Int) -> ClientResult<Boolean> = { unavailable() }
     override suspend fun networkingLive(id: String): ClientResult<Boolean> = networking(++networkingReads)
     val forgotten = mutableListOf<String>()
-    override suspend fun forget(id: String): ClientResult<Unit> {
+    override suspend fun removeLocal(id: String): ClientResult<Unit> {
         forgotten += id
         return ClientResult.Ready(Unit)
     }

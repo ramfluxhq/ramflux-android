@@ -157,6 +157,55 @@ internal fun LazyListScope.accountPage(state: SettingsState, onAction: (Settings
         ) { Text(stringResource(R.string.settings_code_changed), Modifier.testTag("code-changed")) }
     }
     if (state.codeChange.open || state.codeChange.working) item("code-form") { CodeChangeForm(state.codeChange, onAction) }
+    item("account-exit") {
+        SettingsGroup(stringResource(R.string.settings_account_exit)) {
+            KitRow(
+                stringResource(R.string.settings_sign_out),
+                { onAction(SettingsAction.AccountExit(SettingsAccountExit.SIGN_OUT)) },
+                icon = "user-minus",
+                value = stringResource(R.string.settings_sign_out_help),
+                enabled = state.accountLabel != null && !state.loading,
+                testTag = "sign-out"
+            )
+            KitRow(
+                stringResource(R.string.settings_remove_account),
+                { onAction(SettingsAction.AccountExit(SettingsAccountExit.REMOVE)) },
+                icon = "trash-2",
+                value = stringResource(R.string.settings_remove_account_help),
+                enabled = state.accountLabel != null && !state.loading,
+                divider = false,
+                testTag = "remove-account"
+            )
+        }
+    }
+    state.confirmExit?.let { exit ->
+        val signOut = exit == SettingsAccountExit.SIGN_OUT
+        item("confirm-exit") {
+            Column(verticalArrangement = Arrangement.spacedBy(LocalRFTheme.current.gap.dp)) {
+                KitSecurityWarning(
+                    stringResource(
+                        if (signOut) R.string.settings_sign_out_confirm_title else R.string.settings_remove_account_confirm_title
+                    ),
+                    stringResource(
+                        if (signOut) R.string.settings_sign_out_confirm_body else R.string.settings_remove_account_confirm_body
+                    ),
+                    if (signOut) KitWarningTone.Warning else KitWarningTone.Danger
+                )
+                KitButton(
+                    stringResource(if (signOut) R.string.settings_sign_out else R.string.settings_remove_account),
+                    { onAction(SettingsAction.ConfirmAccountExit) },
+                    kind = KitButtonKind.Destructive,
+                    tag = "confirm-exit"
+                )
+                KitButton(
+                    stringResource(R.string.settings_cancel),
+                    { onAction(SettingsAction.CancelAccountExit) },
+                    kind = KitButtonKind.Secondary,
+                    tag = "cancel-exit"
+                )
+            }
+        }
+    }
 }
 
 @Composable

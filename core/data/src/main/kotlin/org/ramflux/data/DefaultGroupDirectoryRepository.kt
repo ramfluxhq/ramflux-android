@@ -113,12 +113,16 @@ internal class DefaultGroupDirectoryRepository(
         return result
     }
     /**
-     * The group's conversation id. The `group.list` row names it; for a group created on this device it differs from the
-     * group id, and `group.history` refuses the group id as conversation (invalid_argument). History is the fallback.
+     * The group's conversation id: never derived from the group id. The `group.list` row names it; when the row does not
+     * (yet), the group's metadata (`group.members`) names the conversation the SDK bound to it. `group.history` is the last
+     * resort; it refuses the group id as conversation (invalid_argument) when the two differ.
      */
     override suspend fun conversation(account: String, group: String): ClientResult<String> {
         val listed = decoded(source.list(RepositoryContext(account), buildJsonObject {}), { GroupMetadataReader.listedConversation(it, group, decoding) }) { it }
         if (listed is ClientResult.Ready && listed.value != null) return ClientResult.Ready(requireNotNull(listed.value))
+        val metadata = decoded(source.members(RepositoryContext(account), buildJsonObject { put("group_id", group) }), { GroupMetadataReader.metadataConversation(it, group) }) { it }
+        clientDebugEvent("groups.conversation.metadata=" + (if (metadata is ClientResult.Ready) (if (metadata.value != null) "named" else "none") else "failed"))
+        if (metadata is ClientResult.Ready && metadata.value != null) return ClientResult.Ready(requireNotNull(metadata.value))
         return decoded(source.history(RepositoryContext(account), buildJsonObject {
             put("group_id", group); put("conversation_id", group); put("limit", 0)
         }), { GroupMetadataReader.conversation(it, group) }) { it }
@@ -181,7 +185,10 @@ internal class DefaultGroupDirectoryRepository(
                         val accepted = people.contacts(account)
                         if (accepted !is ClientResult.Ready) return accepted.failure()
                         if (accepted.value.none { it.principal == change.principal && it.root == change.root }) return denied()
-                        fields["member_id"] = change.principal; fields["member_principal_commitment"] = change.root; fields["role"] = "member"
+                        // A contact is added by its principal id alone: the SDK selects the contact's active device from its
+                        // verified identity record and checks the manifest root. With an explicit member_principal_commitment
+                        // the SDK reads member_id as a literal device id, so a principal id there fails (code 16).
+                        fields["member_id"] = change.principal; fields["role"] = "member"
                     }
                     GroupOperation.ROLE, GroupOperation.REMOVE -> {
                         val member = change.member ?: return invalid()
@@ -217,7 +224,7 @@ internal class DefaultGroupDirectoryRepository(
             }
             val accept = when(change.operation) { GroupOperation.ACCEPT -> true; GroupOperation.DECLINE -> false; else -> null }
             val result = decoded(reply, { GroupMetadataReader.outcome(it, change.group, accept) }) {
-                GroupOutcome(it.group, it.waiting, it.expired, it.request)
+                GroupOutcome(it.group, it.waiting, it.expired, it.request, it.conversation)
             }
             synchronized(journal) { attempt.result = result }
             return result

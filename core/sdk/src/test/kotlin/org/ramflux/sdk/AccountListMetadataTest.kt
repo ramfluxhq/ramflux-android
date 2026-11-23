@@ -7,7 +7,7 @@ import org.junit.Test
 
 class AccountListMetadataTest {
     @Test fun onlyAllowlistedDisplayFieldsAreDecodedAndReplyBytesAreWiped() {
-        val raw = """{"account_details":[{"id":"a","label":"Work","state":"locked","seed":"do-not-copy"}],"active_account_id":null,"phrase":"do-not-copy"}""".toByteArray()
+        val raw = """{"account_details":[{"id":"a","display_name":"Work","state":"locked","seed":"do-not-copy"}],"active_account_id":null,"phrase":"do-not-copy"}""".toByteArray()
         val reply = SecretReply(SecretBytes.take(raw))
         val result = AccountListMetadataReader.read(reply) as CoreResult.Success
         assertEquals(listOf(AccountListEntry("a", "Work", "locked")), result.value.accounts)

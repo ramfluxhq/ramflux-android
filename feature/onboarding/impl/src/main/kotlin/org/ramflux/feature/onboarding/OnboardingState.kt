@@ -35,13 +35,11 @@ enum class OnboardingPage(val board: String, val title: UiText) {
     RECOVER("S25", uiText(R.string.ui_recover_an_account))
 }
 
-/** [offered]: in this device's account list but not opened by the SDK (only the code can tell whether it opens). */
 @Immutable data class AccountItem(
     val id: String,
     val label: String,
     val subtitle: UiText,
-    val unlocked: Boolean,
-    val offered: Boolean = false
+    val unlocked: Boolean
 )
 
 @Immutable data class NodeItem(val id: String, val url: String, val keyChanged: Boolean, val isDefault: Boolean, val enabled: Boolean)
@@ -84,6 +82,6 @@ enum class CreatedNetworking { CONNECTING, LIVE, NOT_CONFIRMED }
     val recoverAccountId: String? = null,
     /** The account the code page unlocks, shown there by name. */
     val unlockAccountId: String? = null,
-    /** Set when the SDK refused an offered account for a reason other than the code; it can then be removed. */
+    /** Set when the SDK refused to open a locked account for a reason other than the code; it can then be removed. */
     val forgetAccountId: String? = null
 )
