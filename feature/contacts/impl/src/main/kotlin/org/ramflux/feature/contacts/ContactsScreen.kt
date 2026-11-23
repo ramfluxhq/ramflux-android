@@ -24,9 +24,9 @@ import org.ramflux.feature.contacts.impl.R
 fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
     val subtitle = state.accountLabel?.takeIf { it.isNotEmpty() }
-    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
-            Column(Modifier.fillMaxSize().widthIn(max = theme.column_max.dp)) {
+            Column(Modifier.fillMaxSize()) {
                 KitPageHeader(
                     stringResource(
                         when (state.page) {
@@ -135,6 +135,7 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
                                     value = row.principal,
                                     leading = { KitAvatar(row.label.take(1), 36f, KitAvatarKind.Person) },
                                     trailingContent = { Text(row.status.render()) },
+                                    peer = true,
                                     testTag = row.id
                                 )
                             }
@@ -147,18 +148,21 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
                                     value = row.principal,
                                     leading = { KitAvatar(row.label.take(1), 36f, KitAvatarKind.Person) },
                                     trailing = KitRowTrailing.None,
+                                    peer = true,
                                     testTag = row.id
                                 )
                                 Text(row.status.render())
-                                row.note?.let { Text(it) }
+                                row.note?.let { UntrustedText(it, kind = UntrustedKind.Excerpt) }
                                 row.count?.let { Text(it.render()) }
                                 row.expires?.let { Text(stringResource(R.string.contacts_expires, it.render())) }
                             }
                             when (state.page) {
                                 ContactsPage.SAFETY -> item("safety") {
                                     state.safety?.let { safety ->
-                                        Text(safety.number)
-                                        Text(stringResource(R.string.contacts_fingerprint, safety.fingerprint))
+                                        // Left to right in groups of five in every locale; the fingerprint is a
+                                        // typed code argument, isolated inside the translated sentence.
+                                        LtrCode(safety.number, groupSize = SAFETY_GROUP, tag = "contacts-safety-number")
+                                        Text(uiText(R.string.contacts_fingerprint, UiText.Code(safety.fingerprint)).render())
                                     }
                                     KitSecurityWarning(
                                         stringResource(R.string.contacts_safety),
@@ -276,3 +280,5 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
 private fun OperationButton(label: Int, operation: ContactOperation, disabled: Boolean, onAction: (ContactsAction) -> Unit) {
     TextButton(enabled = !disabled, onClick = { onAction(ContactsAction.Operate(operation)) }) { Text(stringResource(label)) }
 }
+
+private const val SAFETY_GROUP = 5

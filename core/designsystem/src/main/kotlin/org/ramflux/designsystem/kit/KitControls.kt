@@ -9,15 +9,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -105,7 +106,8 @@ fun KitSegmented(
     Row(
         modifier
             .fillMaxWidth()
-            .height(dp(RfMetrics.segmented))
+            .heightIn(min = dp(RfMetrics.segmented))
+            .height(IntrinsicSize.Min)
             .alpha(if (enabled) 1f else RfMetrics.disabledAlpha)
             .background(theme.surface, shapeOf(theme.radius_md))
             .kitTag(tag)
@@ -124,11 +126,12 @@ fun KitSegmented(
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(dp(RfMetrics.segmented - RfMetrics.segmentedPad * 2))
+                        .fillMaxHeight()
+                        .heightIn(min = dp(RfMetrics.segmented - RfMetrics.segmentedPad * 2))
                         .then(if (on) Modifier.background(theme.surface_white, shapeOf(theme.radius_sm)) else Modifier),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
+                    KitText(
                         label,
                         style = kitStyle(
                             theme.size_secondary,

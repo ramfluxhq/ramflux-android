@@ -8,11 +8,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import org.ramflux.designsystem.LocalRFTheme
 
@@ -46,9 +46,10 @@ fun KitAvatar(
         contentAlignment = Alignment.Center
     ) {
         when (kind) {
-            KitAvatarKind.Person -> Text(
+            // The initial is part of a fixed avatar image, so it does not follow the font scale.
+            KitAvatarKind.Person -> KitText(
                 label,
-                style = kitStyle(personInitial(size), FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
+                style = kitStyle(personInitial(size) / LocalDensity.current.fontScale, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
             )
             KitAvatarKind.Agent -> KitIcon(icon, agentGlyph(size), theme.on_agent_av)
             KitAvatarKind.Channel -> KitIcon("hash", agentGlyph(size), theme.secondary)

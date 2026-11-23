@@ -18,7 +18,8 @@ import org.ramflux.feature.onboarding.ConfirmTrace
 @InstallIn(SingletonComponent::class)
 object ClientModule {
     @Provides @Singleton
-    fun data(@ApplicationContext context: Context) = AndroidClientData(context, BuildConfig.MESSAGE_DESCRIPTOR)
+    fun data(@ApplicationContext context: Context) =
+        AndroidClientData(context, BuildConfig.MESSAGE_DESCRIPTOR, appLanguages(context.resources, R.xml._generated_res_locale_config))
 
     @Provides fun session(data: AndroidClientData): ClientSessionRepository = data.session
 

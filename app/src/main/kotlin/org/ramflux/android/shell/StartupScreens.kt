@@ -28,7 +28,7 @@ import org.ramflux.designsystem.kit.KitSummaryCard
 @Composable
 internal fun SplashScreen(modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
-    StartupFrame("startup-splash", modifier = modifier, header = { KitPageHeader("") }, footer = {}) {
+    StartupFrame("startup-splash", modifier = modifier, header = { KitPageHeader("") }, footer = {}, scroll = false) {
         Column(
             Modifier.weight(1f).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,

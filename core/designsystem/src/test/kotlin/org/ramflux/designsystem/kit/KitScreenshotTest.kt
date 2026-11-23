@@ -3,17 +3,26 @@
 
 package org.ramflux.designsystem.kit
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -109,6 +118,7 @@ class KitScreenshotTest {
             ),
             0,
             {},
+            bottomInset = KIT_FRAME_INSET,
             tag = "shot"
         )
     }
@@ -175,7 +185,7 @@ class KitScreenshotTest {
 
     @Test fun reaction() = shot("reaction-bar--default") {
         KitReactionBar(
-            listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE2E", "\uD83D\uDE22", "\uD83D\uDE4F"),
+            emojiReactions(),
             {},
             {},
             tag = "shot"
@@ -309,7 +319,7 @@ class KitScreenshotTest {
         }
         shot("reaction-bar--default--dark", dark = true) {
             KitReactionBar(
-                listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE2E", "\uD83D\uDE22", "\uD83D\uDE4F"),
+                emojiReactions(),
                 {},
                 {},
                 tag = "shot"
@@ -399,6 +409,186 @@ class KitScreenshotTest {
         }
     }
 
+    /**
+     * Right-to-left (ar-XB) and expanded (en-XA) samples at font scale 1.0 and 2.0 in 360, 393 and 700 dp
+     * containers. ar-XB samples use Arabic peer text; en-XA samples use expanded accented text.
+     */
+    @Config(qualifiers = "w800dp-h1600dp-mdpi")
+    @Test
+    fun localeScaleAndWidthVariants() = batch {
+        listOf("ar-XB", "en-XA").forEach { locale ->
+            val rtl = locale == "ar-XB"
+            val text = if (rtl) arabicSamples else expandedSamples
+            listOf(1f, 2f).forEach { scale ->
+                listOf(360, 393, 700).forEach { width ->
+                    fun variant(component: String, body: @Composable () -> Unit) = batch?.add(
+                        Frame(
+                            "$component--$locale--font$scale--w$width",
+                            width.dp,
+                            rtl = rtl,
+                            fontScale = scale,
+                            variant = true,
+                            body = body
+                        )
+                    )
+                    variant("page-header") { KitPageHeader(text.title, onBack = {}, onInfo = {}, tag = "shot") }
+                    variant("chat-header") {
+                        KitChatHeader(text.name, text.subtitle, {
+                            KitAvatar(text.name.take(1), 36f, KitAvatarKind.Person)
+                        }, {}, onCall = {}, onMore = {}, tag = "shot")
+                    }
+                    variant("tab-bar") {
+                        KitTabBar(
+                            listOf(
+                                KitTab("messages-square", text.tab, badge = "3"),
+                                KitTab("users-round", text.tab),
+                                KitTab("bot", "Agents", latin = true),
+                                KitTab("ellipsis", text.tab)
+                            ),
+                            0,
+                            {},
+                            bottomInset = KIT_FRAME_INSET,
+                            tag = "shot"
+                        )
+                    }
+                    variant("row") { KitRow(text.title, {}, icon = "user-round", value = text.body, testTag = "shot") }
+                    variant("conversation") {
+                        KitConversationRow(text.name, text.body, "10:24", {
+                            KitAvatar(text.name.take(1), 52f, KitAvatarKind.Person)
+                        }, {}, badge = "2", tag = "shot")
+                    }
+                    variant("bubbles") {
+                        androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(horizontal = VARIANT_PAD.dp)) {
+                            KitBubble(
+                                text.body,
+                                Modifier.align(androidx.compose.ui.Alignment.Start),
+                                kind = KitBubbleKind.Incoming,
+                                time = "10:21",
+                                sender = text.name,
+                                quote = text.title,
+                                tag = "shot"
+                            )
+                            KitBubble(text.other, Modifier.align(androidx.compose.ui.Alignment.End), time = "10:23", read = true)
+                            KitBubble(
+                                "",
+                                Modifier.align(androidx.compose.ui.Alignment.Start),
+                                kind = KitBubbleKind.File,
+                                time = "10:24",
+                                fileName = "invoice\u202Efdp.exe",
+                                fileMeta = "PDF"
+                            )
+                        }
+                    }
+                    variant("composer") {
+                        KitComposer(
+                            "",
+                            {},
+                            text.placeholder,
+                            {},
+                            {},
+                            replyAuthor = text.name,
+                            replyExcerpt = text.body,
+                            onCloseReply = {},
+                            tag = "shot"
+                        )
+                    }
+                    variant("menu") { KitContextMenu(menuEntries(), {}, tag = "shot") }
+                    variant(
+                        "reactions"
+                    ) { KitReactionBar(listOf(KitReaction(text.title, icon = "check")) + emojiReactions().take(2), {}, null, tag = "shot") }
+                    variant("date-unread") {
+                        androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth()) {
+                            KitDateChip(text.tab, tag = "shot")
+                            KitUnreadDivider(text.title)
+                        }
+                    }
+                    variant("button") { KitButton(text.subtitle, {}, tag = "shot") }
+                    variant("tip-warning") {
+                        androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth()) {
+                            KitTipBar(text.body, "wifi-off", action = text.tab, onAction = {}, tag = "shot")
+                            KitSecurityWarning(text.title, text.warning, KitWarningTone.Danger)
+                        }
+                    }
+                    variant("codes") {
+                        androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(horizontal = VARIANT_PAD.dp)) {
+                            KitPairingCode("4821 7730", tag = "shot")
+                            KitMonoBlock("\u0660\u0661\u0662\u0663 4567 8901 2345 6789", {}, groupSize = 4)
+                            LtrCode("apple river stone cloud", numbered = true)
+                        }
+                    }
+                    variant("secret-words") {
+                        LtrSecretWords(
+                            secretWords.size,
+                            { index, block -> block(secretWords[index]) },
+                            Modifier.padding(horizontal = VARIANT_PAD.dp),
+                            tag = "shot"
+                        )
+                    }
+                    variant("rail") {
+                        androidx.compose.foundation.layout.Box(Modifier.height(RAIL_SAMPLE_HEIGHT.dp)) {
+                            KitNavigationRail(
+                                listOf(
+                                    KitTab("messages-square", text.tab, badge = "3"),
+                                    KitTab("users-round", text.title),
+                                    KitTab("bot", "Agents", latin = true),
+                                    KitTab("ellipsis", text.tab)
+                                ),
+                                0,
+                                {},
+                                bottomInset = KIT_FRAME_INSET,
+                                tag = "shot"
+                            )
+                        }
+                    }
+                    variant("untrusted") {
+                        androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(horizontal = VARIANT_PAD.dp)) {
+                            UntrustedText("Ada\u202Egnp.exe", Modifier.kitTag("shot"))
+                            UntrustedText("report\u202Efdp.exe", kind = org.ramflux.designsystem.UntrustedKind.FileName)
+                            UntrustedText(text.name)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private class Samples(
+        val title: String,
+        val name: String,
+        val subtitle: String,
+        val tab: String,
+        val body: String,
+        val other: String,
+        val placeholder: String,
+        val warning: String
+    )
+
+    private val arabicSamples = Samples(
+        title = "\u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A",
+        name = "\u0645\u0631\u064A\u0645 \u0627\u0644\u0639\u0644\u064A",
+        subtitle = "\u0645\u062A\u0635\u0644 \u0627\u0644\u0622\u0646",
+        tab = "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
+        body = "\u0647\u0644 \u0631\u0627\u062C\u0639\u062A \u0627\u0644\u0645\u0644\u0641 v2.pdf \u0627\u0644\u064A\u0648\u0645\u061F",
+        other = "Yes, I reviewed \u0627\u0644\u0645\u0644\u0641 today.",
+        placeholder = "\u0627\u0643\u062A\u0628 \u0631\u0633\u0627\u0644\u0629\u2026",
+        warning = "\u062A\u063A\u064A\u0651\u0631 \u0631\u0642\u0645 \u0627\u0644\u0623\u0645\u0627\u0646. \u0642\u0627\u0631\u0646" +
+            " \u0627\u0644\u0631\u0642\u0645 \u0642\u0628\u0644 \u0627\u0644\u0645\u062A\u0627\u0628\u0639\u0629."
+    )
+
+    private val expandedSamples = Samples(
+        title = "[\u015C\u00E9\u0163\u0163\u00EE\u00F1\u011D\u0161 \u00E5\u00F1\u00F0 \u03C1\u0157\u00EE\u1E7D\u00E5\u00E7\u00FD one two]",
+        name = "[\u00C5\u00F0\u00E5 \u0141\u00F6\u1E7D\u00E9\u013C\u00E5\u00E7\u00E9 one two]",
+        subtitle = "[\u00D6\u00F1\u013C\u00EE\u00F1\u00E9 \u00F1\u00F6\u0175 one two three]",
+        tab = "[\u1E3E\u00E9\u0161\u0161\u00E5\u011D\u00E9\u0161 one]",
+        body = "[\u0124\u00E5\u1E7D\u00E9 \u00FD\u00F6\u00FB \u0157\u00E9\u1E7D\u00EE\u00E9\u0175\u00E9\u00F0" +
+            " \u0163\u0125\u00E9 \u0192\u00EE\u013C\u00E9 one two three four]",
+        other = "[\u00DD\u00E9\u0161, \u00CE \u0157\u00E9\u1E7D\u00EE\u00E9\u0175\u00E9\u00F0 \u00EE\u0163 one two]",
+        placeholder = "[\u1E3E\u00E9\u0161\u0161\u00E5\u011D\u00E9\u2026 one]",
+        warning = "[\u0162\u0125\u00E9 \u0161\u00E5\u0192\u00E9\u0163\u00FD \u00F1\u00FB\u0271\u0180\u00E9\u0157" +
+            " \u00E7\u0125\u00E5\u00F1\u011D\u00E9\u00F0." +
+            " \u00C7\u00F6\u0271\u03C1\u00E5\u0157\u00E9 \u00EE\u0163 one two three four five]"
+    )
+
     @Composable
     private fun MessagesTabBar() {
         KitTabBar(
@@ -410,9 +600,13 @@ class KitScreenshotTest {
             ),
             0,
             {},
+            bottomInset = KIT_FRAME_INSET,
             tag = "shot"
         )
     }
+
+    private fun emojiReactions() = listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE2E", "\uD83D\uDE22", "\uD83D\uDE4F")
+        .map { KitReaction(it) }
 
     private fun menuEntries() = listOf(
         KitMenuEntry("\u56de\u590d", "reply"),
@@ -429,6 +623,9 @@ class KitScreenshotTest {
         val width: Dp? = null,
         val dark: Boolean = false,
         val press: Boolean = false,
+        val rtl: Boolean = false,
+        val fontScale: Float = 1f,
+        val variant: Boolean = false,
         val body: @Composable () -> Unit
     )
 
@@ -453,8 +650,17 @@ class KitScreenshotTest {
             RamfluxTheme(item.dark) {
                 val theme = LocalRFTheme.current
                 val frame = if (item.width == null) Modifier else Modifier.width(item.width)
-                CompositionLocalProvider(LocalKitBackdrop provides theme.bg) {
-                    Box(frame) { item.body() }
+                val density = LocalDensity.current
+                CompositionLocalProvider(
+                    LocalKitBackdrop provides theme.bg,
+                    LocalLayoutDirection provides if (item.rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
+                    LocalDensity provides Density(density.density, item.fontScale)
+                ) {
+                    if (item.variant) {
+                        Box(frame.background(theme.bg).padding(vertical = VARIANT_PAD.dp).testTag("variant")) { item.body() }
+                    } else {
+                        Box(frame) { item.body() }
+                    }
                 }
             }
         }
@@ -467,15 +673,25 @@ class KitScreenshotTest {
                 compose.onNodeWithTag("shot", useUnmergedTree = true).performTouchInput { down(center) }
                 compose.mainClock.advanceTimeBy(32)
             }
-            compose.onNodeWithTag("shot", useUnmergedTree = true)
-                .captureRoboImage("build/outputs/roborazzi/${item.name}.png")
+            // Variants have no design master; they go beside the master captures, not into the comparison.
+            if (item.variant) {
+                compose.onNodeWithTag("variant", useUnmergedTree = true)
+                    .captureRoboImage("build/outputs/roborazzi-variants/${item.name}.png")
+            } else {
+                compose.onNodeWithTag("shot", useUnmergedTree = true)
+                    .captureRoboImage("build/outputs/roborazzi/${item.name}.png")
+            }
             if (item.press) compose.onNodeWithTag("shot", useUnmergedTree = true).performTouchInput { up() }
         }
     }
 
+    private companion object {
+        const val VARIANT_PAD = 16
+    }
+
     private fun shot(name: String, width: Dp? = null, dark: Boolean = false, press: Boolean = false, body: @Composable () -> Unit) {
         val pending = batch
-        val item = Frame(name, width, dark, press, body)
+        val item = Frame(name, width, dark, press, body = body)
         if (pending != null) {
             pending.add(item)
         } else {
@@ -483,3 +699,10 @@ class KitScreenshotTest {
         }
     }
 }
+
+private const val RAIL_SAMPLE_HEIGHT = 420
+
+/** Recovery-style words as character arrays, the only form LtrSecretWords accepts. */
+private val secretWords = listOf(
+    "apple", "river", "stone", "cloud", "amber", "orbit", "maple", "quartz", "harbor", "tiger", "violet", "zebra"
+).map { it.toCharArray() }

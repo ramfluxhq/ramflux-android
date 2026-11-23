@@ -5,14 +5,26 @@ package org.ramflux.designsystem.kit
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziOptions
@@ -93,6 +105,7 @@ class KitLayoutTest {
                         ),
                         0,
                         {},
+                        bottomInset = KIT_FRAME_INSET,
                         tag = "tabs"
                     )
                     KitHomeIndicator(tag = "home")
@@ -128,7 +141,7 @@ class KitLayoutTest {
                     KitInfoButton({}, tag = "info")
                     KitPageHeader("Title", onBack = {}, tag = "header")
                     KitChatHeader("Title", null, { KitAvatar("A", 36f, KitAvatarKind.Person) }, {}, tag = "chat")
-                    KitTabBar(listOf(KitTab("messages-square", "Messages")), 0, {}, tag = "tabs")
+                    KitTabBar(listOf(KitTab("messages-square", "Messages")), 0, {}, bottomInset = KIT_FRAME_INSET, tag = "tabs")
                     KitContextMenu(listOf(KitMenuEntry("Reply", "reply")), {}, tag = "menu")
                 }
             }
@@ -169,7 +182,7 @@ class KitLayoutTest {
                     KitSearchField("x", {}, "\u641c\u7d22", tag = "search")
                     KitSegmented(listOf("A", "B"), 0, {}, tag = "segments")
                     KitComposer("x", {}, "\u6d88\u606f", {}, {}, sendActive = true, tag = "composer")
-                    KitReactionBar(listOf("\uD83D\uDC4D"), {}, {}, tag = "reactions")
+                    KitReactionBar(listOf(KitReaction("\uD83D\uDC4D")), {}, {}, tag = "reactions")
                 }
             }
         }
@@ -254,6 +267,69 @@ class KitLayoutTest {
         compose.onNodeWithTag("loading-spinner", useUnmergedTree = true).assertExists()
     }
 
+    @Test fun headerBackAndMenuIconsSitAtTheStartInRightToLeft() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Column(Modifier.width(393.dp)) {
+                        KitPageHeader("\u0639\u0646\u0648\u0627\u0646", onBack = {}, tag = "header")
+                        KitContextMenu(listOf(KitMenuEntry("\u0631\u062f", "reply")), {}, tag = "menu")
+                    }
+                }
+            }
+        }
+        val back = compose.onNodeWithTag("header-back", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        check(back.left > 300f) { "back at ${back.left}" }
+        val hit = compose.onNodeWithTag("menu-hit-0-0", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        check(hit.right == 393f) { "menu row ends at ${hit.right}" }
+    }
+
+    @Test fun textFramesGrowAtFontScaleTwo() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                val density = LocalDensity.current
+                CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                    Column(Modifier.width(360.dp)) {
+                        KitChatHeader("Title", "Subtitle", { KitAvatar("A", 36f, KitAvatarKind.Person) }, {}, tag = "header")
+                        KitRow("Label", {}, icon = "user-round", value = "Value", testTag = "row")
+                        KitButton("Continue with the existing identity on this device", {}, tag = "button")
+                        KitButton("Enter the pairing code shown on the other device", {}, kind = KitButtonKind.Text, tag = "text")
+                        KitTabBar(listOf(KitTab("messages-square", "Messages")), 0, {}, bottomInset = KIT_FRAME_INSET, tag = "tabs")
+                        KitComposer("", {}, "Message", {}, {}, tag = "composer")
+                        KitSegmented(listOf("Scan", "Compare the safety number"), 0, {}, tag = "segments")
+                    }
+                }
+            }
+        }
+        fun height(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().size.height
+        check(height("header") > 60) { "header ${height("header")}" }
+        check(height("row") > 58) { "row ${height("row")}" }
+        check(height("button") > 52) { "button ${height("button")}" }
+        check(height("text") > 44) { "text button ${height("text")}" }
+        check(height("tabs") > 83) { "tabs ${height("tabs")}" }
+        check(height("composer") > 60) { "composer ${height("composer")}" }
+        check(height("segments") > 36) { "segments ${height("segments")}" }
+        compose.onNodeWithTag("segments-0", useUnmergedTree = true).assertHeightIsEqualTo(
+            compose.onNodeWithTag(
+                "segments-1",
+                useUnmergedTree = true
+            ).fetchSemanticsNode().let { with(Density(1f)) { it.size.height.toDp() } }
+        )
+    }
+
+    @Test fun wideKitPartsFitANarrowPane() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column(Modifier.width(200.dp)) {
+                    KitContextMenu(listOf(KitMenuEntry("Reply", "reply")), {}, tag = "menu")
+                    KitApprovalCard("Ada", "Pending", "Title", "Scope", "Detail", "Decline", "Approve", {}, {}, tag = "card")
+                }
+            }
+        }
+        compose.onNodeWithTag("menu").assertWidthIsEqualTo(200.dp)
+        compose.onNodeWithTag("card").assertWidthIsEqualTo(200.dp)
+    }
+
     private fun colorAt(tag: String, x: Int, y: Int): Int = capture(tag).getPixel(x, y)
 
     private fun channel(image: android.graphics.Bitmap, x: Int, y: Int): Float = android.graphics.Color.red(image.getPixel(x, y)) / 255f
@@ -274,6 +350,93 @@ class KitLayoutTest {
         } finally {
             file.delete()
         }
+    }
+
+    @Test fun tabBarBandFollowsTheBottomInset() {
+        val tabs = listOf(KitTab("messages-square", "Messages"), KitTab("ellipsis", "More"))
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column(Modifier.width(393.dp)) {
+                    KitTabBar(tabs, 0, {}, bottomInset = WindowInsets(0, 0, 0, 0), tag = "none")
+                    KitTabBar(tabs, 0, {}, bottomInset = KIT_FRAME_INSET, tag = "frame")
+                    KitTabBar(tabs, 0, {}, bottomInset = WindowInsets(bottom = 48.dp), tag = "tall")
+                }
+            }
+        }
+        // Tab row 8 + 48 dp; the band is the inset less the design frame's 3 dp overlap and the 4 dp hit overhang.
+        compose.onNodeWithTag("none", useUnmergedTree = true).assertHeightIsEqualTo(56.dp)
+        compose.onNodeWithTag("frame", useUnmergedTree = true).assertHeightIsEqualTo(83.dp)
+        compose.onNodeWithTag("tall", useUnmergedTree = true).assertHeightIsEqualTo(97.dp)
+    }
+
+    @Test fun railStacksTheDestinationsWithHitFramesAndPadsTheInset() {
+        val tabs = listOf(KitTab("messages-square", "Messages", badge = "3"), KitTab("users-round", "Groups"), KitTab("ellipsis", "More"))
+        var picked = -1
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Box(Modifier.height(600.dp)) {
+                    KitNavigationRail(tabs, 0, { picked = it }, bottomInset = KIT_FRAME_INSET, tag = "rail")
+                }
+            }
+        }
+        compose.onNodeWithTag("rail", useUnmergedTree = true).assertWidthIsEqualTo(80.dp).assertHeightIsEqualTo(600.dp)
+        (0..2).forEach { compose.onNodeWithTag("rail-$it", useUnmergedTree = true).assertHeightIsAtLeast(48.dp) }
+        val first = compose.onNodeWithTag("rail-0", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val second = compose.onNodeWithTag("rail-1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        check(second.top >= first.bottom) { "rail cells overlap: $first $second" }
+        compose.onNodeWithTag("rail-2", useUnmergedTree = true).performClick()
+        compose.runOnIdle { check(picked == 2) { "picked $picked" } }
+    }
+
+    @Test fun railLabelsWrapAtLargeFontScale() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                val density = LocalDensity.current
+                CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                    KitNavigationRail(listOf(KitTab("users-round", "Communities and channels")), 0, {}, tag = "rail")
+                }
+            }
+        }
+        val cell = compose.onNodeWithTag("rail-0", useUnmergedTree = true).fetchSemanticsNode().size.height
+        check(cell > 48 * compose.density.density) { "rail label did not wrap: $cell" }
+    }
+
+    @Test fun secretWordsStayLeftToRightNumberedAndOutOfTheSemanticsTree() {
+        val words = listOf("apple", "river", "stone", "cloud").map { it.toCharArray() }
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Box(Modifier.width(360.dp)) {
+                        LtrSecretWords(words.size, { index, block -> block(words[index]) }, tag = "words")
+                    }
+                }
+            }
+        }
+        val first = compose.onNodeWithTag("words-0", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val second = compose.onNodeWithTag("words-1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        check(first.top < second.top || first.left < second.left) { "word 1 is not after word 0 left to right: $first $second" }
+        compose.onNodeWithText("1").assertExists()
+        compose.onNodeWithText("4").assertExists()
+        words.forEach { compose.onAllNodesWithText(String(it), substring = true, useUnmergedTree = true).assertCountEquals(0) }
+    }
+
+    @Test fun secretWordsGrowWithTheFontScale() {
+        val words = listOf("apple".toCharArray())
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column(Modifier.width(360.dp)) {
+                    LtrSecretWords(1, { _, block -> block(words[0]) }, tag = "normal")
+                    val density = LocalDensity.current
+                    CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                        LtrSecretWords(1, { _, block -> block(words[0]) }, tag = "large")
+                    }
+                }
+            }
+        }
+        val normal = compose.onNodeWithTag("normal-0", useUnmergedTree = true).fetchSemanticsNode().size.height
+        val large = compose.onNodeWithTag("large-0", useUnmergedTree = true).fetchSemanticsNode().size.height
+        // Platform font scaling is non-linear above 1.3 on recent API levels, so 2.0 grows the line by less than 2x.
+        check(large > normal * 3 / 2) { "secret words ignore the font scale: $normal -> $large" }
     }
 
     private fun frame(tag: String, width: androidx.compose.ui.unit.Dp, content: @androidx.compose.runtime.Composable () -> Unit) {

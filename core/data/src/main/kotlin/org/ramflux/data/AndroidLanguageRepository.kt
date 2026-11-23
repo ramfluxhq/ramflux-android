@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-internal class AndroidLanguageRepository(context: Context) : LanguageRepository {
+internal class AndroidLanguageRepository(context: Context, override val languages: List<AppLanguage>) : LanguageRepository {
     private val preferences = context.getSharedPreferences("language", Context.MODE_PRIVATE)
     private val guard = Mutex()
     private val mutable = MutableStateFlow(LanguageSnapshot())
@@ -18,7 +18,7 @@ internal class AndroidLanguageRepository(context: Context) : LanguageRepository 
         guard.withLock {
             mutable.value = try {
                 val stored = preferences.getString("language_tag", "")
-                val language = AppLanguage.entries.find { it.tag == stored }
+                val language = languages.find { it.tag == stored }
                 if (language == null) LanguageSnapshot(loading = false, problem = ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE))
                 else LanguageSnapshot(language, loading = false)
             } catch (_: RuntimeException) {

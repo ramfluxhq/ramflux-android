@@ -13,10 +13,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -28,7 +29,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import org.ramflux.designsystem.LocalRFTheme
+
+/**
+ * One reaction cell: an emoji [glyph], or a kit [icon] for a reaction that has no emoji. [label] is what
+ * accessibility services read.
+ */
+data class KitReaction(val label: String, val glyph: String = label, val icon: String? = null)
 
 data class KitMenuEntry(val label: String, val icon: String, val danger: Boolean = false, val groupBefore: Boolean = false)
 
@@ -38,7 +46,8 @@ fun KitContextMenu(entries: List<KitMenuEntry>, onSelect: (Int) -> Unit, modifie
     val shape = shapeOf(theme.radius_menu)
     Column(
         modifier
-            .width(dp(RfMetrics.menu))
+            .widthIn(max = dp(RfMetrics.menu))
+            .fillMaxWidth()
             .border(dp(RfMetrics.stroke), theme.overlay_border, shape)
             .background(theme.overlay, shape)
             .kitTag(tag)
@@ -69,11 +78,15 @@ private fun MenuRun(entries: List<KitMenuEntry>, offset: Int, onSelect: (Int) ->
         val visualPx = visual.roundToPx()
         val hitPx = hit.roundToPx()
         val placeables = measurables.map {
-            it.measure(constraints.copy(minWidth = constraints.maxWidth, minHeight = hitPx, maxHeight = hitPx))
+            it.measure(constraints.copy(minWidth = constraints.maxWidth, minHeight = hitPx, maxHeight = Constraints.Infinity))
         }
-        layout(constraints.maxWidth, visualPx * placeables.size) {
+        // Each row draws at least the item height; a label that wraps grows its row and its hit frame.
+        val drawn = placeables.map { maxOf(visualPx, it.height - (hitPx - visualPx)) }
+        layout(constraints.maxWidth, drawn.sum()) {
+            var y = 0
             placeables.forEachIndexed { index, placeable ->
-                placeable.place(0, index * visualPx - (hitPx - visualPx) / 2)
+                placeable.placeRelative(0, y + (drawn[index] - placeable.height) / 2)
+                y += drawn[index]
             }
         }
     }
@@ -88,7 +101,7 @@ private fun KitMenuItem(entry: KitMenuEntry, hairline: Boolean, hitTag: String, 
     Box(
         Modifier
             .fillMaxWidth()
-            .height(dp(RfMetrics.hit))
+            .heightIn(min = dp(RfMetrics.hit))
             .semantics { contentDescription = entry.label }
             .clickableNoRipple(interaction, true, onClick)
             .kitTag("menu-hit-" + hitTag),
@@ -97,14 +110,14 @@ private fun KitMenuItem(entry: KitMenuEntry, hairline: Boolean, hitTag: String, 
         Row(
             Modifier
                 .fillMaxWidth()
-                .height(dp(RfMetrics.menuItem))
+                .heightIn(min = dp(RfMetrics.menuItem))
                 .background(if (pressed) theme.selected else Color.Transparent)
                 .then(if (hairline) Modifier.kitHairline(theme.line) else Modifier)
                 .padding(horizontal = dp(RfMetrics.menuPad)),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
         ) {
-            Text(
+            KitText(
                 entry.label,
                 modifier = Modifier.weight(1f),
                 style = kitStyle(theme.size_mobile_body, FontWeight.Normal, tint, RfMetrics.lineTitle)
@@ -116,17 +129,18 @@ private fun KitMenuItem(entry: KitMenuEntry, hairline: Boolean, hitTag: String, 
 
 @Composable
 fun KitReactionBar(
-    reactions: List<String>,
+    reactions: List<KitReaction>,
     onReaction: (Int) -> Unit,
-    onMore: () -> Unit,
+    onMore: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    moreLabel: String = "plus",
     tag: String? = null
 ) {
     val theme = LocalRFTheme.current
     val shape = shapeOf(theme.radius_menu)
     Row(
         modifier
-            .height(dp(RfMetrics.reaction))
+            .heightIn(min = dp(RfMetrics.reaction))
             .kitBackdrop()
             .border(dp(RfMetrics.stroke), theme.overlay_border, shape)
             .background(theme.overlay, shape)
@@ -140,37 +154,61 @@ fun KitReactionBar(
                 { onReaction(index) },
                 slotWidth = RfMetrics.reactionCell,
                 slotHeight = RfMetrics.reaction,
-                label = reaction,
+                label = reaction.label,
                 tag = if (tag == null) null else tag + "-" + index.toString()
             ) {
                 Box(
                     Modifier
-                        .size(dp(RfMetrics.reactionCell), dp(RfMetrics.reaction))
+                        .sizeIn(minWidth = dp(RfMetrics.reactionCell), minHeight = dp(RfMetrics.reaction))
                         .kitTag(if (tag == null) null else tag + "-cell-" + index.toString()),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(reaction, style = kitStyle(theme.size_page, FontWeight.Normal, theme.text, RfMetrics.lineTitle))
+                    if (reaction.icon != null) {
+                        KitIcon(reaction.icon, RfMetrics.moreIcon, theme.text)
+                    } else {
+                        KitText(reaction.glyph, style = kitStyle(theme.size_page, FontWeight.Normal, theme.text, RfMetrics.lineTitle))
+                    }
                 }
             }
         }
-        HitOverlap(
-            onMore,
-            slotWidth = RfMetrics.reactionCell,
-            slotHeight = RfMetrics.reaction,
-            label = "plus",
-            tag = if (tag == null) null else tag + "-more"
-        ) {
-            Box(
-                Modifier
-                    .size(dp(RfMetrics.reactionCell), dp(RfMetrics.reaction))
-                    .background(theme.surface, shapeOf(theme.radius_xs))
-                    .kitTag(if (tag == null) null else tag + "-more-cell"),
-                contentAlignment = Alignment.Center
-            ) {
-                KitIcon("plus", RfMetrics.moreIcon, theme.text)
-            }
+        if (onMore != null) {
+            ReactionMore(onMore, moreLabel, tag)
         }
     }
+}
+
+@Composable
+private fun ReactionMore(onMore: () -> Unit, label: String, tag: String?) {
+    val theme = LocalRFTheme.current
+    HitOverlap(
+        onMore,
+        slotWidth = RfMetrics.reactionCell,
+        slotHeight = RfMetrics.reaction,
+        label = label,
+        tag = if (tag == null) null else tag + "-more"
+    ) {
+        Box(
+            Modifier
+                .sizeIn(minWidth = dp(RfMetrics.reactionCell), minHeight = dp(RfMetrics.reaction))
+                .background(theme.surface, shapeOf(theme.radius_xs))
+                .kitTag(if (tag == null) null else tag + "-more-cell"),
+            contentAlignment = Alignment.Center
+        ) {
+            KitIcon("plus", RfMetrics.moreIcon, theme.text)
+        }
+    }
+}
+
+/** A secondary caption line: call records, typing, reactions and delivery notes in a timeline. */
+@Composable
+fun KitMeta(text: String, modifier: Modifier = Modifier, centered: Boolean = false, tag: String? = null) {
+    val theme = LocalRFTheme.current
+    KitText(
+        text,
+        modifier.kitTag(tag),
+        style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle),
+        textAlign = if (centered) TextAlign.Center else TextAlign.Start
+    )
 }
 
 @Composable
@@ -183,7 +221,7 @@ fun KitDateChip(label: String, modifier: Modifier = Modifier, tag: String? = nul
                 shapeOf(theme.radius_chip)
             ).padding(horizontal = dp(RfMetrics.chipPadH), vertical = dp(RfMetrics.chipPadV))
         ) {
-            Text(label, style = kitStyle(theme.size_meta, FontWeight.Medium, theme.secondary, RfMetrics.lineTitle))
+            KitText(label, style = kitStyle(theme.size_meta, FontWeight.Medium, theme.secondary, RfMetrics.lineTitle), designLine = true)
         }
     }
 }
@@ -192,12 +230,16 @@ fun KitDateChip(label: String, modifier: Modifier = Modifier, tag: String? = nul
 fun KitUnreadDivider(label: String, modifier: Modifier = Modifier, tag: String? = null) {
     val theme = LocalRFTheme.current
     Row(
-        modifier.fillMaxWidth().height(dp(RfMetrics.unread)).kitBackdrop().kitTag(tag),
+        modifier.fillMaxWidth().heightIn(min = dp(RfMetrics.unread)).kitBackdrop().kitTag(tag),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.unreadGap))
     ) {
         Box(Modifier.weight(1f).height(dp(RfMetrics.unreadLine)).background(theme.line_strong))
-        Text(label, textAlign = TextAlign.Center, style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle))
+        KitText(
+            label,
+            textAlign = TextAlign.Center,
+            style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
+        )
         Box(Modifier.weight(1f).height(dp(RfMetrics.unreadLine)).background(theme.line_strong))
     }
 }

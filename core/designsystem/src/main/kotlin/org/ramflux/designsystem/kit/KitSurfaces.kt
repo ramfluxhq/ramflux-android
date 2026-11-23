@@ -10,12 +10,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,7 +22,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import org.ramflux.designsystem.LocalRFTheme
 
 enum class KitWarningTone { Warning, Danger }
@@ -62,8 +60,8 @@ fun KitSheet(
                 dp(RfMetrics.grabberHeight)
             ).clip(shapeOf(RfMetrics.grabberRadius)).background(theme.line_strong)
         )
-        Text(title, style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle))
-        Text(body, style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody))
+        KitText(title, style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle))
+        KitText(body, style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody))
         if (showClose) KitButton(closeLabel, onClose, kind = KitButtonKind.Secondary)
     }
 }
@@ -89,13 +87,13 @@ fun KitTipBar(
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.tipGap))
     ) {
         if (loading) KitSpinner(RfMetrics.tipIcon, theme.secondary) else KitIcon(icon, RfMetrics.tipIcon, theme.secondary)
-        Text(
+        KitText(
             text,
             modifier = Modifier.weight(1f),
             style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.text, RfMetrics.lineSecondary)
         )
         if (!action.isNullOrEmpty() && onAction != null) {
-            Text(
+            KitText(
                 action,
                 modifier = Modifier.clickableNoRipple(true, onAction),
                 style = kitStyle(theme.size_secondary, FontWeight.SemiBold, theme.text, RfMetrics.lineSecondary)
@@ -129,8 +127,8 @@ fun KitSecurityWarning(
             if (danger) theme.danger else theme.warning
         )
         Column(verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))) {
-            Text(title, style = kitStyle(theme.size_body, FontWeight.SemiBold, theme.text, RfMetrics.lineBubble))
-            Text(body, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.text, 1.5f))
+            KitText(title, style = kitStyle(theme.size_body, FontWeight.SemiBold, theme.text, RfMetrics.lineBubble))
+            KitText(body, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.text, 1.5f))
         }
     }
 }
@@ -165,7 +163,8 @@ fun KitApprovalCard(
     val theme = LocalRFTheme.current
     Column(
         modifier
-            .width(dp(RfMetrics.approval))
+            .widthIn(max = dp(RfMetrics.approval))
+            .fillMaxWidth()
             .border(dp(RfMetrics.stroke), theme.line, shapeOf(theme.radius_card))
             .background(theme.surface_white, shapeOf(theme.radius_card))
             .kitTag(tag)
@@ -174,7 +173,7 @@ fun KitApprovalCard(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))) {
             KitAvatar("", RfMetrics.approvalAvatar, KitAvatarKind.Agent)
-            Text(
+            KitText(
                 requester,
                 modifier = Modifier.weight(1f),
                 style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary)
@@ -185,19 +184,19 @@ fun KitApprovalCard(
                     shapeOf(theme.radius_chip)
                 ).padding(horizontal = dp(RfMetrics.tagPadH), vertical = dp(RfMetrics.tagPadV))
             ) {
-                Text(status, style = kitStyle(theme.size_meta, FontWeight.Normal, theme.text, RfMetrics.lineTitle))
+                KitText(status, style = kitStyle(theme.size_meta, FontWeight.Normal, theme.text, RfMetrics.lineTitle))
             }
         }
-        Text(title, style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle))
+        KitText(title, style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle))
         Column(
             Modifier.fillMaxWidth().background(theme.surface, shapeOf(theme.radius_md)).padding(dp(RfMetrics.scopePad)),
             verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.summaryGap))
         ) {
-            Text(scopeLabel, style = kitStyle(theme.size_secondary, FontWeight.Medium, theme.text, RfMetrics.lineSecondary))
-            Text(scopeDetail, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
+            KitText(scopeLabel, style = kitStyle(theme.size_secondary, FontWeight.Medium, theme.text, RfMetrics.lineSecondary))
+            KitText(scopeDetail, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
         }
         if (!result.isNullOrEmpty()) {
-            Text(result, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
+            KitText(result, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
         }
         if (actions) {
             Row(horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))) {
@@ -209,7 +208,7 @@ fun KitApprovalCard(
 }
 
 @Composable
-fun KitMonoBlock(value: String, onCopy: () -> Unit, modifier: Modifier = Modifier, tag: String? = null) {
+fun KitMonoBlock(value: String, onCopy: () -> Unit, modifier: Modifier = Modifier, groupSize: Int = 0, tag: String? = null) {
     val theme = LocalRFTheme.current
     Row(
         modifier
@@ -225,11 +224,7 @@ fun KitMonoBlock(value: String, onCopy: () -> Unit, modifier: Modifier = Modifie
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))
     ) {
-        Text(
-            value,
-            modifier = Modifier.weight(1f),
-            style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody, RfFonts.mono)
-        )
+        LtrCode(value, Modifier.weight(1f), groupSize = groupSize)
         IconHit("copy", RfMetrics.iconInfo, theme.secondary, onCopy)
     }
 }
@@ -238,20 +233,16 @@ fun KitMonoBlock(value: String, onCopy: () -> Unit, modifier: Modifier = Modifie
 fun KitPairingCode(code: String, modifier: Modifier = Modifier, tag: String? = null) {
     val theme = LocalRFTheme.current
     Box(
-        modifier.fillMaxWidth().height(dp(RfMetrics.pairing)).background(theme.surface, shapeOf(theme.radius_md)).kitTag(tag),
+        modifier.fillMaxWidth().heightIn(min = dp(RfMetrics.pairing)).background(theme.surface, shapeOf(theme.radius_md)).kitTag(tag),
         contentAlignment = Alignment.Center
     ) {
-        Text(
+        LtrCode(
             code,
-            textAlign = TextAlign.Center,
-            style = kitStyle(
-                RfMetrics.pairingSize,
-                FontWeight.SemiBold,
-                theme.text,
-                RfMetrics.lineTitle,
-                RfFonts.mono,
-                RfMetrics.pairingTrack
-            )
+            size = RfMetrics.pairingSize,
+            weight = FontWeight.SemiBold,
+            tracking = RfMetrics.pairingTrack,
+            line = RfMetrics.lineTitle,
+            centered = true
         )
     }
 }

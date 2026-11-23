@@ -54,6 +54,7 @@ jobs:
           if-no-files-found: error
           path: |
             core/designsystem/build/outputs/roborazzi/
+            core/designsystem/build/outputs/roborazzi-variants/
             core/designsystem/build/outputs/kit-compare/
       # Board captures are compared pixel by pixel with the current design exports. Reviewed
       # deviations (the alignment work list) are reported as KNOWN; any new deviation fails.

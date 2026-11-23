@@ -3,5 +3,6 @@
 
 package org.ramflux.feature.settings.api
 import androidx.navigation3.runtime.NavKey
+import org.ramflux.navigation.AccountScoped
 import kotlinx.serialization.Serializable
-@Serializable data object SettingsRoute : NavKey
+@Serializable data object SettingsRoute : NavKey, AccountScoped

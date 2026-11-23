@@ -31,9 +31,9 @@ import org.ramflux.feature.calls.impl.R
 @Composable
 fun CallsScreen(state: CallsState, onAction: (CallsAction) -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
-    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets.safeDrawing) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
-            Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
+            Column(Modifier.fillMaxSize()) {
                 val subtitle = state.account.orEmpty()
                 KitPageHeader(
                     stringResource(if (state.selected == null) R.string.calls_history else R.string.calls_call),

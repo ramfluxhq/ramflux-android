@@ -80,9 +80,8 @@ class TopLevelNavigatorTest {
         nav.select(2)
         nav.push(AccountKey("contacts"))
         nav.push(Key("notices"))
-        val policy = RoutePolicy(alsoAccountScoped = { it == Key("tasks") })
-        nav.push(Key("tasks"))
-        nav.dropAccountScoped(policy::isAccountScoped)
+        nav.push(AccountKey("tasks"))
+        nav.dropAccountScoped(RoutePolicy()::isAccountScoped)
         assertEquals(listOf(more, Key("notices")), nav.stacks[2])
         assertEquals(listOf(messages), nav.stacks[0])
         assertEquals(listOf(groups), nav.stacks[1])
@@ -139,5 +138,8 @@ class TopLevelNavigatorTest {
         assertTrue(AdaptiveSpec(393, 400).shortHeight)
         assertEquals(NavigationForm.RAIL, AdaptiveSpec(700, 840).navigationForm)
         assertEquals(NavigationForm.BOTTOM_BAR, AdaptiveSpec(360, 800).navigationForm)
+        assertEquals(NavigationForm.BOTTOM_BAR, AdaptiveSpec(599, 800).navigationForm)
+        assertEquals(NavigationForm.RAIL, AdaptiveSpec(600, 800).navigationForm)
+        assertEquals(NavigationForm.RAIL, AdaptiveSpec(1000, 760).navigationForm)
     }
 }

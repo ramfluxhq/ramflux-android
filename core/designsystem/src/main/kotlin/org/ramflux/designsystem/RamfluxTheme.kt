@@ -23,7 +23,7 @@ fun RamfluxTheme(dark: Boolean = isSystemInDarkTheme(), themeId: String? = null,
     val theme = named?.tokens ?: if (dark) RFDesign.dark else RFDesign.light
     val isDark = named?.dark ?: dark
     val configuration = LocalConfiguration.current
-    val family = if (configuration.locales[0].language == "zh") RfFonts.ui else RfFonts.latin
+    val family = RfFonts.forLocale(configuration.locales[0])
     fun style(size: Float) = TextStyle(fontFamily = family, fontSize = size.sp)
     val base = if (isDark) darkColorScheme() else lightColorScheme()
     val scheme = base.copy(

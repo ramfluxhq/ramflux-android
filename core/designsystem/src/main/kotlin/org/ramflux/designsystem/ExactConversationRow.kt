@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,10 +16,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.ramflux.core.designsystem.R
+import org.ramflux.designsystem.kit.untrustedDisplay
 
 /** Conversation row geometry with a host-owned exact count and manual-unread trailing presentation.
  * The generated row accepts UInt, so it cannot represent the SDK's complete unsigned64 domain.
@@ -57,8 +60,9 @@ fun ExactConversationRow(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp)) {
                 Text(
-                    title,
+                    untrustedDisplay(title, UntrustedKind.Excerpt),
                     Modifier.weight(1f),
+                    style = LocalTextStyle.current.copy(textDirection = TextDirection.Content),
                     color = theme.text,
                     fontSize = theme.size_mobile_body.sp,
                     fontWeight = if (isUnread) FontWeight.SemiBold else FontWeight.Normal,
@@ -69,8 +73,9 @@ fun ExactConversationRow(
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp)) {
                 Text(
-                    summary,
+                    untrustedDisplay(summary, UntrustedKind.Excerpt),
                     Modifier.weight(1f),
+                    style = LocalTextStyle.current.copy(textDirection = TextDirection.Content),
                     color = theme.secondary,
                     fontSize = theme.size_body.sp,
                     maxLines = 1,

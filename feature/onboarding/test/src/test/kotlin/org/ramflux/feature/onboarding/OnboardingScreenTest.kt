@@ -9,13 +9,18 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -95,22 +100,24 @@ class OnboardingScreenTest {
                 imePixels = with(density) { 180.dp.toPx() }
                 CompositionLocalProvider(LocalDensity provides Density(density.density, 1.5f)) {
                     RamfluxTheme {
-                        OnboardingScreen(
-                            OnboardingState(
-                                page = OnboardingPage.ADDRESS,
-                                sessionReady = true,
-                                address = "node.example"
-                            ),
-                            {},
-                            contentWindowInsets = WindowInsets(bottom = 180.dp)
-                        )
+                        // The caller owns the insets, as the app's root page does.
+                        Box(Modifier.fillMaxSize().testTag("window").windowInsetsPadding(WindowInsets(bottom = 180.dp))) {
+                            OnboardingScreen(
+                                OnboardingState(
+                                    page = OnboardingPage.ADDRESS,
+                                    sessionReady = true,
+                                    address = "node.example"
+                                ),
+                                {}
+                            )
+                        }
                     }
                 }
             }
         }
         compose.onNodeWithTag("node-address").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Verify node").assertIsDisplayed()
-        val window = compose.onNodeWithTag("onboarding-window").fetchSemanticsNode().boundsInRoot
+        val window = compose.onNodeWithTag("window").fetchSemanticsNode().boundsInRoot
         val footer = compose.onNodeWithTag("onboarding-footer").fetchSemanticsNode().boundsInRoot
         assertEquals("IME padding is applied exactly once", window.bottom - imePixels, footer.bottom, 1f)
         val header = compose.onNodeWithTag("onboarding-header").getUnclippedBoundsInRoot()
@@ -359,6 +366,9 @@ class OnboardingScreenTest {
         assertTrue(secretInfo.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0)
         assertFalse(word.masksInput())
         assertTrue(secret.masksInput())
+        assertTrue(wordInfo.imeOptions and EditorInfo.IME_FLAG_FORCE_ASCII != 0)
+        assertEquals(View.LAYOUT_DIRECTION_LTR, word.layoutDirection)
+        assertEquals(View.LAYOUT_DIRECTION_LTR, secret.layoutDirection)
         compose.onNodeWithTag("confirm-account").performClick()
         compose.waitForIdle()
         val action = actions.single() as OnboardingAction.ConfirmChallenge
@@ -531,21 +541,23 @@ class OnboardingScreenTest {
                 imePixels = with(density) { 220.dp.toPx() }
                 CompositionLocalProvider(LocalDensity provides Density(density.density, 1.5f)) {
                     RamfluxTheme {
-                        OnboardingScreen(
-                            OnboardingState(
-                                page = OnboardingPage.CHALLENGE,
-                                sessionReady = true,
-                                challengePositions = persistentListOf(2, 15, 24)
-                            ),
-                            {},
-                            contentWindowInsets = WindowInsets(bottom = 220.dp)
-                        )
+                        // The caller owns the insets, as the app's root page does.
+                        Box(Modifier.fillMaxSize().testTag("window").windowInsetsPadding(WindowInsets(bottom = 220.dp))) {
+                            OnboardingScreen(
+                                OnboardingState(
+                                    page = OnboardingPage.CHALLENGE,
+                                    sessionReady = true,
+                                    challengePositions = persistentListOf(2, 15, 24)
+                                ),
+                                {}
+                            )
+                        }
                     }
                 }
             }
         }
         compose.onNodeWithTag("confirm-account").assertIsDisplayed()
-        val window = compose.onNodeWithTag("onboarding-window").fetchSemanticsNode().boundsInRoot
+        val window = compose.onNodeWithTag("window").fetchSemanticsNode().boundsInRoot
         val footer = compose.onNodeWithTag("onboarding-footer").fetchSemanticsNode().boundsInRoot
         val button = compose.onNodeWithTag("confirm-account").fetchSemanticsNode().boundsInRoot
         assertEquals("IME padding is applied exactly once", window.bottom - imePixels, footer.bottom, 1f)

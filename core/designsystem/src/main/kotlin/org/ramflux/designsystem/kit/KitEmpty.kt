@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,9 +30,9 @@ fun KitEmpty(
         verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
     ) {
         KitIconTile(icon)
-        Text(title, style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle))
+        KitText(title, style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle))
         if (body.isNotEmpty()) {
-            Text(body, style = kitStyle(theme.size_body, FontWeight.Normal, theme.secondary, RfMetrics.lineBody))
+            KitText(body, style = kitStyle(theme.size_body, FontWeight.Normal, theme.secondary, RfMetrics.lineBody))
         }
         if (action != null && onAction != null) KitButton(action, onAction, Modifier.fillMaxWidth())
     }

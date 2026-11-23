@@ -18,26 +18,28 @@ import org.ramflux.designsystem.kit.*
 import org.ramflux.designsystem.render
 import org.ramflux.feature.onboarding.impl.R
 
-/** Rendering only. State and all actions are supplied by the feature owner. */
+/**
+ * Rendering only. State and all actions are supplied by the feature owner. The caller owns window insets
+ * (including the keyboard) and the width cap; the screen fills the space it is given.
+ */
 @Composable
 fun OnboardingScreen(
     state: OnboardingState,
     onAction: (OnboardingAction) -> Unit,
     modifier: Modifier = Modifier,
-    contentWindowInsets: WindowInsets = WindowInsets.safeDrawing.union(WindowInsets.ime),
     drawPhrase: (Int, (CharArray) -> Unit) -> Unit = { _, _ -> }
 ) {
     val theme = LocalRFTheme.current
     val challenge = remember { ChallengeEntry() }
     val unlockPassphrase = remember { ErasableBuffer() }
-    Scaffold(modifier = modifier.testTag("onboarding-window"), contentWindowInsets = contentWindowInsets) { insets ->
+    Scaffold(modifier = modifier.testTag("onboarding-window"), contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
         val frame = Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)
         if (state.page == OnboardingPage.CREATE) {
             CreateAccountPage(state, onAction, frame)
             return@Scaffold
         }
         Box(frame, contentAlignment = Alignment.TopCenter) {
-            Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
+            Column(Modifier.fillMaxSize()) {
                 Box(Modifier.testTag("onboarding-header")) {
                     val subtitle = stringResource(R.string.ui_your_identity_your_connections)
                     Column {

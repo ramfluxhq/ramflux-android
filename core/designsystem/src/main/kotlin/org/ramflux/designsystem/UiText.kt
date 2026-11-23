@@ -29,6 +29,12 @@ sealed interface UiText {
     data class Unsigned(val value: ULong) : UiText
     data class DateTime(val epochSeconds: Long) : UiText
     data class Quantity(@param:PluralsRes val id: Int, val value: ULong) : UiText
+
+    /** Peer data inserted into a host sentence: sanitised and isolated, so it cannot reorder the sentence. */
+    data class Untrusted(val value: String, val kind: UntrustedKind = UntrustedKind.Name) : UiText
+
+    /** A code, fingerprint, phrase or URL inserted into a host sentence: always left-to-right, ASCII digits. */
+    data class Code(val value: String) : UiText
 }
 fun uiText(@StringRes id: Int, vararg args: UiText): UiText = UiText.Resource(id, args.toList().toPersistentList())
 
@@ -39,11 +45,13 @@ fun UiText.render(): String {
         UiText.Empty -> ""
         is UiText.Resource -> if (args.isEmpty()) stringResource(id) else stringResource(id, *args.map { it.render() }.toTypedArray())
         is UiText.Data -> value
+        is UiText.Untrusted -> Bidi.isolate(value, kind)
+        is UiText.Code -> Bidi.ltr(value)
         is UiText.Unsigned -> NumberFormat.getIntegerInstance(locale).format(BigInteger(value.toString()))
         is UiText.Number -> NumberFormat.getIntegerInstance(locale).format(value)
         is UiText.Quantity -> pluralStringResource(
             id,
-            if (value == 1uL) 1 else 2,
+            pluralQuantity(value),
             NumberFormat.getIntegerInstance(locale).format(BigInteger(value.toString()))
         )
         is UiText.DateTime -> try {
@@ -54,6 +62,19 @@ fun UiText.render(): String {
         }
     }
 }
+
+/**
+ * The quantity handed to the platform plural rules, which select the CLDR category (zero, one, two, few,
+ * many, other) for the active locale. A value above [Int.MAX_VALUE] keeps its last six digits, which
+ * decide every CLDR integer rule (n % 10, n % 100, i % 1000000), and stays above the small-number cases.
+ */
+internal fun pluralQuantity(value: ULong): Int = if (value <= Int.MAX_VALUE.toULong()) {
+    value.toInt()
+} else {
+    (value % PLURAL_MODULUS + PLURAL_MODULUS).toInt()
+}
+
+private const val PLURAL_MODULUS = 1_000_000uL
 
 @Composable
 fun localizedUnsigned(value: String): String = NumberFormat.getIntegerInstance(LocalConfiguration.current.locales[0])

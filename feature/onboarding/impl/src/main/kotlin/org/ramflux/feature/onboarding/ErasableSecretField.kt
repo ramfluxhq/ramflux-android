@@ -23,13 +23,16 @@ import android.view.inputmethod.TextAttribute
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.viewinterop.AndroidView
 import org.ramflux.designsystem.LocalRFTheme
 
@@ -130,20 +133,23 @@ fun ErasableSecretField(
         }
     }
     Text(label)
-    AndroidView(
-        factory = { context ->
-            ErasableSecretView(context).apply {
-                tag = fieldTag
-                viewRef[0] = this
-            }
-        },
-        update = { view ->
-            view.isEnabled = enabled
-            view.bind(buffer, password, limit, label) { edited() }
-            view.applyStyle(theme.text.toArgb(), theme.line.toArgb(), theme.size_body, theme.gap)
-        },
-        modifier = Modifier.fillMaxWidth().testTag(fieldTag)
-    )
+    // The field is left to right in every locale (see ErasableSecretView), including its host.
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        AndroidView(
+            factory = { context ->
+                ErasableSecretView(context).apply {
+                    tag = fieldTag
+                    viewRef[0] = this
+                }
+            },
+            update = { view ->
+                view.isEnabled = enabled
+                view.bind(buffer, password, limit, label) { edited() }
+                view.applyStyle(theme.text.toArgb(), theme.line.toArgb(), theme.size_body, theme.gap)
+            },
+            modifier = Modifier.fillMaxWidth().testTag(fieldTag)
+        )
+    }
 }
 
 /**
@@ -176,6 +182,10 @@ class ErasableSecretView(context: Context) : View(context) {
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
         setAutofillHints()
         linePaint.style = Paint.Style.STROKE
+        // Recovery words and passphrases are entered and drawn left to right in every locale; the
+        // drawing starts at paddingLeft, so the view must never inherit a right-to-left direction.
+        layoutDirection = LAYOUT_DIRECTION_LTR
+        textDirection = TEXT_DIRECTION_LTR
     }
 
     fun masksInput(): Boolean = mask
@@ -232,7 +242,9 @@ class ErasableSecretView(context: Context) : View(context) {
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
         if (!isEnabled) return null
         outAttrs.inputType = SECRET_INPUT_TYPE
-        outAttrs.imeOptions = SECRET_IME_OPTIONS
+        // Recovery words are Latin: ask for an ASCII-capable keyboard. A masked passphrase may use any
+        // script, so it only keeps the privacy flags.
+        outAttrs.imeOptions = if (mask) SECRET_IME_OPTIONS else SECRET_IME_OPTIONS or EditorInfo.IME_FLAG_FORCE_ASCII
         outAttrs.initialSelStart = selStart
         outAttrs.initialSelEnd = selEnd
         outAttrs.initialCapsMode = 0

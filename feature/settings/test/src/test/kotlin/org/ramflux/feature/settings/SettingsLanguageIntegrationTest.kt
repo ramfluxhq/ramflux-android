@@ -27,7 +27,7 @@ class SettingsLanguageIntegrationTest {
     @Test fun realLanguageTapApplyChangesHostLabelsAndPersistsWhilePeerTextAndReadsStayUnchanged() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("language", Context.MODE_PRIVATE).edit().clear().commit()
-        val language = AndroidClientData(context, "a".repeat(64)).language
+        val language = AndroidClientData(context, "a".repeat(64), TEST_LANGUAGES).language
         runBlocking { withTimeout(5_000) { language.language.first { !it.loading } } }
         val accounts = FakeSettingsAccounts()
         val devices = FakeDeviceDirectory()
@@ -52,19 +52,21 @@ class SettingsLanguageIntegrationTest {
         val accountReads = accounts.reads
         val deviceReads = devices.reads
         val statusReads = status.reads
-        compose.onNodeWithTag("language:zh-CN").performClick()
+        // Every configured language is offered, including one this module has no resources for.
+        compose.onNodeWithTag("language:de").performScrollTo().assertExists()
+        compose.onNodeWithTag("language:zh-CN").performScrollTo().performClick()
         compose.onNodeWithTag("language:zh-CN").assertIsSelected()
         assertEquals(AppLanguage.SYSTEM, language.language.value.value)
         compose.onNodeWithText("Apply language").performScrollTo().performClick()
-        compose.waitUntil(5_000) { language.language.value.value == AppLanguage.SIMPLIFIED_CHINESE }
+        compose.waitUntil(5_000) { language.language.value.value == AppLanguage("zh-CN") }
         compose.onNodeWithText("语言").assertExists()
         compose.onNodeWithText("应用语言").assertIsNotEnabled()
         compose.onNodeWithText("settings_language").assertExists()
-        val restored = AndroidClientData(context, "a".repeat(64)).language
-        runBlocking { withTimeout(5_000) { assertEquals(AppLanguage.SIMPLIFIED_CHINESE, restored.language.first { !it.loading }.value) } }
+        val restored = AndroidClientData(context, "a".repeat(64), TEST_LANGUAGES).language
+        runBlocking { withTimeout(5_000) { assertEquals(AppLanguage("zh-CN"), restored.language.first { !it.loading }.value) } }
         compose.onNodeWithTag("language:en").performScrollTo().performClick()
         compose.onNodeWithText("应用语言").performScrollTo().performClick()
-        compose.waitUntil(5_000) { language.language.value.value == AppLanguage.ENGLISH }
+        compose.waitUntil(5_000) { language.language.value.value == AppLanguage("en") }
         compose.onNodeWithText("Language").assertExists()
         compose.onNodeWithText("settings_language").assertExists()
         compose.onNodeWithTag("language:").performScrollTo().performClick()

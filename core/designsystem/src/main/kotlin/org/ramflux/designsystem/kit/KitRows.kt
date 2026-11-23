@@ -9,13 +9,14 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -25,8 +26,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.UntrustedKind
 
 enum class KitRowTrailing { Chevron, Check, None }
 
@@ -58,6 +61,11 @@ fun KitInfoButton(onClick: () -> Unit, modifier: Modifier = Modifier, label: Str
     }
 }
 
+/**
+ * A settings or action row. Label and value wrap instead of clipping; the row grows from its 58 dp frame.
+ * With [peer], the label is peer-supplied (a contact or group name): it is neutralised and laid out in its
+ * own content direction, so it cannot reorder the row. The value stays host text.
+ */
 @Composable
 fun KitRow(
     label: String,
@@ -72,16 +80,19 @@ fun KitRow(
     divider: Boolean = true,
     leading: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
+    peer: Boolean = false,
     testTag: String? = null
 ) {
     val theme = LocalRFTheme.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val tappable = enabled && !locked
+    val shownLabel = if (peer) untrustedDisplay(label, UntrustedKind.Name) else label
+    val direction = if (peer) TextDirection.Content else TextDirection.Unspecified
     Row(
         modifier
             .fillMaxWidth()
-            .height(dp(RfMetrics.row))
+            .heightIn(min = dp(RfMetrics.row))
             .alpha(if (enabled) 1f else RfMetrics.disabledAlpha)
             .kitBackdrop()
             .background(if (pressed && tappable) theme.selected else androidx.compose.ui.graphics.Color.Transparent)
@@ -98,17 +109,15 @@ fun KitRow(
             KitIconTile(icon)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.labelGap))) {
-            Text(
-                label,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.text, RfMetrics.lineTitle)
+            KitText(
+                shownLabel,
+                designLine = true,
+                style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.text, RfMetrics.lineTitle).copy(textDirection = direction)
             )
             if (!value.isNullOrEmpty()) {
-                Text(
+                KitText(
                     value,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    designLine = true,
                     style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary)
                 )
             }
@@ -120,7 +129,7 @@ fun KitRow(
                     shapeOf(theme.radius_chip)
                 ).padding(horizontal = dp(RfMetrics.tagPadH), vertical = dp(RfMetrics.tagPadV))
             ) {
-                Text(tagLabel, style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.warning, RfMetrics.lineMetaRow()))
+                KitText(tagLabel, style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.warning, RfMetrics.lineMetaRow()))
             }
         }
         if (trailingContent != null) {
@@ -163,7 +172,8 @@ fun KitConversationRow(
     Row(
         modifier
             .fillMaxWidth()
-            .height(dp(RfMetrics.conversation))
+            .heightIn(min = dp(RfMetrics.conversation))
+            .height(IntrinsicSize.Min)
             .alpha(if (enabled) 1f else RfMetrics.disabledAlpha)
             .kitBackdrop()
             .background(if (pressed && enabled) theme.selected else androidx.compose.ui.graphics.Color.Transparent)
@@ -179,16 +189,21 @@ fun KitConversationRow(
             verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.summaryGap), Alignment.CenterVertically)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))) {
-                Text(
-                    title,
+                KitText(
+                    untrustedDisplay(title, UntrustedKind.Excerpt),
                     modifier = Modifier.weight(1f, fill = false),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
+                    style = kitStyle(
+                        theme.size_mobile_body,
+                        FontWeight.SemiBold,
+                        theme.text,
+                        RfMetrics.lineTitle
+                    ).copy(textDirection = TextDirection.Content)
                 )
                 if (muted) KitIcon("bell-off", RfMetrics.metaIcon, theme.secondary)
                 Box(Modifier.weight(1f))
-                Text(
+                KitText(
                     time,
                     style = kitStyle(theme.size_mobile_caption, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle, RfFonts.latin)
                 )
@@ -196,24 +211,37 @@ fun KitConversationRow(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))) {
                 if (read) KitIcon("check-check", RfMetrics.metaIcon, theme.secondary)
                 if (!sender.isNullOrEmpty()) {
-                    Text(sender, style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody))
+                    KitText(
+                        untrustedDisplay(sender, UntrustedKind.Excerpt),
+                        style = kitStyle(
+                            theme.size_body,
+                            FontWeight.Normal,
+                            theme.text,
+                            RfMetrics.lineBody
+                        ).copy(textDirection = TextDirection.Content)
+                    )
                 }
-                Text(
-                    preview,
+                KitText(
+                    untrustedDisplay(preview, UntrustedKind.Excerpt),
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = kitStyle(theme.size_body, FontWeight.Normal, theme.secondary, RfMetrics.lineBody)
+                    style = kitStyle(
+                        theme.size_body,
+                        FontWeight.Normal,
+                        theme.secondary,
+                        RfMetrics.lineBody
+                    ).copy(textDirection = TextDirection.Content)
                 )
                 if (!badge.isNullOrEmpty()) {
                     Box(
                         Modifier
-                            .height(dp(RfMetrics.listBadge))
+                            .heightIn(min = dp(RfMetrics.listBadge))
                             .background(theme.badge, shapeOf(RfMetrics.listBadgeRadius))
                             .padding(horizontal = dp(RfMetrics.listBadgePad)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(badge, style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.on_badge, RfMetrics.lineTitle))
+                        KitText(badge, style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.on_badge, RfMetrics.lineTitle))
                     }
                 }
                 if (pinned) KitIcon("pin", RfMetrics.metaIcon, theme.secondary)

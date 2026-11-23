@@ -25,6 +25,8 @@ enum class SettingsPage { GENERAL, APPEARANCE, LANGUAGE, DEVICES, BACKUP }
         SettingsThemeChoice(it.id, uiText(it.nameRes))
     }.toPersistentList(),
     val savingTheme: Boolean = false,
+    /** Follow-system first, then every language the app has resources for. */
+    val languages: ImmutableList<AppLanguage> = persistentListOf(AppLanguage.SYSTEM),
     val selectedLanguage: AppLanguage = AppLanguage.SYSTEM,
     val savedLanguage: AppLanguage = AppLanguage.SYSTEM,
     val languageDraft: AppLanguage? = null,

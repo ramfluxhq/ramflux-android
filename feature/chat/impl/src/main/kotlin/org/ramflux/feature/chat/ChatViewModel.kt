@@ -103,9 +103,10 @@ class ChatViewModel @Inject constructor(
             is ChatAction.Select -> if (target != null && session.status.value.phase == ClientPhase.OPEN) {
                 local.update { it.copy(selectedId = action.id) }
             }
+            ChatAction.Dismiss -> local.update { it.copy(selectedId = null) }
             ChatAction.Reply -> selected()?.let { row ->
                 if (!row.deleted && !row.placeholder) {
-                    local.update { it.copy(composer = ComposerMode.REPLY, actionTarget = row.id, expectedRevision = 0) }
+                    local.update { it.copy(composer = ComposerMode.REPLY, actionTarget = row.id, expectedRevision = 0, selectedId = null) }
                 }
             }
             ChatAction.Edit -> selected()?.let { row ->
@@ -116,7 +117,8 @@ class ChatViewModel @Inject constructor(
                             composer = ComposerMode.EDIT,
                             actionTarget = row.id,
                             expectedRevision = row.revision,
-                            draft = text
+                            draft = text,
+                            selectedId = null
                         )
                     }
                 }
@@ -230,7 +232,7 @@ class ChatViewModel @Inject constructor(
                             loaded = true,
                             rows = result.value.map { row ->
                                 when (row) {
-                                    is CallSummary -> CallItem(row.id, time(row.createdAt))
+                                    is CallSummary -> CallItem(row.id, row.createdAt)
                                     is MessageSummary -> messageItem(row)
                                 }
                             }.toPersistentList(),
@@ -316,7 +318,7 @@ class ChatViewModel @Inject constructor(
         val operation = UUID.randomUUID().toString()
         val expected = ++ticket
         val generation = session.status.value.generation
-        local.update { it.copy(sending = true, problem = null) }
+        local.update { it.copy(sending = true, problem = null, selectedId = null) }
         request = viewModelScope.launch {
             try {
                 if (!validate(expected, generation, currentTarget)) return@launch
@@ -492,7 +494,7 @@ class ChatViewModel @Inject constructor(
             row.own,
             row.deleted,
             content,
-            time(row.createdAt),
+            row.createdAt,
             row.revision,
             row.edited,
             row.replyPreview?.let { UiText.Data(it) },
@@ -502,7 +504,6 @@ class ChatViewModel @Inject constructor(
             reactionLabel(row.reactions)
         )
     }
-    private fun time(createdAt: Long?) = createdAt?.let { UiText.DateTime(it) } ?: uiText(R.string.ui_time_unavailable)
     private suspend fun current(expected: Long, generation: Long, expectedTarget: Target) {
         currentCoroutineContext().ensureActive()
         if (expected != ticket || generation != session.status.value.generation ||
@@ -515,12 +516,12 @@ class ChatViewModel @Inject constructor(
 
 private data class PendingSend(val operation: String, val fingerprint: String)
 
-private fun receiptLabel(receipts: List<MessageReceipt>): UiText? {
+private fun receiptLabel(receipts: List<MessageReceipt>): Receipt? {
     val state = receipts.maxByOrNull { rank(it.state) }?.state ?: return null
     return when (state) {
-        "read" -> uiText(R.string.ui_receipt_read)
-        "delivered" -> uiText(R.string.ui_receipt_delivered)
-        "sent" -> uiText(R.string.ui_receipt_sent)
+        "read" -> Receipt.READ
+        "delivered" -> Receipt.DELIVERED
+        "sent" -> Receipt.SENT
         else -> null
     }
 }

@@ -23,6 +23,7 @@ import org.ramflux.android.shell.StartupPlace
 import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
 import org.ramflux.feature.appshell.AppShellNavigation
+import org.ramflux.feature.appshell.ShellPage
 import org.ramflux.feature.onboarding.OnboardingNavigation
 import org.ramflux.feature.onboarding.api.OnboardingRoute
 import org.ramflux.feature.permissions.PermissionsNavigation
@@ -53,15 +54,19 @@ class MainActivity : ComponentActivity() {
                         StartupHost(navigate, shell = { RamfluxShell(tabs, SHELL_ROUTE_POLICY, navigate) })
                     }
                 ) { onBack, navigate ->
-                    entry<PermissionsRoute> { route -> PermissionsNavigation(route, onBack) }
+                    // Root-stack pages: ShellPage applies the window insets and the width cap the screens no longer own.
+                    entry<PermissionsRoute> { route -> ShellPage { PermissionsNavigation(route, onBack, modifier = it) } }
                     entry<OnboardingRoute> { route ->
-                        OnboardingNavigation(
-                            onBack = onBack,
-                            onAccountSelected = { onBack() },
-                            onAccountCreated = { navigate(PermissionsRoute(PermissionEntry.AFTER_ACCOUNT_CREATION, it)) },
-                            openCreate = route.openCreate,
-                            unlockId = route.unlockId
-                        )
+                        ShellPage {
+                            OnboardingNavigation(
+                                onBack = onBack,
+                                onAccountSelected = { onBack() },
+                                onAccountCreated = { navigate(PermissionsRoute(PermissionEntry.AFTER_ACCOUNT_CREATION, it)) },
+                                openCreate = route.openCreate,
+                                unlockId = route.unlockId,
+                                modifier = it
+                            )
+                        }
                     }
                 }
             }

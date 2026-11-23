@@ -42,10 +42,13 @@ approval implementation is installed by the shell.
   selected tab; at a tab root other than Messages it returns to Messages; at the
   Messages root it leaves the app. Selecting the selected tab returns it to its
   root.
-- **Navigation outside the display.** `AdaptiveShell` places the bottom bar (and,
-  once the Kit has one, a rail) outside `NavDisplay`, so it can change form with
-  the window. At compact width the bar hides while the selected tab shows more
-  than its root; with two panes it stays visible.
+- **Navigation outside the display.** `AdaptiveShell` places the top-level
+  navigation outside `NavDisplay`, so it changes form with the window: the Kit tab
+  bar (`KitTabBar`) at compact width and the Kit rail (`KitNavigationRail`) at
+  medium and expanded widths. Both take the window's bottom inset from the shell;
+  the tab bar draws over the home-indicator area as the design frame does. At
+  compact width the bar hides while the selected tab shows more than its root;
+  with two panes it stays visible, and the rail is always visible.
 - **Window size.** The shell measures its own constraints into `AdaptiveSpec`
   (compact below 600 dp, medium to 840 dp, expanded above; two panes from 700 dp;
   short height below 480 dp). Screens never read the window size.
@@ -60,16 +63,24 @@ approval implementation is installed by the shell.
   and at most 45 percent of the window.
 - **Global routes.** Account setup (`OnboardingRoute`) and the post-creation
   permission flow open on the root stack over the whole shell
-  (`RoutePolicy.isGlobal`); every other key is pushed on the selected tab.
-- **Locked sessions.** Route keys implementing `AccountScoped` (or listed in the
-  app's `SHELL_ROUTE_POLICY` until their API module adopts the marker) are dropped
-  from the root stack and from every tab stack while the shell is not ready, so
-  unlocking never reopens restored account data. Tab roots stay.
-- **Screen contract.** Screens take a `Modifier` and pane or back parameters
-  (`rooted`: a tab root or list pane without a back affordance), render State and
-  emit Action. They do not cap their own width, do not own outer window insets
-  and do not read the window size. The shell and the startup host apply the
-  window insets; panes apply the width cap (`column_max`).
+  (`RoutePolicy.isGlobal`), framed by `ShellPage` (window insets including the
+  keyboard, and the width cap); every other key is pushed on the selected tab.
+- **Locked sessions.** Route keys implementing `AccountScoped` (chat, contacts,
+  tasks, calls, cards, settings and permissions declare it in their API module;
+  the route policy keeps no list) are dropped from the root stack and from every
+  tab stack while the shell is not ready, so unlocking never reopens restored
+  account data. Tab roots stay.
+- **Screen contract.** Screens take a `Modifier` and one pane parameter,
+  `rooted`: the screen has nothing to go back to inside its pane (a tab root, a
+  list pane, or a detail shown beside its list) and shows no back affordance. The
+  shell tells each entry the role it is shown in (`LocalPaneRole`: list or detail
+  side by side, none for a full pane); entry providers derive `rooted` from it,
+  screens never read it. Screens render State and emit Action, do not cap their
+  own width, do not own outer window insets, do not read the window size and do
+  not intercept system back except to close an overlay they show (the chat's
+  message actions), so predictive back runs through the shell. The shell, the
+  startup host and `ShellPage` apply the window insets; panes apply the width cap
+  (`column_max`).
 
 ## Verification
 
@@ -101,11 +112,15 @@ resume clears old state; failures never become successful empty lists. The curre
 module reads snapshots on entry and refresh.
 Local search and an uninstalled chat feature return typed unavailable.
 
-Chat installs a public account/conversation route, final chat header, native message
-bubbles and controlled composer. It reads the generation-1 message read model,
+Chat installs a public account/conversation route and renders on the Kit: chat
+header, bubbles, date chips, unread divider, message actions and `KitComposer`.
+Own messages sit on the end side in direct and group conversations (the read
+model's `is_own`); incoming group messages show the sender. It reads the generation-1 message read model,
 redacts deleted senders and content, and renders an unknown kind as a placeholder
 instead of failing the thread. Account, session and route fences precede publication.
 Send, reply, edit, react and delete go through the conversation ABI. The repository
 retains the operation id when the outcome is uncertain. A blocked action retains
 the draft and creates no message row. While the conversation is open, the client
-subscribes for new messages and typing.
+subscribes for new messages and typing. The draft lives in ViewModel memory only:
+closing the session on background or lid close (owner decision, 2026-11-23) loses
+it, and it is not written to saved instance state, which the system may persist.

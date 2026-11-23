@@ -9,10 +9,35 @@ resource folders, and adding a language is a resources-only change. `UiText.Reso
 immutable arguments in State. Rendering resolves the current configuration locale,
 so a locale change does not repeat repository work. `UiText.Data` is only display
 data, such as peer text; it is never interpreted as a resource key. Dates and exact
-unsigned counts use locale-aware platform formatters, and quantities use plurals.
+unsigned counts use locale-aware platform formatters, and quantities use plurals:
+`UiText.Quantity` passes the real quantity to the platform plural rules, so every CLDR
+category (zero, one, two, few, many, other) is selected per locale. Peer text and codes
+inserted into a host sentence use `UiText.Untrusted` and `UiText.Code`, which render
+inside bidirectional isolates; codes always use ASCII digits.
 
-Settings offers the picker's languages and follow-system, with an explicit Apply
-action. On API 33 and later the platform per-app language is the single source of
+Codes users compare (safety numbers in groups of five, fingerprints, pairing codes,
+URLs) render through `LtrCode`: left to right, mono, ASCII digits, groups that never
+reverse. The recovery phrase never becomes a String; `LtrSecretWords` draws the
+borrowed character arrays numbered and left to right at the font scale, with nothing
+in the accessibility tree. The secret entry field is left to right in every locale
+and asks for an ASCII keyboard for recovery words. Peer names, group names, senders
+and previews keep their own content direction after bidi controls are neutralised.
+Directional icons mirror through `android:autoMirrored`, written by
+`scripts/sync-lucide-drawables.py` from `core/designsystem/kit-icons.json`, the table
+`KitIconMirrorTest` pins.
+
+Fonts follow the script, not the language. The bundled Hanken Grotesk and JetBrains
+Mono faces cover Latin only; the theme uses Hanken Grotesk when the UI locale's likely
+script is Latin and the platform sans otherwise. Kit text with non-Latin letters uses
+the platform sans without letter spacing, and scripts with marks above or below the
+line keep a full, taller line box. See `core/designsystem/KIT.md`.
+
+Settings offers follow-system and every language of the app's locale config, with
+an explicit Apply action. `AppLanguage` is a tag, not a list: `appLanguages` reads the
+generated locale config (the same source as the platform's per-app language screen,
+built from the resource folders), the data root hands it to the language
+repositories, and the picker names each language by its own name. Debug builds list
+the pseudo-locales too, because the build adds them to the locale config. On API 33 and later the platform per-app language is the single source of
 truth: the picker writes it through `PlatformLanguageRepository`, the system's
 per-app language screen offers the same locales, a change made there is read back
 on the resulting configuration change, and a choice stored by earlier releases is
@@ -30,11 +55,14 @@ notice; failed commits leave the active selection unchanged.
 Debug builds enable Android pseudo-locales. The shared screenshot matrix covers
 English, Simplified Chinese, expanded English (en-XA) and right-to-left (ar-XB) in
 both shipped themes and at font scale 1.0 and 2.0 (see
-[design alignment](design-alignment.md)). The resource guard discovers the shipped
-locales from the resource folders and checks matching keys/placeholders in every
-module for each of them, theme names in each of them, direct host text and
-hard-coded colors/dimensions. Its regression check proves that missing keys, an
-incomplete added locale, malformed formats and direct text are rejected.
+[design alignment](design-alignment.md)). The chat and kit suites add Arabic peer
+text and 360, 393 and 700 dp widths; kit variants are written to
+`build/outputs/roborazzi-variants` because no design master exists for them. The
+resource guard discovers the shipped locales from the resource folders and checks
+matching keys/placeholders in every module for each of them, theme names in each of
+them, direct host text and hard-coded colors/dimensions. Its regression check proves
+that missing keys, an incomplete added locale, malformed formats and direct text are
+rejected.
 
 Theme definitions live in `core/designsystem/src/main/assets/ramflux/themes`.
 Each JSON file has a stable identifier, a light/dark system-bar mode, localized

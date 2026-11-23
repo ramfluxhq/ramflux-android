@@ -40,6 +40,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,6 +60,7 @@ internal fun kitStyle(
     fontSize = size.sp,
     lineHeight = (size * line).sp,
     letterSpacing = tracking.sp,
+    textDirection = TextDirection.Content,
     platformStyle = PlatformTextStyle(includeFontPadding = false),
     lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both)
 )
@@ -119,6 +121,13 @@ internal fun Modifier.kitHairline(color: Color, top: Boolean = false): Modifier 
     val stroke = RfMetrics.hairline.dp.toPx()
     val y = if (top) stroke / 2f else size.height - stroke / 2f
     drawLine(color, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), stroke)
+}
+
+/** A hairline along the end edge (right in left-to-right, left in right-to-left layouts). */
+internal fun Modifier.kitHairlineEnd(color: Color): Modifier = drawBehind {
+    val stroke = RfMetrics.hairline.dp.toPx()
+    val x = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Ltr) size.width - stroke / 2f else stroke / 2f
+    drawLine(color, androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Offset(x, size.height), stroke)
 }
 
 @Composable

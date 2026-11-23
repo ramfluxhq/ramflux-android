@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (c) 2026 Span Brain
-"""Write Lucide stroke icons as Android vector drawables. Geometry comes from Lucide, not the design export."""
+"""Write Lucide stroke icons as Android vector drawables. Geometry comes from Lucide, not the design export.
+
+The icon list and the mirroring table live in core/designsystem/kit-icons.json, shared with
+KitIconMirrorTest: icons listed under "mirror" get android:autoMirrored="true". Missing drawables are
+fetched from Lucide (--refresh fetches all); existing drawables only have their mirroring flag brought
+in line with the table, so the table can be applied offline.
+"""
 import json
 import re
 import sys
@@ -12,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DRAWABLE = ROOT / "core/designsystem/src/main/res/drawable"
 ICONS = ROOT / "core/designsystem/src/main/kotlin/org/ramflux/designsystem/kit/KitIcons.kt"
-SPEC = ROOT / "core/designsystem/mobile-icons.json"
+SPEC = ROOT / "core/designsystem/kit-icons.json"
 LUCIDE = "https://raw.githubusercontent.com/lucide-icons/lucide/0.544.0/icons/{name}.svg"
 NS = {"svg": "http://www.w3.org/2000/svg"}
 
@@ -119,6 +125,24 @@ def filled(node, root):
     return fill not in ("none", "transparent")
 
 
+MIRROR_ATTRIBUTE = '    android:autoMirrored="true"'
+
+
+def with_mirroring(xml, mirror):
+    """Set or remove the autoMirrored flag of the vector element; the result does not depend on the input flag."""
+    lines = []
+    for line in xml.splitlines():
+        if line.strip() == 'android:autoMirrored="true">':
+            lines[-1] += ">"
+        elif line != MIRROR_ATTRIBUTE:
+            lines.append(line.replace(' android:autoMirrored="true"', ""))
+    if mirror:
+        end = next(index for index, line in enumerate(lines) if line.lstrip().startswith("android:") and line.rstrip().endswith('">'))
+        lines[end] = lines[end].rstrip()[:-1]
+        lines.insert(end + 1, MIRROR_ATTRIBUTE + ">")
+    return "\n".join(lines) + "\n"
+
+
 def drawable(name, svg):
     root = ET.fromstring(svg)
     view_box = root.attrib.get("viewBox", "0 0 24 24").split()
@@ -166,8 +190,8 @@ def resource(name):
 
 
 def kotlin(names):
-    rows = "\n".join(
-        f'        "{name}" to R.drawable.{resource(name)},' for name in names
+    rows = ",\n".join(
+        f'        "{name}" to R.drawable.{resource(name)}' for name in names
     )
     return (
         "// SPDX-License-Identifier: AGPL-3.0-or-later\n"
@@ -183,17 +207,28 @@ def kotlin(names):
 
 
 def main():
-    spec = Path(sys.argv[1]) if len(sys.argv) > 1 else SPEC
-    names = [row["name"] for row in json.loads(spec.read_text())["icons"]]
+    arguments = [argument for argument in sys.argv[1:] if not argument.startswith("--")]
+    spec = Path(arguments[0]) if arguments else SPEC
+    table = json.loads(spec.read_text())
+    names = table["icons"]
+    mirror = set(table["mirror"])
+    unknown = (mirror | set(table["neverMirror"])) - set(names)
+    if unknown:
+        raise SystemExit(f"mirroring table names unknown icons: {sorted(unknown)}")
+    if mirror & set(table["neverMirror"]):
+        raise SystemExit(f"icons both mirrored and never mirrored: {sorted(mirror & set(table['neverMirror']))}")
     DRAWABLE.mkdir(parents=True, exist_ok=True)
     for name in names:
         target = DRAWABLE / f"{resource(name)}.xml"
         if target.exists() and "--refresh" not in sys.argv:
-            continue
-        with urllib.request.urlopen(LUCIDE.format(name=name), timeout=30) as response:
-            svg = response.read()
-        target.write_text(drawable(name, svg))
-        print(name)
+            current = target.read_text()
+        else:
+            with urllib.request.urlopen(LUCIDE.format(name=name), timeout=30) as response:
+                current = drawable(name, response.read())
+            print(name)
+        updated = with_mirroring(current, name in mirror)
+        if updated != current or not target.exists():
+            target.write_text(updated)
     ICONS.parent.mkdir(parents=True, exist_ok=True)
     ICONS.write_text(kotlin(names))
     print(f"ICONS {len(names)}")

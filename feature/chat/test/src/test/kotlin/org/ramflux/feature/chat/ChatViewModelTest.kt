@@ -66,7 +66,7 @@ class ChatViewModelTest {
         assertEquals(listOf("one", "call", "deleted"), vm.state.value.rows.map { it.id })
         assertTrue(vm.state.value.rows[1] is CallItem)
         assertEquals(org.ramflux.designsystem.UiText.Data("Actual title"), vm.state.value.title)
-        assertEquals(org.ramflux.designsystem.UiText.DateTime(12), vm.state.value.rows.last().time)
+        assertEquals(12L, vm.state.value.rows.last().sentAt)
         assertEquals(uiText(R.string.ui_message_deleted), (vm.state.value.rows.last() as MessageItem).content)
         assertEquals(1, history.reads)
     }
@@ -430,5 +430,38 @@ class ChatViewModelTest {
             uiText(R.string.ui_the_active_account_changed_return_to_conversations),
             vm.state.value.problem
         )
+    }
+
+    @Test fun actionsCloseTheSelectionAndReceiptsAreTyped() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = {
+                ClientResult.Ready(
+                    listOf(
+                        MessageSummary("m", "peer", false, false, "hi", 10),
+                        MessageSummary("o", "me", true, false, "mine", 11, receipts = listOf(MessageReceipt("peer", "delivered")))
+                    )
+                )
+            }
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertEquals(Receipt.DELIVERED, (vm.state.value.rows.last() as MessageItem).receipt)
+        assertEquals(11L, vm.state.value.rows.last().sentAt)
+        vm.onAction(ChatAction.Select("m"))
+        runCurrent()
+        assertEquals("m", vm.state.value.selectedId)
+        vm.onAction(ChatAction.Dismiss)
+        runCurrent()
+        assertNull(vm.state.value.selectedId)
+        vm.onAction(ChatAction.Select("m"))
+        runCurrent()
+        vm.onAction(ChatAction.Reply)
+        runCurrent()
+        assertNull(vm.state.value.selectedId)
+        assertEquals(ComposerMode.REPLY, vm.state.value.composer)
+        assertEquals("m", vm.state.value.actionTarget)
     }
 }

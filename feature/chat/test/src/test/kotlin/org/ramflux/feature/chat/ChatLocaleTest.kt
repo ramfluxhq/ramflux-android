@@ -9,7 +9,6 @@ import androidx.compose.ui.text.intl.LocaleList
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -47,8 +46,9 @@ class ChatLocaleTest {
         }
         compose.waitUntil(5_000) { vm.state.value.loaded }
         val reads = history.reads
-        fun formatted(language: String): String = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)
-            .withLocale(java.util.Locale.forLanguageTag(language))
+        fun formatted(language: String): String = java.util.Locale.forLanguageTag(language).let { locale ->
+            DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, "hm"), locale)
+        }
             .withZone(ZoneId.systemDefault())
             .format(Instant.ofEpochSecond(stamp))
         compose.onNodeWithText("Actual title").assertExists()

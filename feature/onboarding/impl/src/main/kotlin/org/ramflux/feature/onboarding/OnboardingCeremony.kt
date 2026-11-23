@@ -3,14 +3,12 @@
 
 package org.ramflux.feature.onboarding
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,8 +21,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -36,9 +32,9 @@ import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.kit.KitRow
 import org.ramflux.designsystem.kit.KitTextField
 import org.ramflux.designsystem.kit.KitTipBar
+import org.ramflux.designsystem.kit.LtrSecretWords
 import org.ramflux.designsystem.render
 import org.ramflux.feature.onboarding.impl.R
-import org.ramflux.generated.RFTheme
 
 @Composable
 internal fun CreateAccountPage(state: OnboardingState, onAction: (OnboardingAction) -> Unit, modifier: Modifier = Modifier) {
@@ -101,29 +97,14 @@ internal fun CreateAccountPage(state: OnboardingState, onAction: (OnboardingActi
     }
 }
 
+/**
+ * The one-time recovery phrase. The words are drawn from the borrowed character arrays (never a String,
+ * see [org.ramflux.data.RecoveryPhrase]), numbered and left to right in every locale, at the font scale.
+ */
 @Composable
 internal fun PhrasePage(state: OnboardingState, drawPhrase: (Int, (CharArray) -> Unit) -> Unit) {
-    val theme = LocalRFTheme.current
     Text(stringResource(R.string.ui_write_down_the_recovery_phrase))
-    Column(Modifier.fillMaxWidth().testTag("recovery-phrase")) {
-        for (index in 0 until state.phraseSlots) PhraseWord(index, theme, drawPhrase)
-    }
-}
-
-@Composable
-private fun PhraseWord(index: Int, theme: RFTheme, drawPhrase: (Int, (CharArray) -> Unit) -> Unit) {
-    Canvas(
-        Modifier.fillMaxWidth().heightIn(min = theme.row_conversation.dp).testTag("phrase-word")
-    ) {
-        val paint = android.graphics.Paint().apply {
-            isAntiAlias = true
-            textSize = theme.size_body * density
-            color = theme.text.toArgb()
-        }
-        drawPhrase(index) { chars ->
-            drawContext.canvas.nativeCanvas.drawText(chars, 0, chars.size, 0f, size.height * 0.75f, paint)
-        }
-    }
+    LtrSecretWords(state.phraseSlots, drawPhrase, Modifier.testTag("recovery-phrase"), tag = "phrase-word")
 }
 
 /** Challenge secrets stay in these buffers. Confirm reads them once and erases them after the call returns. */

@@ -19,10 +19,9 @@ import org.ramflux.feature.agents.impl.R
 @Composable
 fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, modifier: Modifier = Modifier, rooted: Boolean = false) {
     val theme = LocalRFTheme.current
-    val bars = if (rooted) WindowInsets.statusBars else WindowInsets.safeDrawing
-    Scaffold(modifier = modifier, contentWindowInsets = bars) { insets ->
+    Scaffold(modifier = modifier, contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
         Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets), contentAlignment = Alignment.TopCenter) {
-            Column(Modifier.widthIn(max = theme.column_max.dp).fillMaxSize()) {
+            Column(Modifier.fillMaxSize()) {
                 if (rooted && state.mode == AgentCapability.DIRECTORY) {
                     KitPageHeader(stringResource(R.string.agents_shell_title), large = true, tag = "agents-header")
                 } else if (rooted) {

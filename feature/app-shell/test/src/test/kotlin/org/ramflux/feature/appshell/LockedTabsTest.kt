@@ -13,15 +13,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.ramflux.feature.appshell.api.FeatureRoute
 import org.ramflux.feature.appshell.api.MoreRoute
 import org.ramflux.feature.appshell.api.NavigationEditorRoute
 import org.ramflux.feature.appshell.api.NoticesRoute
+import org.ramflux.navigation.AccountScoped
 import org.ramflux.navigation.RoutePolicy
 import org.ramflux.navigation.TopLevelNavigator
 import org.ramflux.navigation.rememberTopLevelNavigator
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+
+/** A route key that declares itself account scoped, as feature route keys do. */
+private data class AccountRoute(val name: String) : NavKey, AccountScoped
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -31,8 +34,8 @@ class LockedTabsTest {
     @Test fun lockingDropsAccountRoutesFromTheTabStacksAndUnlockingDoesNotRestoreThem() {
         var ready by mutableStateOf(true)
         lateinit var tabs: TopLevelNavigator
-        // Keys of the API module stand in for tab roots; FeatureRoute plays an account-scoped route.
-        val policy = RoutePolicy(alsoAccountScoped = { it is FeatureRoute })
+        // Keys of the API module stand in for tab roots; AccountRoute plays an account-scoped route.
+        val policy = RoutePolicy()
         compose.setContent {
             tabs = rememberTopLevelNavigator(listOf(MoreRoute, NavigationEditorRoute))
             AppShellNavigation(
@@ -44,10 +47,10 @@ class LockedTabsTest {
             )
         }
         compose.runOnIdle {
-            tabs.openDetail(FeatureRoute("thread"))
+            tabs.openDetail(AccountRoute("thread"))
             tabs.select(1)
             tabs.push(NoticesRoute)
-            tabs.push(FeatureRoute("contacts"))
+            tabs.push(AccountRoute("contacts"))
         }
         ready = false
         compose.waitForIdle()

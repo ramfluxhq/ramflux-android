@@ -25,7 +25,7 @@ import org.robolectric.annotation.Config
 class GroupChatIntegrationTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun creationCanonicalRouteLoadsActualChatWithOwnAndPeerSenderAllLeft() = runTest {
+    @Test fun creationCanonicalRouteLoadsActualChatWithOwnMessagesOnTheOwnSide() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         val session = FakeGroupSession()
@@ -83,11 +83,12 @@ class GroupChatIntegrationTest {
             assertEquals(repo.changes.single().second.group, rendered.groupId)
             compose.setContent { RamfluxTheme { ChatScreen(rendered, chat::onAction) } }
             compose.onNodeWithText("Actual group").assertExists()
-            compose.onNodeWithText("Self identity").assertExists()
+            // Own group messages sit on the own (end) side without a sender name; incoming ones keep it.
+            compose.onNodeWithText("Self identity").assertDoesNotExist()
             compose.onNodeWithText("Peer identity").assertExists()
             val own = compose.onNodeWithTag("own").fetchSemanticsNode().boundsInRoot
             val peer = compose.onNodeWithTag("peer").fetchSemanticsNode().boundsInRoot
-            assertEquals(peer.left, own.left, 0.1f)
+            assertTrue("own $own is not on the end side of peer $peer", own.right > peer.right && own.left > peer.left)
         } finally {
             groups.onAction(GroupsAction.Visible(false))
             chat.onAction(ChatAction.Back)

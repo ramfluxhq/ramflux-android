@@ -19,6 +19,8 @@ import sys
 import zlib
 from pathlib import Path
 
+from resource_locales import default_locale, resource_locales
+
 SCALE = 2
 LIMIT = 2.0
 PIXEL_STRONG = 0.35
@@ -27,8 +29,25 @@ VARIANCE_FLOOR = 64.0
 LIGHT_BG = (0xFC, 0xFB, 0xF9)
 DARK_BG = (0x17, 0x17, 0x16)
 SKIP_PREFIXES = ("chart--", "radio--", "origin-display--")
-STATE_SUFFIXES = ("--pressed", "--focused", "--loading", "--en", "--zh")
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def _locale_suffixes():
+    """Capture-name suffixes of locale variants: every shipped resource locale and its language subtag.
+
+    The locales come from the resource folders (see resource_locales.py), never from a list here, so a
+    capture for an added language is recognised without changing this script.
+    """
+    tags = {default_locale(ROOT)}
+    for pattern in ("*/src/main/res", "*/*/src/main/res", "*/*/*/src/main/res"):
+        for res in ROOT.glob(pattern):
+            tags |= resource_locales(res)
+    tags |= {tag.split("-")[0] for tag in tags}
+    return tuple(f"--{tag}" for tag in sorted(tags))
+
+
+LOCALE_SUFFIXES = _locale_suffixes()
+STATE_SUFFIXES = ("--pressed", "--focused", "--loading") + LOCALE_SUFFIXES
 MASTERS = json.loads((ROOT / "core/designsystem/kit-masters.json").read_text())
 
 
@@ -300,7 +319,7 @@ def main():
         delta_w = capture_w - master_w
         delta_h = capture_h - master_h
         width_checked = not (master is not None and "w" not in master)
-        locale = name.endswith("--en") or name.endswith("--zh")
+        locale = name.endswith(LOCALE_SUFFIXES)
         limit_h = 4.0 if locale else LIMIT
         fail_w = width_checked and abs(delta_w) > LIMIT
         fail_h = abs(delta_h) > limit_h

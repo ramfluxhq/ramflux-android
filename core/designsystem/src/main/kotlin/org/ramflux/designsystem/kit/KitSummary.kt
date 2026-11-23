@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,9 +31,9 @@ fun KitSummaryCard(title: String, body: String, modifier: Modifier = Modifier, s
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.tabGap))) {
-            Text(title, style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle))
+            KitText(title, style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle))
             if (body.isNotEmpty()) {
-                Text(body, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
+                KitText(body, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
             }
         }
         if (selected) KitIcon("circle-check", RfMetrics.iconAction, theme.text)

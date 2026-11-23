@@ -15,14 +15,13 @@ internal object RfMetrics {
     val bubbleWidthFraction = 0.78f
     val agentRadiusRatio = 0.28f
     val fullTurn = 360f
-    val screen = 393f
-    val content = 361f
     val gutter = 16f
     val lineTight = 1.25f
     val lineTitle = 1.3f
     val lineBody = 1.45f
     val lineBubble = 1.35f
     val lineSecondary = 1.4f
+    val lineTallScript = 1.6f
     val buttonHeight = 52f
     val buttonCompact = 44f
     val buttonPadH = 20f
@@ -38,10 +37,16 @@ internal object RfMetrics {
     val row = 58f
     val rowPadV = 8f
     val conversation = 72f
-    val tabBar = 83f
     val tab = 44f
     val tabPadTop = 8f
     val tabInset = 31f
+
+    /** Home-indicator safe bottom of the 393x852 design frame (tokens frame.mobile.homeIndicatorSafeBottom). */
+    val homeSafeBottom = 34f
+    val rail = 80f
+    val secretGap = 8f
+    val railGap = 4f
+    val railPadH = 4f
     val tabGap = 2f
     val tabIcon = 24f
     val tabBadge = 18f
@@ -87,7 +92,6 @@ internal object RfMetrics {
     val bubblePadV = 8f
     val bubblePadH = 12f
     val bubbleGap = 4f
-    val bubbleMaster = 260f
     val metaIcon = 14f
     val agentTag = 18f
     val avatar18 = 18f
@@ -174,5 +178,6 @@ internal object RfMetrics {
     val summaryGap = 2f
     val avatarGap = 12f
     val headerGap = 8f
+    val headerActionMax = 128f
     val iconButton = 44f
 }

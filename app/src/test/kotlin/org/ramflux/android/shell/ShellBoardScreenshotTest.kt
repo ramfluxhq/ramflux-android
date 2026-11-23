@@ -3,9 +3,12 @@
 
 package org.ramflux.android.shell
 
+import android.content.Context
+import android.provider.Settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -20,6 +23,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import java.io.File
 import kotlinx.collections.immutable.persistentListOf
@@ -31,15 +35,29 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.uiText
 import org.ramflux.feature.agents.AgentsScreen
 import org.ramflux.feature.agents.AgentsState
 import org.ramflux.feature.agents.api.AgentsRoute
+import org.ramflux.feature.appshell.ShellPage
 import org.ramflux.feature.appshell.api.MoreRoute
 import org.ramflux.feature.appshell.api.NavigationEditorRoute
+import org.ramflux.feature.calls.CallsScreen
+import org.ramflux.feature.calls.CallsState
+import org.ramflux.feature.calls.api.CallsRoute
+import org.ramflux.feature.cards.CardsScreen
+import org.ramflux.feature.cards.CardsState
+import org.ramflux.feature.cards.api.CardsRoute
 import org.ramflux.feature.chat.ChatScreen
 import org.ramflux.feature.chat.ChatState
-import org.ramflux.feature.chat.MessageItem
 import org.ramflux.feature.chat.api.ChatRoute
+import org.ramflux.feature.contacts.ContactsPage
+import org.ramflux.feature.contacts.ContactsScreen
+import org.ramflux.feature.contacts.ContactsState
+import org.ramflux.feature.contacts.PersonItem
+import org.ramflux.feature.contacts.SafetyItem
+import org.ramflux.feature.contacts.api.ContactsRoute
+import org.ramflux.feature.contacts.impl.R as ContactsR
 import org.ramflux.feature.conversations.ConversationsScreen
 import org.ramflux.feature.conversations.ConversationsState
 import org.ramflux.feature.conversations.api.ConversationsRoute
@@ -52,12 +70,20 @@ import org.ramflux.feature.groups.impl.R as GroupsR
 import org.ramflux.feature.onboarding.OnboardingPage
 import org.ramflux.feature.onboarding.OnboardingScreen
 import org.ramflux.feature.onboarding.OnboardingState
+import org.ramflux.feature.permissions.PermissionsScreen
+import org.ramflux.feature.permissions.PermissionsState
+import org.ramflux.feature.permissions.api.PermissionsRoute
 import org.ramflux.feature.settings.SettingsScreen
 import org.ramflux.feature.settings.SettingsState
 import org.ramflux.feature.settings.api.SettingsRoute
+import org.ramflux.feature.tasks.TasksScreen
+import org.ramflux.feature.tasks.TasksState
+import org.ramflux.feature.tasks.api.TasksRoute
+import org.ramflux.navigation.LocalPaneRole
 import org.ramflux.navigation.PaneRole
 import org.ramflux.navigation.TopLevelNavigator
 import org.ramflux.navigation.pane
+import org.ramflux.testing.fixtures.ChatBoards
 import org.ramflux.testing.fixtures.ConversationBoards
 import org.ramflux.testing.screenshot.ScreenshotCase
 import org.ramflux.testing.screenshot.ScreenshotFrame
@@ -97,6 +123,7 @@ class ShellBoardScreenshotTest {
             locales.flatMap { locale -> listOf(false, true).map { dark -> Triple(board, locale, dark) } }
         }
         val frame = ScreenshotMatrix.BOARD
+        useBoardClock()
         val step = mutableIntStateOf(0)
         compose.mainClock.autoAdvance = false
         compose.setContent {
@@ -122,6 +149,7 @@ class ShellBoardScreenshotTest {
     @Config(sdk = [35], qualifiers = "${ScreenshotMatrix.WINDOW_QUALIFIERS}-mdpi")
     fun matrix() {
         val frames = MATRIX_STATES.keys.flatMap { state -> ScreenshotMatrix.review().map { state to it } }
+        useBoardClock()
         val step = mutableIntStateOf(0)
         val clipped = mutableListOf<String>()
         compose.mainClock.autoAdvance = false
@@ -155,38 +183,43 @@ class ShellBoardScreenshotTest {
     }
 }
 
+/** The boards use the 24-hour clock; the chat follows the device setting. */
+private fun useBoardClock() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    Settings.System.putString(context.contentResolver, Settings.System.TIME_12_24, "24")
+}
+
 /** System bars of the 393x852 design frame (mobile-kit-tokens.json frame.mobile). */
 private val BOARD_INSETS = WindowInsets(top = 59.dp, bottom = 34.dp)
 
 private const val ACCOUNT = ConversationBoards.ACCOUNT
-
-private val B02_MESSAGES = persistentListOf(
-    MessageItem("m1", "林悦", false, false, UiText.Data("新版资料我整理好了，你有空时看一下。"), UiText.Data("10:21")),
-    MessageItem("m2", ACCOUNT, true, false, UiText.Data("收到，我会把问题逐项回复。"), UiText.Data("10:23")),
-    MessageItem("m3", "林悦", false, false, UiText.Data("好的，附件里的版本说明也请一起看。"), UiText.Data("10:24"))
-)
-
-private val CHAT_B02 = ChatState(conversationId = "lin-yue", title = UiText.Data("林悦"), rows = B02_MESSAGES, loaded = true, canSend = true)
-private val CHAT_B02E = ChatState(conversationId = "lin-yue", title = UiText.Data("林悦"), loaded = true, canSend = true)
 
 /** Shell fixture: which tab and stack is shown, and the state of every tab screen. */
 private data class ShellFixture(
     val tab: Int = 0,
     val pushed: NavKey? = null,
     val conversations: ConversationsState = ConversationBoards.list,
-    val chat: ChatState = CHAT_B02,
+    val chat: ChatState = ChatBoards.conversation(),
     val groups: GroupsState = GroupsState(page = GroupsPage.LIST, account = ACCOUNT, loaded = true),
-    val agents: AgentsState = AgentsState()
+    val agents: AgentsState = AgentsState(),
+    val contacts: ContactsState = ContactsState(loaded = true)
 )
 
 private fun EntryProviderScope<NavKey>.fixtureEntries(fixture: ShellFixture) {
     entry<ConversationsRoute>(metadata = pane(PaneRole.LIST)) { ConversationsScreen(fixture.conversations, {}, rooted = true) }
-    entry<ChatRoute>(metadata = pane(PaneRole.DETAIL)) { ChatScreen(fixture.chat, {}) }
+    entry<ChatRoute>(metadata = pane(PaneRole.DETAIL)) {
+        ChatScreen(fixture.chat, {}, rooted = LocalPaneRole.current == PaneRole.DETAIL, clock = ChatBoards.clock)
+    }
     entry<GroupsRoute>(metadata = pane(PaneRole.LIST)) { GroupsScreen(fixture.groups, {}, rooted = true) }
     entry<AgentsRoute> { AgentsScreen(fixture.agents, {}, rooted = true) }
     entry<MoreRoute> { MoreHub(DEFAULT_SHELL_ORDER, "", {}, {}, {}) }
     entry<NavigationEditorRoute> { NavigationEditor(DEFAULT_SHELL_ORDER, "", {}, {}, {}) }
     entry<SettingsRoute> { SettingsScreen(SettingsState(accountLabel = ACCOUNT), {}) }
+    entry<ContactsRoute> { ContactsScreen(fixture.contacts, {}) }
+    entry<TasksRoute> { TasksScreen(TasksState(), {}) }
+    entry<CallsRoute> { CallsScreen(CallsState(), {}) }
+    entry<CardsRoute> { CardsScreen(CardsState(), {}) }
+    entry<PermissionsRoute> { PermissionsScreen(PermissionsState(loading = false), {}) }
 }
 
 @Composable
@@ -214,7 +247,7 @@ private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
     "MOB-B01X" to { FixtureShell(ShellFixture(conversations = ConversationBoards.cannotConnect)) },
     "MOB-B12" to { FixtureShell(ShellFixture(conversations = ConversationBoards.empty)) },
     "MOB-B02" to { FixtureShell(ShellFixture(pushed = ChatRoute("a", "lin-yue"))) },
-    "MOB-B02E" to { FixtureShell(ShellFixture(pushed = ChatRoute("a", "lin-yue"), chat = CHAT_B02E)) },
+    "MOB-B02E" to { FixtureShell(ShellFixture(pushed = ChatRoute("a", "lin-yue"), chat = ChatBoards.empty)) },
     "MOB-C01" to {
         val groups = GroupsState(page = GroupsPage.LIST, account = ACCOUNT, loaded = true, groups = GROUPS_C01)
         FixtureShell(ShellFixture(tab = 1, groups = groups))
@@ -227,7 +260,11 @@ private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
     "MOB-G02" to { FixtureShell(ShellFixture(tab = 3, pushed = SettingsRoute)) },
     "MOB-G03" to { FixtureShell(ShellFixture(tab = 3, pushed = NavigationEditorRoute)) },
     "MOB-N01" to {
-        OnboardingScreen(OnboardingState(page = OnboardingPage.CREATE, sessionReady = true), {}, contentWindowInsets = BOARD_INSETS)
+        OnboardingScreen(
+            OnboardingState(page = OnboardingPage.CREATE, sessionReady = true),
+            {},
+            modifier = Modifier.windowInsetsPadding(BOARD_INSETS)
+        )
     },
     "MOB-S01" to { StartupSurface(BOARD_INSETS) { SplashScreen() } },
     "MOB-S02" to { StartupSurface(BOARD_INSETS) { GatewayScreen({}, {}) } },
@@ -236,11 +273,57 @@ private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
     "MOB-A02" to { StartupSurface(BOARD_INSETS) { UnlockDetails(ACCOUNT, {}, {}) } }
 )
 
-/** Matrix states: the messages tab with a conversation open (two panes from 700 dp) and the unlock screens. */
+private val NO_INSETS = WindowInsets(0, 0, 0, 0)
+
+/** A contact on its safety page: a 60-digit safety number and a fingerprint. */
+private val SAFETY_CONTACT = run {
+    val person = PersonItem(
+        "peer", "peer-id", "林悦", uiText(ContactsR.string.contacts_unverified), false, false, null, null, null
+    )
+    ContactsState(
+        accountLabel = ACCOUNT,
+        loaded = true,
+        rows = persistentListOf(person),
+        selected = person,
+        page = ContactsPage.SAFETY,
+        safety = SafetyItem("052417733908182640516279388104529976631840271956", "9f3a0c7d51e2b84f")
+    )
+}
+
+/** Recovery words as borrowed character arrays, as the ceremony lends them. */
+private val PHRASE = listOf("apple", "river", "stone", "cloud", "amber", "orbit", "maple", "quartz", "harbor", "tiger", "violet", "zebra")
+    .map { it.toCharArray() }
+
+/**
+ * Matrix states: the messages tab with a conversation open (two panes from 700 dp), the groups and agents
+ * tabs, the other feature screens inside the shell (pushed on the More tab), the root-stack onboarding page
+ * with the recovery phrase, the contact safety number and the unlock screens.
+ */
 private val MATRIX_STATES: Map<String, @Composable () -> Unit> = mapOf(
-    "messages-chat" to { FixtureShell(ShellFixture(pushed = ChatRoute("a", "lin-yue")), WindowInsets(0, 0, 0, 0)) },
-    "unlock-entry" to { StartupSurface(WindowInsets(0, 0, 0, 0)) { UnlockEntry(ACCOUNT, "https://work.example", {}, {}, {}) } },
-    "unlock-details" to { StartupSurface(WindowInsets(0, 0, 0, 0)) { UnlockDetails(ACCOUNT, {}, {}) } }
+    "messages-chat" to { FixtureShell(ShellFixture(pushed = ChatRoute("a", "lin-yue")), NO_INSETS) },
+    "groups" to {
+        val groups = GroupsState(page = GroupsPage.LIST, account = ACCOUNT, loaded = true, groups = GROUPS_C01)
+        FixtureShell(ShellFixture(tab = 1, groups = groups), NO_INSETS)
+    },
+    "agents" to { FixtureShell(ShellFixture(tab = 2), NO_INSETS) },
+    "settings" to { FixtureShell(ShellFixture(tab = 3, pushed = SettingsRoute), NO_INSETS) },
+    "contacts-safety" to { FixtureShell(ShellFixture(tab = 3, pushed = ContactsRoute, contacts = SAFETY_CONTACT), NO_INSETS) },
+    "tasks" to { FixtureShell(ShellFixture(tab = 3, pushed = TasksRoute), NO_INSETS) },
+    "calls" to { FixtureShell(ShellFixture(tab = 3, pushed = CallsRoute), NO_INSETS) },
+    "cards" to { FixtureShell(ShellFixture(tab = 3, pushed = CardsRoute), NO_INSETS) },
+    "permissions" to { FixtureShell(ShellFixture(tab = 3, pushed = PermissionsRoute()), NO_INSETS) },
+    "onboarding-phrase" to {
+        ShellPage { modifier ->
+            OnboardingScreen(
+                OnboardingState(page = OnboardingPage.PHRASE, sessionReady = true, phraseSlots = PHRASE.size),
+                {},
+                drawPhrase = { index, block -> block(PHRASE[index]) },
+                modifier = modifier
+            )
+        }
+    },
+    "unlock-entry" to { StartupSurface(NO_INSETS) { UnlockEntry(ACCOUNT, "https://work.example", {}, {}, {}) } },
+    "unlock-details" to { StartupSurface(NO_INSETS) { UnlockDetails(ACCOUNT, {}, {}) } }
 )
 
-private val SECURITY_STATES = setOf("unlock-entry", "unlock-details")
+private val SECURITY_STATES = setOf("unlock-entry", "unlock-details", "contacts-safety", "onboarding-phrase")
