@@ -57,7 +57,7 @@ internal class ContactCommandAdapter(transport: RepositoryTransport, private val
         }
         val body = try {
             when (command.operation) {
-                // The SDK verifies exactly the stamp the person compared (`contact.verify`, CONTACT-VERIFY-CAS-01).
+                // The SDK verifies exactly the stamp the person compared (`contact.verify`, compare-and-set on the stamp).
                 ContactOperation.VERIFY -> SecretBody.takeJson("{\"expected\":${requireNotNull(stamp(command.account, command.target))}}".toByteArray())
                 // "me" is the reference caller's default scope (`apps/rf/src/cli/contact.rs`).
                 ContactOperation.REMOVE -> SecretBody.fields { publicText(field, command.target); publicText("scope", "me") }
