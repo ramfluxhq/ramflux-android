@@ -1567,7 +1567,9 @@ private data class Outgoing(
 }
 
 /** Status names of failures that mean "no live session"; such sends wait in the queue. */
-private val OFFLINE = setOf("authority_unavailable", "unavailable", "offline", "closed")
+// authority_unavailable is not offline: the SDK has no home node for the contact until its card is imported (it carries
+// no reason code yet), so the send ends as not sent with a retry and the card hint.
+private val OFFLINE = setOf("unavailable", "offline", "closed")
 private const val LOCAL_PREFIX = "local:"
 
 private fun keyOf(attachment: MediaAttachment) = attachment.messageId + "/" + attachment.index
@@ -1614,6 +1616,7 @@ private const val GALLERY_PAGES_PER_LOAD = 5
 
 /** Media refusals the person can act on get their own words (design B22); others use the generic text. */
 private fun mediaFailure(problem: ClientProblem): UiText? = when (problem.statusName ?: problem.check) {
+    AUTHORITY_UNAVAILABLE -> uiText(R.string.chat_send_needs_card)
     "recipient_limit" -> uiText(R.string.chat_media_recipient_limit)
     "peer_upgrade_required" -> uiText(R.string.chat_media_peer_upgrade)
     "file_too_large", "quota_exceeded", "disk_full" -> uiText(R.string.chat_media_too_large)
@@ -1685,8 +1688,13 @@ private fun actionFailure(problem: ClientProblem): UiText = when (problem.outcom
     )
 }
 
-private fun failedNotice(problem: ClientProblem): UiText? =
-    if (problem.outcome == ClientOutcome.UNKNOWN) null else uiText(R.string.ui_delivery_failed)
+private fun failedNotice(problem: ClientProblem): UiText? = when {
+    problem.outcome == ClientOutcome.UNKNOWN -> null
+    problem.statusName == AUTHORITY_UNAVAILABLE -> uiText(R.string.chat_send_needs_card)
+    else -> uiText(R.string.ui_delivery_failed)
+}
+
+private const val AUTHORITY_UNAVAILABLE = "authority_unavailable"
 
 private fun typingNotice(result: ClientResult<Unit>): UiText? = when (result) {
     is ClientResult.Ready -> null

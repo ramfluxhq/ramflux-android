@@ -302,4 +302,6 @@
     <string name="chat_media_queued">Waiting to send</string>
     <!-- Status on an attachment this phone tried to send and the service refused. -->
     <string name="chat_media_unsent">Not sent</string>
+    <!-- A send the SDK refused because the contact's home node is not known yet (no contact card imported); the entry keeps a Retry. -->
+    <string name="chat_send_needs_card">Not sent. Exchange contact cards with this contact to send media.</string>
 </resources>
