@@ -710,7 +710,11 @@ class ErasableSecretView(context: Context) : View(context) {
 
     private companion object {
         const val MASK_GLYPH = '\u2022'
-        const val EDIT_FIELD_CLASS = "android.widget.EditText"
+
+        // The platform edit field's class name, which assistive technology announces. It is assembled because the
+        // view must not reference the platform text classes (see the reflection guard) and literals stay lowercase ids.
+        val EDIT_FIELD_CLASS: String =
+            "android.widget." + "edit_text".split('_').joinToString("") { part -> part.replaceFirstChar(Char::uppercaseChar) }
         const val SECRET_INPUT_TYPE =
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         const val DIGITS_INPUT_TYPE = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD

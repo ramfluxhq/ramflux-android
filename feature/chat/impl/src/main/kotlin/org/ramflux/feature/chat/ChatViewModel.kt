@@ -503,10 +503,18 @@ class ChatViewModel @Inject constructor(
                 }
                 is ClientResult.Failed -> {
                     val offline = sent.problem.kind == ClientFailureKind.UNAVAILABLE || sent.problem.statusName in OFFLINE
+                    val problem = sent.problem
                     clientDebugEvent(
-                        "chat.send.${if (offline) "queued" else "failed"} media=${staged.size} kind=${sent.problem.kind} " +
-                            "code=${sent.problem.code} status=${sent.problem.statusName} check=${sent.problem.check} " +
-                            "outcome=${sent.problem.outcome}"
+                        listOf(
+                            "chat.send",
+                            if (offline) "queued" else "failed",
+                            "media:" + staged.size,
+                            "kind:" + problem.kind,
+                            "code:" + problem.code,
+                            "status:" + problem.statusName,
+                            "check:" + problem.check,
+                            "outcome:" + problem.outcome
+                        ).joinToString("/")
                     )
                     outgoing.delivery = if (offline) LocalDelivery.QUEUED else LocalDelivery.FAILED
                     outgoing.definite = sent.problem.outcome != ClientOutcome.UNKNOWN
