@@ -48,7 +48,7 @@ what is missing.
 | `RAMFLUX_REALRUN_ADB` | `--target phone` | path of `adb` on that machine |
 | `RAMFLUX_REALRUN_SERIAL` | `--target phone` | the device serial (`adb devices`) |
 | `RAMFLUX_REALRUN_REMOTE_DIR` | `--target phone` | a scratch directory on that machine; the APKs are copied there and removed at the end |
-| `RAMFLUX_REALRUN_ENV` | optional | a shell file to source first, for example your build environment |
+| `RAMFLUX_REALRUN_ENV` | optional | a shell file to source first, for example your build environment (keep it untracked as `scripts/realrun.build.env`, which git ignores) |
 | `RAMFLUX_REALRUN_PYTHON` | optional | the Python 3 interpreter (default `python3`) |
 | `RAMFLUX_REALRUN_GATEWAY_CONTAINER`, `RAMFLUX_REALRUN_CONTAINER_ENGINE` | optional | a gateway container (engine default `podman`) used to warn about clock skew between the node and this machine |
 | `RAMFLUX_REALRUN_TAP_DELAY` | optional | seconds to wait before tapping an install confirmation (default 2.5) |
@@ -74,6 +74,8 @@ scripts/realrun.sh --skip-build --no-install --tests "f06 f07" --out $O       # 
 scripts/realrun.sh --skip-build --no-install --tests "f08" --out $O           # media
 scripts/realrun.sh --skip-build --no-install --tests "f09" --out $O           # groups
 scripts/realrun.sh --skip-build --no-install --tests "f10 f11 f12" --out $O   # settings, backup, honest states
+scripts/realrun.sh --skip-build --no-install --tests "f13 f14" --out $O       # invitation list, sign out and back in
+scripts/realrun.sh --skip-build --no-install --tests "f15" --out $O           # remove the account from this phone: last
 ```
 
 `--test-apk-only` replaces only the suite APK (the app and its data stay); `--keep-app` reinstalls both
@@ -135,10 +137,13 @@ vault by design. Flows from account creation on need a real phone.
 
 ## What the suite does and does not do
 
-It runs twelve flows (`f01` to `f12`): onboarding and account creation, lock and unlock, cold start, contacts,
-the conversation list, direct chat, background behaviour, media, groups, settings, backup and the honest states
-of the app when the node or a peer is unavailable. Each flow ends PASS, FAIL, BLOCKED (a precondition such as
-the QUIC relay is missing) or NOT RUN in `flow-table.md`; the script exits non-zero when any flow failed. It
+It runs fifteen flows (`f01` to `f15`): onboarding and account creation, lock and unlock, cold start, contacts,
+the conversation list, direct chat, background behaviour, media (including a group image), groups, settings,
+backup, the honest states of the app when the node or a peer is unavailable, the group invitation list, signing
+out and back in, and finally removing the account from the phone (`f15` erases the account: run it last).
+Restore is not run: it needs the archive passphrase to reach another install. Each flow ends PASS, FAIL, BLOCKED
+(a precondition such as the QUIC relay is missing) or NOT RUN in `flow-table.md`, which covers every invocation in
+the output folder; each invocation exits non-zero when a flow it ran failed or the instrumentation failed. It
 does not change the node, the phone's settings or its rotation, other apps, or the phone's photos, and it does
 not run in CI.
 

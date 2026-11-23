@@ -19,10 +19,13 @@ FLOWS = [
     ("06-direct-chat", "4 Direct chat with alice: send, live receive, receipts, typing, reply, edit, erase for everyone"),
     ("07-background", "4 Background and return keeps the session, the open chat and the draft"),
     ("08-media", "7 Media M1: receive an image and a file from alice, download; send an image to alice"),
-    ("09-groups", "5 Groups: create, add alice and bob, send and receive group messages"),
+    ("09-groups", "5 Groups: create, add alice and bob, messages both ways, the phone sends a group image"),
     ("10-settings-code", "10 Settings: devices, language, change the account code, lock and unlock with it"),
     ("11-backup", "14 Backup: create a backup job and let it finish"),
     ("12-honest-states", "8, 9, 12, 15, 2 Agents, tasks, calls, privacy and link-device screens in their honest states"),
+    ("13-invitations", "5 Groups: the invitation list loads"),
+    ("14-sign-out", "10 Sign out on this phone and sign back in with the code"),
+    ("15-remove-local", "10 Remove the account from this phone (last step)"),
 ]
 
 
