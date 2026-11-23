@@ -211,8 +211,8 @@ class RealRunFlowTest {
     // Flow 3: the conversation list shows the direct conversation with alice under the derived id.
 
     @Test fun f05_conversationList() = flow("05-conversations") {
-        ensureShell()
         val conversation = aliceConversation()
+        ensureShell()
         ui.tap("shell-tabs-0")
         if (ui.find("conversation-$conversation", 10_000) == null) {
             val sent = control.rf("alice", "conversation", "send", "--conversation", conversation, "--text", "realrun hello from alice")
@@ -230,8 +230,8 @@ class RealRunFlowTest {
     // Flow 4: direct chat with alice both ways.
 
     @Test fun f06_directChat() = flow("06-direct-chat") {
-        ensureShell()
         val conversation = aliceConversation()
+        ensureShell()
         openConversation(conversation)
         val notes = mutableListOf<String>()
         if (!ui.hasText(peerName("alice"))) fail("the chat header does not show alice's name: ${ui.screen()}")
@@ -309,8 +309,8 @@ class RealRunFlowTest {
     // Flow 4 (continued): background and return keeps the session and the open chat.
 
     @Test fun f07_backgroundAndReturn() = flow("07-background") {
-        ensureShell()
         val conversation = aliceConversation()
+        ensureShell()
         openConversation(conversation)
         val marker = "rr-bg-" + token()
         ui.fill("composer", marker)
@@ -340,8 +340,8 @@ class RealRunFlowTest {
     // Flow 7, media M1: receive an image and a file from alice, view them; send an image to alice.
 
     @Test fun f08_mediaM1() = flow("08-media") {
-        ensureShell()
         val conversation = aliceConversation()
+        ensureShell()
         val commitment = RunState["commitment"] ?: blocked("needs flow 04 (contact with alice)")
         val notes = mutableListOf<String>()
         // The phone's own contact card goes to alice, so her record of the phone names its home node.
