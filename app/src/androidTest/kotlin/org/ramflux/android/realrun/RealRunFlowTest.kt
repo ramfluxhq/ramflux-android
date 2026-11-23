@@ -43,6 +43,8 @@ class RealRunFlowTest {
         assumeTrue("real run not requested (rf_realrun=1)", args.enabled)
         control = PeerControl(args.control)
         ui = Ui(control)
+        // Marks each flow in the app's debug trace (debug builds log it), so app-logcat.txt lines can be placed.
+        org.ramflux.data.clientDebugEvent("realrun.flow.start")
     }
 
     private fun flow(id: String, needsAccount: Boolean = true, block: () -> String) {
@@ -752,19 +754,29 @@ class RealRunFlowTest {
         } else {
             "privacy shows no request policy rows: ${ui.texts().take(120)}"
         }
-        if (ui.find("open-account", 3_000) != null) {
-            ui.tap("open-account")
-            Thread.sleep(2_000)
-            ui.shot("12-open-account")
-            notes += "open account: ${ui.texts().take(160)}"
+        ui.find("open-account", 3_000)?.let { row ->
+            val label = rowText(row)
+            if (row.isEnabled) {
+                row.click()
+                Thread.sleep(2_000)
+                ui.shot("12-open-account")
+                notes += "open account: ${ui.texts().take(160)}"
+            } else {
+                notes += "open account row disabled with its typed unavailable state: $label"
+            }
         }
         ensureShell()
         openSettings()
         ui.tap("devices")
-        ui.tap("link-device", Ui.SHORT)
-        Thread.sleep(3_000)
-        ui.shot("12-pairing")
-        notes += "link device: ${ui.texts().take(160)}"
+        val link = ui.need("link-device", Ui.SHORT, "link device row")
+        if (link.isEnabled) {
+            link.click()
+            Thread.sleep(3_000)
+            ui.shot("12-pairing")
+            notes += "link device: ${ui.texts().take(160)}"
+        } else {
+            notes += "link device row disabled: ${rowText(link)}"
+        }
         if (agents == null) fail(notes.joinToString("; "))
         notes.joinToString("; ")
     }
