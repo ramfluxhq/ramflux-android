@@ -91,6 +91,9 @@ class GroupsViewModel @Inject constructor(
     private var watchedAccount: String? = null
     private var ticket = 0L
     private var needsRefresh = false
+
+    /** The ticket of the mutation that set `busy`; a refresh that retires the ticket meanwhile must not leave it set. */
+    private var busyOwner = 0L
     private var owner: String? = null
 
     /** The selected group with only the own roster row kept, plus the roster size at that read. */
@@ -125,6 +128,7 @@ class GroupsViewModel @Inject constructor(
             GroupsAction.Refresh -> if (request?.isActive != true) read()
             GroupsAction.Back -> {
                 val parent = local.value.page.parent()
+                clientDebugEvent("groups.back:" + local.value.page + ":" + parent + ":entry:" + entry + ":busy:" + local.value.busy)
                 if (parent == null || local.value.page == entry) {
                     event(GroupsEvent.Back)
                 } else {
@@ -525,11 +529,17 @@ class GroupsViewModel @Inject constructor(
         retire()
         val expected = ticket
         val generation = session.status.value.generation
+        busyOwner = expected
         local.update { it.copy(busy = true, confirmation = null, problem = null) }
         request = viewModelScope.launch {
             try {
                 if (account(expected, generation, accountId) == null) return@launch
+                clientDebugEvent("groups.mutate.start:" + attempt.second.operation)
                 val result = groups.mutate(accountId, attempt.second, attempt.first)
+                clientDebugEvent(
+                    "groups.mutate.done:" + attempt.second.operation + ":" +
+                        (if (result is ClientResult.Ready) "ready" else (result as? ClientResult.Failed)?.problem?.code ?: "unavailable")
+                )
                 current(expected, generation)
                 if (account(expected, generation, accountId) == null) return@launch
                 local.update { it.copy(pending = groups.pending(accountId)?.operationId) }
@@ -591,6 +601,10 @@ class GroupsViewModel @Inject constructor(
                                 attempt.second.member?.let { memberFeed.window.remove(it.id) }
                                 local.update { it.copy(page = GroupsPage.MEMBERS, selectedMember = null) }
                             }
+                            // An added contact is shown where it now belongs: the member list, reloaded below.
+                            if (attempt.second.operation == GroupOperation.ADD && !result.value.waiting) {
+                                local.update { it.copy(page = GroupsPage.MEMBERS) }
+                            }
                             needsRefresh = true
                         }
                     }
@@ -601,8 +615,11 @@ class GroupsViewModel @Inject constructor(
                 throw cancelled
             } finally {
                 prepared = null
-                if (expected == ticket) {
+                if (busyOwner == expected) {
+                    busyOwner = 0L
                     local.update { it.copy(busy = false) }
+                }
+                if (expected == ticket) {
                     if (needsRefresh) {
                         needsRefresh = false
                         read()
