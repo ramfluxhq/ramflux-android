@@ -14,6 +14,12 @@ import org.ramflux.data.*
 import org.ramflux.designsystem.*
 import org.ramflux.feature.contacts.impl.R
 
+/**
+ * Contacts, the strangers area, sent requests and blocked contacts, each read through the repository's windowed
+ * pages into a bounded [PageWindow]. Filtering runs in the data layer over the SDK snapshot, off the main thread.
+ * While visible, the screen follows the contact journal topics through the shared event hub and reloads the
+ * window of the affected kind.
+ */
 @HiltViewModel
 class ContactsViewModel @Inject constructor(
     private val directory: ContactDirectoryRepository,
@@ -24,25 +30,21 @@ class ContactsViewModel @Inject constructor(
     private val channel = Channel<ContactsEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
     val state = combine(local, session.status) { screen, status ->
-        if (status.phase == ClientPhase.OPEN) {
-            screen.copy(
-                rows = screen.rows.filter {
-                    screen.query.isBlank() || it.label.contains(screen.query, ignoreCase = true) ||
-                        it.principal.contains(screen.query, ignoreCase = true)
-                }.toPersistentList()
-            )
-        } else {
-            ContactsState(problem = uiText(R.string.contacts_closed))
-        }
+        if (status.phase == ClientPhase.OPEN) screen else ContactsState(problem = uiText(R.string.contacts_closed))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), ContactsState())
     private var request: Job? = null
+    private var queryJob: Job? = null
+    private var watch: Job? = null
+    private var watchedAccount: String? = null
+    private var visible = false
     private var ticket = 0L
     private var activeAccount: String? = null
     private var commands: List<ContactCommand> = emptyList()
+    private val window = PageWindow<PersonItem>(WINDOW_PAGES) { it.id }
     private val lifecycle = viewModelScope.launch {
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect { (phase, _) ->
             request?.cancel()
-
+            stopWatch()
             commands = emptyList()
             ticket++
             activeAccount = null
@@ -50,9 +52,10 @@ class ContactsViewModel @Inject constructor(
             if (phase == ClientPhase.OPEN) read()
         }
     }
+
     fun onAction(action: ContactsAction) {
-        if (local.value.approval != null && action != ContactsAction.Confirm && action != ContactsAction.Deny
-        ) {
+        val overlayAction = action == ContactsAction.Confirm || action == ContactsAction.Deny || action is ContactsAction.Visible
+        if (local.value.approval != null && !overlayAction) {
             return
         }
         when (action) {
@@ -63,35 +66,55 @@ class ContactsViewModel @Inject constructor(
                 commands = emptyList()
                 local.update { it.copy(approval = null, loading = false) }
             }
-            ContactsAction.Refresh -> if (request?.isActive != true) read()
+            ContactsAction.Refresh -> if (request?.isActive != true && local.value.page == ContactsPage.LIST) read()
+            ContactsAction.LoadMore -> if (request?.isActive != true && window.next != null) readPage(forward = true)
+            ContactsAction.LoadPrevious -> if (request?.isActive != true && window.previous != null) readPage(forward = false)
             ContactsAction.SetupAccount -> event(ContactsEvent.SetupAccount)
+            is ContactsAction.Visible -> {
+                visible = action.visible
+                if (visible) activeAccount?.let(::startWatch) else stopWatch()
+            }
             ContactsAction.Back -> if (local.value.page == ContactsPage.LIST) {
                 event(ContactsEvent.Back)
             } else {
                 request?.cancel()
                 ticket++
+                val nested = local.value.page in setOf(ContactsPage.SAFETY, ContactsPage.DECLINE)
+                val back = if (nested) ContactsPage.DETAIL else ContactsPage.LIST
                 local.update {
                     it.copy(
-                        page = ContactsPage.LIST,
-                        selected = null,
+                        page = back,
+                        selected = if (back == ContactsPage.LIST) null else it.selected,
                         selectedIds = persistentSetOf(),
                         loading = false,
-                        unavailable = null
+                        unavailable = null,
+                        safety = null
                     )
                 }
             }
             is ContactsAction.Tab -> if (local.value.tab != action.tab) {
                 request?.cancel()
+                queryJob?.cancel()
                 ticket++
-                local.value = ContactsState(tab = action.tab)
+                local.value = ContactsState(tab = action.tab, accountLabel = local.value.accountLabel)
                 read()
             }
-            is ContactsAction.Query -> local.update { it.copy(query = action.text.take(256)) }
+            is ContactsAction.Query -> {
+                val text = action.text.take(MAX_QUERY)
+                if (text == local.value.query) return
+                local.update { it.copy(query = text) }
+                queryJob?.cancel()
+                queryJob = viewModelScope.launch {
+                    delay(QUERY_DEBOUNCE_MS)
+                    request?.cancel()
+                    read()
+                }
+            }
             is ContactsAction.Address -> local.update { it.copy(address = action.text.take(4096), unavailable = null) }
             is ContactsAction.Select -> local.value.rows.find { it.id == action.id }?.let { row ->
                 request?.cancel()
                 ticket++
-                local.update { it.copy(page = ContactsPage.DETAIL, selected = row, unavailable = null, loading = false) }
+                local.update { it.copy(page = ContactsPage.DETAIL, selected = row, unavailable = null, problem = null, loading = false) }
             }
             is ContactsAction.Toggle -> if (local.value.rows.any { it.id == action.id && it.inbound }) {
                 local.update {
@@ -109,19 +132,22 @@ class ContactsViewModel @Inject constructor(
                 if (action.page == ContactsPage.BATCH && local.value.tab != ContactsTab.STRANGERS) return
                 request?.cancel()
                 ticket++
-                local.update { it.copy(page = action.page, unavailable = null, loading = false, safety = null) }
+                local.update { it.copy(page = action.page, unavailable = null, problem = null, loading = false, safety = null) }
                 if (action.page == ContactsPage.SAFETY) readSafety()
             }
             is ContactsAction.Operate -> preflight(action.operation)
         }
     }
+
     private fun event(event: ContactsEvent) {
         request?.cancel()
+        stopWatch()
         ticket++
         activeAccount = null
         local.value = ContactsState()
         viewModelScope.launch { channel.send(event) }
     }
+
     private suspend fun account(expected: Long, generation: Long, required: String? = null): AccountSummary? {
         val catalog = accounts.list()
         current(expected, generation)
@@ -148,84 +174,131 @@ class ContactsViewModel @Inject constructor(
             }
         }
     }
+
     private fun clear(problem: UiText? = null, unavailable: UiText? = null, required: Boolean = false) {
         activeAccount = null
-        local.value = ContactsState(tab = local.value.tab, problem = problem, unavailable = unavailable, accountRequired = required)
+        stopWatch()
+        local.value = ContactsState(
+            tab = local.value.tab, query = local.value.query, problem = problem, unavailable = unavailable, accountRequired = required
+        )
     }
+
+    /** Reads the first page of the selected tab into a fresh window. */
     private fun read() {
         if (session.status.value.phase != ClientPhase.OPEN) return
         val expected = ++ticket
         val generation = session.status.value.generation
         val tab = local.value.tab
-        local.value = ContactsState(tab = tab, loading = true)
+        val query = local.value.query
+        local.update { it.copy(loading = true, problem = null, unavailable = null) }
         request = viewModelScope.launch {
             try {
                 val selected = account(expected, generation) ?: return@launch
-                val result = if (tab == ContactsTab.CONTACTS) {
-                    when (val result = directory.contacts(selected.id)) {
-                        is ClientResult.Ready -> ClientResult.Ready(
-                            result.value.map {
-                                PersonItem(
-                                    it.id, it.principal, it.name?.takeIf { name -> name.isNotBlank() } ?: it.principal,
-                                    uiText(if (it.verified) R.string.contacts_verified else R.string.contacts_unverified), false,
-                                    root = it.root
-                                )
-                            }
-                        )
-                        is ClientResult.Failed -> result
-                        is ClientResult.Unavailable -> result
-                    }
-                } else {
-                    when (val result = directory.requests(selected.id)) {
-                        is ClientResult.Ready -> ClientResult.Ready(
-                            result.value.filter {
-                                if (tab == ContactsTab.STRANGERS) {
-                                    it.direction == RequestDirection.INBOUND && it.status == ContactRequestStatus.PENDING
-                                } else {
-                                    it.direction == RequestDirection.OUTBOUND
-                                }
-                            }.map {
-                                PersonItem(
-                                    it.id, it.principal,
-                                    it.name?.takeIf { name -> name.isNotBlank() } ?: it.principal,
-                                    it.status.message(), true,
-                                    it.direction == RequestDirection.INBOUND, it.note,
-                                    UiText.Quantity(R.plurals.contacts_messages, it.messageCount), UiText.DateTime(it.expiresAt),
-                                    root = it.root
-                                )
-                            }
-                        )
-                        is ClientResult.Failed -> result
-                        is ClientResult.Unavailable -> result
-                    }
-                }
+                val result = page(selected.id, tab, query, null)
                 current(expected, generation)
                 if (account(expected, generation, selected.id) == null) return@launch
                 activeAccount = selected.id
-                local.update {
-                    it.copy(
-                        uncertain = directory.attempts(selected.id).filter { attempt -> attempt.phase == ContactAttemptPhase.UNKNOWN }
-                            .map { attempt ->
-                                uiText(R.string.contacts_unknown_operation, UiText.Data(attempt.operationId))
-                            }.toPersistentList()
-                    )
-                }
+                if (visible) startWatch(selected.id)
+                val uncertain = directory.attempts(selected.id).filter { it.phase == ContactAttemptPhase.UNKNOWN }
+                    .map { uiText(R.string.contacts_unknown_operation, UiText.Data(it.operationId)) }.toPersistentList()
                 when (result) {
                     is ClientResult.Ready -> {
-                        if (result.value.size > 1000 || result.value.map { it.id }.distinct().size != result.value.size) {
-                            clear(problem = uiText(R.string.contacts_invalid))
-                            return@launch
+                        window.reset(result.value)
+                        local.update {
+                            it.copy(
+                                loaded = true, accountLabel = selected.label, uncertain = uncertain,
+                                rows = window.rows().toPersistentList(),
+                                hasMore = window.next != null, hasBefore = window.previous != null
+                            )
                         }
-                        local.update { it.copy(loaded = true, accountLabel = selected.label, rows = result.value.toPersistentList()) }
                     }
-                    is ClientResult.Failed -> local.update { it.copy(problem = result.problem.message()) }
-                    is ClientResult.Unavailable -> local.update { it.copy(unavailable = result.reason.message()) }
+                    is ClientResult.Failed -> local.update { it.copy(uncertain = uncertain, problem = result.problem.message()) }
+                    is ClientResult.Unavailable -> local.update { it.copy(uncertain = uncertain, unavailable = result.reason.message()) }
                 }
             } finally {
                 if (expected == ticket) local.update { it.copy(loading = false) }
             }
         }
     }
+
+    private fun readPage(forward: Boolean) {
+        val owner = activeAccount ?: return
+        val cursor = (if (forward) window.next else window.previous) ?: return
+        val expected = ++ticket
+        val generation = session.status.value.generation
+        val tab = local.value.tab
+        val query = local.value.query
+        local.update { it.copy(loadingMore = true) }
+        request = viewModelScope.launch {
+            try {
+                val result = page(owner, tab, query, cursor)
+                current(expected, generation)
+                when (result) {
+                    is ClientResult.Ready -> {
+                        if (forward) window.append(result.value) else window.prepend(result.value)
+                        local.update {
+                            it.copy(
+                                rows = window.rows().toPersistentList(), hasMore = window.next != null, hasBefore = window.previous != null
+                            )
+                        }
+                    }
+                    is ClientResult.Failed -> local.update { it.copy(problem = result.problem.message()) }
+                    is ClientResult.Unavailable -> local.update { it.copy(unavailable = result.reason.message()) }
+                }
+            } finally {
+                if (expected == ticket) local.update { it.copy(loadingMore = false) }
+            }
+        }
+    }
+
+    private suspend fun page(account: String, tab: ContactsTab, query: String, cursor: String?): ClientResult<WindowedPage<PersonItem>> =
+        when (tab) {
+            ContactsTab.CONTACTS, ContactsTab.BLOCKED -> directory.contactPage(
+                account,
+                if (tab == ContactsTab.BLOCKED) ContactListScope.BLOCKED else ContactListScope.ACCEPTED,
+                query,
+                cursor
+            ).map { it.person(blocked = tab == ContactsTab.BLOCKED) }
+            ContactsTab.STRANGERS, ContactsTab.SENT -> directory.requestPage(
+                account,
+                if (tab == ContactsTab.STRANGERS) ContactRequestScope.STRANGERS else ContactRequestScope.SENT,
+                query,
+                cursor
+            ).map { it.person() }
+        }
+
+    /** One shared subscription while the screen is visible; cancelled when it leaves the screen. */
+    private fun startWatch(account: String) {
+        if (watch?.isActive == true && watchedAccount == account) return
+        stopWatch()
+        watchedAccount = account
+        val generation = session.status.value.generation
+        watch = viewModelScope.launch {
+            directory.changes(account).conflate().collect { result ->
+                if (session.status.value.generation != generation || activeAccount != account) return@collect
+                val change = (result as? ClientResult.Ready)?.value ?: return@collect
+                val state = local.value
+                val affects = when (change) {
+                    ContactChange.RELOAD -> true
+                    ContactChange.CONTACTS -> state.tab == ContactsTab.CONTACTS || state.tab == ContactsTab.BLOCKED
+                    ContactChange.REQUESTS -> state.tab != ContactsTab.BLOCKED
+                    ContactChange.SAFETY -> state.page == ContactsPage.SAFETY || state.tab == ContactsTab.CONTACTS
+                }
+                if (!affects || request?.isActive == true || state.approval != null) return@collect
+                when {
+                    state.page == ContactsPage.SAFETY && (change == ContactChange.SAFETY || change == ContactChange.RELOAD) -> readSafety()
+                    state.page == ContactsPage.LIST -> read()
+                }
+            }
+        }
+    }
+
+    private fun stopWatch() {
+        watch?.cancel()
+        watch = null
+        watchedAccount = null
+    }
+
     private fun readSafety() {
         val row = local.value.selected ?: return
         val root = row.root
@@ -244,7 +317,15 @@ class ContactsViewModel @Inject constructor(
                 current(expected, generation)
                 if (account(expected, generation, owner) == null) return@launch
                 when (result) {
-                    is ClientResult.Ready -> local.update { it.copy(safety = SafetyItem(result.value.number, result.value.fingerprint)) }
+                    is ClientResult.Ready -> local.update {
+                        it.copy(
+                            safety = SafetyItem(
+                                result.value.number, result.value.fingerprint, result.value.state.message(),
+                                result.value.state == SafetyState.VERIFIED,
+                                result.value.verifiable && result.value.state != SafetyState.VERIFIED
+                            )
+                        )
+                    }
                     is ClientResult.Failed -> local.update { it.copy(problem = result.problem.message()) }
                     is ClientResult.Unavailable -> local.update { it.copy(unavailable = result.reason.message()) }
                 }
@@ -253,20 +334,22 @@ class ContactsViewModel @Inject constructor(
             }
         }
     }
+
     private fun preflight(operation: ContactOperation) {
-        if (operation == ContactOperation.VERIFY) {
-            local.update { it.copy(unavailable = uiText(R.string.contacts_safety_binding_unavailable)) }
-            return
-        }
         if (request?.isActive == true || session.status.value.phase != ClientPhase.OPEN) return
         val selected = local.value.selected
-        val needsRequest = operation in setOf(
-            ContactOperation.ACCEPT, ContactOperation.DECLINE, ContactOperation.BLOCK, ContactOperation.REPORT, ContactOperation.REPLY
-        )
-        if (needsRequest && selected?.inbound != true) return
-        if (operation in setOf(ContactOperation.VERIFY, ContactOperation.SCAN) && selected == null) return
-        if (operation == ContactOperation.BATCH_DECLINE && local.value.selectedIds.isEmpty()) return
-        if (operation == ContactOperation.ADD && local.value.address.isBlank()) return
+        when (operation) {
+            ContactOperation.ACCEPT, ContactOperation.DECLINE, ContactOperation.BLOCK -> if (selected?.inbound != true) return
+            ContactOperation.REMOVE, ContactOperation.BLOCK_CONTACT -> if (selected == null || selected.request || selected.blocked) return
+            ContactOperation.UNBLOCK -> if (selected == null || selected.request || !selected.blocked) return
+            ContactOperation.VERIFY -> if (selected?.root == null || local.value.safety?.verifiable != true) return
+            ContactOperation.BATCH_DECLINE -> if (local.value.selectedIds.isEmpty()) return
+            ContactOperation.ADD -> if (local.value.address.isBlank()) return
+            ContactOperation.REPORT, ContactOperation.REPLY, ContactOperation.SCAN -> {
+                local.update { it.copy(unavailable = uiText(R.string.contacts_sdk_unavailable)) }
+                return
+            }
+        }
         val expected = ++ticket
         val generation = session.status.value.generation
         request = viewModelScope.launch {
@@ -280,31 +363,35 @@ class ContactsViewModel @Inject constructor(
                         val targets = when (operation) {
                             ContactOperation.ADD -> listOf(local.value.address)
                             ContactOperation.BATCH_DECLINE -> local.value.rows.filter { it.id in local.value.selectedIds }.map { it.id }
+                            ContactOperation.VERIFY -> listOfNotNull(selected?.root)
                             else -> listOfNotNull(selected?.id)
                         }
                         if (targets.isEmpty()) return@launch
-                        val uncertain = directory.attempts(active.id).find {
-                            it.phase == ContactAttemptPhase.UNKNOWN && it.target in targets
-                        }
+                        val uncertain = directory.attempts(active.id)
+                            .find { it.phase == ContactAttemptPhase.UNKNOWN && it.target in targets }
                         if (uncertain != null) {
-                            local.update {
-                                it.copy(
-                                    problem = uiText(R.string.contacts_unknown_operation, UiText.Data(uncertain.operationId))
-                                )
-                            }
+                            val notice = uiText(R.string.contacts_unknown_operation, UiText.Data(uncertain.operationId))
+                            local.update { it.copy(problem = notice) }
                             return@launch
                         }
                         val actual = if (operation == ContactOperation.BATCH_DECLINE) ContactOperation.DECLINE else operation
                         commands = targets.map { target ->
                             ContactCommand(
-                                active.id, java.util.UUID.randomUUID().toString(), actual,
-                                target, local.value.rows.find { it.id == target }?.principal ?: target
+                                active.id, java.util.UUID.randomUUID().toString(), actual, target,
+                                local.value.rows.find {
+                                    it.id == target
+                                }?.principal ?: selected?.principal ?: target
                             )
                         }
+                        val shown = when (operation) {
+                            ContactOperation.ADD -> targets
+                            ContactOperation.BATCH_DECLINE -> local.value.rows.filter { it.id in local.value.selectedIds }.map { it.label }
+                            else -> listOfNotNull(selected?.label)
+                        }
                         local.update {
-                            it.copy(
-                                approval = ContactApproval(active.id, operation.label(), targets.toPersistentList()), unavailable = null
-                            )
+                            val approval =
+                                ContactApproval(active.id, operation.label(), shown.toPersistentList(), operation.explanation(), operation)
+                            it.copy(approval = approval, unavailable = null)
                         }
                     }
                     is ClientResult.Unavailable -> local.update { it.copy(unavailable = result.reason.message()) }
@@ -315,13 +402,15 @@ class ContactsViewModel @Inject constructor(
             }
         }
     }
+
     private fun executeApproved() {
         if (request?.isActive == true || commands.isEmpty()) return
         val prepared = commands
         val expected = ++ticket
         val generation = session.status.value.generation
-        local.update { it.copy(loading = true, approval = null, operationNotice = null) }
+        local.update { it.copy(loading = true, approval = null, operationNotice = null, problem = null) }
         request = viewModelScope.launch {
+            var done = false
             try {
                 for (command in prepared) {
                     if (account(expected, generation, command.account) == null) return@launch
@@ -329,7 +418,10 @@ class ContactsViewModel @Inject constructor(
                     current(expected, generation)
                     if (account(expected, generation, command.account) == null) return@launch
                     when (result) {
-                        is ClientResult.Ready -> local.update { it.copy(operationNotice = uiText(R.string.contacts_confirmed_refresh)) }
+                        is ClientResult.Ready -> {
+                            window.remove(command.target)
+                            local.update { it.copy(operationNotice = uiText(R.string.contacts_confirmed_refresh)) }
+                        }
                         is ClientResult.Unavailable -> {
                             local.update { it.copy(unavailable = result.reason.message()) }
                             return@launch
@@ -348,21 +440,66 @@ class ContactsViewModel @Inject constructor(
                         }
                     }
                 }
+                done = true
             } finally {
                 commands = emptyList()
                 if (expected == ticket) local.update { it.copy(loading = false) }
             }
+            if (!done) return@launch
+            val operation = prepared.first().operation
+            if (operation == ContactOperation.VERIFY) {
+                readSafety()
+            } else if (operation != ContactOperation.ADD) {
+                // The acted-on row left this list; show the list without it and reload the window.
+                local.update {
+                    it.copy(
+                        page = ContactsPage.LIST, selected = null, selectedIds = persistentSetOf(), rows = window.rows().toPersistentList()
+                    )
+                }
+                read()
+            }
         }
     }
+
     private suspend fun current(expected: Long, generation: Long) {
         currentCoroutineContext().ensureActive()
         if (expected != ticket || generation != session.status.value.generation || session.status.value.phase != ClientPhase.OPEN) {
-            throw CancellationException(
-                "retired contacts"
-            )
+            throw CancellationException("retired contacts")
         }
     }
+
+    private companion object {
+        /** Six pages of the repository's page size: at most 600 rows held. */
+        const val WINDOW_PAGES = 6
+        const val MAX_QUERY = 256
+        const val QUERY_DEBOUNCE_MS = 250L
+    }
 }
+
+private inline fun <T, R> ClientResult<WindowedPage<T>>.map(transform: (T) -> R): ClientResult<WindowedPage<R>> = when (this) {
+    is ClientResult.Ready -> ClientResult.Ready(WindowedPage(value.rows.map(transform), value.next, value.previous))
+    is ClientResult.Failed -> this
+    is ClientResult.Unavailable -> this
+}
+
+private fun ContactSummary.person(blocked: Boolean) = PersonItem(
+    id,
+    principal,
+    name?.takeIf { it.isNotBlank() } ?: principal,
+    uiText(if (blocked) R.string.contacts_blocked else if (verified) R.string.contacts_verified else R.string.contacts_unverified),
+    false,
+    root = root,
+    blocked = blocked,
+    verified = verified
+)
+
+private fun ContactRequestSummary.person() = PersonItem(
+    id, principal, name?.takeIf { it.isNotBlank() } ?: principal, status.message(), true,
+    direction == RequestDirection.INBOUND, note,
+    UiText.Quantity(R.plurals.contacts_messages, messageCount), UiText.DateTime(expiresAt),
+    root = root
+)
+
 private fun ClientProblem.message() = uiText(R.string.contacts_read_failed, UiText.Number(code.toLong()))
 private fun UnavailableReason.message() = uiText(
     when (this) {
@@ -381,16 +518,36 @@ private fun ContactRequestStatus.message() = uiText(
         ContactRequestStatus.UNKNOWN -> R.string.contacts_unknown
     }
 )
+private fun SafetyState.message() = uiText(
+    when (this) {
+        SafetyState.UNVERIFIED -> R.string.contacts_safety_state_unverified
+        SafetyState.VERIFIED -> R.string.contacts_safety_state_verified
+        SafetyState.CHANGED -> R.string.contacts_safety_state_changed
+        SafetyState.BLOCKED_BY_POLICY -> R.string.contacts_safety_state_blocked
+        SafetyState.UNKNOWN -> R.string.contacts_unknown
+    }
+)
 
 private fun ContactOperation.label() = uiText(
     when (this) {
         ContactOperation.ADD -> R.string.contacts_send_request
         ContactOperation.ACCEPT -> R.string.contacts_accept
         ContactOperation.DECLINE, ContactOperation.BATCH_DECLINE -> R.string.contacts_decline
-        ContactOperation.BLOCK -> R.string.contacts_block
+        ContactOperation.BLOCK, ContactOperation.BLOCK_CONTACT -> R.string.contacts_block
         ContactOperation.REPORT -> R.string.contacts_report
         ContactOperation.REPLY -> R.string.contacts_reply
-        ContactOperation.VERIFY -> R.string.contacts_verify
+        ContactOperation.VERIFY -> R.string.contacts_numbers_match
         ContactOperation.SCAN -> R.string.contacts_scan
+        ContactOperation.REMOVE -> R.string.contacts_remove
+        ContactOperation.UNBLOCK -> R.string.contacts_unblock
     }
 )
+
+private fun ContactOperation.explanation(): UiText? = when (this) {
+    ContactOperation.REMOVE -> uiText(R.string.contacts_remove_explanation)
+    ContactOperation.BLOCK, ContactOperation.BLOCK_CONTACT -> uiText(R.string.contacts_block_explanation)
+    ContactOperation.UNBLOCK -> uiText(R.string.contacts_unblock_explanation)
+    ContactOperation.VERIFY -> uiText(R.string.contacts_verify_explanation)
+    ContactOperation.DECLINE, ContactOperation.BATCH_DECLINE -> uiText(R.string.contacts_decline_explanation)
+    else -> null
+}

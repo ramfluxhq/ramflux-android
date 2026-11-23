@@ -139,3 +139,17 @@ the draft and creates no message row. While the conversation is open, the client
 subscribes for new messages and typing. The draft lives in ViewModel memory only:
 closing the session on background or lid close (owner decision, 2026-11-23) loses
 it, and it is not written to saved instance state, which the system may persist.
+
+Contacts (people, strangers area, sent requests, blocked) read through windowed pages
+(`ContactDirectoryRepository.contactPage` / `requestPage`) into a bounded `PageWindow`
+(six pages of 100 rows; pages dropped at one end reload through the cursor at that end).
+`contact.list` and `contact.requests.list` are unpaged in the pinned SDK, so the data layer
+wraps them in `SnapshotPager`: a read without a cursor takes one SDK snapshot, filters it by the
+query off the main thread and serves offset cursors into it; the reply itself is bounded by the
+1 MiB frame. While visible the screen follows `contact.changed`, `safety.changed` and the request
+topics through the shared event hub (never `*`) and reloads the affected window. Remove
+(`contact.remove`, scope `me` as the reference CLI), block and unblock a contact by link id, and
+mark a safety number verified (`contact.verify` with the SDK's compare-and-set stamp from the last
+`contact.safety_number` read, kept in the data layer and sent verbatim) all require the host
+confirmation and bind the reply to the target. Reply, report and scan have no SDK method and are
+not offered.

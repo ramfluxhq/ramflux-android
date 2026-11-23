@@ -27,7 +27,7 @@ class ContactsScreenshotTest(private val kind: String, private val dark: Boolean
             val kinds =
                 listOf(
                     "contacts", "strangers", "sent", "detail", "add", "safety", "decline", "batch",
-                    "empty", "loading", "error", "account", "confirmation", "unknown"
+                    "empty", "loading", "error", "account", "confirmation", "unknown", "profile", "blocked", "safety-changed"
                 )
             for (kind in kinds) {
                 for (dark in listOf(false, true)) for (locale in listOf("en", "zh-CN", "en-XA")) for (width in listOf(400, 900)) {
@@ -42,6 +42,7 @@ class ContactsScreenshotTest(private val kind: String, private val dark: Boolean
             "request", "peer-id", "Actual peer name", uiText(R.string.contacts_pending), true, true,
             "Peer supplied note", UiText.Quantity(R.plurals.contacts_messages, 3u), UiText.DateTime(1700000000)
         )
+        val contact = person.copy(id = "link", request = false, inbound = false, note = null, count = null, expires = null, root = "root")
         val populated = ContactsState(accountLabel = "Work", loaded = true, rows = persistentListOf(person), selected = person)
         val state = when (kind) {
             "contacts" -> populated.copy(
@@ -54,11 +55,43 @@ class ContactsScreenshotTest(private val kind: String, private val dark: Boolean
             )
             "detail" -> populated.copy(page = ContactsPage.DETAIL)
             "add" -> populated.copy(page = ContactsPage.ADD, address = "Peer identity draft")
-            "safety" -> populated.copy(page = ContactsPage.SAFETY, unavailable = uiText(R.string.contacts_action_unavailable))
+            "safety" -> populated.copy(
+                page = ContactsPage.SAFETY,
+                selected = contact,
+                safety = SafetyItem(
+                    "482197632048613570290000000000",
+                    "9f3a0c7d",
+                    uiText(R.string.contacts_safety_state_unverified),
+                    false,
+                    true
+                )
+            )
+            "safety-changed" -> populated.copy(
+                page = ContactsPage.SAFETY,
+                selected = contact,
+                safety = SafetyItem(
+                    "482197632048613570290000000000",
+                    "9f3a0c7d",
+                    uiText(R.string.contacts_safety_state_changed),
+                    false,
+                    false
+                )
+            )
+            "profile" -> populated.copy(page = ContactsPage.DETAIL, selected = contact)
+            "blocked" -> populated.copy(
+                page = ContactsPage.DETAIL,
+                tab = ContactsTab.BLOCKED,
+                selected = contact.copy(blocked = true, status = uiText(R.string.contacts_blocked))
+            )
             "decline" -> populated.copy(page = ContactsPage.DECLINE)
             "batch" -> populated.copy(page = ContactsPage.BATCH, tab = ContactsTab.STRANGERS, selectedIds = persistentSetOf("request"))
             "confirmation" -> populated.copy(
-                approval = ContactApproval("account-id", uiText(R.string.contacts_accept), persistentListOf("request-id"))
+                approval = ContactApproval(
+                    "account-id",
+                    uiText(R.string.contacts_remove),
+                    persistentListOf("Actual peer name"),
+                    uiText(R.string.contacts_remove_explanation)
+                )
             )
             "unknown" -> populated.copy(
                 uncertain = persistentListOf(uiText(R.string.contacts_unknown_operation, UiText.Data("operation-id")))

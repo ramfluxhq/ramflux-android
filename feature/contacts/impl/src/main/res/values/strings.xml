@@ -11,8 +11,6 @@
     <string name="contacts_tab_contacts">Contacts</string>
     <string name="contacts_tab_strangers">Strangers</string>
     <string name="contacts_tab_sent">Sent</string>
-    <string name="contacts_loading">Loading people</string>
-    <string name="contacts_reading">Reading private account records</string>
     <string name="contacts_error">Unable to read people</string>
     <string name="contacts_unavailable">Action unavailable</string>
     <string name="contacts_account_required">Select an unlocked account</string>
@@ -24,10 +22,9 @@
     <string name="contacts_requests_empty">No requests</string>
     <string name="contacts_empty_explanation">Refresh to read the latest account records.</string>
     <string name="contacts_expires">Expires: %1$s</string>
-    <string name="contacts_safety_explanation">Compare the actual safety number through a trusted channel. Verification remains unavailable until the SDK can bind that comparison.</string>
-    <string name="contacts_verify">Verify number</string>
+    <string name="contacts_safety_explanation">Verify the new safety number before you continue sending; sending stays paused until it is verified.</string>
     <string name="contacts_scan">Scan safety code</string>
-    <string name="contacts_decline_explanation">No request will be removed until an authorized operation completes.</string>
+    <string name="contacts_decline_explanation">The request leaves your strangers list. Blocking also stops further requests from this person.</string>
     <string name="contacts_block">Block</string>
     <string name="contacts_report">Report</string>
     <string name="contacts_stranger_explanation">This person is not a contact. Replying does not accept the request.</string>
@@ -60,8 +57,52 @@
     <string name="contacts_deny">Deny</string>
     <string name="contacts_confirmed_refresh">The account confirmed this operation. Refresh to read the current relationship.</string>
     <string name="contacts_unknown_operation">Outcome unknown for operation %1$s. Refresh to reconcile; do not repeat it.</string>
-    <string name="contacts_safety_binding_unavailable">Verification requires SDK support for the exact safety material you compared. No verification was recorded.</string>
+    <string name="contacts_safety_binding_unavailable">The SDK offered no comparison stamp for this number, so it cannot be marked verified now. No verification was recorded.</string>
     <string name="contacts_fingerprint">Fingerprint: %1$s</string>
     <string name="contacts_confirm_action">Confirm</string>
     <string name="contacts_confirm_accessibility">Confirm: %1$s</string>
+    <!-- Title of the contact safety number page -->
+    <string name="contacts_safety_title">Contact and safety number</string>
+    <!-- Tab listing blocked contacts -->
+    <string name="contacts_tab_blocked">Blocked</string>
+    <!-- Button that repeats a failed read -->
+    <string name="contacts_retry">Try again</string>
+    <!-- Empty state of the blocked tab -->
+    <string name="contacts_blocked_empty">No blocked contacts</string>
+    <!-- Body of the empty requests state -->
+    <string name="contacts_requests_empty_explanation">Requests from people who are not contacts appear here.</string>
+    <!-- Button that reads the next page of the list -->
+    <string name="contacts_load_more">Load more</string>
+    <!-- Safety number state: never compared -->
+    <string name="contacts_safety_state_unverified">Not verified</string>
+    <!-- Safety number state: compared and recorded -->
+    <string name="contacts_safety_state_verified">Verified</string>
+    <!-- Safety number state: the contact's identity changed after verification -->
+    <string name="contacts_safety_state_changed">Changed since verification</string>
+    <!-- Safety number state: account policy prevents verification -->
+    <string name="contacts_safety_state_blocked">Blocked by policy</string>
+    <!-- Explanation on a blocked contact's profile -->
+    <string name="contacts_blocked_explanation">You will not receive messages or requests from this person until you unblock them.</string>
+    <!-- Label of the verification state row -->
+    <string name="contacts_verification_state">Verification</string>
+    <!-- Heading above the comparison instructions -->
+    <string name="contacts_safety_compare_title">Compare the number</string>
+    <!-- Warning title about changed identities -->
+    <string name="contacts_safety_changed_title">Identity mismatch or change</string>
+    <!-- Button that leaves the safety page without verifying -->
+    <string name="contacts_not_now">Not now</string>
+    <!-- Button that records the safety number as verified -->
+    <string name="contacts_numbers_match">Numbers match</string>
+    <!-- Button that removes a contact -->
+    <string name="contacts_remove">Remove contact</string>
+    <!-- Button that unblocks a contact -->
+    <string name="contacts_unblock">Unblock</string>
+    <!-- Confirmation body for removing a contact -->
+    <string name="contacts_remove_explanation">The contact is removed from this account on this device. You can add them again later.</string>
+    <!-- Confirmation body for blocking -->
+    <string name="contacts_block_explanation">Blocked people cannot send you messages or requests. You can unblock them later.</string>
+    <!-- Confirmation body for unblocking -->
+    <string name="contacts_unblock_explanation">This person can send you requests again.</string>
+    <!-- Confirmation body for marking a safety number verified -->
+    <string name="contacts_verify_explanation">Confirm only if the number on their device matches this one exactly.</string>
 </resources>

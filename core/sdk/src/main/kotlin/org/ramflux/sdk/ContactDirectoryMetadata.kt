@@ -10,15 +10,18 @@ data class ContactRequestDisplayEntry(val id: String, val principal: String, val
     override fun toString() = "ContactRequestDisplayEntry(<redacted>)"
 }
 object ContactDirectoryMetadataReader {
+    /** `contact.list` and `contact.requests.list` are unpaged; one 1 MiB frame cannot carry more rows than this. */
+    const val MAX_ROWS = 10_000
+
     fun contacts(reply: SecretReply): CoreResult<List<ContactDisplayEntry>> = decode(reply) { fields ->
-        fields.rows("contacts", 1000).map { row ->
+        fields.rows("contacts", MAX_ROWS).map { row ->
             ContactDisplayEntry(requireNotNull(fields.text(row, "link_id", true)), requireNotNull(fields.text(row, "principal_id", true)),
                 fields.text(row, "display_name"), requireNotNull(fields.text(row, "state", true)),
                 fields.boolean(row, "blocked"), fields.boolean(row, "verified"), fields.text(row, "root_commitment"))
         }.also { rows -> require(rows.map { it.id }.distinct().size == rows.size) }
     }
     fun requests(reply: SecretReply): CoreResult<List<ContactRequestDisplayEntry>> = decode(reply) { fields ->
-        fields.rows("requests", 1000).map { row ->
+        fields.rows("requests", MAX_ROWS).map { row ->
             val direction = requireNotNull(fields.text(row, "direction", true))
             require(direction in setOf("inbound", "outbound"))
             ContactRequestDisplayEntry(requireNotNull(fields.text(row, "request_id", true)), requireNotNull(fields.text(row, "principal_id", true)),

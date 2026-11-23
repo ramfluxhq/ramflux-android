@@ -279,7 +279,13 @@ private val SAFETY_CONTACT = run {
         rows = persistentListOf(person),
         selected = person,
         page = ContactsPage.SAFETY,
-        safety = SafetyItem("052417733908182640516279388104529976631840271956", "9f3a0c7d51e2b84f")
+        safety = SafetyItem(
+            "052417733908182640516279388104529976631840271956",
+            "9f3a0c7d51e2b84f",
+            uiText(ContactsR.string.contacts_safety_state_unverified),
+            verified = false,
+            verifiable = true
+        )
     )
 }
 

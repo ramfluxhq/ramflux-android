@@ -30,4 +30,18 @@ class ContactDirectoryMetadataTest {
             assertTrue(raw.all { it == 0.toByte() })
         }
     }
+    @Test fun safetyReaderKeepsStateAndTheStampVerbatimAndRejectsANonObjectStamp() {
+        val stamp = """{"contact_identity_commitment":"root","safety_number_hash":"h"}"""
+        val raw = """{"contact_identity_commitment":"root","safety_number":["1234"],"fingerprint_hex":"ab","verification_state":"changed","expected":$stamp}""".toByteArray()
+        val read = (ContactSafetyMetadataReader.read(SecretReply(SecretBytes.take(raw))) as CoreResult.Success).value
+        assertEquals("changed", read.state)
+        assertEquals(stamp, read.expected)
+        val bad = """{"contact_identity_commitment":"root","safety_number":["1234"],"fingerprint_hex":"ab","expected":"x"}""".toByteArray()
+        assertTrue(ContactSafetyMetadataReader.read(SecretReply(SecretBytes.take(bad))) is CoreResult.Failure)
+    }
+    @Test fun eventTopicIsReadAloneAndTheFrameIsWiped() {
+        val raw = """{"method":"contact.changed","body":{"display_name":"must-not-copy"}}""".toByteArray()
+        assertEquals("contact.changed", EventTopicReader.topic(SecretReply(SecretBytes.take(raw))))
+        assertTrue(raw.all { it == 0.toByte() })
+    }
 }

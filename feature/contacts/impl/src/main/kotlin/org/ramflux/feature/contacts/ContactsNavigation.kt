@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun ContactsNavigation(
@@ -21,6 +22,10 @@ fun ContactsNavigation(
     val setup by rememberUpdatedState(onSetupAccount)
     BackHandler { vm.onAction(ContactsAction.Back) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(ContactsAction.Refresh) }
+    LifecycleStartEffect(vm) {
+        vm.onAction(ContactsAction.Visible(true))
+        onStopOrDispose { vm.onAction(ContactsAction.Visible(false)) }
+    }
     LaunchedEffect(vm) {
         vm.events.collect {
             when (it) {

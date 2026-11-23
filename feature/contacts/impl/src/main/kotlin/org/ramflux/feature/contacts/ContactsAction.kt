@@ -8,6 +8,15 @@ sealed interface ContactsAction {
     data object Deny : ContactsAction
     data object Refresh : ContactsAction
     data object Back : ContactsAction
+
+    /** The end of the window is on screen: read the next page. */
+    data object LoadMore : ContactsAction
+
+    /** The start of the window is on screen and rows before it were dropped: read the previous page. */
+    data object LoadPrevious : ContactsAction
+
+    /** The list is on screen (subscribe to changes) or not (cancel the subscription). */
+    data class Visible(val visible: Boolean) : ContactsAction
     data object SetupAccount : ContactsAction
     data class Tab(val tab: ContactsTab) : ContactsAction
     data class Query(val text: String) : ContactsAction

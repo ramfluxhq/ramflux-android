@@ -6,7 +6,7 @@ import kotlinx.coroutines.CancellationException
 import org.ramflux.sdk.*
 
 /** Account-scoped, process-lifetime journal retains uncertain identities across feature recreation. */
-internal class ContactCommandAdapter(transport: RepositoryTransport) {
+internal class ContactCommandAdapter(transport: RepositoryTransport, private val stamp: (String, String) -> String? = { _, _ -> null }) {
     private val source = DefaultContactsRepository(transport)
     private val journal = mutableMapOf<Pair<String, String>, Pair<ContactCommand, ContactAttemptPhase>>()
     fun attempts(account: String): List<ContactAttempt> = synchronized(journal) {
@@ -18,7 +18,7 @@ internal class ContactCommandAdapter(transport: RepositoryTransport) {
         if (!confirmed) return ClientResult.Failed(ClientProblem(ClientFailureKind.AUTHORIZATION, 12, ClientOutcome.REFUSED))
         if (command.account.isBlank() || command.account.length > 4096 || command.target.isBlank() || command.target.length > 4096 ||
             !Regex("[a-z0-9-]{1,128}").matches(command.operationId)) return failed(1, ClientOutcome.NONE)
-        if (command.operation !in setOf(ContactOperation.ADD, ContactOperation.ACCEPT, ContactOperation.DECLINE, ContactOperation.BLOCK)) {
+        if (command.operation !in SUPPORTED) {
             return ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
         }
         val key = command.account to command.operationId
@@ -50,8 +50,20 @@ internal class ContactCommandAdapter(transport: RepositoryTransport) {
         val context = RepositoryContext(command.account, command.operationId)
         val card = command.operation == ContactOperation.ADD &&
             (command.target.startsWith("ramflux-card:") || command.target.startsWith("ramflux://contact/"))
-        val field = if (command.operation == ContactOperation.ADD) { if (card) "card" else "principal_id" } else "request_id"
-        val body = try { SecretBody.fields { publicText(field, command.target) } } catch (_: Exception) {
+        val field = when (command.operation) {
+            ContactOperation.ADD -> if (card) "card" else "principal_id"
+            ContactOperation.REMOVE, ContactOperation.BLOCK_CONTACT, ContactOperation.UNBLOCK -> "link_id"
+            else -> "request_id"
+        }
+        val body = try {
+            when (command.operation) {
+                // The SDK verifies exactly the stamp the person compared (`contact.verify`, CONTACT-VERIFY-CAS-01).
+                ContactOperation.VERIFY -> SecretBody.takeJson("{\"expected\":${requireNotNull(stamp(command.account, command.target))}}".toByteArray())
+                // "me" is the reference caller's default scope (`apps/rf/src/cli/contact.rs`).
+                ContactOperation.REMOVE -> SecretBody.fields { publicText(field, command.target); publicText("scope", "me") }
+                else -> SecretBody.fields { publicText(field, command.target) }
+            }
+        } catch (_: Exception) {
             synchronized(journal) { journal[key] = command to ContactAttemptPhase.FAILED }
             return failed(1, ClientOutcome.NONE)
         }
@@ -60,19 +72,26 @@ internal class ContactCommandAdapter(transport: RepositoryTransport) {
                 ContactOperation.ADD -> source.add(context, body)
                 ContactOperation.ACCEPT -> source.accept(context, body)
                 ContactOperation.DECLINE -> source.decline(context, body)
-                ContactOperation.BLOCK -> source.block(context, body)
+                ContactOperation.BLOCK, ContactOperation.BLOCK_CONTACT -> source.block(context, body)
+                ContactOperation.REMOVE -> source.remove(context, body)
+                ContactOperation.UNBLOCK -> source.unblock(context, body)
+                ContactOperation.VERIFY -> source.verify(context, body)
                 else -> { body.close(); return failed(1, ClientOutcome.NONE) }
             }
             val decoded = when (result) {
                 is CoreResult.Failure -> result
-                is CoreResult.Success -> if (command.operation == ContactOperation.ADD) {
-                    ContactCompletionMetadataReader.added(result.value, if (card) null else command.target)
+                is CoreResult.Success -> when (command.operation) {
+                    ContactOperation.ADD -> ContactCompletionMetadataReader.added(result.value, if (card) null else command.target)
+                    ContactOperation.REMOVE -> ContactCompletionMetadataReader.link(result.value, command.target, null)
+                    ContactOperation.BLOCK_CONTACT -> ContactCompletionMetadataReader.link(result.value, command.target, true)
+                    ContactOperation.UNBLOCK -> ContactCompletionMetadataReader.link(result.value, command.target, false)
+                    ContactOperation.VERIFY -> ContactCompletionMetadataReader.verified(result.value)
+                    else -> ContactCompletionMetadataReader.decision(result.value, command.target, command.principal, when(command.operation) {
+                        ContactOperation.ACCEPT -> "accepted"
+                        ContactOperation.DECLINE -> "declined"
+                        else -> "blocked"
+                    })
                 }
-                else ContactCompletionMetadataReader.decision(result.value, command.target, command.principal, when(command.operation) {
-                    ContactOperation.ACCEPT -> "accepted"
-                    ContactOperation.DECLINE -> "declined"
-                    else -> "blocked"
-                })
             }
             val outcome = when (decoded) {
                 is CoreResult.Success -> ClientResult.Ready(Unit)
@@ -92,6 +111,12 @@ internal class ContactCommandAdapter(transport: RepositoryTransport) {
             synchronized(journal) { journal[key] = command to ContactAttemptPhase.UNKNOWN }
             throw cancelled
         } finally { body.close() }
+    }
+    companion object {
+        val SUPPORTED = setOf(
+            ContactOperation.ADD, ContactOperation.ACCEPT, ContactOperation.DECLINE, ContactOperation.BLOCK,
+            ContactOperation.REMOVE, ContactOperation.BLOCK_CONTACT, ContactOperation.UNBLOCK, ContactOperation.VERIFY
+        )
     }
     private fun failed(code: Int, outcome: ClientOutcome) = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, code, outcome))
 }

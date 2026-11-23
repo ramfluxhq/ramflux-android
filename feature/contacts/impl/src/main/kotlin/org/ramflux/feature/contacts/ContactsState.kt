@@ -4,11 +4,13 @@
 package org.ramflux.feature.contacts
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
+import org.ramflux.data.ContactOperation
 import org.ramflux.designsystem.UiText
 
-enum class ContactsTab { CONTACTS, STRANGERS, SENT }
+enum class ContactsTab { CONTACTS, STRANGERS, SENT, BLOCKED }
 enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
 
+/** One row: a contact link ([request] false; [id] is the link id) or a contact request ([id] is the request id). */
 @Immutable data class PersonItem(
     val id: String,
     val principal: String,
@@ -19,17 +21,28 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
     val note: String? = null,
     val count: UiText? = null,
     val expires: UiText? = null,
-    val root: String? = null
+    val root: String? = null,
+    val blocked: Boolean = false,
+    val verified: Boolean = false
 ) {
     override fun toString() = "PersonItem(<redacted>)"
 }
 
-@Immutable data class SafetyItem(val number: String, val fingerprint: String)
+/** [verifiable]: the SDK offered a stamp for this number, so "Numbers match" can be recorded. */
+@Immutable data class SafetyItem(
+    val number: String,
+    val fingerprint: String,
+    val state: UiText,
+    val verified: Boolean,
+    val verifiable: Boolean
+)
 
 @Immutable data class ContactApproval(
     val account: String,
     val operation: UiText,
-    val targets: ImmutableList<String>
+    val targets: ImmutableList<String>,
+    val explanation: UiText? = null,
+    val kind: ContactOperation? = null
 )
 
 @Immutable data class ContactsState(
@@ -37,6 +50,9 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
     val tab: ContactsTab = ContactsTab.CONTACTS,
     val accountLabel: String? = null,
     val rows: ImmutableList<PersonItem> = persistentListOf(),
+    val hasMore: Boolean = false,
+    val hasBefore: Boolean = false,
+    val loadingMore: Boolean = false,
     val selected: PersonItem? = null,
     val selectedIds: ImmutableSet<String> = persistentSetOf(),
     val query: String = "",

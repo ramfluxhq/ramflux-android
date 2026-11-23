@@ -22,7 +22,43 @@ class ContactCommandDataTest {
             assertEquals("account", request["account_id"]?.jsonPrimitive?.content)
             assertEquals("root", request["body"]?.jsonObject?.get("contact_identity_commitment")?.jsonPrimitive?.content)
             assertTrue(repo.safety("account", "different-root") is ClientResult.Failed)
-            assertTrue(repo.availability(ContactOperation.VERIFY) is ClientResult.Unavailable)
+            assertTrue(repo.availability(ContactOperation.VERIFY) is ClientResult.Ready)
+        } finally { client.close() }
+    }
+
+    @Test fun linkActionsSendTheLinkAndVerifySpendsTheComparedStampVerbatim() = runTest(timeout = 5.seconds) {
+        val stamp = """{"algorithm_version":1,"self_identity_commitment":"self","contact_identity_commitment":"root","safety_number_hash":"h","contact_device_set_hash":"d","contact_lineage_head":"l","self_authority_head":"s"}"""
+        val abi = FakeAbi().apply {
+            completionBody = Json.parseToJsonElement("""{"contact_identity_commitment":"root","safety_number":["1234"],"fingerprint_hex":"ab","verification_state":"unverified","expected":$stamp}""").jsonObject
+        }
+        val client = (CoreClient.open(abi, "/test/contact-links", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
+        try {
+            val repo = DefaultContactDirectoryRepository(SdkRepositoryTransport { client })
+            val unread = ContactCommand("account", "verify-early", ContactOperation.VERIFY, "root", "peer")
+            assertTrue(repo.submit(unread, true) is ClientResult.Failed)
+            assertEquals(ContactSafety("1234", "ab", SafetyState.UNVERIFIED, verifiable = true), (repo.safety("account", "root") as ClientResult.Ready).value)
+            abi.completionBody = Json.parseToJsonElement("""{"verification_state":"verified"}""").jsonObject
+            assertTrue(repo.submit(ContactCommand("account", "verify-1", ContactOperation.VERIFY, "root", "peer"), true) is ClientResult.Ready)
+            val verify = abi.submitted.last()
+            assertEquals("contact.verify", verify["method"]?.jsonPrimitive?.content)
+            assertEquals(Json.parseToJsonElement(stamp), verify["body"]?.jsonObject?.get("expected"))
+            val cases = listOf(
+                Triple(ContactOperation.REMOVE, "contact.remove", """{"link_id":"link-0","blocked":false}"""),
+                Triple(ContactOperation.BLOCK_CONTACT, "contact.block", """{"link_id":"link-1","blocked":true}"""),
+                Triple(ContactOperation.UNBLOCK, "contact.unblock", """{"link_id":"link-2","blocked":false}""")
+            )
+            for ((index, case) in cases.withIndex()) {
+                val (operation, method, reply) = case
+                abi.completionBody = Json.parseToJsonElement(reply).jsonObject
+                assertTrue(repo.submit(ContactCommand("account", "link-op-$index", operation, "link-$index", "peer"), true) is ClientResult.Ready)
+                val frame = abi.submitted.last()
+                assertEquals(method, frame["method"]?.jsonPrimitive?.content)
+                assertEquals("link-$index", frame["body"]?.jsonObject?.get("link_id")?.jsonPrimitive?.content)
+                assertEquals(if (operation == ContactOperation.REMOVE) "me" else null, frame["body"]?.jsonObject?.get("scope")?.jsonPrimitive?.content)
+            }
+            // A reply for another link is not a confirmation.
+            abi.completionBody = Json.parseToJsonElement("""{"link_id":"other","blocked":false}""").jsonObject
+            assertTrue(repo.submit(ContactCommand("account", "link-op-x", ContactOperation.UNBLOCK, "link-x", "peer"), true) is ClientResult.Failed)
         } finally { client.close() }
     }
 
