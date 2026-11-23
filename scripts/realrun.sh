@@ -326,6 +326,9 @@ fi
 say "running ${TESTS:-the whole suite} (log: $OUT/instrument.log)"
 # The phone's log is shared with other apps: it is never cleared; only lines since this start are read.
 LOG_SINCE=$(dev shell date "+%m-%d\ %H:%M:%S.000" 2> /dev/null | tr -d '\r' || true)
+# The results of earlier invocations in this folder, so this invocation's exit code covers only its own flows.
+BEFORE=$(cat "$OUT/results.json" 2> /dev/null || echo '{}')
+INSTRUMENT_FROM=$(wc -l < "$OUT/instrument.log" 2> /dev/null || echo 0)
 set +e
 { echo "== $(date -u '+%H:%M:%S') ${TESTS:-all}"; dev shell am instrument -w -r "${ARGS[@]}" -e class "$CLASS_ARG" "$RUNNER"; } >> "$OUT/instrument.log" 2>&1
 set -e
@@ -343,5 +346,19 @@ dev shell run-as "$APP_ID" cat no_backup/debug-trace.log > "$OUT/app-trace.txt" 
 "$PYTHON" -I "$ROOT/scripts/realrun/flow_table.py" "$OUT" "$(( $(date +%s) - START ))" > "$OUT/flow-table.md"
 cat "$OUT/flow-table.md"
 say "output: $OUT"
-grep -q '| FAIL |' "$OUT/flow-table.md" && exit 1
+# Non-zero when a flow recorded by this invocation failed, or the instrumentation itself crashed or failed.
+FAILED_HERE=$(BEFORE="$BEFORE" "$PYTHON" -I -c '
+import json, os, sys
+before = json.loads(os.environ["BEFORE"] or "{}")
+try:
+    after = json.load(open(sys.argv[1]))
+except (OSError, ValueError):
+    after = {}
+print(" ".join(sorted(k for k, v in after.items() if v.get("status") == "FAIL" and before.get(k) != v)))
+' "$OUT/results.json")
+if [ -n "$FAILED_HERE" ]; then say "failed in this invocation: $FAILED_HERE"; exit 1; fi
+if tail -n +"$(( INSTRUMENT_FROM + 1 ))" "$OUT/instrument.log" | grep -q -E 'INSTRUMENTATION_FAILED|Process crashed|FAILURES!!!'; then
+  say "the instrumentation failed in this invocation (see $OUT/instrument.log)"
+  exit 1
+fi
 exit 0
