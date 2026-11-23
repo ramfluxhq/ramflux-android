@@ -89,7 +89,12 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
                 if (page.rows.any { it.conversationId != conversation }) {
                     invalid()
                 } else {
-                    ClientResult.Ready(TimelinePage(page.rows.asReversed().map(::summary), page.nextBefore))
+                    // The SDK stores a message this device sent with conversation.reply with is_own false; a row
+                    // authored by this device (author.device_id is the local device) counts as own as well. The
+                    // local device is read (and cached) only when a page has such a candidate row.
+                    val candidate = page.rows.any { it is MessageHistoryEntry && !it.own && it.sender != null }
+                    val me = if (candidate) (localDevice(account) as? ClientResult.Ready)?.value else null
+                    ClientResult.Ready(TimelinePage(page.rows.asReversed().map { summary(it, me) }, page.nextBefore))
                 }
             }
         }
@@ -133,9 +138,9 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
         }
     }
 
-    private fun summary(row: org.ramflux.sdk.TimelineMetadata): TimelineSummary = when (row) {
+    private fun summary(row: org.ramflux.sdk.TimelineMetadata, me: String?): TimelineSummary = when (row) {
         is MessageHistoryEntry -> MessageSummary(
-            row.id, row.sender, row.own, row.deleted, row.text, row.createdAt, row.revision, row.edited,
+            row.id, row.sender, row.own || (me != null && row.sender == me), row.deleted, row.text, row.createdAt, row.revision, row.edited,
             row.reactions.map { MessageReaction(it.token, it.count) },
             row.receipts.map { MessageReceipt(it.deviceId, it.state) },
             row.replyPreview, row.placeholder, row.service,
