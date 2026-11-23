@@ -76,6 +76,13 @@ class ChatViewModel @Inject constructor(
     private var dividerPlaced = false
     private var draftJob: Job? = null
 
+    /**
+     * The target whose sealed draft is known: restored from the store, or typed since the state was reset. Until then the
+     * composer is empty only because the draft has not been read yet, and sealing it would erase the stored draft (a blank
+     * save deletes it): a session transition while the restore is in flight lost the draft across background and lock.
+     */
+    private var draftKnown: Target? = null
+
     /** Attachment references of the window by key, the files this device holds, and transfers in flight. */
     private val references = HashMap<String, MediaAttachment>()
     private val located = HashMap<String, String>()
@@ -171,6 +178,7 @@ class ChatViewModel @Inject constructor(
             is ChatAction.Draft -> if (!local.value.sending && target != null && session.status.value.phase == ClientPhase.OPEN) {
                 val text = action.text.take(65536)
                 local.update { it.copy(draft = text) }
+                if (local.value.composer != ComposerMode.EDIT) draftKnown = target
                 if (local.value.composer == ComposerMode.SEND) syncTyping(text.isNotBlank())
                 if (local.value.composer != ComposerMode.EDIT) scheduleDraftSave()
             }
@@ -759,6 +767,7 @@ class ChatViewModel @Inject constructor(
         detached = false
         outbox.clear()
         outboxRestored = null
+        draftKnown = null
         persistedOutbox = null
         sendReady = false
         lastMarked = null
@@ -782,16 +791,17 @@ class ChatViewModel @Inject constructor(
         draftJob?.cancel()
         val state = local.value
         if (state.composer == ComposerMode.EDIT || state.conversationId != currentTarget.conversation) return
+        if (draftKnown != currentTarget) return
         val text = state.draft
         viewModelScope.launch(NonCancellable) { drafts.save(currentTarget.account, currentTarget.conversation, text) }
     }
 
     private fun restoreDraft(next: Target) {
         viewModelScope.launch {
-            val text = drafts.load(next.account, next.conversation) ?: return@launch
-            if (target == next && session.status.value.phase == ClientPhase.OPEN && local.value.draft.isEmpty()) {
-                local.update { it.copy(draft = text) }
-            }
+            val text = drafts.load(next.account, next.conversation)
+            if (target != next || session.status.value.phase != ClientPhase.OPEN) return@launch
+            if (text != null && local.value.draft.isEmpty()) local.update { it.copy(draft = text) }
+            if (local.value.composer != ComposerMode.EDIT) draftKnown = next
         }
     }
 
