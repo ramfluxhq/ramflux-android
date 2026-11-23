@@ -29,7 +29,8 @@ fun SettingsScreen(
     drawInvitation: (Int, (CharArray) -> Unit) -> Unit = { _, _ -> }
 ) {
     val theme = LocalRFTheme.current
-    val subtitle = state.accountLabel?.takeIf { it.isNotEmpty() }
+    // The root page (MOB-G02) shows the account in its first row; sub-pages name it under the title.
+    val subtitle = state.accountLabel?.takeIf { it.isNotEmpty() && state.page != SettingsPage.GENERAL }
     val title = stringResource(
         when (state.page) {
             SettingsPage.GENERAL -> R.string.settings_settings
@@ -49,10 +50,9 @@ fun SettingsScreen(
                     title,
                     subtitle = subtitle,
                     onBack = { onAction(SettingsAction.Back) },
-                    actionLabel = stringResource(R.string.settings_refresh),
-                    onAction = { if (!state.loading) onAction(SettingsAction.Refresh) }
+                    actionLabel = if (state.page == SettingsPage.GENERAL) null else stringResource(R.string.settings_refresh),
+                    onAction = if (state.page == SettingsPage.GENERAL) null else ({ if (!state.loading) onAction(SettingsAction.Refresh) })
                 )
-                if (subtitle != null) Text(subtitle, color = theme.secondary)
                 LazyColumn(
                     Modifier.weight(1f).fillMaxWidth().padding(horizontal = theme.gap.dp),
                     verticalArrangement = Arrangement.spacedBy(theme.gap.dp)

@@ -38,6 +38,8 @@ internal fun SettingsGroup(title: String, content: @Composable ColumnScope.() ->
 }
 
 internal fun LazyListScope.generalPage(state: SettingsState, onAction: (SettingsAction) -> Unit) {
+    // The board leaves a band of air under the header before the first group.
+    item("top") { Spacer(Modifier.height(LocalRFTheme.current.gap.dp)) }
     item("group-account") {
         SettingsGroup(stringResource(R.string.settings_group_account)) {
             KitRow(

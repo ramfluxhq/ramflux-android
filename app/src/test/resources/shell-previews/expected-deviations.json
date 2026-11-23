@@ -5323,141 +5323,195 @@
       ]
     },
     "MOB-G02.light--zh-CN": {
-      "percent": 7.34,
-      "reason": "settings root: grouped sections, rows and header differ; the account-lock row (wave 2, beta flow 1) sits where the board has its application group",
+      "percent": 12.04,
+      "reason": "settings root (wave 2 pass 5): board groups and rows from the Kit; no MCP and A2I row (not a phone feature in beta), so the app group sits one row higher; row values are live copy (node, backup, appearance) instead of the board's sample text; page tone and row icon glyphs differ",
       "regions": [
         {
           "kind": "different",
           "x": 16,
-          "y": 178,
+          "y": 512,
           "w": 361,
-          "h": 46,
-          "dx": -11,
-          "dy": -12
-        },
-        {
-          "kind": "different",
-          "x": 16,
-          "y": 622,
-          "w": 361,
-          "h": 57,
-          "dx": -11,
-          "dy": -12
-        },
-        {
-          "kind": "different",
-          "x": 16,
-          "y": 687,
-          "w": 160,
-          "h": 35,
-          "dx": -10,
-          "dy": -12
-        },
-        {
-          "kind": "different",
-          "x": 16,
-          "y": 461,
-          "w": 361,
-          "h": 48,
-          "dx": -7,
-          "dy": 1
-        },
-        {
-          "kind": "different",
-          "x": 16,
-          "y": 239,
-          "w": 361,
-          "h": 47,
-          "dx": 12,
-          "dy": 1
-        },
-        {
-          "kind": "different",
-          "x": 16,
-          "y": 415,
-          "w": 361,
-          "h": 32,
-          "dx": -12,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 32,
-          "y": 582,
-          "w": 94,
-          "h": 35,
-          "dx": -7,
-          "dy": 12
-        },
-        {
-          "kind": "different",
-          "x": 32,
-          "y": 359,
-          "w": 34,
-          "h": 45,
-          "dx": 8,
-          "dy": 12
-        },
-        {
-          "kind": "different",
-          "x": 188,
-          "y": 622,
-          "w": 148,
-          "h": 14,
-          "dx": 1,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 74,
-          "y": 439,
-          "w": 117,
-          "h": 12,
+          "h": 105,
           "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 32,
-          "y": 156,
-          "w": 68,
-          "h": 16,
-          "dx": 3,
-          "dy": -3
-        },
-        {
-          "kind": "different",
-          "x": 32,
-          "y": 313,
-          "w": 65,
-          "h": 23,
-          "dx": -12,
           "dy": -10
         },
         {
           "kind": "different",
-          "x": 32,
-          "y": 546,
-          "w": 104,
-          "h": 16,
+          "x": 74,
+          "y": 410,
+          "w": 156,
+          "h": 41,
           "dx": 0,
-          "dy": -12
+          "dy": -6
+        },
+        {
+          "kind": "different",
+          "x": 16,
+          "y": 340,
+          "w": 361,
+          "h": 10,
+          "dx": -12,
+          "dy": -5
         },
         {
           "kind": "different",
           "x": 74,
-          "y": 250,
-          "w": 84,
+          "y": 352,
+          "w": 136,
+          "h": 41,
+          "dx": 0,
+          "dy": -6
+        },
+        {
+          "kind": "different",
+          "x": 32,
+          "y": 692,
+          "w": 30,
+          "h": 30,
+          "dx": 0,
+          "dy": 4
+        },
+        {
+          "kind": "different",
+          "x": 32,
+          "y": 475,
+          "w": 30,
+          "h": 30,
+          "dx": 6,
+          "dy": -6
+        },
+        {
+          "kind": "different",
+          "x": 75,
+          "y": 699,
+          "w": 101,
           "h": 17,
           "dx": 0,
           "dy": 0
         },
         {
           "kind": "different",
+          "x": 32,
+          "y": 572,
+          "w": 30,
+          "h": 40,
+          "dx": 0,
+          "dy": -9
+        },
+        {
+          "kind": "different",
+          "x": 32,
+          "y": 630,
+          "w": 30,
+          "h": 40,
+          "dx": 0,
+          "dy": -9
+        },
+        {
+          "kind": "different",
           "x": 74,
-          "y": 580,
+          "y": 638,
           "w": 85,
           "h": 17,
+          "dx": 0,
+          "dy": -1
+        },
+        {
+          "kind": "different",
+          "x": 32,
+          "y": 315,
+          "w": 70,
+          "h": 21,
+          "dx": 1,
+          "dy": -7
+        },
+        {
+          "kind": "shifted",
+          "x": 74,
+          "y": 249,
+          "w": 84,
+          "h": 18,
+          "dx": 0,
+          "dy": -1
+        },
+        {
+          "kind": "different",
+          "x": 16,
+          "y": 237,
+          "w": 361,
+          "h": 2,
+          "dx": -12,
+          "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 32,
+          "y": 154,
+          "w": 70,
+          "h": 17,
+          "dx": 3,
+          "dy": -3
+        },
+        {
+          "kind": "shifted",
+          "x": 32,
+          "y": 412,
+          "w": 30,
+          "h": 35,
+          "dx": 0,
+          "dy": -5
+        },
+        {
+          "kind": "shifted",
+          "x": 32,
+          "y": 354,
+          "w": 30,
+          "h": 35,
+          "dx": 0,
+          "dy": -5
+        },
+        {
+          "kind": "different",
+          "x": 74,
+          "y": 272,
+          "w": 70,
+          "h": 14,
+          "dx": 0,
+          "dy": -1
+        },
+        {
+          "kind": "different",
+          "x": 126,
+          "y": 497,
+          "w": 91,
+          "h": 12,
+          "dx": 0,
+          "dy": 12
+        },
+        {
+          "kind": "different",
+          "x": 16,
+          "y": 402,
+          "w": 361,
+          "h": 2,
+          "dx": -12,
+          "dy": -5
+        },
+        {
+          "kind": "different",
+          "x": 16,
+          "y": 625,
+          "w": 361,
+          "h": 2,
+          "dx": -12,
+          "dy": 0
+        },
+        {
+          "kind": "shifted",
+          "x": 109,
+          "y": 191,
+          "w": 50,
+          "h": 18,
           "dx": 0,
           "dy": -1
         },
@@ -5471,29 +5525,20 @@
           "dy": -1
         },
         {
+          "kind": "shifted",
+          "x": 153,
+          "y": 272,
+          "w": 51,
+          "h": 14,
+          "dx": 0,
+          "dy": -2
+        },
+        {
           "kind": "different",
           "x": 141,
           "y": 662,
           "w": 63,
           "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 147,
-          "y": 381,
-          "w": 63,
-          "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "extra",
-          "x": 339,
-          "y": 82,
-          "w": 30,
-          "h": 16,
           "dx": 0,
           "dy": 0
         },
@@ -5508,21 +5553,12 @@
         },
         {
           "kind": "different",
-          "x": 145,
-          "y": 604,
-          "w": 52,
+          "x": 74,
+          "y": 497,
+          "w": 44,
           "h": 12,
           "dx": 0,
           "dy": 12
-        },
-        {
-          "kind": "extra",
-          "x": 32,
-          "y": 526,
-          "w": 34,
-          "h": 16,
-          "dx": 0,
-          "dy": 0
         },
         {
           "kind": "different",
@@ -5531,16 +5567,7 @@
           "w": 49,
           "h": 12,
           "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "extra",
-          "x": 0,
-          "y": 124,
-          "w": 34,
-          "h": 16,
-          "dx": 0,
-          "dy": 0
+          "dy": -1
         },
         {
           "kind": "extra",
@@ -5552,38 +5579,20 @@
           "dy": 0
         },
         {
-          "kind": "different",
+          "kind": "shifted",
           "x": 74,
-          "y": 381,
-          "w": 52,
-          "h": 12,
+          "y": 191,
+          "w": 32,
+          "h": 18,
           "dx": 0,
-          "dy": 0
+          "dy": -1
         },
         {
           "kind": "different",
           "x": 16,
-          "y": 349,
+          "y": 397,
           "w": 361,
           "h": 1,
-          "dx": -12,
-          "dy": -8
-        },
-        {
-          "kind": "different",
-          "x": 16,
-          "y": 571,
-          "w": 361,
-          "h": 1,
-          "dx": -12,
-          "dy": -9
-        },
-        {
-          "kind": "different",
-          "x": 74,
-          "y": 357,
-          "w": 33,
-          "h": 17,
           "dx": 0,
           "dy": 0
         },
@@ -5599,11 +5608,11 @@
         {
           "kind": "different",
           "x": 74,
-          "y": 216,
+          "y": 214,
           "w": 26,
-          "h": 12,
+          "h": 14,
           "dx": 0,
-          "dy": 0
+          "dy": -1
         },
         {
           "kind": "different",
@@ -5625,44 +5634,53 @@
         },
         {
           "kind": "different",
-          "x": 351,
-          "y": 262,
-          "w": 6,
-          "h": 10,
+          "x": 40,
+          "y": 201,
+          "w": 14,
+          "h": 16,
           "dx": 0,
           "dy": 0
         },
         {
-          "kind": "different",
+          "kind": "shifted",
           "x": 351,
-          "y": 369,
+          "y": 583,
           "w": 6,
-          "h": 10,
+          "h": 19,
           "dx": 0,
-          "dy": 0
+          "dy": -9
+        },
+        {
+          "kind": "shifted",
+          "x": 351,
+          "y": 641,
+          "w": 6,
+          "h": 19,
+          "dx": 0,
+          "dy": -9
+        },
+        {
+          "kind": "shifted",
+          "x": 351,
+          "y": 364,
+          "w": 6,
+          "h": 15,
+          "dx": 0,
+          "dy": -5
+        },
+        {
+          "kind": "shifted",
+          "x": 351,
+          "y": 422,
+          "w": 6,
+          "h": 15,
+          "dx": 0,
+          "dy": -5
         },
         {
           "kind": "different",
           "x": 351,
-          "y": 427,
-          "w": 6,
-          "h": 10,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 351,
-          "y": 592,
-          "w": 6,
-          "h": 10,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 351,
-          "y": 650,
+          "y": 485,
           "w": 6,
           "h": 10,
           "dx": 0,
@@ -5688,6 +5706,24 @@
         },
         {
           "kind": "different",
+          "x": 352,
+          "y": 204,
+          "w": 5,
+          "h": 10,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 352,
+          "y": 262,
+          "w": 5,
+          "h": 10,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "different",
           "x": 108,
           "y": 220,
           "w": 3,
@@ -5697,19 +5733,73 @@
         },
         {
           "kind": "different",
-          "x": 134,
-          "y": 385,
-          "w": 3,
+          "x": 32,
+          "y": 194,
+          "w": 5,
           "h": 4,
           "dx": 0,
           "dy": 0
         },
         {
           "kind": "different",
-          "x": 134,
-          "y": 608,
-          "w": 3,
+          "x": 57,
+          "y": 194,
+          "w": 5,
           "h": 4,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 32,
+          "y": 252,
+          "w": 5,
+          "h": 4,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 57,
+          "y": 252,
+          "w": 5,
+          "h": 4,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 46,
+          "y": 270,
+          "w": 2,
+          "h": 3,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "shifted",
+          "x": 51,
+          "y": 258,
+          "w": 2,
+          "h": 3,
+          "dx": 0,
+          "dy": -1
+        },
+        {
+          "kind": "shifted",
+          "x": 41,
+          "y": 258,
+          "w": 2,
+          "h": 3,
+          "dx": 0,
+          "dy": -1
+        },
+        {
+          "kind": "different",
+          "x": 41,
+          "y": 273,
+          "w": 2,
+          "h": 3,
           "dx": 0,
           "dy": 0
         }
