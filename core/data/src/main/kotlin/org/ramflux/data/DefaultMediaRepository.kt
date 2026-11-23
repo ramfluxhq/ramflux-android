@@ -39,7 +39,7 @@ class DefaultMediaRepository(
     private val digest: () -> PlaintextDigest,
     private val pause: suspend (Long) -> Unit = { delay(it) },
 ) : MediaRepository {
-    private val attachments = DefaultAttachmentTransport(transport)
+    private val attachments = DefaultAttachmentsRepository(transport)
     private val conversations = DefaultConversationsRepository(transport)
     private val enabled = HashSet<String>()
 

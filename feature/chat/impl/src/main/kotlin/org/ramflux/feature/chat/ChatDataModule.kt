@@ -9,10 +9,12 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import org.ramflux.data.AccountScopedStore
 import org.ramflux.data.AttachmentHost
 import org.ramflux.data.CardSurfaceRepository
 import org.ramflux.data.ChatDraftRepository
@@ -38,6 +40,14 @@ import org.ramflux.media.Blake3PlaintextDigest
 object ChatDataModule {
     @Provides @Singleton
     fun drafts(@ApplicationContext context: Context): ChatDraftRepository = EncryptedChatDraftRepository(context)
+
+    /** Drafts sealed for an account are erased before the account leaves this device. */
+    @Provides @Singleton @IntoSet
+    fun draftStore(drafts: ChatDraftRepository): AccountScopedStore = AccountScopedStore { drafts.clearAccount(it) }
+
+    /** Media files decrypted for an account are erased before the account leaves this device. */
+    @Provides @Singleton @IntoSet
+    fun mediaStore(media: MediaRepository): AccountScopedStore = AccountScopedStore { media.purgeAccount(it) }
 
     /** Media shares the message repository's SDK transport; without it media is the typed unavailable state. */
     @Provides @Singleton

@@ -25,6 +25,7 @@ import org.ramflux.sdk.MessageHistoryEntry
 import org.ramflux.sdk.MessageHistoryMetadataReader
 import org.ramflux.sdk.SecretBody
 import org.ramflux.sdk.SubscriptionFilter
+import org.ramflux.sdk.TimelineAttachment
 
 /** Directory pages read at most to resolve titles for the storage screen. */
 private const val TITLE_PAGES = 50
@@ -81,22 +82,14 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
             is CoreResult.Failure -> return ClientResult.Failed(result.error.appProblem())
             is CoreResult.Success -> result.value
         }
-        // Two readers consume the page: the SDK display reader (rows) and the data reader (cursor, media).
-        val split = try {
-            reply.useOnce { raw -> TimelinePageExtras.parse(raw) to raw.copyOf() }
-        } catch (_: Exception) {
-            return ClientResult.Failed(CoreError.InvalidResponse().appProblem())
-        } finally {
-            reply.close()
-        }
-        val (extras, copy) = split
-        return when (val decoded = MessageHistoryMetadataReader.read(SecretReplies.take(copy))) {
+        return when (val decoded = MessageHistoryMetadataReader.page(reply)) {
             is CoreResult.Failure -> ClientResult.Failed(decoded.error.appProblem())
             is CoreResult.Success -> {
-                if (decoded.value.any { it.conversationId != conversation }) {
+                val page = decoded.value
+                if (page.rows.any { it.conversationId != conversation }) {
                     invalid()
                 } else {
-                    ClientResult.Ready(TimelinePage(decoded.value.asReversed().map { row -> summary(row, extras) }, extras.nextBefore))
+                    ClientResult.Ready(TimelinePage(page.rows.asReversed().map(::summary), page.nextBefore))
                 }
             }
         }
@@ -140,16 +133,23 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
         }
     }
 
-    private fun summary(row: org.ramflux.sdk.TimelineMetadata, extras: TimelinePageExtras): TimelineSummary = when (row) {
+    private fun summary(row: org.ramflux.sdk.TimelineMetadata): TimelineSummary = when (row) {
         is MessageHistoryEntry -> MessageSummary(
             row.id, row.sender, row.own, row.deleted, row.text, row.createdAt, row.revision, row.edited,
             row.reactions.map { MessageReaction(it.token, it.count) },
             row.receipts.map { MessageReceipt(it.deviceId, it.state) },
             row.replyPreview, row.placeholder, row.service,
-            if (row.deleted) emptyList() else extras.media[row.id].orEmpty(),
+            if (row.deleted) emptyList() else row.attachments.map { attachment(row, it) },
         )
         is CallHistoryEntry -> CallSummary(row.id, row.createdAt)
     }
+
+    /** The SDK reader's attachment reference as the media layer's model; key material never reaches either. */
+    private fun attachment(row: MessageHistoryEntry, item: TimelineAttachment) = MediaAttachment(
+        row.id, item.index, MediaAttachment.kindOf(item.mimeType), item.mimeType, item.fileName, item.size,
+        item.thumbnail?.let { MediaThumbnail(it.mimeType, it.width, it.height, it.bytes) }, item.expiresAt,
+        conversation = row.conversationId,
+    )
 
     override suspend fun header(account: String, conversation: String): ClientResult<ConversationHeader> {
         if (!identity(account) || !identity(conversation)) return invalid()

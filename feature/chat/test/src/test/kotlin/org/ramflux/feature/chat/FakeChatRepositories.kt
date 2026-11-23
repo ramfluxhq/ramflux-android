@@ -182,7 +182,10 @@ class FakeChatMedia : MediaRepository {
     override suspend fun purge(account: String, message: String) {
         purged.add(message)
     }
-    override suspend fun purgeAccount(account: String) = Unit
+    val purgedAccounts = mutableListOf<String>()
+    override suspend fun purgeAccount(account: String) {
+        purgedAccounts.add(account)
+    }
     override suspend fun usage(account: String): Long = 0
     override fun outbox(account: String): java.io.File? = null
     override suspend fun copyToOutbox(account: String, source: java.io.File, fileName: String, mime: String): StagedMedia {

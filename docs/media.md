@@ -6,8 +6,12 @@ Images, animated images, videos and files travel as SDK attachments (`attachment
 
 ## Modules
 
-- `:core:data` owns the SDK calls (`DefaultMediaRepository`, `AttachmentTransport`), the store, the
-  auto-download policy, refusal mapping and the application transfer queue (`MediaTransfers`).
+- `:core:data` owns the SDK calls (`DefaultMediaRepository` over the generated `AttachmentsRepository`
+  forwarders), the store, the auto-download policy, refusal mapping and the application transfer queue
+  (`MediaTransfers`). Attachment references and the `next_before` paging cursor come from the SDK read-model
+  reader (`MessageHistoryMetadataReader.page`); the data layer does not parse the page a second time.
+- Drafts and media register with `AccountScopedStores` (Hilt set contributions in `ChatDataModule`), so
+  both are erased before an account leaves the device.
 - `:core:media` owns decoding and encoding on the device: `ImageDecoder` for still and animated images,
   Media3 Transformer for video transcoding, Media3 ExoPlayer for playback, BLAKE3 for the prepare digest.
 - `:feature:chat` renders bubbles, albums, the viewer, the send preview, the gallery, forwarding and
