@@ -24,6 +24,7 @@ sealed interface SettingsAction {
 
     /** Linking a new device: this phone invites, compares, reviews and approves. */
     data object StartPairing : SettingsAction
+    data class InvitationAsText(val text: Boolean) : SettingsAction
     data class ComparePairing(val match: Boolean) : SettingsAction
     data object ApprovePairing : SettingsAction
     data object ConfirmApprovePairing : SettingsAction

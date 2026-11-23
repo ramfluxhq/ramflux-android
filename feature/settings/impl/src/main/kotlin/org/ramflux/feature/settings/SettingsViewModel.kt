@@ -171,6 +171,7 @@ class SettingsViewModel @Inject constructor(
                 }
             }
             SettingsAction.StartPairing -> startPairing()
+            is SettingsAction.InvitationAsText -> pairing { it.copy(invitationAsText = action.text) }
             is SettingsAction.ComparePairing -> pairingStep(
                 PairingStep.COMPARE
             ) { account, state -> security.confirmPairing(account, state, action.match) }
@@ -202,6 +203,7 @@ class SettingsViewModel @Inject constructor(
 
     // Linking a new device. The invitation token lives only in [invitation], erased when the ceremony leaves INVITED.
     private var invitation: CharArray? = null
+    private var invitationQr: InvitationQr? = null
     private var pairingState: PairingState? = null
     private var pairingJob: Job? = null
     private var pairingAccount: String? = null
@@ -222,6 +224,11 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** Lends the invitation's QR modules to [block] while a frame is drawn; nothing is copied. */
+    fun drawInvitationQr(block: ((Int, Int) -> Boolean) -> Unit) {
+        invitationQr?.lend(block)
+    }
+
     private fun pairing(update: (SettingsPairing) -> SettingsPairing) = local.update { it.copy(pairing = update(it.pairing)) }
 
     private fun failedPairing(problem: ClientProblem) =
@@ -230,7 +237,9 @@ class SettingsViewModel @Inject constructor(
     private fun eraseInvitation() {
         invitation?.fill('\u0000')
         invitation = null
-        pairing { it.copy(invitationChunks = 0) }
+        invitationQr?.close()
+        invitationQr = null
+        pairing { it.copy(invitationChunks = 0, invitationModules = 0, invitationAsText = false) }
     }
 
     private fun startPairing() {
@@ -248,12 +257,14 @@ class SettingsViewModel @Inject constructor(
                     val token = CharArray(chars.remaining()).also { chars.get(it) }
                     if (chars.hasArray()) chars.array().fill('\u0000')
                     invitation = token
+                    invitationQr = InvitationQr.encode(token)
                     pairingOperation = started.operationId to started.generation
                     pairing {
                         it.copy(
                             step = PairingStep.INVITED,
                             expiresAt = started.expiresAt,
-                            invitationChunks = (token.size + INVITATION_CHUNK - 1) / INVITATION_CHUNK
+                            invitationChunks = (token.size + INVITATION_CHUNK - 1) / INVITATION_CHUNK,
+                            invitationModules = invitationQr?.modules ?: 0
                         )
                     }
                     follow(account, started.operationId, started.generation)
@@ -471,6 +482,8 @@ class SettingsViewModel @Inject constructor(
         pairingJob?.cancel()
         invitation?.fill('\u0000')
         invitation = null
+        invitationQr?.close()
+        invitationQr = null
         wipeCodes()
         super.onCleared()
     }

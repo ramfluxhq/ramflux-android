@@ -11,6 +11,11 @@ The native build statically links OpenSSL 3.6.3 for the SDK's SQLCipher backend.
 OpenSSL is licensed under Apache-2.0; its license is included in the SDK AAR.
 The reused Keystore helper retains its BSD-3-Clause SPDX header.
 
+The device-pairing invitation is drawn as a QR code with ZXing core 3.5.4
+(com.google.zxing:core, Copyright ZXing authors), licensed under Apache-2.0.
+Only the core encoder is linked; no ZXing Android or camera artefact is used.
+See third_party/zxing/LICENSE and the project's notices in third_party/zxing/NOTICE.
+
 Bundled UI fonts, both under the SIL Open Font License 1.1:
 - Hanken Grotesk, Copyright 2021 The Hanken Grotesk Project Authors. See third_party/hanken-grotesk/OFL.txt.
 - JetBrains Mono, Copyright 2020 The JetBrains Mono Project Authors. See third_party/jetbrains-mono/OFL.txt.

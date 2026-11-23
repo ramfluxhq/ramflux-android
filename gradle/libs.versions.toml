@@ -22,6 +22,8 @@ robolectric = "4.16.1"
 # Robolectric 4.16.1 preinstrumented jars for the API levels the tests declare (28 and 35).
 androidAllSdk28 = "9-robolectric-4913185-2-i7"
 androidAllSdk35 = "15-robolectric-13954326-i7"
+# QR encoder for the device-pairing invitation (Apache-2.0); core only, no Android or camera artefacts.
+zxing = "3.5.4"
 
 [libraries]
 collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version = "0.4.0" }
@@ -32,6 +34,7 @@ coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-androi
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 junit = { module = "junit:junit", version.ref = "junit" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose" }
 compose-ui = { module = "androidx.compose.ui:ui" }

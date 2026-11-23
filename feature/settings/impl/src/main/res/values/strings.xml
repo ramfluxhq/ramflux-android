@@ -170,6 +170,14 @@
     <string name="settings_pairing_cancel">Cancel pairing</string>
     <!-- Instruction above the one-time invitation. -->
     <string name="settings_pairing_invitation">Enter this one-time invitation on your other device. It is shown once and hidden when you leave the app.</string>
+    <!-- Instruction above the one-time invitation when it is shown as a QR code. -->
+    <string name="settings_pairing_invitation_qr">Scan this one-time invitation with your other device. It is shown once and hidden when you leave the app.</string>
+    <!-- Accessibility description of the invitation QR code; never reads the invitation itself. -->
+    <string name="settings_pairing_qr_description">QR code of the one-time invitation</string>
+    <!-- Button that replaces the invitation QR code with numbered text chunks. -->
+    <string name="settings_pairing_show_text">Show as text</string>
+    <!-- Button that replaces the numbered invitation text chunks with the QR code. -->
+    <string name="settings_pairing_show_qr">Show as QR code</string>
     <!-- Placeholder when the invitation is hidden. -->
     <string name="settings_pairing_covered">Hidden while Ramflux is not in front</string>
     <!-- Expiry of the invitation; %1$s is a date and time. -->

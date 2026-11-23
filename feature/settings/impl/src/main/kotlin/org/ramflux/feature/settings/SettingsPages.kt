@@ -253,7 +253,8 @@ internal fun LazyListScope.privacyPage(state: SettingsState, onAction: (Settings
 internal fun LazyListScope.pairingPage(
     state: SettingsState,
     onAction: (SettingsAction) -> Unit,
-    drawInvitation: (Int, (CharArray) -> Unit) -> Unit
+    drawInvitation: (Int, (CharArray) -> Unit) -> Unit,
+    drawInvitationQr: (((Int, Int) -> Boolean) -> Unit) -> Unit
 ) {
     val pairing = state.pairing
     item("pairing-help") {
@@ -276,7 +277,7 @@ internal fun LazyListScope.pairingPage(
         PairingStep.STARTING, PairingStep.WORKING -> item("pairing-working") {
             KitEmpty("loader", stringResource(R.string.settings_pairing_working), "")
         }
-        PairingStep.INVITED -> item("pairing-invitation") { Invitation(pairing, drawInvitation) }
+        PairingStep.INVITED -> item("pairing-invitation") { Invitation(pairing, onAction, drawInvitation, drawInvitationQr) }
         PairingStep.COMPARE -> item("pairing-compare") {
             Column(verticalArrangement = Arrangement.spacedBy(LocalRFTheme.current.gap.dp)) {
                 Text(stringResource(R.string.settings_pairing_compare))
@@ -334,16 +335,44 @@ internal fun LazyListScope.pairingPage(
     }
 }
 
-/** The show-once invitation, covered whenever the window loses focus (recents, overlays, other windows). */
+/**
+ * The show-once invitation as a QR code, or as numbered text chunks on request (or when it does not fit a
+ * QR code); either is covered whenever the window loses focus (recents, overlays, other windows).
+ */
 @Composable
-private fun Invitation(pairing: SettingsPairing, drawInvitation: (Int, (CharArray) -> Unit) -> Unit) {
+private fun Invitation(
+    pairing: SettingsPairing,
+    onAction: (SettingsAction) -> Unit,
+    drawInvitation: (Int, (CharArray) -> Unit) -> Unit,
+    drawInvitationQr: (((Int, Int) -> Boolean) -> Unit) -> Unit
+) {
     val focused = LocalWindowInfo.current.isWindowFocused
+    val asQr = pairing.invitationModules > 0 && !pairing.invitationAsText
     Column(verticalArrangement = Arrangement.spacedBy(LocalRFTheme.current.gap.dp)) {
-        Text(stringResource(R.string.settings_pairing_invitation))
-        if (focused && pairing.invitationChunks > 0) {
-            LtrSecretWords(pairing.invitationChunks, drawInvitation, Modifier.testTag("pairing-invitation"), tag = "invitation-chunk")
-        } else {
-            KitEmpty("eye", stringResource(R.string.settings_pairing_covered), "", modifier = Modifier.testTag("pairing-covered"))
+        Text(stringResource(if (asQr) R.string.settings_pairing_invitation_qr else R.string.settings_pairing_invitation))
+        when {
+            !focused || pairing.invitationChunks == 0 ->
+                KitEmpty("eye", stringResource(R.string.settings_pairing_covered), "", modifier = Modifier.testTag("pairing-covered"))
+            asQr -> KitQrCode(
+                pairing.invitationModules,
+                drawInvitationQr,
+                stringResource(R.string.settings_pairing_qr_description),
+                tag = "invitation-qr"
+            )
+            else -> LtrSecretWords(
+                pairing.invitationChunks,
+                drawInvitation,
+                Modifier.testTag("pairing-invitation"),
+                tag = "invitation-chunk"
+            )
+        }
+        if (pairing.invitationModules > 0 && pairing.invitationChunks > 0) {
+            KitButton(
+                stringResource(if (asQr) R.string.settings_pairing_show_text else R.string.settings_pairing_show_qr),
+                { onAction(SettingsAction.InvitationAsText(asQr)) },
+                kind = KitButtonKind.Secondary,
+                tag = "pairing-invitation-format"
+            )
         }
         pairing.expiresAt?.let { Text(stringResource(R.string.settings_pairing_expires, UiText.DateTime(it).render())) }
     }

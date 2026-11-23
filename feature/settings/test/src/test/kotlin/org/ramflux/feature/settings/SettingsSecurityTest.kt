@@ -59,12 +59,22 @@ class SettingsSecurityTest {
         val drawn = StringBuilder()
         repeat(pairing.invitationChunks) { index -> vm.drawInvitation(index) { drawn.append(it) } }
         assertTrue(drawn.contains("secret"))
+        assertTrue("the invitation is also encoded as a QR code", pairing.invitationModules > 0)
+        var lent = 0
+        vm.drawInvitationQr { dark -> if (dark(0, 0)) lent++ }
+        assertEquals("the finder pattern's corner module is dark", 1, lent)
+        vm.onAction(SettingsAction.InvitationAsText(true))
+        runCurrent()
+        assertTrue(vm.state.value.pairing.invitationAsText)
 
         security.statuses += ClientResult.Ready(state(PairingPhase.SAS_PENDING, emoji = listOf(0, 1, 2, 3, 4, 5, 63)))
         advanceTimeBy(2_100)
         runCurrent()
         assertEquals(PairingStep.COMPARE, vm.state.value.pairing.step)
         assertEquals(0, vm.state.value.pairing.invitationChunks)
+        assertEquals(0, vm.state.value.pairing.invitationModules)
+        vm.drawInvitationQr { lent = -1 }
+        assertEquals("the QR modules are erased with the invitation", 1, lent)
         var after = StringBuilder()
         vm.drawInvitation(0) { after.append(it) }
         assertTrue("the invitation is erased once the joining device used it", after.isEmpty())

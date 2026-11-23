@@ -18,13 +18,18 @@ enum class PairingEnd { COMPLETED, CANCELLED, EXPIRED, REJECTED, FAILED }
 
 /**
  * Display state of a pairing. The invitation token is not here: it stays in erasable characters in the
- * view model and is drawn through [org.ramflux.designsystem.kit.LtrSecretWords] only.
+ * view model and is drawn through [org.ramflux.designsystem.kit.KitQrCode] or
+ * [org.ramflux.designsystem.kit.LtrSecretWords] only.
  */
 @Immutable data class SettingsPairing(
     val step: PairingStep = PairingStep.IDLE,
     val expiresAt: Long? = null,
     /** Number of drawn invitation chunks; zero once the joining device has used it. */
     val invitationChunks: Int = 0,
+    /** QR modules per side of the invitation; zero when there is none or it does not fit a QR code. */
+    val invitationModules: Int = 0,
+    /** The invitation is shown as numbered text chunks instead of the QR code. */
+    val invitationAsText: Boolean = false,
     val emoji: ImmutableList<Int> = persistentListOf(),
     val peerName: String? = null,
     val peerDevice: String? = null,

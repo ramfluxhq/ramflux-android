@@ -170,6 +170,14 @@
     <string name="settings_pairing_cancel">取消关联</string>
     <!-- Instruction above the one-time invitation. -->
     <string name="settings_pairing_invitation">在另一台设备上输入此一次性邀请。它只显示一次，离开应用时会被隐藏。</string>
+    <!-- Instruction above the one-time invitation when it is shown as a QR code. -->
+    <string name="settings_pairing_invitation_qr">请用另一台设备扫描此一次性邀请。它只显示一次，离开应用时会隐藏。</string>
+    <!-- Accessibility description of the invitation QR code; never reads the invitation itself. -->
+    <string name="settings_pairing_qr_description">一次性邀请的二维码</string>
+    <!-- Button that replaces the invitation QR code with numbered text chunks. -->
+    <string name="settings_pairing_show_text">以文字显示</string>
+    <!-- Button that replaces the numbered invitation text chunks with the QR code. -->
+    <string name="settings_pairing_show_qr">以二维码显示</string>
     <!-- Placeholder when the invitation is hidden. -->
     <string name="settings_pairing_covered">Ramflux 不在前台时已隐藏</string>
     <!-- Expiry of the invitation; %1$s is a date and time. -->

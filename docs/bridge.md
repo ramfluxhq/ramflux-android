@@ -177,8 +177,15 @@ calls `device.pair.begin` (every linked-device capability, a seven-day lease), f
 page cancels an unfinished ceremony with `device.pair.cancel`. The invitation token is read
 out of the reply as owned bytes (`PairingMetadataReader`), kept as erasable characters, drawn
 through `LtrSecretWords` only, covered while the window is not focused and erased once the
-joining device has used it. There is no QR encoder in the app yet, so the token is shown as
-numbered text chunks.
+joining device has used it. The token is shown as a QR code (`KitQrCode`, ZXing core 3.5.4,
+Apache-2.0): it is encoded from the erasable characters through an owned UTF-8 buffer into a
+byte-mode symbol (level M, or L when M does not fit; the UTF-8 ECI only for non-ASCII), with the
+segment, padding and Reed-Solomon interleaving built in buffers the app erases and only symbol
+placement and mask scoring delegated to ZXing (`ErasableByteEncoder`, in ZXing's package because
+those are package-private; ZXing's public encoder takes an immutable String). The module matrix lives
+in the view model, is lent to the Kit for each draw and erased with the token. Reed-Solomon
+temporaries inside ZXing are not reachable and are left to the collector. "Show as text" switches to
+the numbered text chunks; an invitation too long for version 40 is shown as text only.
 
 Backup and restore run on the phone (`account.backup.create/jobs/cancel`,
 `account.restore.verify/install`). The SDK admits backup jobs only from an attended

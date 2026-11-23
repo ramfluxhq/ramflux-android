@@ -26,7 +26,8 @@ fun SettingsScreen(
     state: SettingsState,
     onAction: (SettingsAction) -> Unit,
     modifier: Modifier = Modifier,
-    drawInvitation: (Int, (CharArray) -> Unit) -> Unit = { _, _ -> }
+    drawInvitation: (Int, (CharArray) -> Unit) -> Unit = { _, _ -> },
+    drawInvitationQr: (((Int, Int) -> Boolean) -> Unit) -> Unit = {}
 ) {
     val theme = LocalRFTheme.current
     // The root page (MOB-G02) shows the account in its first row; sub-pages name it under the title.
@@ -87,7 +88,7 @@ fun SettingsScreen(
                         SettingsPage.GENERAL -> generalPage(state, onAction)
                         SettingsPage.ACCOUNT -> accountPage(state, onAction)
                         SettingsPage.PRIVACY -> privacyPage(state, onAction)
-                        SettingsPage.PAIRING -> pairingPage(state, onAction, drawInvitation)
+                        SettingsPage.PAIRING -> pairingPage(state, onAction, drawInvitation, drawInvitationQr)
                         SettingsPage.DIAGNOSTICS -> diagnosticsPage(state, { AboutVersion() }) { label, value -> StatusRow(label, value) }
                         SettingsPage.LANGUAGE -> languagePage(state, onAction) { id, label, selected, enabled, select ->
                             ThemeChoiceRow(id, label, selected, enabled, select)

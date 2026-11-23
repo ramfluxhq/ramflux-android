@@ -20,6 +20,39 @@ import org.robolectric.annotation.Config
 class SettingsScreenTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun invitationShowsTheQrCodeWithATextAlternative() {
+        var state by mutableStateOf(
+            SettingsState(
+                page = SettingsPage.PAIRING,
+                accountLabel = "Alice",
+                pairing = SettingsPairing(step = PairingStep.INVITED, invitationChunks = 2, invitationModules = 21)
+            )
+        )
+        val actions = mutableListOf<SettingsAction>()
+        compose.setContent {
+            RamfluxTheme {
+                SettingsScreen(
+                    state,
+                    actions::add,
+                    drawInvitation = { _, block -> block("chunk".toCharArray()) },
+                    drawInvitationQr = { block -> block { x, y -> (x + y) % 2 == 0 } }
+                )
+            }
+        }
+        compose.onNodeWithTag("invitation-qr").assertExists()
+        compose.onNodeWithContentDescription("QR code of the one-time invitation").assertExists()
+        compose.onNodeWithTag("invitation-chunk-0").assertDoesNotExist()
+        compose.onNodeWithText("Show as text").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(listOf<SettingsAction>(SettingsAction.InvitationAsText(true)), actions)
+            state = state.copy(pairing = state.pairing.copy(invitationAsText = true))
+        }
+        compose.onNodeWithTag("invitation-qr").assertDoesNotExist()
+        compose.onNodeWithTag("invitation-chunk-0").assertExists()
+        compose.onNodeWithText("Show as QR code").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(SettingsAction.InvitationAsText(false), actions.last()) }
+    }
+
     @Test fun noAccountDevicesExplainsBothLocalesAndEmitsAccountActionWithoutPrivateReads() {
         var locale by mutableStateOf("en")
         val accounts = FakeSettingsAccounts().apply { result = ClientResult.Ready(AccountCatalog(emptyList(), null)) }
