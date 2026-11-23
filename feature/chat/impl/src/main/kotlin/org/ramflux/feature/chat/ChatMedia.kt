@@ -119,7 +119,7 @@ private fun statusIcon(item: AttachmentItem): String? = when (item.status) {
 /** The decrypted or staged file may be decoded only when it is this device's own copy. */
 private val AttachmentItem.decodable: String?
     get() = localPath?.takeIf {
-        status == AttachmentStatus.READY || status == AttachmentStatus.SENDING || status == AttachmentStatus.QUEUED || status == AttachmentStatus.UNSENT
+        status in setOf(AttachmentStatus.READY, AttachmentStatus.SENDING, AttachmentStatus.QUEUED, AttachmentStatus.UNSENT)
     }
 
 private val AttachmentItem.animated: Boolean

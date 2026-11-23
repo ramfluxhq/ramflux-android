@@ -503,6 +503,11 @@ class ChatViewModel @Inject constructor(
                 }
                 is ClientResult.Failed -> {
                     val offline = sent.problem.kind == ClientFailureKind.UNAVAILABLE || sent.problem.statusName in OFFLINE
+                    clientDebugEvent(
+                        "chat.send.${if (offline) "queued" else "failed"} media=${staged.size} kind=${sent.problem.kind} " +
+                            "code=${sent.problem.code} status=${sent.problem.statusName} check=${sent.problem.check} " +
+                            "outcome=${sent.problem.outcome}"
+                    )
                     outgoing.delivery = if (offline) LocalDelivery.QUEUED else LocalDelivery.FAILED
                     outgoing.definite = sent.problem.outcome != ClientOutcome.UNKNOWN
                     local.update {
@@ -680,7 +685,9 @@ class ChatViewModel @Inject constructor(
             if (target != next || session.status.value.phase != ClientPhase.OPEN) return@launch
             for (send in stored) {
                 if (send.id in outbox || outbox.size >= OUTBOX_LIMIT) continue
-                val staged = send.media.map { File(it.path) to it }.filter { it.first.isFile }.map { (file, item) -> StagedMedia(file, item.fileName, item.mime) }
+                val staged = send.media.map {
+                    File(it.path) to it
+                }.filter { it.first.isFile }.map { (file, item) -> StagedMedia(file, item.fileName, item.mime) }
                 if (staged.isEmpty() && send.media.isNotEmpty() && send.text.isBlank()) continue
                 outbox[send.id] = Outgoing(send.operation, send.text, send.sentAt, LocalDelivery.QUEUED, send.definite, staged)
             }
@@ -695,11 +702,22 @@ class ChatViewModel @Inject constructor(
         val current = target ?: return
         if (outboxRestored != current) return
         val snapshot = outbox.map { (id, outgoing) ->
-            QueuedSend(id, outgoing.operation, outgoing.text, outgoing.sentAt, outgoing.definite, outgoing.staged.map { QueuedMedia(it.file.path, it.fileName, it.mime) })
+            QueuedSend(
+                id,
+                outgoing.operation,
+                outgoing.text,
+                outgoing.sentAt,
+                outgoing.definite,
+                outgoing.staged.map {
+                    QueuedMedia(it.file.path, it.fileName, it.mime)
+                }
+            )
         }
         if (snapshot == persistedOutbox) return
         persistedOutbox = snapshot
-        viewModelScope.launch(NonCancellable) { outboxWrites.withLock { outboxStore.save(current.account, current.conversation, snapshot) } }
+        viewModelScope.launch(
+            NonCancellable
+        ) { outboxWrites.withLock { outboxStore.save(current.account, current.conversation, snapshot) } }
     }
 
     /** The read-model page has no read position; the reader-scoped unread count places the divider. */

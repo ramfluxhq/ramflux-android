@@ -9,3 +9,8 @@ import org.ramflux.sdk.installSdkDebugTrace
 fun installProcessDebugTrace(event: (String) -> Unit) {
     installSdkDebugTrace { event(it) }
 }
+
+/** One client diagnostic line for the debug sink (codes and names only, never content); a no-op in release. */
+fun clientDebugEvent(line: String) {
+    org.ramflux.sdk.sdkDebugEvent(line)
+}
