@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DESIGN_SHA256 = "5af83dc4aafa883c1bfaa4a33c222be577567eb4327953ba80a7f0d78d680632"
+DESIGN_SHA256 = "aa3257f8109a53e1b79b7ee14de68fe155d9d6b712104a01c2e6e2ab2577c25d"
 SOURCE = ROOT / "core/designsystem/src/main/kotlin/org/ramflux/designsystem/RFTokens.kt"
 THEMES = ROOT / "core/designsystem/src/main/assets/ramflux/themes"
 
