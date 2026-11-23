@@ -87,7 +87,8 @@ class PaneSceneStrategy<T : Any>(
     }
 }
 
-private class SinglePane<T : Any>(
+// Data classes: NavDisplay compares scenes, and equal inputs (entries, geometry, slots) are the same scene.
+private data class SinglePane<T : Any>(
     private val entry: NavEntry<T>,
     override val previousEntries: List<NavEntry<T>>,
     private val metrics: PaneMetrics
@@ -101,7 +102,7 @@ private class SinglePane<T : Any>(
     }
 }
 
-private class TwoPaneScene<T : Any>(
+private data class TwoPaneScene<T : Any>(
     private val list: NavEntry<T>,
     private val detail: NavEntry<T>?,
     override val previousEntries: List<NavEntry<T>>,

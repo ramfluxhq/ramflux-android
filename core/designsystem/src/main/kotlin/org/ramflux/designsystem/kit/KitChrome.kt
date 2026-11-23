@@ -143,7 +143,7 @@ fun KitPageHeader(
                 KitText(actionLabel, style = kitStyle(theme.size_body, FontWeight.SemiBold, theme.text, RfMetrics.lineBody))
             }
         }
-        actions.forEach { action -> IconHit(action.icon, RfMetrics.iconAction, theme.text, action.onClick, action.label) }
+        actions.forEach { action -> IconHit(action.icon, RfMetrics.iconAction, theme.text, action.onClick, label = action.label) }
     }
 }
 
@@ -173,7 +173,9 @@ fun KitChatHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
     ) {
-        if (onBack != null) IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack, backLabel, tag = tag?.let { "$it-back" })
+        if (onBack != null) {
+            IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack, label = backLabel, tag = tag?.let { "$it-back" })
+        }
         avatar()
         Column(Modifier.weight(1f)) {
             KitText(
@@ -203,8 +205,8 @@ fun KitChatHeader(
                 )
             }
         }
-        if (onCall != null) IconHit("phone", RfMetrics.iconBack, theme.text, onCall, callLabel)
-        if (onMore != null) IconHit("ellipsis", RfMetrics.iconBack, theme.text, onMore, moreLabel)
+        if (onCall != null) IconHit("phone", RfMetrics.iconBack, theme.text, onCall, label = callLabel)
+        if (onMore != null) IconHit("ellipsis", RfMetrics.iconBack, theme.text, onMore, label = moreLabel)
     }
 }
 
@@ -346,7 +348,7 @@ fun KitIconButton(
     val theme = LocalRFTheme.current
     val tint = if (enabled) theme.text else theme.control
     if (enabled) {
-        IconHit(icon, RfMetrics.iconAction, tint, onClick, label, tag, modifier)
+        IconHit(icon, RfMetrics.iconAction, tint, onClick, modifier, label, tag)
     } else {
         Box(
             modifier.size(dp(RfMetrics.iconButton)).semantics { contentDescription = label }.kitTag(tag),
@@ -363,9 +365,9 @@ internal fun IconHit(
     size: Float,
     tint: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     label: String = icon,
-    tag: String? = null,
-    modifier: Modifier = Modifier
+    tag: String? = null
 ) {
     val hit = dp(RfMetrics.hit)
     val slot = dp(RfMetrics.iconButton)

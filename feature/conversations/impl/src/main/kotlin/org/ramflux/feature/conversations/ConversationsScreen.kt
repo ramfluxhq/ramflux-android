@@ -35,9 +35,9 @@ import org.ramflux.feature.conversations.impl.R
 fun ConversationsScreen(
     state: ConversationsState,
     onAction: (ConversationsAction) -> Unit,
+    modifier: Modifier = Modifier,
     permissionBanner: @Composable () -> Unit = {},
-    rooted: Boolean = false,
-    modifier: Modifier = Modifier
+    rooted: Boolean = false
 ) {
     val theme = LocalRFTheme.current
     val firstLoad = state.loading && !state.loaded && state.rows.isEmpty()
