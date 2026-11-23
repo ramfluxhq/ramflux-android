@@ -191,6 +191,17 @@ class Ui(private val control: PeerControl) {
         }
     }
 
+    /** Scrolls the first scrollable view of the app until [tag] is on screen; returns whether it is. */
+    fun scrollTo(tag: String): Boolean {
+        if (find(tag, 1_000) != null) return true
+        val list = device.findObject(By.pkg(packageName).scrollable(true)) ?: return false
+        repeat(12) {
+            runCatching { list.scroll(androidx.test.uiautomator.Direction.DOWN, 0.8f) }
+            if (find(tag, 500) != null) return true
+        }
+        return false
+    }
+
     /** The first edit field under [tag] (or anywhere on screen without a tag). */
     fun field(tag: String? = null, timeout: Long = SHORT): UiObject2 {
         val end = System.currentTimeMillis() + timeout

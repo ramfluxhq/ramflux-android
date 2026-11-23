@@ -327,8 +327,8 @@ class RealRunFlowTest {
         if (unlocked) unlock()
         val inChat = ui.find("composer", 20_000) != null
         if (!inChat) fail("after returning${if (unlocked) " and unlocking" else ""} the app did not reopen the chat: ${ui.screen()}")
-        val draft = ui.hasText(marker)
         if (ui.text(incoming, 60_000) == null) fail("alice's message sent while the app was in the background did not appear after returning")
+        val draft = ui.eventually(10_000) { ui.hasText(marker) }
         ui.shot("07-returned")
         if (draft) {
             ui.tap("composer-send")
@@ -353,6 +353,7 @@ class RealRunFlowTest {
         ui.need("my-card-text", Ui.LONG, "contact card text")
         ui.shot("08-my-card")
         // The card is drawn in short runs; Share hands over the whole text, read here without opening the sheet.
+        if (!ui.scrollTo("my-card-share")) fail("My contact card has no Share action: ${ui.screen()}")
         val shared = ui.captureShare { ui.tap("my-card-share") }
         val card = Regex("ramflux-card:v[0-9]+:[A-Za-z0-9_=.-]+").find(shared.orEmpty())?.value
             ?: fail("Share on My contact card handed over no card text: ${ui.screen()}")
@@ -400,14 +401,18 @@ class RealRunFlowTest {
             // rf dm send --attach declares application/octet-stream for every file, so both arrive as file cards.
             val pending = listOf(ui.str("chat_media_download"), ui.str("chat_media_loading"))
             for (file in listOf("rr-image.png", "rr-file.txt")) {
-                val cardRow = ui.text(file, 30_000) ?: fail("the attachment $file is not shown; ${ui.screen()}")
-                cardRow.click()
+                // The file name is drawn with bidi isolates around its extension: match the stem on the attachment card.
+                val stem = file.substringBefore('.')
+                val selector = By.res(java.util.regex.Pattern.compile("attachment-(?!local:).+")).hasDescendant(By.textContains(stem))
+                fun card(): UiObject2? = ui.device.findObject(selector)
+                if (!ui.eventually(30_000) { card() != null }) fail("the attachment card of $file is not shown; ${ui.screen()}")
+                card()?.click()
                 val downloaded = ui.eventually(90_000, 2_000) {
                     ui.hasText(ui.str("chat_media_open_title")) || ui.find("media-viewer", 300) != null ||
-                        ui.text(file, 300)?.let { label -> pending.none { rowText(label.parent ?: label).contains(it) } } == true
+                        card()?.let { label -> pending.none { rowText(label).contains(it) } } == true
                 }
-                notes += if (downloaded) "phone downloaded $file (${ui.text(file, 500)?.let { rowText(it.parent ?: it) } ?: "opened"})" else
-                    "phone did not finish downloading $file within 90 s"
+                val state = card()?.let { rowText(it) } ?: "opened"
+                notes += if (downloaded) "phone downloaded $file ($state)" else "phone did not finish downloading $file within 90 s ($state)"
                 if (!downloaded) fail(notes.joinToString("; "))
                 returnToChat(conversation)
             }
@@ -682,8 +687,8 @@ class RealRunFlowTest {
         val end = System.currentTimeMillis() + Ui.LONG
         while (System.currentTimeMillis() < end) {
             // The locked screens by their headers: A01 (account offered), its details, the unlock information.
-            when (ui.first("shell-tabs", "unlock-account-name", "startup-info-header", "startup-details-header", "startup-unlock-header", "shell-locked", timeout = Ui.SHORT)) {
-                "shell-tabs" -> return
+            when (ui.first("shell-tabs", "composer", "unlock-account-name", "startup-info-header", "startup-details-header", "startup-unlock-header", "shell-locked", timeout = Ui.SHORT)) {
+                "shell-tabs", "composer" -> return
                 "startup-unlock-header" -> ui.tap("startup-unlock-continue")
                 "shell-locked" -> ui.tap("shell-locked-unlock")
                 "startup-details-header" -> ui.tap("startup-view-unlock")
@@ -692,7 +697,8 @@ class RealRunFlowTest {
                     val code = RunCode.load() ?: blocked("no saved run code on this install")
                     try { ui.keys("unlock-code", code) } finally { code.fill('\u0000') }
                     ui.tap("unlock-account")
-                    if (ui.first("shell-tabs", timeout = Ui.LONG) == "shell-tabs") return
+                    // The shell, or the screen that was open before the lock (it comes back after the unlock).
+                    if (ui.first("shell-tabs", "composer", timeout = Ui.LONG) != null) return
                     fail("unlock with the run's code did not open the shell: ${ui.screen()}")
                 }
                 null -> fail("no unlock step on screen: ${ui.screen()}")
