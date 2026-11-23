@@ -1,17 +1,70 @@
-# Real run against the local node
+# Real run against a node
 
-An opt-in run of the beta flows with the real SDK against the local node (`ops/local-node`), the
-peers alice and bob driven through the `rf` CLI on the Mac. No CI task runs it.
+An opt-in run of the beta flows on a real phone (or, for part of the flows, an emulator): the `realrun` build
+of the app with the real SDK against a Ramflux node that you run, with two peers, alice and bob, driven through
+the `rf` CLI on the machine that runs the script. No CI task runs it, and nothing in it is needed to build
+or test the app.
+
+## Prerequisites
+
+- The Android toolchain of [bridge.md](bridge.md) (JDK 17, SDK 36, NDK, cargo-ndk) and the native libraries
+  built, so that `./gradlew :app:assembleRealrun` works.
+- A node under test, with two peer daemons (alice and bob) and an `rf` binary built from the core repository.
+  The script only reads the node's facts; it never reconfigures the node.
+- A phone with USB debugging enabled, attached to this machine or to another machine you can reach over SSH
+  with key authentication. `adb` must work on the machine the phone is attached to. The phone must be
+  unlocked at the start. An emulator can run only the flows that do not create an account (see below).
+- `python3`, `curl`, `ssh` and `scp` (the last two only for a phone on another machine).
+
+## The node directory
+
+`RAMFLUX_REALRUN_NODE_DIR` names a directory that describes the node and the peers:
+
+| File | Content |
+|---|---|
+| `node-facts.json` | `discovery_origin`, `gateway_tcp_addr`, `relay_quic_addr`, `node_id`, `node_public_key`, `node_key_fingerprint` |
+| `peers.json` | `peers`: a list of objects with `name` (`alice`, `bob`), `account_id`, `principal_id`, `principal_commitment` and `daemon_socket` |
+| `status.sh` | exits 0 when the node is healthy |
+| `peers.sh status` | prints `alice: running` and `bob: running` when both daemons are up |
+| `lib/rfbeta_util.py` | `dm-conversation <principal-a> <principal-b>` prints the direct conversation id |
+
+Only public values leave this directory: the origin, the operator key, the key fingerprint, the node id and the
+peers' principal identifiers are passed to the suite as instrumentation arguments. `daemon_socket` is never sent
+to the phone.
+
+## Settings
+
+Every environment-specific input is a setting without a default. A setting is an environment variable, or a
+line `KEY=value` in `scripts/realrun.local.env`. That file is untracked (it is in `.gitignore`); start from the
+committed `scripts/realrun.local.env.example`. An environment variable wins over the file, and
+`RAMFLUX_REALRUN_CONFIG` names a different file. A missing required setting stops the script with a list of
+what is missing.
+
+| Setting | Needed for | Meaning |
+|---|---|---|
+| `RAMFLUX_REALRUN_NODE_DIR` | always | the node directory above |
+| `RAMFLUX_REALRUN_RF` | always | the `rf` CLI binary that drives alice and bob |
+| `RAMFLUX_REALRUN_HOST` | `--target phone` | the machine whose adb reaches the phone: an SSH host name, or `local` for this machine |
+| `RAMFLUX_REALRUN_ADB` | `--target phone` | path of `adb` on that machine |
+| `RAMFLUX_REALRUN_SERIAL` | `--target phone` | the device serial (`adb devices`) |
+| `RAMFLUX_REALRUN_REMOTE_DIR` | `--target phone` | a scratch directory on that machine; the APKs are copied there and removed at the end |
+| `RAMFLUX_REALRUN_ENV` | optional | a shell file to source first, for example your build environment |
+| `RAMFLUX_REALRUN_PYTHON` | optional | the Python 3 interpreter (default `python3`) |
+| `RAMFLUX_REALRUN_GATEWAY_CONTAINER`, `RAMFLUX_REALRUN_CONTAINER_ENGINE` | optional | a gateway container (engine default `podman`) used to warn about clock skew between the node and this machine |
+| `RAMFLUX_REALRUN_TAP_DELAY` | optional | seconds to wait before tapping an install confirmation (default 2.5) |
+
+## Running
 
 ```sh
-scripts/realrun.sh                                  # phone on the SSH host, node over the LAN (defaults)
-scripts/realrun.sh --path tunnel                    # node on loopback, reached through adb reverse + ssh -R
-scripts/realrun.sh --target emulator --path tunnel  # a local emulator (AVD rf-realrun)
+cp scripts/realrun.local.env.example scripts/realrun.local.env   # then edit the placeholders
+scripts/realrun.sh                                  # phone, node over the network (--path lan)
+scripts/realrun.sh --path tunnel                    # node on loopback, reached through adb reverse (and ssh -R)
+scripts/realrun.sh --target emulator --path tunnel  # a local emulator or device on this machine's adb
 ```
 
-One invocation must fit a ten-minute command budget on the shared Mac, so a complete run is several
-invocations against one output folder; results accumulate in `results.json` and `flow-table.md` is rewritten
-each time. Every invocation starts a new app process, so the first flow of a later invocation is a cold start.
+A command may be limited to ten minutes on a shared machine, so a complete run is several invocations against
+one output folder; results accumulate in `results.json` and `flow-table.md` is rewritten each time. Every
+invocation starts a new app process, so the first flow of a later invocation is a cold start.
 
 ```sh
 O=build/realrun/final
@@ -49,30 +102,50 @@ appears (with retries); replacing an installed package shows no prompt.
   what the app does with the result is the real path.
 - **Orientation.** The suite asks for portrait on the app's own activity; the phone's rotation settings are
   never changed.
-- **Peer control** `scripts/realrun/peer_control.py` on a loopback port of the Mac: allow-listed `rf`
+- **Peer control** `scripts/realrun/peer_control.py` on a loopback port of the machine running the script: allow-listed `rf`
   commands for alice and bob, results, screenshots. `scripts/realrun/flow_table.py` writes
   `flow-table.md` (PASS / FAIL / BLOCKED / NOT RUN).
 
 ## Reaching the node
 
-The origin, operator key, fingerprint and node id are read from `ops/local-node/node-facts.json` at run time.
+The origin, operator key, fingerprint and node id are read from `node-facts.json` in the node directory at run time.
 `--path lan` (default) lets the device talk to the advertised origin directly (TCP and QUIC); only the
 peer-control port is forwarded. Debug builds accept a private-range `http://` origin such as
-`http://192.168.31.161:8482` as typed (`DiscoveryOriginParser`, `OnboardingDataTest`). `--path tunnel` is for a
+`http://<LAN IPv4>:8482` as typed (`DiscoveryOriginParser`, `OnboardingDataTest`). `--path tunnel` is for a
 node that advertises and binds the loopback:
 
 The node advertises `127.0.0.1` and binds the loopback: discovery HTTP 8482/TCP, gateway 8443 over TCP
 and QUIC (UDP), relay 8447 QUIC only, TURN 8478. The SDK uses the signed record's addresses as they are,
-so on the device `127.0.0.1:<port>` must reach the Mac's `127.0.0.1:<port>`:
+so on the device `127.0.0.1:<port>` must reach this machine's `127.0.0.1:<port>`:
 
 - emulator: `adb reverse tcp:<port> tcp:<port>`;
-- phone on another Mac: `adb reverse tcp:<port> tcp:<rport>` there, and `ssh -N -R 127.0.0.1:<rport>:127.0.0.1:<port>`
-  from this Mac (binding only that Mac's loopback).
+- phone on another machine: `adb reverse tcp:<port> tcp:<rport>` there, and `ssh -N -R 127.0.0.1:<rport>:127.0.0.1:<port>`
+  from this machine (binding only that machine's loopback).
 
 Both carry TCP only. Verified on the emulator: discovery, the operator key and fingerprint review and saving
 the node work over the tunnel; the QUIC-only relay is not carried, so media is expected BLOCKED there.
 
 An emulator cannot create an account: the SDK refuses with `CustodyVaultUnavailable`
 (`vault_primary_unavailable`) because the emulator has no hardware-backed keystore and the app has no software
-vault by design. Flows from account creation on need a real phone. The script forwards discovery, the gateway and the control port, and
-removes every rule it added at the end, also on failure.
+vault by design. Flows from account creation on need a real phone. 
+
+## What the suite does and does not do
+
+It runs twelve flows (`f01` to `f12`): onboarding and account creation, lock and unlock, cold start, contacts,
+the conversation list, direct chat, background behaviour, media, groups, settings, backup and the honest states
+of the app when the node or a peer is unavailable. Each flow ends PASS, FAIL, BLOCKED (a precondition such as
+the QUIC relay is missing) or NOT RUN in `flow-table.md`; the script exits non-zero when any flow failed. It
+does not change the node, the phone's settings or its rotation, other apps, or the phone's photos, and it does
+not run in CI.
+
+## Safety rules
+
+- The script installs and uninstalls only `org.ramflux.android.realrun` and its test package, never another
+  Ramflux build on the same phone.
+- Every `adb reverse` rule and SSH forward the script adds is removed at the end, also on failure, and the
+  phone is left on its home screen. The phone's log is never cleared.
+- Nothing secret is passed on a command line, written to the output folder or logged. The peer-control server
+  listens on `127.0.0.1` only and accepts a fixed list of `rf` commands.
+- No screenshot is taken while recovery words are on screen or another app is in front.
+- Keep `scripts/realrun.local.env` and the output folders (`build/`) out of version control; they name your
+  machines and devices.

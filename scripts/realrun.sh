@@ -3,13 +3,31 @@
 # Copyright (c) 2026 Span Brain
 #
 # Opt-in real run of the beta flows: the realrun build of the app (debug under the application id
-# org.ramflux.android.realrun, so it installs beside any other build) with the real SDK against the
-# local node in ops/local-node, with the alice and bob peers driven through the rf CLI on this Mac.
+# org.ramflux.android.realrun, so it installs beside any other build) with the real SDK against a node you
+# run, with the alice and bob peers driven through the rf CLI on this machine.
 #
 #   scripts/realrun.sh [--out DIR] [--target phone|emulator] [--path lan|tunnel] [--keep-app] [--skip-build]
 #                      [--no-install | --test-apk-only] [--tests "f01 f02 ..."]
 #
-# One invocation must finish inside a ten-minute command budget on a shared Mac, so the flows can be run in
+# Every environment-specific input is a setting; there are no defaults for them. A setting is an environment
+# variable, or a line KEY=value in scripts/realrun.local.env (untracked; see realrun.local.env.example; the
+# file named by RAMFLUX_REALRUN_CONFIG replaces it). An environment variable wins over the file.
+#
+#   RAMFLUX_REALRUN_NODE_DIR     always: directory of the node under test (node-facts.json, peers.json, status.sh,
+#                                peers.sh, lib/rfbeta_util.py; see docs/realrun.md)
+#   RAMFLUX_REALRUN_RF           always: path of the rf CLI binary that drives the peers
+#   RAMFLUX_REALRUN_HOST         target phone: the machine whose adb reaches the phone, an SSH host name, or
+#                                "local" for this machine
+#   RAMFLUX_REALRUN_ADB          target phone: path of adb on that machine
+#   RAMFLUX_REALRUN_SERIAL       target phone: the device serial
+#   RAMFLUX_REALRUN_REMOTE_DIR   target phone: scratch directory on that machine (APKs are copied there)
+#   RAMFLUX_REALRUN_ENV          optional: a shell file to source first (for example the build environment)
+#   RAMFLUX_REALRUN_PYTHON       optional: Python 3 interpreter (default python3)
+#   RAMFLUX_REALRUN_GATEWAY_CONTAINER, RAMFLUX_REALRUN_CONTAINER_ENGINE
+#                                optional: container name and engine (default podman) for the clock-skew check
+#   RAMFLUX_REALRUN_TAP_DELAY    optional: seconds before tapping an install confirmation (default 2.5)
+#
+# One invocation must finish inside a ten-minute command budget on a shared machine, so the flows can be run in
 # several invocations against the same --out directory: the first with a fresh install (the default), later
 # ones with --skip-build --no-install and --tests naming the flow methods by prefix (f03, f04, ...). Results
 # accumulate in DIR/results.json and the flow table is rewritten after each invocation.
@@ -17,15 +35,15 @@
 # Node paths (the origin, operator key and fingerprint are read from node-facts.json at run time):
 #   lan       (default) the device talks to the origin in node-facts.json directly, TCP and QUIC; only the
 #             peer-control port is forwarded. Needs a node that advertises an address the device can reach.
-#   tunnel    the device's 127.0.0.1:<port> reaches this Mac's loopback for discovery and the gateway (and the
-#             control port), as below. TCP only: the QUIC relay is not carried, so media is expected BLOCKED.
+#   tunnel    the device's 127.0.0.1:<port> reaches this machine's loopback for discovery and the gateway (and
+#             the control port), as below. TCP only: the QUIC relay is not carried, so media is expected BLOCKED.
 #
 # Targets:
-#   phone     a phone attached by USB to another Mac reached over SSH (RAMFLUX_REALRUN_HOST, default xx.dev;
-#             RAMFLUX_REALRUN_ADB and RAMFLUX_REALRUN_SERIAL name its adb and the device). Node, gateway and
-#             control traffic reach this Mac's loopback through `adb reverse` on that host and an SSH remote
-#             forward that binds only that host's loopback. TCP only: the QUIC relay is not carried.
-#   emulator  a local emulator or device on this Mac's adb (`adb reverse` straight to the loopback).
+#   phone     a phone attached to the machine named by RAMFLUX_REALRUN_HOST. For an SSH host, the node, gateway
+#             and control traffic reach this machine's loopback through `adb reverse` on that host and an SSH
+#             remote forward that binds only that host's loopback; TCP only. For "local", `adb reverse` goes
+#             straight to the loopback.
+#   emulator  a local emulator or device on this machine's adb (`adb reverse` straight to the loopback).
 #
 # The account code is generated and the recovery words are read inside the instrumentation process only;
 # nothing secret is passed as an argument, written here or logged. Every forward and reverse rule this
@@ -33,12 +51,25 @@
 set -euo pipefail
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-LOCAL_NODE=${RAMFLUX_LOCAL_NODE:-/Users/nn/worker/ramfluxhq/ops/local-node}
-MOBILE_ENV=${RAMFLUX_MOBILE_ENV:-/Users/nn/worker/ramfluxhq/ops/mobile-env.sh}
-HOST=${RAMFLUX_REALRUN_HOST:-xx.dev}
-REMOTE_ADB=${RAMFLUX_REALRUN_ADB:-/Users/xx/Library/Android/sdk/platform-tools/adb}
-SERIAL=${RAMFLUX_REALRUN_SERIAL:-49cuqgtgjnof8lvo}
-REMOTE_DIR=/tmp/nn-realrun
+
+# Settings from the untracked local file; an environment variable that is already set wins.
+CONFIG=${RAMFLUX_REALRUN_CONFIG:-$ROOT/scripts/realrun.local.env}
+if [ -f "$CONFIG" ]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    key=${line%%=*}; value=${line#*=}
+    [[ "$key" =~ ^RAMFLUX_REALRUN_[A-Z_]+$ ]] || continue
+    value=${value%\"}; value=${value#\"}; value=${value%\'}; value=${value#\'}
+    case "$value" in '~/'*) value=$HOME/${value#'~/'} ;; esac
+    [ -n "${!key:-}" ] || export "$key=$value"
+  done < "$CONFIG"
+fi
+NODE_DIR=${RAMFLUX_REALRUN_NODE_DIR:-}
+RF_BIN=${RAMFLUX_REALRUN_RF:-}
+HOST=${RAMFLUX_REALRUN_HOST:-}
+REMOTE_ADB=${RAMFLUX_REALRUN_ADB:-}
+SERIAL=${RAMFLUX_REALRUN_SERIAL:-}
+REMOTE_DIR=${RAMFLUX_REALRUN_REMOTE_DIR:-}
 APP_ID=org.ramflux.android.realrun
 TEST_ID=$APP_ID.test
 RUNNER=$TEST_ID/androidx.test.runner.AndroidJUnitRunner
@@ -61,18 +92,35 @@ while [ $# -gt 0 ]; do
     --no-install) NO_INSTALL=1; shift ;;
     --test-apk-only) TEST_APK_ONLY=1; shift ;;
     --tests) TESTS=$2; shift 2 ;;
-    *) echo "usage: scripts/realrun.sh [--out DIR] [--target phone|emulator] [--path lan|tunnel] [--keep-app] [--skip-build] [--no-install | --test-apk-only] [--tests \"f01 f02\"]" >&2; exit 2 ;;
+    *) echo "usage: scripts/realrun.sh [--out DIR] [--target phone|emulator] [--path lan|tunnel] [--keep-app] [--skip-build] [--no-install | --test-apk-only] [--tests \"f01 f02\"]" >&2
+       echo "settings: see the header of this script, scripts/realrun.local.env.example and docs/realrun.md" >&2; exit 2 ;;
   esac
 done
 case "$TARGET" in phone|emulator) ;; *) echo "realrun: --target is phone or emulator" >&2; exit 2 ;; esac
 case "$NODE_PATH" in lan|tunnel) ;; *) echo "realrun: --path is lan or tunnel" >&2; exit 2 ;; esac
 
+# Required settings: a missing one stops the run with the full list of what is missing.
+missing=""
+need() { [ -n "${!1:-}" ] || missing="$missing $1"; }
+need RAMFLUX_REALRUN_NODE_DIR; need RAMFLUX_REALRUN_RF
+if [ "$TARGET" = phone ]; then
+  need RAMFLUX_REALRUN_HOST; need RAMFLUX_REALRUN_ADB; need RAMFLUX_REALRUN_SERIAL; need RAMFLUX_REALRUN_REMOTE_DIR
+fi
+if [ -n "$missing" ]; then
+  printf 'realrun: missing settings:%s\n' "$missing" >&2
+  echo "realrun: set them as environment variables or in $CONFIG (copy scripts/realrun.local.env.example); see docs/realrun.md" >&2
+  exit 2
+fi
+LOCAL_HOST=0
+if [ "$TARGET" = emulator ] || [ "$HOST" = local ]; then LOCAL_HOST=1; fi
+LOCAL_NODE=$NODE_DIR
+
 say() { printf 'realrun: %s\n' "$*"; }
 die() { printf 'realrun: error: %s\n' "$*" >&2; exit 1; }
 
 # shellcheck disable=SC1090
-[ -f "$MOBILE_ENV" ] && . "$MOBILE_ENV"
-PYTHON=/opt/homebrew/bin/python3; [ -x "$PYTHON" ] || PYTHON=python3
+[ -n "${RAMFLUX_REALRUN_ENV:-}" ] && . "$RAMFLUX_REALRUN_ENV"
+PYTHON=${RAMFLUX_REALRUN_PYTHON:-python3}
 cd "$ROOT"
 mkdir -p "$OUT"
 OUT=$(CDPATH='' cd -- "$OUT" && pwd)
@@ -80,7 +128,9 @@ START=$(date +%s)
 
 # Commands on the device: through the remote host's adb for the phone, the local adb otherwise. Only adb
 # against the one serial and file operations inside $REMOTE_DIR run on the remote host.
-remote() { ssh -o BatchMode=yes -o ConnectTimeout=15 "$HOST" "$@"; }
+remote() { if [ "$HOST" = local ]; then bash -c "$*"; else ssh -o BatchMode=yes -o ConnectTimeout=15 "$HOST" "$@"; fi; }
+# Copies files to $REMOTE_DIR on the adb host.
+to_host() { if [ "$HOST" = local ]; then cp "$@" "$REMOTE_DIR/"; else scp -q -o BatchMode=yes "$@" "$HOST:$REMOTE_DIR/"; fi; }
 dev() {
   if [ "$TARGET" = phone ]; then
     local quoted; quoted=$(printf '%q ' "$@")
@@ -148,9 +198,11 @@ trap cleanup EXIT INT TERM
 
 # 1. Node and peers (read only: this script never reconfigures the node).
 say "checking the local node"
-"$LOCAL_NODE/status.sh" > "$OUT/node-status.log" 2>&1 || die "local node is not healthy (see $OUT/node-status.log)"
-SKEW=$( now=$(podman exec rfbeta_ramflux-gateway_1 date -u +%s 2>/dev/null || echo 0); s=$(( $(date -u +%s) - now )); echo "${s#-}" )
-[ "$SKEW" -le 120 ] || say "warning: node clock differs from the Mac by ${SKEW} s; sessions may fail with expired branch proofs"
+"$LOCAL_NODE/status.sh" > "$OUT/node-status.log" 2>&1 || die "node is not healthy (see $OUT/node-status.log)"
+if [ -n "${RAMFLUX_REALRUN_GATEWAY_CONTAINER:-}" ]; then
+  SKEW=$( now=$("${RAMFLUX_REALRUN_CONTAINER_ENGINE:-podman}" exec "$RAMFLUX_REALRUN_GATEWAY_CONTAINER" date -u +%s 2>/dev/null || echo 0); s=$(( $(date -u +%s) - now )); echo "${s#-}" )
+  [ "$SKEW" -le 120 ] || say "warning: node clock differs from this machine by ${SKEW} s; sessions may fail with expired branch proofs"
+fi
 "$LOCAL_NODE/peers.sh" status > "$OUT/peers-status.log" 2>&1 || true
 grep -q 'alice: running' "$OUT/peers-status.log" && grep -q 'bob: running' "$OUT/peers-status.log" \
   || say "warning: the peer daemons are not both running (flows that need them report it)"
@@ -168,7 +220,7 @@ say "path $NODE_PATH; node: discovery $ORIGIN, gateway TCP/QUIC $(facts gateway_
 
 # 2. Device.
 if [ "$TARGET" = phone ]; then
-  [ "$(dev get-state 2>/dev/null | tr -d '\r')" = device ] || die "device $SERIAL is not attached on $HOST"
+  [ "$(dev get-state 2>/dev/null | tr -d '\r')" = device ] || die "device $SERIAL is not attached on the adb host ($HOST)"
   if dev shell 'ps -A' | grep -i -E 'instrument|uiautomator' > /dev/null; then die "another instrumentation is running on the phone; try later"; fi
   dev shell dumpsys window | grep -q 'isKeyguardShowing=true' && die "the phone is locked; unlock it and run again"
   remote "mkdir -p $REMOTE_DIR"
@@ -193,7 +245,7 @@ if [ "$NO_INSTALL" = 1 ] || [ "$TEST_APK_ONLY" = 1 ]; then
     # A new suite against the installed app and its data (the app package is not touched).
     [ -f "$TEST_APK" ] || die "the realrun suite APK is missing"
     if [ "$TARGET" = phone ]; then
-      scp -q -o BatchMode=yes "$TEST_APK" "$HOST:$REMOTE_DIR/"
+      to_host "$TEST_APK"
       install_on_phone app-realrun-androidTest.apk "$OUT/install.log" || die "test install failed (see $OUT/install.log)"
     else
       adb install -r -t "$TEST_APK" >> "$OUT/install.log" 2>&1 || die "test install failed (see $OUT/install.log)"
@@ -205,7 +257,7 @@ elif [ "$TARGET" = phone ]; then
     dev uninstall "$TEST_ID" > /dev/null 2>&1 || true
     dev uninstall "$APP_ID" > /dev/null 2>&1 || true
   fi
-  scp -q -o BatchMode=yes "$APK" "$TEST_APK" "$HOST:$REMOTE_DIR/"
+  to_host "$APK" "$TEST_APK"
   : > "$OUT/install.log"
   install_on_phone app-realrun.apk "$OUT/install.log" || die "install failed (see $OUT/install.log)"
   install_on_phone app-realrun-androidTest.apk "$OUT/install.log" || die "test install failed (see $OUT/install.log)"
@@ -216,17 +268,17 @@ else
     || die "install failed (see $OUT/install.log)"
 fi
 
-# 5. Peer control on a free loopback port of this Mac.
+# 5. Peer control on a free loopback port of this machine.
 CONTROL_PORT=$("$PYTHON" -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')
-"$PYTHON" -I "$ROOT/scripts/realrun/peer_control.py" --port "$CONTROL_PORT" --out "$OUT" --local-node "$LOCAL_NODE" > "$OUT/peer-control.log" 2>&1 &
+"$PYTHON" -I "$ROOT/scripts/realrun/peer_control.py" --port "$CONTROL_PORT" --out "$OUT" --local-node "$LOCAL_NODE" --rf "$RF_BIN" > "$OUT/peer-control.log" 2>&1 &
 CONTROL_PID=$!
 i=0; until curl -sf "http://127.0.0.1:$CONTROL_PORT/health" > /dev/null; do i=$((i + 1)); [ $i -lt 50 ] || die "peer control did not start"; sleep 0.2; done
 
-# 6. Port plumbing. On the phone 127.0.0.1:<port> reaches this Mac's 127.0.0.1:<port>. For the phone target
-# each port goes phone -> adb reverse -> remote loopback <rport> -> ssh -R -> this Mac; a remote port that is
-# taken is replaced by a free one.
+# 6. Port plumbing. On the phone 127.0.0.1:<port> reaches this machine's 127.0.0.1:<port>. For the phone target
+# each port goes phone -> adb reverse -> remote loopback <rport> -> ssh -R -> this machine; a remote port that
+# is taken is replaced by a free one. With a local adb the reverse rule goes straight to this loopback.
 if [ "$NODE_PATH" = tunnel ]; then PORTS="$DISCOVERY_PORT $GATEWAY_PORT $CONTROL_PORT"; else PORTS="$CONTROL_PORT"; fi
-if [ "$TARGET" = phone ]; then
+if [ "$LOCAL_HOST" = 0 ]; then
   FORWARDS=()
   MAPPING=""
   for port in $PORTS; do
@@ -249,7 +301,7 @@ if [ "$TARGET" = phone ]; then
   done
   say "forwarded (phone port:remote port):$MAPPING"
 else
-  for port in $PORTS; do adb reverse "tcp:$port" "tcp:$port" > /dev/null; REVERSED="$REVERSED $port"; done
+  for port in $PORTS; do dev reverse "tcp:$port" "tcp:$port" > /dev/null; REVERSED="$REVERSED $port"; done
 fi
 dev reverse --list > "$OUT/reverse.txt" 2>&1 || true
 

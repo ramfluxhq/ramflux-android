@@ -4,13 +4,13 @@
 """Loopback control server for the opt-in real-run UI suite (scripts/realrun.sh).
 
 The instrumented suite on the phone reaches this server over plain HTTP through `adb reverse` (and,
-for a phone attached to another Mac, an SSH remote forward that binds only that Mac's loopback), and
+for a phone attached to another machine, an SSH remote forward that binds only that machine's loopback), and
 asks it to act as the peer side at the right moments: run an allow-listed `rf`
 command on the alice or bob daemon, derive a direct conversation id, create a test file, record
 a flow result or store a screenshot. The server never receives the phone account's six-digit code
 or recovery words; it only handles public identifiers and test message text.
 
-Usage: peer_control.py --port N --out DIR --local-node DIR [--rf PATH] [--udid UDID --app PATH]
+Usage: peer_control.py --port N --out DIR --local-node DIR --rf PATH [--udid UDID --app PATH]
 
 With --udid and --app it can also reinstall the app for the restore flow (/fresh-install): it copies the
 newest backup archive out of the app's container into the simulator's "On My iPhone" storage (an encrypted
@@ -248,10 +248,13 @@ def main():
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--local-node", type=Path, required=True)
-    parser.add_argument("--rf", default="/Users/nn/worker/ramfluxhq/code/ramflux/target/release/rf")
+    parser.add_argument("--rf", default=os.environ.get("RAMFLUX_REALRUN_RF", ""),
+                        help="path of the rf CLI binary (default: $RAMFLUX_REALRUN_RF)")
     parser.add_argument("--udid", default="")
     parser.add_argument("--app", default="")
     options = parser.parse_args()
+    if not options.rf:
+        parser.error("--rf (or RAMFLUX_REALRUN_RF) is required: the path of the rf CLI binary")
     options.out.mkdir(parents=True, exist_ok=True)
     harness = Harness(options.out, options.local_node, options.rf, options.udid, options.app)
     server = ThreadingHTTPServer(("127.0.0.1", options.port), handler_for(harness))

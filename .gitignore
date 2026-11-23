@@ -16,3 +16,5 @@ captures/
 
 __pycache__/
 .kotlin/
+
+/scripts/realrun.local.env
