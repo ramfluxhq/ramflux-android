@@ -113,7 +113,7 @@ fun KitComposer(
                         )
                     }
                 }
-                if (onCloseReply != null) IconHit("x", RfMetrics.iconInfo, theme.secondary, onCloseReply, closeLabel)
+                if (onCloseReply != null) IconHit("x", RfMetrics.iconInfo, theme.secondary, onCloseReply, label = closeLabel)
             }
         }
         if (!attachmentName.isNullOrEmpty()) {
@@ -137,7 +137,7 @@ fun KitComposer(
                         KitText(attachmentState, style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle))
                     }
                 }
-                if (onRemoveAttachment != null) IconHit("x", RfMetrics.fieldIcon, theme.secondary, onRemoveAttachment, closeLabel)
+                if (onRemoveAttachment != null) IconHit("x", RfMetrics.fieldIcon, theme.secondary, onRemoveAttachment, label = closeLabel)
             }
         }
         Row(

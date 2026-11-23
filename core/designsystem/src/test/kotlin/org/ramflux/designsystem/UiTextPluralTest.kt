@@ -116,7 +116,7 @@ class UiTextPluralTest {
     @androidx.compose.runtime.Composable
     private fun Localized(tag: String, content: @androidx.compose.runtime.Composable () -> Unit) {
         val base = LocalContext.current
-        val configuration = Configuration(base.resources.configuration).apply { setLocales(LocaleList.forLanguageTags(tag)) }
+        val configuration = Configuration(LocalConfiguration.current).apply { setLocales(LocaleList.forLanguageTags(tag)) }
         val context = CategoryContext(base, configuration)
         CompositionLocalProvider(LocalContext provides context, LocalConfiguration provides configuration, content = content)
     }

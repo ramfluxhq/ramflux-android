@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.withSave
 import org.ramflux.designsystem.Bidi
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
@@ -136,10 +137,10 @@ private fun SecretWord(index: Int, draw: (Int, (CharArray) -> Unit) -> Unit, pai
         draw(index) { chars ->
             val width = paint.measureText(chars, 0, chars.size)
             val canvas = drawContext.canvas.nativeCanvas
-            val save = canvas.save()
-            if (width > size.width && width > 0f) canvas.scale(size.width / width, 1f)
-            canvas.drawText(chars, 0, chars.size, 0f, baseline, paint)
-            canvas.restoreToCount(save)
+            canvas.withSave {
+                if (width > size.width && width > 0f) canvas.scale(size.width / width, 1f)
+                canvas.drawText(chars, 0, chars.size, 0f, baseline, paint)
+            }
         }
     }
 }
