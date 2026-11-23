@@ -17,7 +17,9 @@ data class ConversationSummary(
     val muted: Boolean = false,
     val group: Boolean = false,
     /** The group id of a group conversation, when the directory row carries it. */
-    val groupId: String? = null
+    val groupId: String? = null,
+    /** True when no name is known and [title] is a short identifier; the screen isolates it left to right. */
+    val titleIsIdentifier: Boolean = false
 )
 data class ConversationPage(val rows: List<ConversationSummary>, val nextCursor: String?)
 

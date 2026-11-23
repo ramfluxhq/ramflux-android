@@ -6,6 +6,7 @@ import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
 import org.ramflux.data.ClientFailureKind
 import org.ramflux.data.UnavailableReason
+import org.ramflux.designsystem.Bidi
 import org.ramflux.designsystem.UiText
 
 @Immutable data class ConversationItem(
@@ -17,8 +18,13 @@ import org.ramflux.designsystem.UiText
     val timestamp: UiText = UiText.Empty,
     val muted: Boolean = false,
     val group: Boolean = false,
-    val groupId: String? = null
-)
+    val groupId: String? = null,
+    /** [title] is a short identifier (no contact name is known); shown left-to-right isolated. */
+    val identifier: Boolean = false
+) {
+    /** The title as drawn: identifiers through the left-to-right identifier primitive. */
+    val shownTitle: String get() = if (identifier) Bidi.ltr(title) else title
+}
 
 @Immutable data class ConversationsState(
     val accountId: String? = null,

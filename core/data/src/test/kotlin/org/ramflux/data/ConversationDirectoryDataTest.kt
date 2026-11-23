@@ -38,6 +38,47 @@ class ConversationDirectoryDataTest {
             assertTrue(repo.openAvailability("account", "visible") is ClientResult.Ready)
         } finally { client.close() }
     }
+    private class NamedContacts(var rows: List<ContactSummary>) : ContactDirectoryRepository {
+        var reads = 0
+        override suspend fun contacts(account: String): ClientResult<List<ContactSummary>> {
+            reads++
+            return ClientResult.Ready(rows)
+        }
+        override suspend fun requests(account: String): ClientResult<List<ContactRequestSummary>> = ClientResult.Ready(emptyList())
+        override suspend fun safety(account: String, root: String): ClientResult<ContactSafety> = error("unused")
+        override suspend fun submit(command: ContactCommand, confirmed: Boolean): ClientResult<Unit> = error("unused")
+        override fun attempts(account: String): List<ContactAttempt> = emptyList()
+        override suspend fun availability(operation: ContactOperation): ClientResult<Unit> = error("unused")
+    }
+
+    @Test fun directRowsAreNamedFromContactsInOneReadAndFallBackToAShortIdentifier() = runTest(timeout = 5.seconds) {
+        val alice = "a1".repeat(32)
+        val stranger = "b2".repeat(32)
+        fun row(id: String, extra: JsonObjectBuilder.() -> Unit) = buildJsonObject {
+            put("id", id); put("unread_count", 0); put("is_unread", false); put("archived", false); put("hidden", false); extra()
+        }
+        val abi = FakeAbi().apply { completionBody = buildJsonObject {
+            put("conversations", buildJsonArray {
+                add(row("dm:alice") { put("direct_route", buildJsonObject { put("recipient_principal_commitment", alice) }) })
+                add(row("dm:stranger") { put("direct_route", buildJsonObject { put("recipient_principal_commitment", stranger) }) })
+                add(row("dm:Zq9xLongConversationHash") {})
+                add(row("dm:named") { put("title", "Named by the SDK") })
+                add(row("group-1") { put("kind", "group"); put("group_id", "g1") })
+            })
+        } }
+        val client = (CoreClient.open(abi, "/test/directory-titles", "a".repeat(64)) as CoreResult.Success).value
+        try {
+            val contacts = NamedContacts(listOf(ContactSummary("link-a", "principal-alice", "Alice", false, alice)))
+            val repo = DefaultConversationDirectoryRepository(SdkRepositoryTransport { client }, contacts)
+            val rows = (repo.page("account", null) as ClientResult.Ready).value.rows
+            assertEquals(listOf("Alice", "b2b2b2b2b2\u2026", "Zq9xLongCo\u2026", "Named by the SDK", "group-1"), rows.map { it.title })
+            assertEquals(listOf(false, true, true, false, false), rows.map { it.titleIsIdentifier })
+            assertTrue("no title is the raw dm: id", rows.none { it.title.startsWith("dm:") })
+            repo.page("account", null)
+            assertEquals("a second page in the reuse window reads no contacts", 1, contacts.reads)
+        } finally { client.close() }
+    }
+
     @Test fun malformedDirectoryAndClosedHostRemainTypedFailures() = runTest(timeout = 5.seconds) {
         val abi = FakeAbi()
         val client = (CoreClient.open(abi, "/test/directory-invalid", "a".repeat(64)) as CoreResult.Success).value

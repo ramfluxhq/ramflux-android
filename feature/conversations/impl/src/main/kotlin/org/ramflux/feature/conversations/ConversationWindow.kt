@@ -33,7 +33,11 @@ class ConversationWindow(private val capacity: Int = CAPACITY) {
     /** A live row; a missing title keeps the one already known. */
     fun upsert(row: ConversationSummary, titled: Boolean) {
         val previous = rows[row.id]
-        rows[row.id] = if (!titled && previous != null) row.copy(title = previous.title) else row
+        rows[row.id] = if (!titled && previous != null) {
+            row.copy(title = previous.title, titleIsIdentifier = previous.titleIsIdentifier)
+        } else {
+            row
+        }
         dirty = true
     }
 

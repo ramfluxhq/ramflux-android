@@ -97,6 +97,6 @@ private fun eventRow(fields: DisplayFields, topic: String?): ConversationDirecto
         else -> ConversationDirectoryEntry(id, fields.text(row, "title"), fields.unsigned(row, "unread_count"), fields.boolean(row, "archived"),
             fields.boolean(row, "hidden"), fields.boolean(row, "is_unread"), fields.optionalSigned(row, "last_activity"),
             fields.text(row, "kind"), participantNames(fields, row), fields.optionalBoolean(row, "muted") == true,
-            groupId = groupOf(fields, row))
+            peer = directPeer(fields, row), groupId = groupOf(fields, row))
     }
 } catch (_: Exception) { null }

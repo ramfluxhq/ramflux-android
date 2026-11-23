@@ -120,7 +120,7 @@ fun ConversationsScreen(
                     items(state.rows, key = { "conversation:" + it.id }, contentType = { "conversation" }) { row ->
                         if (rooted) {
                             KitConversationRow(
-                                row.title,
+                                row.shownTitle,
                                 row.summary.render(),
                                 row.timestamp.render(),
                                 {
@@ -138,7 +138,7 @@ fun ConversationsScreen(
                         } else {
                             ExactConversationRow(
                                 row.id,
-                                row.title,
+                                row.shownTitle,
                                 row.summary.render(),
                                 row.timestamp.render(),
                                 row.unread,

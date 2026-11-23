@@ -143,7 +143,10 @@ the shared event hub to `conversation.changed`, `message.received` and the inbou
 contact-request topics (never `*`): changed rows are upserted in place, removed rows
 dropped, the message-requests row recounted, and `resync_required` reloads the
 window. The SDK directory row has no message preview; rows show the conversation
-kind. Local search and an uninstalled chat feature return typed unavailable.
+kind. A direct row has no SDK title: `DirectConversationTitles` names it from the row's direct-route recipient
+(then its participants) against one `contact.list` read per page, reused for a minute and re-read on a miss at
+most every five seconds, off the main thread. Without a matching contact the title is a short identifier
+(`titleIsIdentifier`) drawn left-to-right isolated (`Bidi.ltr`); the raw `dm:` id is never shown. Local search and an uninstalled chat feature return typed unavailable.
 
 Chat installs a public account/conversation route and renders on the Kit: chat
 header, bubbles, date chips, unread divider, message actions and `KitComposer`.
