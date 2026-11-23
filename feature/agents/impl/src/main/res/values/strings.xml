@@ -75,7 +75,7 @@
     <!-- Button that opens the conversation with the agent -->
     <string name="agents_message">Message</string>
     <!-- Shown when no conversation with the agent exists on this phone -->
-    <string name="agents_no_conversation">There is no conversation with this agent on this phone yet. Start it on your desktop; it then appears in Messages.</string>
+    <string name="agents_no_conversation">No conversation can be opened with this agent: its identity is not one this phone can address.</string>
     <!-- Button and review title for deleting an agent -->
     <string name="agents_delete">Delete agent</string>
     <!-- Shown in the delete review; must state what is not removed -->

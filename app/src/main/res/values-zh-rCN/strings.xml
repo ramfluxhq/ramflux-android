@@ -12,6 +12,10 @@
     <string name="shell_more_permissions_detail">本设备、群组角色和本次操作</string>
     <string name="shell_more_settings">设置</string>
     <string name="shell_more_settings_detail">账号、服务和本机偏好</string>
+    <!-- More hub row: the call history, where an incoming call can be answered. -->
+    <string name="shell_more_calls">通话</string>
+    <!-- Value under the calls row of the More hub. -->
+    <string name="shell_more_calls_detail">通话记录和来电</string>
     <string name="shell_more_tasks">任务</string>
     <string name="shell_more_tasks_detail">查看任务与待处理事项</string>
     <string name="shell_nav_add">添加快捷入口</string>

@@ -75,7 +75,7 @@
     <!-- Button that opens the conversation with the agent -->
     <string name="agents_message">发消息</string>
     <!-- Shown when no conversation with the agent exists on this phone -->
-    <string name="agents_no_conversation">这台手机上还没有与此 Agent 的会话。请先在桌面端开始会话，之后会显示在消息中。</string>
+    <string name="agents_no_conversation">无法打开与此 Agent 的会话：这台手机无法寻址它的身份。</string>
     <!-- Button and review title for deleting an agent -->
     <string name="agents_delete">删除 Agent</string>
     <!-- Shown in the delete review; must state what is not removed -->

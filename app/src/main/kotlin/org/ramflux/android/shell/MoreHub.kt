@@ -32,6 +32,7 @@ internal fun MoreHub(
             moreShortcutIds(order, hidden).forEach { id ->
                 item(id) { MoreRow(id, onOpen) }
             }
+            item("calls") { MoreRow("calls", onOpen) }
             item("permissions") { MoreRow("permissions", onOpen) }
             item("settings") { MoreRow("settings", onOpen) }
             item("navigation") {
@@ -73,6 +74,7 @@ private data class MoreCopy(val title: Int, val detail: Int, val icon: String)
 private fun moreCopy(id: String): MoreCopy = when (id) {
     "contacts" -> MoreCopy(R.string.shell_more_contacts, R.string.shell_more_contacts_detail, "contact")
     "tasks" -> MoreCopy(R.string.shell_more_tasks, R.string.shell_more_tasks_detail, "clipboard-list")
+    "calls" -> MoreCopy(R.string.shell_more_calls, R.string.shell_more_calls_detail, "phone")
     "permissions" -> MoreCopy(R.string.shell_more_permissions, R.string.shell_more_permissions_detail, "shield")
     else -> MoreCopy(R.string.shell_more_settings, R.string.shell_more_settings_detail, "settings")
 }

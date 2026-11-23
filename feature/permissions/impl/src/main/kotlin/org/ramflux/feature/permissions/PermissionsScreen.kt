@@ -85,7 +85,7 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                                 enabled = !state.waiting,
                                 tag = "pick-file"
                             )
-                            Text(stringResource(R.string.permissions_camera_unavailable))
+                            Text(stringResource(R.string.permissions_camera_in_chat))
                             if (state.selected) Text(stringResource(R.string.permissions_selection))
                         }
                     }

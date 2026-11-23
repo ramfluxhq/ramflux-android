@@ -153,6 +153,7 @@ private fun openMore(id: String, shell: ShellNavigation) {
     when (id) {
         "contacts" -> shell.navigate(ContactsRoute)
         "tasks" -> shell.navigate(TasksRoute)
+        "calls" -> shell.navigate(CallsRoute)
         "permissions" -> shell.navigate(PermissionsRoute())
         "settings" -> shell.navigate(SettingsRoute)
         else -> Unit
