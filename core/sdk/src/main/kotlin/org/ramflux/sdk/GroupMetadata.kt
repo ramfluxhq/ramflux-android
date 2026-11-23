@@ -49,6 +49,15 @@ object GroupMetadataReader {
     suspend fun requests(reply: SecretReply, dispatcher: CoroutineDispatcher = Dispatchers.Default) = ListReplyDecoder.decode(reply, dispatcher) { f, chunks -> chunks.map(f.rows("requests", MAX_ROWS)) { row ->
         GroupRequestDisplay(text(f, row, "request_id"), text(f, row, "group_id"), text(f, row, "status"), f.boolean(row, "waiting_for_owner"), requireNotNull(f.optionalSigned(row, "expires_at")))
     }.also { rows -> require(rows.map { it.id }.distinct().size == rows.size) } }
+    /**
+     * The conversation the `group.list` row of [group] names (`conversation_id`), or null when the row names none.
+     * For a group created on this device it differs from the group id.
+     */
+    suspend fun listedConversation(reply: SecretReply, group: String, dispatcher: CoroutineDispatcher = Dispatchers.Default) =
+        ListReplyDecoder.decode(reply, dispatcher) { f, chunks ->
+            chunks.map(f.rows("groups", MAX_ROWS)) { row -> f.text(row, "group_id") to f.text(row, "conversation_id") }
+                .firstOrNull { it.first == group }?.second?.takeIf { it.isNotBlank() && it.length <= 256 }
+        }
     fun conversation(reply: SecretReply, expected: String) = decode(reply) { f ->
         require(text(f, f.root, "group_id") == expected)
         text(f, f.root, "conversation_id")
