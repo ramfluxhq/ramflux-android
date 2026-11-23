@@ -274,4 +274,28 @@
     <string name="card_approval_approve">Approve</string>
     <!-- Reaction bar button and picker title for choosing any emoji as a reaction. -->
     <string name="chat_react_more">More reactions</string>
+    <!-- Shown while the direct-conversation details are read. -->
+    <string name="direct_details_loading">Reading the conversation details…</string>
+    <!-- Shown when the SDK did not return the conversation row. -->
+    <string name="direct_details_unavailable">The conversation details could not be read. Try again later.</string>
+    <!-- Switch that mutes this direct conversation. -->
+    <string name="direct_details_mute">Mute notifications</string>
+    <!-- Shown when the SDK refused to change the mute state. -->
+    <string name="direct_details_mute_failed">Mute did not change. Try again.</string>
+    <!-- Section title for the contact's safety number. -->
+    <string name="direct_details_safety">Safety number</string>
+    <!-- Safety number state: the person compared it with the contact. -->
+    <string name="direct_details_safety_verified">Verified</string>
+    <!-- Safety number state: never compared. -->
+    <string name="direct_details_safety_unverified">Not verified yet. Compare it with your contact in person or on a call.</string>
+    <!-- Safety number state: the contact's keys changed. -->
+    <string name="direct_details_safety_changed">Changed since you verified it. Compare it again before sending anything sensitive.</string>
+    <!-- Safety number state the app cannot name. -->
+    <string name="direct_details_safety_unknown">The verification state is not known.</string>
+    <!-- Shown when the peer has no safety number (not a contact). -->
+    <string name="direct_details_safety_unavailable">The safety number is not available for this person yet. It appears once they are a contact.</string>
+    <!-- Shown when the conversation row has no direct route. -->
+    <string name="direct_details_safety_no_peer">This conversation does not name a person whose safety number can be shown.</string>
+    <!-- Row with the size of this conversation's decrypted media on this phone. -->
+    <string name="direct_details_storage">Storage for this conversation</string>
 </resources>

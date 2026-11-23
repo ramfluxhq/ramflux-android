@@ -79,7 +79,9 @@ approval implementation is installed by the shell.
   indicator; every other entry is padded. With the tab bar visible the bar takes
   the inset and owners receive zero.
 - **Routes from the chat.** The chat's header and menu reach the group details
-  (`GroupDetailRoute`, group chats only), a one-to-one call (`CallRoute`, direct
+  (`GroupDetailRoute`, group chats only), the direct-conversation details (drawn over the chat by the chat
+  feature, direct chats only: the contact, mute through `conversation.mute`, the contact's safety number and
+  verification state, media and files, and this conversation's storage with clearing), a one-to-one call (`CallRoute`, direct
   chats only), the camera explanation (`PermissionsRoute(CAMERA_PHOTO)`), the
   conversation gallery (a sheet inside the chat) and media storage
   (`MediaStorageRoute`, also linked from Settings). The call history is a More

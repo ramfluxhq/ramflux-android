@@ -39,7 +39,17 @@ data class CallSummary(override val id: String, override val createdAt: Long?) :
  * [unread] is the reader-scoped unread count of `conversation.directory`; the read-model page has no read
  * position, so it is the only unread signal.
  */
-data class ConversationHeader(val title: String?, val groupId: String? = null, val unread: Long = 0) {
+/**
+ * [peer] is the recipient root commitment of a direct conversation's route (public; null for groups or when the
+ * row carries no route); [muted] is the directory row's mute state.
+ */
+data class ConversationHeader(
+    val title: String?,
+    val groupId: String? = null,
+    val unread: Long = 0,
+    val peer: String? = null,
+    val muted: Boolean = false
+) {
     override fun toString() = "ConversationHeader(<redacted>)"
 }
 data class SendReceipt(val messageId: String) {
@@ -102,6 +112,13 @@ interface MessageHistoryRepository {
     /** Moves this device's read position to [message] (local projection; see the implementation). */
     suspend fun markRead(account: String, conversation: String, message: String): ClientResult<Unit> = unavailable()
     suspend fun header(account: String, conversation: String): ClientResult<ConversationHeader>
+
+    /**
+     * Mutes or unmutes the conversation on this account (`conversation.mute`, indefinitely). Returns the muted
+     * state the SDK accepted.
+     */
+    suspend fun setMuted(account: String, conversation: String, muted: Boolean): ClientResult<Boolean> =
+        ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)
     /** Group presentation is enabled only after canonical group/conversation readback. */
     suspend fun groupHeader(account: String, group: String, conversation: String): ClientResult<ConversationHeader> =
         ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)

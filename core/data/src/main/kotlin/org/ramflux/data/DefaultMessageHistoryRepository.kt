@@ -167,13 +167,28 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
             }
             page.rows.firstOrNull { it.id == conversation && !it.hidden }?.let {
                 val unread = it.unread.coerceAtMost(Long.MAX_VALUE.toULong()).toLong()
-                return ClientResult.Ready(ConversationHeader(it.title, unread = unread))
+                return ClientResult.Ready(ConversationHeader(it.title, unread = unread, peer = it.peer, muted = it.muted))
             }
             val next = page.nextCursor ?: return ClientResult.Ready(ConversationHeader(null))
             if (next.length > 8192 || !seen.add(next)) return invalid()
             cursor = next
         }
         return invalid()
+    }
+
+    override suspend fun setMuted(account: String, conversation: String, muted: Boolean): ClientResult<Boolean> {
+        if (!identity(account) || !identity(conversation)) return invalid()
+        val body = SecretBody.fields {
+            publicText("conversation_id", conversation)
+            publicFlag("unmute", !muted)
+        }
+        return when (val reply = source.conversationMute(RepositoryContext(account, UUID.randomUUID().toString()), body)) {
+            is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
+            is CoreResult.Success -> {
+                reply.value.close()
+                ClientResult.Ready(muted)
+            }
+        }
     }
 
     override suspend fun sendAvailability(): ClientResult<Unit> = ClientResult.Ready(Unit)

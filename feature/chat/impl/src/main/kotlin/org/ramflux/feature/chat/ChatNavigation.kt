@@ -48,6 +48,7 @@ fun ChatNavigation(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     vm: ChatViewModel = hiltViewModel(),
+    detailsVm: DirectDetailsViewModel = hiltViewModel(),
     groupId: String? = null,
     title: String? = null,
     rooted: Boolean = false,
@@ -67,6 +68,12 @@ fun ChatNavigation(
     val scope = rememberCoroutineScope()
     var confirm by remember { mutableStateOf<ChatEvent.File?>(null) }
     var notice by remember { mutableStateOf<Int?>(null) }
+    // A direct chat shows its own details over the chat; a group chat opens the host's group details.
+    var directDetails by rememberSaveable { mutableStateOf(false) }
+    val detailsState by detailsVm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(directDetails, accountId, conversationId) {
+        if (directDetails && groupId == null) detailsVm.open(accountId, conversationId, title)
+    }
     // The system photo picker needs no storage permission; documents come through the document picker.
     // Up to 16 photos and videos become one message (the SDK's attachment limit per message).
     val pickMany = ActivityResultContracts.PickMultipleVisualMedia(MediaAttachment.MAX_PER_MESSAGE)
@@ -131,7 +138,7 @@ fun ChatNavigation(
                 }
                 is ChatEvent.File -> if (event.use == FileUse.OPEN) confirm = event else hand(event)
                 ChatEvent.Sent -> vm.onAction(ChatAction.Refresh)
-                ChatEvent.Details -> details?.invoke()
+                ChatEvent.Details -> details?.invoke() ?: run { if (groupId == null) directDetails = true }
                 ChatEvent.Call -> call?.invoke()
                 ChatEvent.Storage -> openStorage?.invoke()
                 is ChatEvent.Copy -> clipboard.setText(AnnotatedString(event.text))
@@ -144,12 +151,27 @@ fun ChatNavigation(
             vm::onAction,
             Modifier,
             rooted,
-            showDetails = onDetails != null,
+            showDetails = onDetails != null || groupId == null,
             showCall = onCall != null,
             showCamera = hasCamera && (onCameraPermission != null || cameraGranted()),
             bottomInset = bottomInset,
             showStorage = onStorage != null
         )
+        if (directDetails && groupId == null) {
+            DirectDetails(
+                detailsState,
+                detailsVm::onAction,
+                onGallery = {
+                    directDetails = false
+                    detailsVm.close()
+                    vm.onAction(ChatAction.OpenGallery)
+                },
+                onClose = {
+                    directDetails = false
+                    detailsVm.close()
+                }
+            )
+        }
         notice?.let { text ->
             KitTipBar(stringResource(text), "info", Modifier.align(Alignment.TopCenter).padding(LocalRFTheme.current.gap.dp))
             LaunchedEffect(text) {

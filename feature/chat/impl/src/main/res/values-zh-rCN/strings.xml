@@ -273,4 +273,28 @@
     <string name="card_approval_approve">批准</string>
     <!-- Reaction bar button and picker title for choosing any emoji as a reaction. -->
     <string name="chat_react_more">更多表情</string>
+    <!-- Shown while the direct-conversation details are read. -->
+    <string name="direct_details_loading">正在读取会话详情…</string>
+    <!-- Shown when the SDK did not return the conversation row. -->
+    <string name="direct_details_unavailable">无法读取会话详情，请稍后再试。</string>
+    <!-- Switch that mutes this direct conversation. -->
+    <string name="direct_details_mute">静音通知</string>
+    <!-- Shown when the SDK refused to change the mute state. -->
+    <string name="direct_details_mute_failed">静音状态未改变，请重试。</string>
+    <!-- Section title for the contact's safety number. -->
+    <string name="direct_details_safety">安全码</string>
+    <!-- Safety number state: the person compared it with the contact. -->
+    <string name="direct_details_safety_verified">已验证</string>
+    <!-- Safety number state: never compared. -->
+    <string name="direct_details_safety_unverified">尚未验证。请当面或通话时与联系人核对。</string>
+    <!-- Safety number state: the contact's keys changed. -->
+    <string name="direct_details_safety_changed">自你验证后已变更。发送敏感内容前请重新核对。</string>
+    <!-- Safety number state the app cannot name. -->
+    <string name="direct_details_safety_unknown">验证状态未知。</string>
+    <!-- Shown when the peer has no safety number (not a contact). -->
+    <string name="direct_details_safety_unavailable">此人的安全码暂不可用，成为联系人后才会显示。</string>
+    <!-- Shown when the conversation row has no direct route. -->
+    <string name="direct_details_safety_no_peer">此会话没有可显示安全码的对方。</string>
+    <!-- Row with the size of this conversation's decrypted media on this phone. -->
+    <string name="direct_details_storage">此会话占用的存储</string>
 </resources>
