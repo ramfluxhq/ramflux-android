@@ -24,7 +24,9 @@ data class StartupUi(
     val place: StartupPlace,
     val accountLabel: String,
     val accountId: String,
-    val nodeUrl: String
+    val nodeUrl: String,
+    /** The unlocked active account, when there is one. */
+    val activeAccount: String? = null
 )
 
 @HiltViewModel
@@ -38,7 +40,7 @@ class StartupModel @Inject constructor(
     val ui: StateFlow<StartupUi> = combine(session.status, facts, override) { status, current, chosen ->
         val decided = decideStartup(status.phase, current)
         val place = if (decided == StartupPlace.SHELL || decided == StartupPlace.SPLASH) decided else chosen ?: decided
-        StartupUi(place, lockedLabel(current), lockedId(current), nodeUrl(current.nodes))
+        StartupUi(place, lockedLabel(current), lockedId(current), nodeUrl(current.nodes), activeId(current))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StartupUi(StartupPlace.SPLASH, "", "", ""))
 
     init {
@@ -77,6 +79,9 @@ class StartupModel @Inject constructor(
 }
 
 private fun lockedLabel(facts: StartupFacts): String = facts.accounts?.accounts?.firstOrNull { !it.unlocked }?.label.orEmpty()
+
+private fun activeId(facts: StartupFacts): String? =
+    facts.accounts?.let { catalog -> catalog.accounts.firstOrNull { it.id == catalog.activeId && it.unlocked }?.id }
 
 private fun lockedId(facts: StartupFacts): String = facts.accounts?.accounts?.firstOrNull { !it.unlocked }?.id.orEmpty()
 

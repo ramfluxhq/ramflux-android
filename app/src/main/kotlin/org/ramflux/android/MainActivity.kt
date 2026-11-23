@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
                         shellReady = startupUi.place == StartupPlace.SHELL,
                         policy = SHELL_ROUTE_POLICY,
                         tabs = tabs,
+                        sessionAccount = startupUi.activeAccount,
                         home = { navigate ->
                             StartupHost(navigate, shell = {
                                 // Shown only for an unlocked session: a tapped notification waits here behind the unlock.

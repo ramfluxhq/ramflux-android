@@ -68,13 +68,46 @@ class TopLevelNavigator(val stacks: List<MutableList<NavKey>>, private val selec
 
     val canGoBack: Boolean get() = current.size > 1 || selected != 0
 
-    /** Drop every account-scoped key above the tab roots, for a locked session. */
+    /**
+     * What a lock dropped, per tab: the stack before the drop and what was left. Kept in memory only (never in saved
+     * state), so the screens that were open come back after the unlock of the same account in this process.
+     */
+    private var parked: List<Pair<List<NavKey>, List<NavKey>>>? = null
+
+    /** Drop every account-scoped key above the tab roots, for a locked session, and park them for [restoreParked]. */
     fun dropAccountScoped(isAccountScoped: (NavKey) -> Boolean) {
+        val before = stacks.map { it.toList() }
         stacks.forEach { stack ->
             for (index in stack.lastIndex downTo 1) {
                 if (isAccountScoped(stack[index])) stack.removeAt(index)
             }
         }
+        val dropped = before.indices.any { before[it] != stacks[it] }
+        // A second lock with nothing to drop keeps what the first one parked.
+        if (dropped) parked = before.mapIndexed { index, stack -> stack to stacks[index].toList() }
+    }
+
+    /**
+     * Puts back the screens the last lock dropped, in tabs nobody changed since. Returns whether anything came back.
+     * Call it only when the account that was locked is unlocked again; otherwise call [discardParked].
+     */
+    fun restoreParked(): Boolean {
+        val saved = parked ?: return false
+        parked = null
+        var restored = false
+        saved.forEachIndexed { index, (before, after) ->
+            val stack = stacks[index]
+            if (stack.toList() == after && before != after) {
+                truncate(stack, 1)
+                stack.addAll(before.drop(1))
+                restored = true
+            }
+        }
+        return restored
+    }
+
+    fun discardParked() {
+        parked = null
     }
 
     private fun truncate(stack: MutableList<NavKey>, size: Int) {

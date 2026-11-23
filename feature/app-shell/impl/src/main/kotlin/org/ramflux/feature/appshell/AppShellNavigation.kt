@@ -43,6 +43,8 @@ fun AppShellNavigation(
     shellReady: Boolean = true,
     policy: RoutePolicy = RoutePolicy(),
     tabs: TopLevelNavigator? = null,
+    /** The unlocked account the shell shows, or null; screens parked at a lock come back only for the same account. */
+    sessionAccount: String? = null,
     featureEntries: EntryProviderScope<NavKey>.(onBack: () -> Unit, navigate: (NavKey) -> Unit) -> Unit = { _, _ -> }
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -71,8 +73,17 @@ fun AppShellNavigation(
             }
         }
     }
-    LaunchedEffect(shellReady) {
-        if (shellReady) return@LaunchedEffect
+    // The account the shell last showed; a lock parks that account's screens in the tab stacks.
+    val lockedAccount = remember { arrayOfNulls<String>(1) }
+    if (shellReady && sessionAccount != null && lockedAccount[0] == null) lockedAccount[0] = sessionAccount
+    LaunchedEffect(shellReady, sessionAccount) {
+        if (shellReady) {
+            // After the unlock the screens that were open come back, for the same account only.
+            if (sessionAccount == null) return@LaunchedEffect
+            if (sessionAccount == lockedAccount[0]) tabs?.restoreParked() else tabs?.discardParked()
+            lockedAccount[0] = sessionAccount
+            return@LaunchedEffect
+        }
         val kept = routesWhileLocked(stack.toList(), false, policy::isAccountScoped)
         stack.toList().filterNot { it in kept }.forEach { stack.remove(it) }
         tabs?.dropAccountScoped(policy::isAccountScoped)
