@@ -4,7 +4,6 @@
 package org.ramflux.android.shell
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -81,19 +80,10 @@ internal fun GroupedTone(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalRFTheme provides theme.copy(bg = theme.nav), content = content)
 }
 
-/**
- * The Kit page header without its bottom rule, which the startup boards do not draw: a strip of the page colour
- * covers the hairline. Title, back affordance and sizes stay the Kit's.
- */
+/** The Kit page header without its bottom rule, which the startup boards do not draw. */
 @Composable
 internal fun StartupHeader(title: String, onBack: (() -> Unit)? = null, tag: String? = null) {
-    val theme = LocalRFTheme.current
-    Box {
-        KitPageHeader(title, onBack = onBack, tag = tag)
-        Spacer(
-            Modifier.align(Alignment.BottomStart).fillMaxWidth().height(dimensionResource(R.dimen.startup_rule_cover)).background(theme.bg)
-        )
-    }
+    KitPageHeader(title, onBack = onBack, divider = false, tag = tag)
 }
 
 /** A white card of grouped rows (radius of the Kit card). */

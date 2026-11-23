@@ -87,6 +87,7 @@ fun KitPageHeader(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
     actions: List<KitHeaderAction> = emptyList(),
+    divider: Boolean = true,
     tag: String? = null
 ) {
     val theme = LocalRFTheme.current
@@ -95,7 +96,7 @@ fun KitPageHeader(
             .fillMaxWidth()
             .heightIn(min = dp(RfMetrics.header))
             .background(theme.bg)
-            .kitHairline(theme.line)
+            .then(if (divider) Modifier.kitHairline(theme.line) else Modifier)
             .kitTag(tag)
             .padding(
                 start = dp(if (large) RfMetrics.gutter else RfMetrics.gutter),

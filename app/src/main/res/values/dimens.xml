@@ -7,8 +7,6 @@
     <!-- Startup and unlock pages, measured from MOB-S01, S02, S18, A01, A02 and A07 (393 x 852 dp boards). -->
     <!-- Footer padding below the last button (the boards keep 12 dp above the home indicator). -->
     <dimen name="startup_footer_bottom">12dp</dimen>
-    <!-- Covers the Kit header's bottom hairline, which the startup boards do not draw. -->
-    <dimen name="startup_rule_cover">1dp</dimen>
     <dimen name="startup_hairline">0.5dp</dimen>
     <dimen name="startup_section_height">44dp</dimen>
     <!-- Space above the wordmark: below the status bar on S02 (no header), and with the welcome header on S18. -->

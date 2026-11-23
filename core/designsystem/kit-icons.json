@@ -1,5 +1,5 @@
 {
-  "note": "Kit icons drawn from Lucide 0.544.0. 'mirror' lists the icons whose meaning follows reading order; they get android:autoMirrored and flip in right-to-left layouts. 'neverMirror' lists directional-looking icons that must not flip. scripts/sync-lucide-drawables.py writes the drawables and KitIcons.kt from this file, and KitIconMirrorTest pins the drawables to it.",
+  "note": "Kit icons drawn from Lucide 0.544.0. 'mirror' lists the icons whose meaning follows reading order; they get android:autoMirrored and flip in right-to-left layouts. 'neverMirror' lists directional-looking icons that must not flip. 'lucide' maps a Kit name to the Lucide file it is drawn from when the two differ (Lucide renamed the icon). scripts/sync-lucide-drawables.py writes the drawables and KitIcons.kt from this file, and KitIconMirrorTest pins the drawables to it.",
   "icons": [
     "activity",
     "app-window",
@@ -48,12 +48,15 @@
     "globe",
     "hard-drive",
     "hash",
+    "help-circle",
     "history",
     "image-down",
     "images",
     "info",
+    "key",
     "languages",
     "layout-grid",
+    "life-buoy",
     "link",
     "list-checks",
     "loader-circle",
@@ -139,7 +142,8 @@
     "reply",
     "forward",
     "list-checks",
-    "clipboard-list"
+    "clipboard-list",
+    "help-circle"
   ],
   "neverMirror": [
     "play",
@@ -167,6 +171,10 @@
     "video-off",
     "switch-camera",
     "film",
-    "phone-call"
-  ]
+    "phone-call",
+    "key"
+  ],
+  "lucide": {
+    "help-circle": "circle-question-mark"
+  }
 }

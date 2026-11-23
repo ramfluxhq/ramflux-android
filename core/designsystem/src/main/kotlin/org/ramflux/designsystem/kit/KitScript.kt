@@ -7,6 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -93,7 +94,9 @@ private const val DESIGN_LINE_SLACK = 0.25f
  *
  * [designLine] makes the text report the design line box (line count times the style line height) when the
  * platform font is taller than it, as the CJK faces are; the glyphs stay centred and are not clipped. Rows
- * and headers use it so their design frames hold at the default font scale and grow at larger ones.
+ * and headers use it so their design frames hold at the default font scale. Above the default font scale the
+ * text always reports its full height: the design frames no longer apply there, and absorbing the overhang
+ * would let stacked texts overlap (a row's label and value) or a title overhang its header.
  */
 @Composable
 internal fun KitText(
@@ -106,7 +109,7 @@ internal fun KitText(
     designLine: Boolean = false
 ) {
     val resolved = style.forScript(text).let { if (textAlign == null) it else it.copy(textAlign = textAlign) }
-    if (!designLine || !resolved.lineHeight.isSpecified()) {
+    if (!designLine || !resolved.lineHeight.isSpecified() || LocalDensity.current.fontScale > 1f) {
         Text(text, modifier, style = resolved, maxLines = maxLines, overflow = overflow)
         return
     }

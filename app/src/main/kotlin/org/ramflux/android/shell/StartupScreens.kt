@@ -327,10 +327,10 @@ internal fun UnlockInfo(onBack: () -> Unit, onUnlock: () -> Unit, modifier: Modi
             Text(stringResource(R.string.startup_unlock_info_body), style = rowValue())
             Spacer(Modifier.height(dimensionResource(R.dimen.startup_info_gap)))
             GroupedCard {
-                InfoRow("lock-keyhole", R.string.startup_unlock_with_code, R.string.startup_unlock_with_code_detail, true)
-                InfoRow("info", R.string.startup_no_biometric, R.string.startup_no_biometric_detail, true)
+                InfoRow("key", R.string.startup_unlock_with_code, R.string.startup_unlock_with_code_detail, true)
+                InfoRow("help-circle", R.string.startup_no_biometric, R.string.startup_no_biometric_detail, true)
                 InfoRow("smartphone", R.string.startup_no_app_pin, R.string.startup_no_app_pin_detail, true)
-                InfoRow("shield-alert", R.string.startup_forgot_code, R.string.startup_forgot_code_detail, false)
+                InfoRow("life-buoy", R.string.startup_forgot_code, R.string.startup_forgot_code_detail, false)
             }
             Spacer(Modifier.height(theme.gap.dp))
         }

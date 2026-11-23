@@ -26,14 +26,20 @@ import org.ramflux.designsystem.kit.KitPageHeader
 
 private const val NOTICE_CAP = 16384
 
+/** Licence texts that must travel with the app: the bundled fonts, the Kit icons and Bouncy Castle (BLAKE3). */
+private val NOTICES = listOf(
+    "notices/hanken-grotesk-ofl.txt",
+    "notices/jetbrains-mono-ofl.txt",
+    "notices/lucide-isc.txt",
+    "notices/bouncycastle-mit.txt"
+)
+
 @Composable
 internal fun OpenSourceNotices(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalRFTheme.current
     val context = LocalContext.current
     val body = remember(context) {
-        readNotice(context, "notices/hanken-grotesk-ofl.txt") +
-            Char(10).toString().repeat(2) +
-            readNotice(context, "notices/jetbrains-mono-ofl.txt")
+        NOTICES.joinToString(Char(10).toString().repeat(2)) { readNotice(context, it) }
     }
     Column(modifier.fillMaxSize().background(theme.bg)) {
         KitPageHeader(stringResource(R.string.shell_notices_title), onBack = onBack, tag = "shell-notices")

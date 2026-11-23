@@ -16,6 +16,17 @@ The device-pairing invitation is drawn as a QR code with ZXing core 3.5.4
 Only the core encoder is linked; no ZXing Android or camera artefact is used.
 See third_party/zxing/LICENSE and the project's notices in third_party/zxing/NOTICE.
 
+Media libraries (linked from :core:media and :feature:chat):
+- AndroidX Media3 1.11.1 (common, transformer, effect, exoplayer, ui-compose), licensed under Apache-2.0.
+- AndroidX Emoji2 emoji picker 1.4.0, licensed under Apache-2.0.
+- Bouncy Castle provider 1.78.1 (org.bouncycastle:bcprov-jdk18on, Copyright The Legion of the Bouncy
+  Castle Inc.), used for BLAKE3 attachment digests and direct conversation ids, licensed under the MIT
+  License. See third_party/bouncycastle/LICENSE; the text is also shown in the app's notices.
+
+The Kit icons are vector drawables drawn from Lucide 0.544.0 (Copyright Lucide Contributors, portions
+Copyright Cole Bemis as part of Feather), licensed under the ISC License with MIT portions. See
+third_party/lucide/LICENSE; the text is also shown in the app's notices.
+
 Bundled UI fonts, both under the SIL Open Font License 1.1:
 - Hanken Grotesk, Copyright 2021 The Hanken Grotesk Project Authors. See third_party/hanken-grotesk/OFL.txt.
 - JetBrains Mono, Copyright 2020 The JetBrains Mono Project Authors. See third_party/jetbrains-mono/OFL.txt.
