@@ -200,6 +200,29 @@ again while copying, and removed when its job ends. Install merges into an exist
 (host confirmation, no code) or restores a new account with a new six-digit code. Restore is
 reachable from onboarding ("Restore from a backup") for a fresh install.
 
+## Local test node (debug builds only)
+
+Release builds accept only `https://` discovery origins. Debug builds also accept `http://` when the host is a
+loopback address (`127.0.0.0/8`, `localhost`, `[::1]`), the emulator's alias for the host machine (`10.0.2.2`) or a
+private-range IPv4 address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), so the local node on a developer
+machine can be added. The switch is the build-type constant `BuildConfig.LOCAL_NODE_HTTP` of `:core:data` (true in
+`debug`, false in `release`), read by `DiscoveryOriginParser.preview`, which `DefaultNodeSetupRepository.discover`
+re-checks; nothing at run time can turn it on. `OnboardingDataTest` checks the rule for both values and that the
+constant follows the build type (`testDebugUnitTest` and `testReleaseUnitTest`). An address typed without a scheme
+still becomes `https://`, so a tester types the `http://` prefix. Discovery over HTTP stays authenticated by the
+Ed25519 signature the operator key pin checks.
+
+No network-security configuration is added: discovery, gateway and relay traffic comes from the SDK's native
+sockets (reqwest, quinn), which Android's cleartext policy does not govern, and the release manifest keeps the
+library's strict policy (`cleartextTrafficPermitted="false"`) unchanged.
+
+To use the node from an emulator, the node must advertise addresses the emulator can reach: `127.0.0.1` inside the
+emulator is the emulator itself, and the SDK uses the signed record's addresses as they are. The node is therefore
+initialised with the Mac's LAN address (`DEMO_HOST=<LAN IPv4>`, `DEMO_BIND_ADDR=0.0.0.0` in
+`ops/local-node/state/operator.env`, then `./reset.sh` and `./up.sh`), and the tester types
+`http://<LAN IPv4>:8482` in the app (a private-range address, accepted by debug builds). `http://10.0.2.2:8482`
+reaches discovery, but the gateway and relay addresses in the record would still name `127.0.0.1`.
+
 ## Notifications
 
 Local message notifications are groundwork only. While the process is alive with an open session and the

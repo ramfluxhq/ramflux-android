@@ -10,6 +10,7 @@ import kotlinx.coroutines.yield
 import kotlinx.serialization.json.*
 import org.junit.Assert.*
 import org.junit.Test
+import org.ramflux.core.data.BuildConfig
 import org.ramflux.sdk.*
 
 class OnboardingDataTest {
@@ -111,5 +112,37 @@ class OnboardingDataTest {
             DiscoveryOriginParser.preview("Node.Example/team?source=invite#join"))
         assertNull(DiscoveryOriginParser.preview("https://user:secret@node.example/path"))
         assertNull(DiscoveryOriginParser.preview("http://node.example"))
+    }
+
+    /** The rule of each build type: debug admits plain HTTP to local hosts only, release never does. */
+    @Test fun plainHttpReachesOnlyLocalHostsAndOnlyInDebugBuilds() {
+        val local = listOf(
+            "http://127.0.0.1:8482" to "http://127.0.0.1:8482",
+            "http://10.0.2.2:8482" to "http://10.0.2.2:8482",
+            "http://192.168.1.20:8482/" to "http://192.168.1.20:8482",
+            "http://172.16.0.5:80" to "http://172.16.0.5",
+            "HTTP://LOCALHOST:8482" to "http://localhost:8482",
+            "http://[::1]:8482" to "http://[::1]:8482"
+        )
+        for ((input, origin) in local) {
+            assertEquals(input, origin, DiscoveryOriginParser.preview(input, localHttp = true)?.origin)
+            assertNull("release must refuse $input", DiscoveryOriginParser.preview(input, localHttp = false))
+        }
+        for (remote in listOf("http://node.example", "http://8.8.8.8", "http://172.32.0.1", "http://192.169.0.1",
+            "http://010.0.2.2", "http://10.0.2", "http://user:pw@10.0.2.2", "ftp://10.0.2.2")) {
+            assertNull("debug must refuse $remote", DiscoveryOriginParser.preview(remote, localHttp = true))
+        }
+        // An address without a scheme stays HTTPS in both build types.
+        assertEquals("https://10.0.2.2:8482", DiscoveryOriginParser.preview("10.0.2.2:8482", localHttp = true)?.origin)
+    }
+
+    @Test fun theLocalNodeAllowanceFollowsTheBuildType() {
+        assertEquals("debug builds only", BuildConfig.BUILD_TYPE == "debug", BuildConfig.LOCAL_NODE_HTTP)
+    }
+
+    @Test fun discoveryAcceptsTheOriginThePreviewApproved() = runTest(timeout = 5.seconds) {
+        val transport = PublicTransport().apply { answer = { reply(buildJsonObject {}) } }
+        DefaultNodeSetupRepository(transport).discover("http://10.0.2.2:8482")
+        assertEquals(if (BuildConfig.LOCAL_NODE_HTTP) 1 else 0, transport.calls.size)
     }
 }
