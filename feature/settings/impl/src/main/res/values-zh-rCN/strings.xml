@@ -200,4 +200,22 @@
     <string name="settings_language_untranslated">翻译进行中</string>
     <!-- Separator between items of a short inline list, such as device rights. -->
     <string name="settings_list_separator">、</string>
+    <!-- Row and page title: this account's own contact card for peers. -->
+    <string name="settings_my_card">我的联系人名片</string>
+    <!-- Value under the my-contact-card row. -->
+    <string name="settings_my_card_help">让联系人添加你并连接到你的节点</string>
+    <!-- Explanation on the my-contact-card page. -->
+    <string name="settings_my_card_explanation">用此名片添加你的联系人也会得知你的节点，这样他们发送的消息和媒体才能送达。名片七天后过期，届时请重新打开获取新名片。</string>
+    <!-- Shown while the SDK signs the contact card. -->
+    <string name="settings_my_card_loading">正在准备你的联系人名片…</string>
+    <!-- Shown when the SDK refused to export the contact card. -->
+    <string name="settings_my_card_failed">无法准备你的联系人名片。账户可能仍在连接节点。</string>
+    <!-- Button that asks for the contact card again. -->
+    <string name="settings_my_card_retry">重试</string>
+    <!-- Accessibility description of the contact card QR code. -->
+    <string name="settings_my_card_qr">你的联系人名片二维码</string>
+    <!-- Shown instead of the QR code when the card does not fit. -->
+    <string name="settings_my_card_too_long">名片太长，无法生成二维码。请以文本方式分享。</string>
+    <!-- Button that shares the card text with another app. -->
+    <string name="settings_my_card_share">分享联系人名片</string>
 </resources>

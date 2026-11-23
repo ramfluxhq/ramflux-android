@@ -49,6 +49,14 @@ interface ContactDirectoryRepository {
     suspend fun conversation(account: String, root: String): ClientResult<String?> =
         ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
 
+    /**
+     * This account's own signed contact card (`contact.card.export`): [OwnContactCard.text] for pasting, and
+     * [OwnContactCard.link] for a QR code. It names the home node, so a peer that adds the phone by this card
+     * pins that node. Public values only.
+     */
+    suspend fun ownCard(account: String): ClientResult<OwnContactCard> =
+        ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
     /** Live changes for [account]; collect while a contacts screen is visible. */
     fun changes(account: String): Flow<ClientResult<ContactChange>> = emptyFlow()
     suspend fun submit(command: ContactCommand, confirmed: Boolean): ClientResult<Unit>
@@ -68,6 +76,11 @@ data class ContactAttempt(val operationId: String, val operation: ContactOperati
 enum class SafetyState { UNVERIFIED, VERIFIED, CHANGED, BLOCKED_BY_POLICY, UNKNOWN }
 
 /** [verifiable] is true when the SDK offered a compare-and-set stamp, so VERIFY can be submitted. */
+/** A signed contact card: `ramflux-card:v3:...` text and the `ramflux://contact/v3/...` link (public). */
+data class OwnContactCard(val text: String, val link: String) {
+    override fun toString() = "OwnContactCard(<redacted>)"
+}
+
 data class ContactSafety(val number: String, val fingerprint: String, val state: SafetyState = SafetyState.UNVERIFIED, val verifiable: Boolean = false) {
     override fun toString() = "ContactSafety(<redacted>)"
 }

@@ -122,6 +122,7 @@ class SettingsViewModel @Inject constructor(
             }
             SettingsAction.OpenAccount -> event(SettingsEvent.OpenAccount)
             SettingsAction.Permissions -> event(SettingsEvent.Permissions)
+            SettingsAction.MyCard -> event(SettingsEvent.MyCard)
             SettingsAction.Connections -> event(SettingsEvent.Connections)
             SettingsAction.Backup -> event(SettingsEvent.Backup)
             SettingsAction.Storage -> activeAccount?.let { event(SettingsEvent.Storage(it)) }

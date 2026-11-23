@@ -9,6 +9,7 @@ sealed interface SettingsAction {
     data object Back : SettingsAction
     data object OpenAccount : SettingsAction
     data object Permissions : SettingsAction
+    data object MyCard : SettingsAction
     data object Connections : SettingsAction
     data object Backup : SettingsAction
     data object Storage : SettingsAction

@@ -3,7 +3,9 @@
 
 package org.ramflux.feature.settings
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -19,8 +21,10 @@ fun SettingsNavigation(
     onPermissions: () -> Unit = {},
     onBackup: () -> Unit = {},
     onStorage: (account: String) -> Unit = {},
-    vm: SettingsViewModel = hiltViewModel()
+    vm: SettingsViewModel = hiltViewModel(),
+    cardVm: MyContactCardViewModel = hiltViewModel()
 ) {
+    var myCard by rememberSaveable { mutableStateOf(false) }
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val account by rememberUpdatedState(onAccount)
@@ -39,8 +43,21 @@ fun SettingsNavigation(
                 SettingsEvent.Permissions -> permissions()
                 SettingsEvent.Backup -> backup()
                 is SettingsEvent.Storage -> storage(event.accountId)
+                SettingsEvent.MyCard -> {
+                    myCard = true
+                    cardVm.load()
+                }
             }
         }
     }
-    SettingsScreen(state, vm::onAction, modifier = modifier, drawInvitation = vm::drawInvitation, drawInvitationQr = vm::drawInvitationQr)
+    Box(modifier) {
+        SettingsScreen(state, vm::onAction, drawInvitation = vm::drawInvitation, drawInvitationQr = vm::drawInvitationQr)
+        if (myCard) {
+            val card by cardVm.state.collectAsStateWithLifecycle()
+            MyContactCard(card, cardVm::lendQr, onRetry = cardVm::load) {
+                myCard = false
+                cardVm.close()
+            }
+        }
+    }
 }

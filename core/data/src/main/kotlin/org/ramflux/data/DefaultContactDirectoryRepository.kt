@@ -29,6 +29,23 @@ internal class DefaultContactDirectoryRepository(
     private val contactPages = SnapshotPager<ContactSummary>(PAGE)
     private val requestPages = SnapshotPager<ContactRequestSummary>(PAGE)
     override suspend fun submit(command: ContactCommand, confirmed: Boolean) = actions.submit(command, confirmed)
+
+    override suspend fun ownCard(account: String): ClientResult<OwnContactCard> {
+        if (account.isBlank() || account.length > 4096) return invalid()
+        val reply = source.cardExport(RepositoryContext(account, java.util.UUID.randomUUID().toString()), SecretBody.fields {})
+        return when (reply) {
+            is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
+            is CoreResult.Success -> try {
+                val (text, link) = reply.value.twoTexts("card", "link")
+                if (!text.startsWith("ramflux-card:") || !link.startsWith("ramflux://contact/")) invalid()
+                else ClientResult.Ready(OwnContactCard(text, link))
+            } catch (_: IllegalArgumentException) {
+                invalid()
+            } finally {
+                reply.value.close()
+            }
+        }
+    }
     override fun attempts(account: String) = actions.attempts(account)
     override suspend fun contacts(account: String): ClientResult<List<ContactSummary>> = links(account, ContactListScope.ACCEPTED)
 

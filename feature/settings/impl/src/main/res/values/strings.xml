@@ -200,4 +200,22 @@
     <string name="settings_language_untranslated">Translation in progress</string>
     <!-- Separator between items of a short inline list, such as device rights. -->
     <string name="settings_list_separator">", "</string>
+    <!-- Row and page title: this account's own contact card for peers. -->
+    <string name="settings_my_card">My contact card</string>
+    <!-- Value under the my-contact-card row. -->
+    <string name="settings_my_card_help">Let a contact add you and reach your node</string>
+    <!-- Explanation on the my-contact-card page. -->
+    <string name="settings_my_card_explanation">A contact who adds you with this card also learns your node, so messages and media they send reach you. It expires in seven days; open it again for a fresh one.</string>
+    <!-- Shown while the SDK signs the contact card. -->
+    <string name="settings_my_card_loading">Preparing your contact card…</string>
+    <!-- Shown when the SDK refused to export the contact card. -->
+    <string name="settings_my_card_failed">Your contact card could not be prepared. The account may still be connecting to its node.</string>
+    <!-- Button that asks for the contact card again. -->
+    <string name="settings_my_card_retry">Try again</string>
+    <!-- Accessibility description of the contact card QR code. -->
+    <string name="settings_my_card_qr">QR code of your contact card</string>
+    <!-- Shown instead of the QR code when the card does not fit. -->
+    <string name="settings_my_card_too_long">This card is too long for a QR code. Share it as text.</string>
+    <!-- Button that shares the card text with another app. -->
+    <string name="settings_my_card_share">Share contact card</string>
 </resources>

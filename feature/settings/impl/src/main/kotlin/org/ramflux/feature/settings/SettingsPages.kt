@@ -126,6 +126,14 @@ internal fun LazyListScope.accountPage(state: SettingsState, onAction: (Settings
                 testTag = "change-code"
             )
             KitRow(
+                stringResource(R.string.settings_my_card),
+                { onAction(SettingsAction.MyCard) },
+                icon = "qr-code",
+                value = stringResource(R.string.settings_my_card_help),
+                enabled = state.accountLabel != null,
+                testTag = "my-card"
+            )
+            KitRow(
                 stringResource(R.string.settings_privacy),
                 { onAction(SettingsAction.Page(SettingsPage.PRIVACY)) },
                 icon = "shield",

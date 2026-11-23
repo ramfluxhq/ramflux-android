@@ -175,7 +175,11 @@ topics through the shared event hub (never `*`) and reloads the affected window.
 mark a safety number verified (`contact.verify` with the SDK's compare-and-set stamp from the last
 `contact.safety_number` read, kept in the data layer and sent verbatim) all require the host
 confirmation and bind the reply to the target. Reply, report and scan have no SDK method and are
-not offered.
+not offered. Settings, "My contact card", shows this account's signed card from `contact.card.export`
+(`ramflux-card:v3:` text through `LtrCode`, the `ramflux://contact/v3/` link as a `KitQrCode` when it fits, and
+share as text). The card names the home node and its key fingerprint, so a peer that adds the phone by the card
+pins that node; one that adds it by principal lookup alone has no home node pinned and cannot deliver media
+(`authority_unavailable`).
 
 Groups (list, invitations, roster, invite picker and group requests) read through windowed pages
 (`GroupDirectoryRepository.groupPage` / `memberPage` / `invitationPage` / `requestPage`, and the contacts'
