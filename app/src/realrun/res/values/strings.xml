@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <!-- Launcher label of the opt-in real-run test build, installed beside the regular app on shared test devices. Not translated: testers only. -->
+    <string name="app_name" translatable="false">Ramflux Real Run</string>
+</resources>
