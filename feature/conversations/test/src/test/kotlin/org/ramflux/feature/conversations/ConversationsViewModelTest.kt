@@ -275,4 +275,26 @@ class ConversationsViewModelTest {
             assertTrue(vm.state.value.problem != null || vm.state.value.unavailable != null)
         }
     }
+
+    @Test fun groupConversationsOpenWithTheirGroupId() = runTest(timeout = 5.seconds) {
+        val directory = FakeConversationDirectory().apply {
+            response = {
+                ClientResult.Ready(
+                    ConversationPage(listOf(ConversationSummary("thread", "Team", 0u, false, false, group = true, groupId = "g")), null)
+                )
+            }
+            canOpen = ClientResult.Ready(Unit)
+        }
+        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession()).also {
+            it.work = UnconfinedTestDispatcher(testScheduler)
+        }
+        observe(vm)
+        runCurrent()
+        val events = mutableListOf<ConversationsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(ConversationsAction.Open("thread"))
+        runCurrent()
+        assertEquals(listOf(ConversationsEvent.OpenChat("a", "thread", "Team", "g")), events)
+    }
 }
+

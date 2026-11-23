@@ -10,5 +10,8 @@ sealed interface CallsAction {
     data class Select(val id: String) : CallsAction
     data class End(val id: String, val sequence: ULong, val decline: Boolean) : CallsAction
     data object Audio : CallsAction
+
+    /** Opens the call screen for one listed call (answering an incoming call happens there). */
+    data class Open(val id: String) : CallsAction
     data object ToggleFacts : CallsAction
 }

@@ -7,5 +7,5 @@ sealed interface ConversationsEvent {
     data object SetupAccount : ConversationsEvent
     data object Compose : ConversationsEvent
     data object Requests : ConversationsEvent
-    data class OpenChat(val accountId: String, val conversationId: String, val title: String) : ConversationsEvent
+    data class OpenChat(val accountId: String, val conversationId: String, val title: String, val groupId: String? = null) : ConversationsEvent
 }

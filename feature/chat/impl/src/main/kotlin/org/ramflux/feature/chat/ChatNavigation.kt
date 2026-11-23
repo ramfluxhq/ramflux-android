@@ -49,17 +49,19 @@ fun ChatNavigation(
     modifier: Modifier = Modifier,
     vm: ChatViewModel = hiltViewModel(),
     groupId: String? = null,
-    onAttachments: () -> Unit = {},
+    title: String? = null,
     rooted: Boolean = false,
     onDetails: (() -> Unit)? = null,
     onCall: (() -> Unit)? = null,
     onCameraPermission: (() -> Unit)? = null,
+    onStorage: (() -> Unit)? = null,
     bottomInset: WindowInsets = WindowInsets(0)
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val details by rememberUpdatedState(onDetails)
     val call by rememberUpdatedState(onCall)
+    val openStorage by rememberUpdatedState(onStorage)
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -76,7 +78,6 @@ fun ChatNavigation(
     }
     // The capture target survives the camera activity and process death; it is a cache path, not content.
     var capture by rememberSaveable { mutableStateOf<String?>(null) }
-    var storage by rememberSaveable { mutableStateOf(false) }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
         val target = capture
         capture = null
@@ -118,7 +119,7 @@ fun ChatNavigation(
     BackHandler(enabled = state.selectedId != null) { vm.onAction(ChatAction.Dismiss) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(ChatAction.Refresh) }
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { vm.onAction(ChatAction.Pause) }
-    LaunchedEffect(vm, accountId, conversationId, groupId) { vm.onAction(ChatAction.Load(accountId, conversationId, groupId)) }
+    LaunchedEffect(vm, accountId, conversationId, groupId) { vm.onAction(ChatAction.Load(accountId, conversationId, groupId, title)) }
     LaunchedEffect(vm) {
         vm.events.collect { event ->
             when (event) {
@@ -132,7 +133,7 @@ fun ChatNavigation(
                 ChatEvent.Sent -> vm.onAction(ChatAction.Refresh)
                 ChatEvent.Details -> details?.invoke()
                 ChatEvent.Call -> call?.invoke()
-                ChatEvent.Storage -> storage = true
+                ChatEvent.Storage -> openStorage?.invoke()
                 is ChatEvent.Copy -> clipboard.setText(AnnotatedString(event.text))
             }
         }
@@ -147,9 +148,8 @@ fun ChatNavigation(
             showCall = onCall != null,
             showCamera = hasCamera && (onCameraPermission != null || cameraGranted()),
             bottomInset = bottomInset,
-            showStorage = true
+            showStorage = onStorage != null
         )
-        if (storage) MediaStorageNavigation(accountId, { storage = false })
         notice?.let { text ->
             KitTipBar(stringResource(text), "info", Modifier.align(Alignment.TopCenter).padding(LocalRFTheme.current.gap.dp))
             LaunchedEffect(text) {

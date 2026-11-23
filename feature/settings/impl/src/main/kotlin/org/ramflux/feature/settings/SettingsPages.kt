@@ -74,8 +74,16 @@ internal fun LazyListScope.generalPage(state: SettingsState, onAction: (Settings
                 { onAction(SettingsAction.Backup) },
                 icon = "database-backup",
                 value = stringResource(R.string.settings_backup_restore_help),
-                divider = false,
                 testTag = "backup"
+            )
+            KitRow(
+                stringResource(R.string.settings_storage),
+                { onAction(SettingsAction.Storage) },
+                icon = "hard-drive",
+                value = stringResource(R.string.settings_storage_help),
+                enabled = state.accountLabel != null,
+                divider = false,
+                testTag = "storage"
             )
         }
     }

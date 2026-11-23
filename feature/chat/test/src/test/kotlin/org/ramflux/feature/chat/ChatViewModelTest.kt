@@ -12,6 +12,7 @@ import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.ramflux.data.*
+import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -43,6 +44,20 @@ class ChatViewModelTest {
         assertFalse(vm.state.value.loaded)
         assertNull(vm.state.value.groupId)
         assertNotNull(vm.state.value.problem)
+    }
+
+    @Test fun theRouteTitleShowsUntilTheHeaderNamesTheConversation() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(ChatAction.Load("a", "c", title = "Row title"))
+        runCurrent()
+        assertEquals(UiText.Data("Row title"), vm.state.value.title)
+        history.heading = ClientResult.Ready(ConversationHeader("Actual title"))
+        vm.onAction(ChatAction.Refresh)
+        runCurrent()
+        assertEquals(UiText.Data("Actual title"), vm.state.value.title)
     }
 
     @Test fun mixedRowsKeepAdjacentMessagesAndActualTitleTimeInState() = runTest(timeout = 5.seconds) {

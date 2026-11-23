@@ -85,6 +85,12 @@ class CallsViewModel @Inject constructor(
                 }
             }
             is CallsAction.End -> signal(action)
+            is CallsAction.Open -> {
+                val accountId = owner ?: return
+                if (local.value.rows.none { it.id == action.id }) return
+                // The list stays as it is; the call screen opens over it.
+                viewModelScope.launch { channel.send(CallsEvent.OpenCall(accountId, action.id)) }
+            }
         }
     }
     private fun stop() {

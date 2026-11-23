@@ -82,6 +82,7 @@ import org.ramflux.feature.tasks.TasksScreen
 import org.ramflux.feature.tasks.TasksState
 import org.ramflux.feature.tasks.api.TasksRoute
 import org.ramflux.navigation.LocalPaneRole
+import org.ramflux.navigation.LocalShellBottomInset
 import org.ramflux.navigation.PaneRole
 import org.ramflux.navigation.TopLevelNavigator
 import org.ramflux.navigation.pane
@@ -212,8 +213,17 @@ private data class ShellFixture(
 
 private fun EntryProviderScope<NavKey>.fixtureEntries(fixture: ShellFixture) {
     entry<ConversationsRoute>(metadata = pane(PaneRole.LIST)) { ConversationsScreen(fixture.conversations, {}, rooted = true) }
-    entry<ChatRoute>(metadata = pane(PaneRole.DETAIL)) {
-        ChatScreen(fixture.chat, {}, rooted = LocalPaneRole.current == PaneRole.DETAIL, clock = ChatBoards.clock)
+    // As production: the chat owns the bottom inset, and the header shows the call and more actions.
+    entry<ChatRoute>(metadata = pane(PaneRole.DETAIL, ownsBottomInset = true)) {
+        ChatScreen(
+            fixture.chat,
+            {},
+            rooted = LocalPaneRole.current == PaneRole.DETAIL,
+            showDetails = true,
+            showCall = true,
+            bottomInset = LocalShellBottomInset.current,
+            clock = ChatBoards.clock
+        )
     }
     entry<GroupsRoute>(metadata = pane(PaneRole.LIST)) { GroupsScreen(fixture.groups, {}, rooted = true) }
     entry<AgentsRoute> { AgentsScreen(fixture.agents, {}, rooted = true) }

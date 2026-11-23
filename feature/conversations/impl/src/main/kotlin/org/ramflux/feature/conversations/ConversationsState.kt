@@ -16,7 +16,8 @@ import org.ramflux.designsystem.UiText
     val hasUnread: Boolean,
     val timestamp: UiText = UiText.Empty,
     val muted: Boolean = false,
-    val group: Boolean = false
+    val group: Boolean = false,
+    val groupId: String? = null
 )
 
 @Immutable data class ConversationsState(

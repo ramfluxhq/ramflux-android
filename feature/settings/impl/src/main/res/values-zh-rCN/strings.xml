@@ -78,6 +78,10 @@
     <string name="settings_backup_restore">数据备份与恢复</string>
     <!-- Value under the backup row. -->
     <string name="settings_backup_restore_help">创建、查看和恢复账户备份</string>
+    <!-- Settings row: the media files this phone holds for the account. -->
+    <string name="settings_storage">存储空间</string>
+    <!-- Value under the storage row. -->
+    <string name="settings_storage_help">保存在此设备上的媒体和文件</string>
     <!-- Section title on the settings page: application rows. -->
     <string name="settings_group_app">应用</string>
     <!-- Settings row and page title: appearance and language. -->

@@ -157,4 +157,15 @@ class CallsViewModelTest {
         runCurrent()
         assertEquals(1, events.size)
     }
+
+    @Test fun answeringAListedCallOpensItsCallScreenAndUnknownIdsDoNothing() = runTest(timeout = 5.seconds) {
+        val vm = load(FakeCalls())
+        val events = mutableListOf<CallsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(CallsAction.Open("missing"))
+        vm.onAction(CallsAction.Open("call"))
+        runCurrent()
+        assertEquals(listOf(CallsEvent.OpenCall("a", "call")), events)
+        assertTrue(vm.state.value.rows.isNotEmpty())
+    }
 }

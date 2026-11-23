@@ -28,8 +28,8 @@ Images, animated images, videos and files travel as SDK attachments (`attachment
 | Camera photo | As a still image; the capture file is deleted after re-encoding |
 
 Up to 16 items form one message (album). Forwarding imports each item if needed and prepares it again
-for the new conversation; keys and grants are never reused. Group targets need the group id in the
-conversation directory reader and are not offered yet.
+for the new conversation; keys and grants are never reused. Group conversations are
+offered when their directory row carries `group_id`, which the attachment prepare needs.
 
 ## Receiving and playback
 

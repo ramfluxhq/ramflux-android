@@ -144,7 +144,10 @@ class ChatViewModel @Inject constructor(
                     ticket++
                     resetTimeline()
                     target = next
-                    local.value = ChatState(conversationId = next.conversation)
+                    local.value = ChatState(
+                        conversationId = next.conversation,
+                        title = action.title?.takeIf { it.isNotBlank() }?.let { UiText.Data(it) }
+                    )
                     ensureWatch(next)
                     restoreDraft(next)
                     read()
@@ -348,7 +351,7 @@ class ChatViewModel @Inject constructor(
                         groupId = (groupHeader as? ClientResult.Ready)?.value?.groupId,
                         title = (header as? ClientResult.Ready)?.value?.title?.takeIf { title -> title.isNotBlank() }?.let { title ->
                             UiText.Data(title)
-                        },
+                        } ?: it.title,
                         headerProblem = when (header) {
                             is ClientResult.Ready -> null
                             is ClientResult.Failed, is ClientResult.Unavailable -> uiText(R.string.ui_conversation_details_unavailable)

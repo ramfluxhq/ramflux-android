@@ -28,10 +28,22 @@ enum class PaneRole {
 /** Entry metadata key for [PaneRole]. */
 object PaneRoleKey : NavMetadataKey<PaneRole>
 
-/** Metadata for `entry<K>(metadata = pane(PaneRole.LIST))`. */
-fun pane(role: PaneRole): Map<String, Any> = metadata { put(PaneRoleKey, role) }
+/** Entry metadata key: the entry lays out the bottom window inset itself (see [LocalShellBottomInset]). */
+object OwnsBottomInsetKey : NavMetadataKey<Boolean>
+
+/**
+ * Metadata for `entry<K>(metadata = pane(PaneRole.LIST))`. With [ownsBottomInset] the shell does not pad
+ * the entry above the home indicator while it fills the window; it hands the inset over through
+ * [LocalShellBottomInset] so the entry's bottom band (a composer) can reach the screen edge.
+ */
+fun pane(role: PaneRole, ownsBottomInset: Boolean = false): Map<String, Any> = metadata {
+    put(PaneRoleKey, role)
+    if (ownsBottomInset) put(OwnsBottomInsetKey, true)
+}
 
 internal fun NavEntry<*>.paneRole(): PaneRole? = if (metadata.contains(PaneRoleKey)) metadata[PaneRoleKey] else null
+
+internal fun NavEntry<*>.ownsBottomInset(): Boolean = metadata.contains(OwnsBottomInsetKey) && metadata[OwnsBottomInsetKey] == true
 
 /**
  * The application's routing policy. Which keys are account scoped is declared by the keys themselves

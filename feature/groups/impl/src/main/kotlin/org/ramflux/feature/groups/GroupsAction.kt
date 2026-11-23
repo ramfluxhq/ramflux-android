@@ -9,6 +9,9 @@ sealed interface GroupsAction {
     data class Visible(val value: Boolean) : GroupsAction
     data class Page(val page: GroupsPage, val id: String? = null) : GroupsAction
 
+    /** Opens the screen at one group's details; back from there leaves the screen. */
+    data class Enter(val id: String) : GroupsAction
+
     /** Loads the next ([forward]) or previous window page of [list]. */
     data class More(val list: GroupList, val forward: Boolean = true) : GroupsAction
     data class Query(val value: String) : GroupsAction

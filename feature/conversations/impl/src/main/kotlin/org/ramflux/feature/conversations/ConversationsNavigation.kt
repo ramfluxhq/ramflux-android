@@ -15,7 +15,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun ConversationsNavigation(
     onBack: () -> Unit,
     onSetupAccount: () -> Unit,
-    onOpenChat: (account: String, conversation: String, title: String) -> Unit,
+    onOpenChat: (account: String, conversation: String, title: String, group: String?) -> Unit,
     modifier: Modifier = Modifier,
     permissionBanner: @Composable () -> Unit = {},
     vm: ConversationsViewModel = hiltViewModel(),
@@ -42,7 +42,7 @@ fun ConversationsNavigation(
             when (event) {
                 ConversationsEvent.Back -> back()
                 ConversationsEvent.SetupAccount -> setup()
-                is ConversationsEvent.OpenChat -> chat(event.accountId, event.conversationId, event.title)
+                is ConversationsEvent.OpenChat -> chat(event.accountId, event.conversationId, event.title, event.groupId)
                 ConversationsEvent.Compose -> compose()
                 ConversationsEvent.Requests -> requests()
             }

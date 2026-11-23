@@ -261,4 +261,25 @@ class GroupsViewModelTest {
         val change = repo.changes.single().second
         assertEquals(GroupOperation.ADD to "new-root", change.operation to change.root)
     }
+
+    @Test fun enteringAtGroupDetailsReturnsToTheCallerOnBackButMembersStillBackToDetails() = runTest(timeout = 5.seconds) {
+        val repo = FakeGroups()
+        val vm = load(repo)
+        val events = mutableListOf<GroupsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(GroupsAction.Enter("elsewhere"))
+        runCurrent()
+        assertEquals(GroupsPage.DETAIL, vm.state.value.page)
+        assertEquals("elsewhere", vm.state.value.selected)
+        vm.onAction(GroupsAction.Page(GroupsPage.MEMBERS, "elsewhere"))
+        runCurrent()
+        vm.onAction(GroupsAction.Back)
+        runCurrent()
+        assertEquals(GroupsPage.DETAIL, vm.state.value.page)
+        assertTrue(events.isEmpty())
+        vm.onAction(GroupsAction.Back)
+        runCurrent()
+        assertEquals(listOf(GroupsEvent.Back), events)
+    }
 }
+

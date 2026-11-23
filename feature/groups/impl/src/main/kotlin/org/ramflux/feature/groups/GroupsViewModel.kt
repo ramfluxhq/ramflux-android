@@ -96,6 +96,9 @@ class GroupsViewModel @Inject constructor(
     /** The selected group with only the own roster row kept, plus the roster size at that read. */
     private var header: Pair<GroupDetail, Int>? = null
     private var prepared: Pair<String, GroupChange>? = null
+
+    /** The page the screen was entered at ([GroupsAction.Enter]); back from it leaves the screen. */
+    private var entry: GroupsPage? = null
     private val lifecycle = viewModelScope.launch {
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect {
             stop()
@@ -122,10 +125,15 @@ class GroupsViewModel @Inject constructor(
             GroupsAction.Refresh -> if (request?.isActive != true) read()
             GroupsAction.Back -> {
                 val parent = local.value.page.parent()
-                if (parent == null) event(GroupsEvent.Back) else page(parent, local.value.selected.takeIf { parent != GroupsPage.LIST })
+                if (parent == null || local.value.page == entry) event(GroupsEvent.Back) else page(parent, local.value.selected.takeIf { parent != GroupsPage.LIST })
             }
             GroupsAction.SetupAccount -> event(GroupsEvent.SetupAccount)
             is GroupsAction.Page -> page(action.page, action.id)
+            is GroupsAction.Enter -> if (!local.value.busy) {
+                entry = GroupsPage.DETAIL
+                local.update { it.copy(selected = action.id) }
+                page(GroupsPage.DETAIL, action.id)
+            }
             is GroupsAction.More -> more(action.list, action.forward)
             is GroupsAction.Query -> {
                 val text = action.value.take(MAX_QUERY)

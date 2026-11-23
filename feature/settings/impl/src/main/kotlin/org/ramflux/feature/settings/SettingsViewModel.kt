@@ -124,6 +124,7 @@ class SettingsViewModel @Inject constructor(
             SettingsAction.Permissions -> event(SettingsEvent.Permissions)
             SettingsAction.Connections -> event(SettingsEvent.Connections)
             SettingsAction.Backup -> event(SettingsEvent.Backup)
+            SettingsAction.Storage -> activeAccount?.let { event(SettingsEvent.Storage(it)) }
             is SettingsAction.Page -> {
                 capability?.cancel()
                 local.update { it.copy(page = action.page, problem = null, unavailable = null) }

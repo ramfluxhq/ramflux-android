@@ -69,7 +69,7 @@ internal class DefaultConversationDirectoryRepository(
         else ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
 
     private fun ConversationDirectoryEntry.summary() =
-        ConversationSummary(id, title ?: id, unread, archived, isUnread, lastActivity, muted, kind == "group")
+        ConversationSummary(id, title ?: id, unread, archived, isUnread, lastActivity, muted, kind == "group", groupId.takeIf { kind == "group" })
 
     companion object {
         const val PAGE = 100

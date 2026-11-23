@@ -182,8 +182,8 @@ class ConversationsViewModel @Inject constructor(
                 account(expected, generation, accountId) ?: return@launch
                 when (result) {
                     is ClientResult.Ready -> {
-                        val title = local.value.rows.firstOrNull { it.id == id }?.title ?: id
-                        channel.send(ConversationsEvent.OpenChat(accountId, id, title))
+                        val row = local.value.rows.firstOrNull { it.id == id }
+                        channel.send(ConversationsEvent.OpenChat(accountId, id, row?.title ?: id, row?.groupId))
                     }
                     is ClientResult.Unavailable -> local.update { result.notice(it, uiText(R.string.ui_chat)) }
                     is ClientResult.Failed -> local.update { result.notice(it, uiText(R.string.ui_chat)) }
@@ -247,7 +247,8 @@ class ConversationsViewModel @Inject constructor(
             row.isUnread,
             row.lastActivity.displayTime(),
             muted = row.muted,
-            group = row.group
+            group = row.group,
+            groupId = row.groupId
         )
     }.toPersistentList()
 

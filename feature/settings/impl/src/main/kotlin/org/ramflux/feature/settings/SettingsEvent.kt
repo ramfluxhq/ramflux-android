@@ -8,4 +8,5 @@ sealed interface SettingsEvent {
     data object Permissions : SettingsEvent
     data object Connections : SettingsEvent
     data object Backup : SettingsEvent
+    data class Storage(val accountId: String) : SettingsEvent
 }

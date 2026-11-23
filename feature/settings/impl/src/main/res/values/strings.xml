@@ -78,6 +78,10 @@
     <string name="settings_backup_restore">Backup and restore</string>
     <!-- Value under the backup row. -->
     <string name="settings_backup_restore_help">Create, list and restore account backups</string>
+    <!-- Settings row: the media files this phone holds for the account. -->
+    <string name="settings_storage">Storage</string>
+    <!-- Value under the storage row. -->
+    <string name="settings_storage_help">Media and files kept on this device</string>
     <!-- Section title on the settings page: application rows. -->
     <string name="settings_group_app">App</string>
     <!-- Settings row and page title: appearance and language. -->

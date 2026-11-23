@@ -92,12 +92,13 @@ class TimelinePagingDataTest {
         assertTrue(topics.containsAll(listOf("message.received", "message.updated", "message.transient")))
     }
 
-    @Test fun forwardTargetsListVisibleDirectConversationsAndFollowTheCursor() = runTest(timeout = 5.seconds) {
+    @Test fun forwardTargetsListDirectAndAddressableGroupConversationsAndFollowTheCursor() = runTest(timeout = 5.seconds) {
         val abi = FakeAbi().apply {
             completionBody = Json.parseToJsonElement(
                 """{"conversations":[""" +
                     """{"id":"d","title":"Dana","kind":"direct","unread_count":0,"is_unread":false,"archived":false,"hidden":false},""" +
                     """{"id":"g","title":"Team","kind":"group","unread_count":0,"is_unread":false,"archived":false,"hidden":false},""" +
+                    """{"id":"t","title":"Crew","kind":"group","group_id":"crew","unread_count":0,"is_unread":false,"archived":false,"hidden":false},""" +
                     """{"id":"h","title":"Hidden","kind":"direct","unread_count":0,"is_unread":false,"archived":false,"hidden":true}""" +
                     """],"next_cursor":"page-2"}""",
             ).jsonObject
@@ -106,8 +107,9 @@ class TimelinePagingDataTest {
         try {
             val repo = DefaultMessageHistoryRepository(SdkRepositoryTransport { client })
             val page = (repo.forwardTargets("a") as ClientResult.Ready).value
-            assertEquals(listOf("d"), page.rows.map { it.conversation })
-            assertNull(page.rows.single().group)
+            // A group row without its group id cannot be addressed by the attachment prepare and is left out.
+            assertEquals(listOf("d", "t"), page.rows.map { it.conversation })
+            assertEquals(listOf(null, "crew"), page.rows.map { it.group })
             assertEquals("page-2", page.next)
             repo.forwardTargets("a", page.next)
             assertEquals("page-2", abi.submitted.last()["body"]?.jsonObject?.get("cursor")?.jsonPrimitive?.content)

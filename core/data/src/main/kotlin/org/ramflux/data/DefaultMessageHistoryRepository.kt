@@ -202,10 +202,7 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
         return ClientResult.Ready(found)
     }
 
-    /**
-     * Direct conversations only: the directory reader carries the kind but not the group id that
-     * `attachment.prepare.begin` needs for a group, so groups are not offered until it does.
-     */
+    /** Direct conversations, and group conversations whose row carries the group id `attachment.prepare.begin` needs. */
     override suspend fun forwardTargets(account: String, cursor: String?): ClientResult<ForwardTargetPage> {
         if (!identity(account) || (cursor?.length ?: 0) > 8192) return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
         val body = buildJsonObject { put("limit", 100); cursor?.let { put("cursor", it) } }
@@ -217,7 +214,8 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
             is CoreResult.Failure -> ClientResult.Failed(page.error.appProblem())
             is CoreResult.Success -> ClientResult.Ready(
                 ForwardTargetPage(
-                    page.value.rows.filter { !it.hidden && it.kind == "direct" }.map { ForwardTarget(it.id, it.title ?: "") },
+                    page.value.rows.filter { !it.hidden && (it.kind == "direct" || (it.kind == "group" && it.groupId != null)) }
+                        .map { ForwardTarget(it.id, it.title ?: "", it.groupId.takeIf { _ -> it.kind == "group" }) },
                     page.value.nextCursor?.takeIf { it.length <= 8192 }
                 )
             )

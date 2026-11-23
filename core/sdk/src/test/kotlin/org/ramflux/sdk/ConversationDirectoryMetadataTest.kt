@@ -35,6 +35,17 @@ class ConversationDirectoryMetadataTest {
         assertTrue(raw.all { it == 0.toByte() })
     }
 
+    @Test fun groupIdIsReadForGroupRowsAndAMalformedOneIsOmitted() {
+        val raw = (
+            """{"conversations":[{"id":"t","unread_count":0,"is_unread":false,"archived":false,"hidden":false,"kind":"group","group_id":"g"},""" +
+                """{"id":"u","unread_count":0,"is_unread":false,"archived":false,"hidden":false,"kind":"group","group_id":7},""" +
+                """{"id":"d","unread_count":0,"is_unread":false,"archived":false,"hidden":false,"kind":"direct","group_id":null}],"next_cursor":null}"""
+            ).toByteArray()
+        val rows = (ConversationDirectoryMetadataReader.read(SecretReply(SecretBytes.take(raw))) as CoreResult.Success).value.rows
+        assertEquals(listOf("g", null, null), rows.map { it.groupId })
+        assertTrue(raw.all { it == 0.toByte() })
+    }
+
     @Test fun aWideOrOverlongParticipantListDoesNotDropThePage() {
         val wide = List(33) { "\"${"p".repeat(200)}\"" }.joinToString(",")
         val exact = "r".repeat(256)

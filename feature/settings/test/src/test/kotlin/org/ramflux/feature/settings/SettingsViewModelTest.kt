@@ -294,4 +294,25 @@ class SettingsViewModelTest {
         assertEquals(1, devices.revokes)
         assertNotNull(vm.state.value.unavailable)
     }
+
+    @Test fun storageOpensForTheActiveAccount() = runTest(timeout = 5.seconds) {
+        val vm =
+            SettingsViewModel(
+                FakeSettingsAccounts(),
+                FakeDeviceDirectory(),
+                FakeAccountStatus(),
+                FakeSettingsAppearance(),
+                FakeSettingsSession(),
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
+            )
+        observe(vm)
+        runCurrent()
+        val events = mutableListOf<SettingsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(SettingsAction.Storage)
+        runCurrent()
+        assertEquals(listOf(SettingsEvent.Storage("a")), events)
+    }
 }
+
