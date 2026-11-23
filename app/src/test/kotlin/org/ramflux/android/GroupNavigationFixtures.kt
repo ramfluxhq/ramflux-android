@@ -33,6 +33,54 @@ class FakeGroups : GroupDirectoryRepository {
     }
     override fun pending(account: String): PendingGroupOperation? = null
     override fun updates(account: String) = invalidations
+    val cursors = mutableListOf<Pair<String, String?>>()
+    override suspend fun groupPage(account: String, query: String, cursor: String?): ClientResult<WindowedPage<GroupSummary>> {
+        cursors.add("groups" to cursor)
+        return fakePage(list(account), cursor) { query.isBlank() || it.name?.contains(query, true) == true }
+    }
+    override suspend fun memberPage(
+        account: String,
+        group: String,
+        query: String,
+        cursor: String?
+    ): ClientResult<WindowedPage<GroupMember>> {
+        cursors.add("members" to cursor)
+        val roster = when (val value = rostering(group)) {
+            is ClientResult.Ready -> ClientResult.Ready(value.value)
+            is ClientResult.Failed -> value
+            is ClientResult.Unavailable -> value
+        }
+        return fakePage(roster, cursor) { query.isBlank() || it.principal.contains(query, true) }
+    }
+    override suspend fun invitationPage(account: String, cursor: String?) = fakePage(invitations(account), cursor) { true }
+    override suspend fun requestPage(account: String, group: String, cursor: String?) = fakePage(requests(account, group), cursor) { true }
+
+    /** The roster `memberPage` serves; by default the roster of [detailing]. */
+    var rostering: suspend (String) -> ClientResult<List<GroupMember>> = { group ->
+        when (val value = detailing(group)) {
+            is ClientResult.Ready -> ClientResult.Ready(value.value.roster)
+            is ClientResult.Failed -> value
+            is ClientResult.Unavailable -> value
+        }
+    }
+}
+
+/** Offset pages of 100 rows over a fake snapshot, as the data layer's snapshot pager serves them. */
+fun <T> fakePage(rows: ClientResult<List<T>>, cursor: String?, keep: (T) -> Boolean): ClientResult<WindowedPage<T>> = when (rows) {
+    is ClientResult.Ready -> {
+        val all = rows.value.filter(keep)
+        val offset = cursor?.toInt() ?: 0
+        val end = minOf(offset + 100, all.size)
+        ClientResult.Ready(
+            WindowedPage(
+                all.subList(offset, end).toList(),
+                if (end < all.size) "$end" else null,
+                if (offset > 0) "${maxOf(offset - 100, 0)}" else null
+            )
+        )
+    }
+    is ClientResult.Failed -> rows
+    is ClientResult.Unavailable -> rows
 }
 class FakeGroupAccounts : AccountAccessRepository {
     var value: ClientResult<AccountCatalog> = ClientResult.Ready(AccountCatalog(listOf(AccountSummary("a", "Work", true, "unlocked")), "a"))

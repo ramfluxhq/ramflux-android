@@ -21,6 +21,8 @@ class GroupDirectoryDataTest {
         var holdMutation = false
         var requestStatus = "waiting_for_owner"
         var requestId = "r"
+        /** When positive, `group.members` returns a generated roster of this many peers besides the own device. */
+        var roster = 0
         private val delegate = abi
         override fun negotiate() = delegate.negotiate()
         override fun open(config: ByteArray) = delegate.open(config)
@@ -32,6 +34,27 @@ class GroupDirectoryDataTest {
         override fun eventReset(core: Long, generation: Long) = delegate.eventReset(core, generation)
         override fun eventPoll(core: Long) = delegate.eventPoll(core)
         fun detail(): JsonObject = Json.parseToJsonElement("""{"group_id":"g","name":"Actual name","group_epoch":"$epoch","members":["own-device","peer-device"],"roles":{"own-device":"$ownRole","peer-device":"member"},"member_roster":[{"identity":{"principal_id":"own","root_commitment":"own-root","device_id":"own-device"},"role":"$ownRole"},{"identity":{"principal_id":"peer","root_commitment":"peer-root","device_id":"peer-device"},"role":"member"}],"excluded_devices":[]}""").jsonObject
+        fun large(count: Int): JsonObject {
+            val devices = (0 until count).map { "peer-device-$it" }
+            return buildJsonObject {
+                put("group_id", "g"); put("name", "Large"); put("group_epoch", "7")
+                put("members", buildJsonArray { add("own-device"); devices.forEach { add(it) } })
+                put("roles", buildJsonObject { put("own-device", "owner"); devices.forEach { put(it, "member") } })
+                put("member_roster", buildJsonArray {
+                    add(buildJsonObject {
+                        put("identity", buildJsonObject { put("principal_id", "own"); put("root_commitment", "own-root"); put("device_id", "own-device") })
+                        put("role", "owner")
+                    })
+                    devices.forEachIndexed { index, device ->
+                        add(buildJsonObject {
+                            put("identity", buildJsonObject { put("principal_id", "peer-$index"); put("root_commitment", "peer-root-$index"); put("device_id", device) })
+                            put("role", "member")
+                        })
+                    }
+                })
+                put("excluded_devices", buildJsonArray {})
+            }
+        }
         override fun submit(core: Long, request: ByteArray, ownership: LongArray): NativeReply {
             val frame = Json.parseToJsonElement(request.decodeToString()).jsonObject
             val method = frame.getValue("method").jsonPrimitive.content
@@ -42,7 +65,7 @@ class GroupDirectoryDataTest {
                     put("device_id", "own-device"); put("local_device_authorized", authorized); put("authority_blocked", false)
                 }
                 "group.list" -> buildJsonObject { put("groups", buildJsonArray { add(detail()) }) }
-                "group.members" -> detail()
+                "group.members" -> if (roster > 0) large(roster) else detail()
                 "group.invitations.list" -> Json.parseToJsonElement("""{"invitations":[{"group_id":"g","name":"Invite","creator":"creator","inviter":"inviter","expires_at":2000000000}]}""").jsonObject
                 "group.requests.list" -> Json.parseToJsonElement("""{"requests":[{"group_id":"g","request_id":"$requestId","status":"$requestStatus","waiting_for_owner":${requestStatus == "waiting_for_owner"},"expires_at":2000000000}]}""").jsonObject
                 "contact.list" -> Json.parseToJsonElement("""{"contacts":[{"link_id":"link","principal_id":"peer","display_name":"Name","state":"accepted","blocked":false,"verified":false,"root_commitment":"peer-root"}]}""").jsonObject
@@ -168,5 +191,38 @@ class GroupDirectoryDataTest {
     @Test fun groupUpdatesUseSpecificJournalTopics() {
         assertFalse("*" in GROUP_TOPICS)
         assertEquals(listOf("group.changed", "conversation.changed"), GROUP_TOPICS)
+    }
+
+    /** The reply parser accepts at most 4,096 JSON values per frame (`ByteJson`), about 280 roster rows. */
+    @Test fun unpagedGroupListsAreServedAsWindowPagesFromOneSnapshot() = runTest(timeout = 20.seconds) {
+        val oracle = Oracle().apply { roster = 250 }
+        val client = (CoreClient.open(oracle, "/test/group-pages", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
+        try {
+            val repo = DefaultGroupDirectoryRepository(SdkRepositoryTransport { client })
+            val started = System.nanoTime()
+            val first = (repo.memberPage("account", "g") as ClientResult.Ready).value
+            val decoded = (System.nanoTime() - started) / 1_000_000
+            println("group roster 251 rows: first page (one group.members read and decode) in $decoded ms")
+            assertEquals(100, first.rows.size)
+            assertEquals(GroupRole.OWNER, first.rows.first().role)
+            assertTrue(first.rows.all { it.active })
+            assertNull(first.previous)
+            var cursor = first.next
+            var seen = first.rows.size
+            while (cursor != null) {
+                val page = (repo.memberPage("account", "g", cursor = cursor) as ClientResult.Ready).value
+                seen += page.rows.size
+                cursor = page.next
+            }
+            assertEquals(251, seen)
+            assertEquals(1, oracle.abi.submitted.count { it["method"]?.jsonPrimitive?.content == "group.members" })
+            assertEquals(listOf("peer-7", "peer-70", "peer-71"), (repo.memberPage("account", "g", "PEER-7") as ClientResult.Ready).value.rows.map { it.principal }.take(3))
+            assertTrue(repo.memberPage("account", "g", cursor = "nonsense") is ClientResult.Failed)
+            assertEquals(listOf("g"), (repo.groupPage("account") as ClientResult.Ready).value.rows.map { it.id })
+            assertTrue((repo.groupPage("account", "no such group") as ClientResult.Ready).value.rows.isEmpty())
+            assertEquals(listOf("g"), (repo.invitationPage("account") as ClientResult.Ready).value.rows.map { it.id })
+            assertEquals(listOf("r"), (repo.requestPage("account", "g") as ClientResult.Ready).value.rows.map { it.id })
+            assertTrue(repo.groupPage("account", "x".repeat(257)) is ClientResult.Failed)
+        } finally { client.close() }
     }
 }

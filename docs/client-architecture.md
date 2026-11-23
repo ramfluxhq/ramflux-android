@@ -153,3 +153,16 @@ mark a safety number verified (`contact.verify` with the SDK's compare-and-set s
 `contact.safety_number` read, kept in the data layer and sent verbatim) all require the host
 confirmation and bind the reply to the target. Reply, report and scan have no SDK method and are
 not offered.
+
+Groups (list, invitations, roster, invite picker and group requests) read through windowed pages
+(`GroupDirectoryRepository.groupPage` / `memberPage` / `invitationPage` / `requestPage`, and the contacts'
+`contactPage` for the picker), each into its own bounded `PageWindow` of six 100-row pages. `group.list`,
+`group.members` and both request lists are unpaged in the pinned SDK, so the data layer wraps them in
+`SnapshotPager` as for contacts. The group header (name, epoch, own role) comes from a separate
+`group.members` read of which only the own roster row and the member count are kept. While visible the
+screen follows `group.changed` and `conversation.changed` (never `*`); an event revokes the management
+controls and any open review until the header has been read again. Rename, add an accepted contact, change
+a role and remove a member need the host confirmation and are re-validated against a fresh read in the data
+layer. Ownership transfer needs a creator certificate that a phone cannot produce and the SDK has no leave
+method; both rows explain this instead of acting. The reply parser accepts at most 4,096 JSON values per
+frame, which caps one unpaged reply at roughly 280 roster rows today.

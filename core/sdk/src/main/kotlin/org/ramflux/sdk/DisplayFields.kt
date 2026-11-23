@@ -66,6 +66,25 @@ internal class DisplayFields(raw: ByteArray) {
             try { require(chars.size in 1..maximum); chars.concatToString() } finally { chars.fill('\u0000') }
         }
     }
+    /** A flat object of text values read once into a map (no per-key rescans); duplicate keys are rejected. */
+    fun textMap(node: ByteJson.Node, bound: Int, maximum: Int = 4096): Map<String, String> {
+        require(node.kind == 123 && node.children.size / 2 <= bound)
+        val out = HashMap<String, String>(node.children.size)
+        for (index in node.children.indices step 2) {
+            val key = parser.chars(node.children[index])
+            val value = node.children[index + 1]
+            require(value.kind == 34)
+            val text = parser.chars(value)
+            try {
+                require(key.size in 1..maximum && text.size in 1..maximum)
+                require(out.put(key.concatToString(), text.concatToString()) == null) { "duplicate field" }
+            } finally {
+                key.fill('\u0000')
+                text.fill('\u0000')
+            }
+        }
+        return out
+    }
     fun boolean(row: ByteJson.Node, key: String): Boolean {
         val value = field(row, key) ?: throw IllegalArgumentException("missing flag")
         require(value.kind in listOf(116, 102))

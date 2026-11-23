@@ -8,6 +8,9 @@ sealed interface GroupsAction {
     data object SetupAccount : GroupsAction
     data class Visible(val value: Boolean) : GroupsAction
     data class Page(val page: GroupsPage, val id: String? = null) : GroupsAction
+
+    /** Loads the next ([forward]) or previous window page of [list]. */
+    data class More(val list: GroupList, val forward: Boolean = true) : GroupsAction
     data class Query(val value: String) : GroupsAction
     data class Name(val value: String) : GroupsAction
     data object Create : GroupsAction
@@ -17,7 +20,7 @@ sealed interface GroupsAction {
     data class Remove(val id: String) : GroupsAction
     data class Invitation(val accept: Boolean) : GroupsAction
     data object OpenChat : GroupsAction
-    data object Unavailable : GroupsAction
+    data class Unavailable(val control: GroupControl) : GroupsAction
     data object Confirm : GroupsAction
     data object Deny : GroupsAction
 }

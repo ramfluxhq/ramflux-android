@@ -3,6 +3,8 @@
 
 package org.ramflux.data
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.*
 import org.ramflux.sdk.*
@@ -13,6 +15,44 @@ internal class DefaultGroupDirectoryRepository(transport: RepositoryTransport) :
     private val people = DefaultContactDirectoryRepository(transport)
     private data class Attempt(val id: String, val change: GroupChange, var result: ClientResult<GroupOutcome>?, val origin: GroupAuthority? = null)
     private val journal = mutableMapOf<String, Attempt>()
+    private val groupPages = SnapshotPager<GroupSummary>(PAGE)
+    private val memberPages = SnapshotPager<GroupMember>(PAGE)
+    private val invitationPages = SnapshotPager<GroupInvitation>(PAGE)
+    private val requestPages = SnapshotPager<GroupRequest>(PAGE)
+
+    override suspend fun groupPage(account: String, query: String, cursor: String?): ClientResult<WindowedPage<GroupSummary>> {
+        if (!valid(account) || query.length > MAX_QUERY) return invalid()
+        return groupPages.page("$account\u0000$query", cursor) {
+            filtered(list(account)) { query.isBlank() || it.name?.contains(query, true) == true || it.id.contains(query, true) }
+        }
+    }
+
+    override suspend fun memberPage(account: String, group: String, query: String, cursor: String?): ClientResult<WindowedPage<GroupMember>> {
+        if (!valid(account) || !valid(group) || query.length > MAX_QUERY) return invalid()
+        return memberPages.page("$account\u0000$group\u0000$query", cursor) {
+            val roster = decoded(source.members(RepositoryContext(account), buildJsonObject { put("group_id", group) }), GroupMetadataReader::detail) {
+                require(it.group.id == group)
+                it.roster.map { member -> GroupMember(member.principal, member.root, member.device, member.role.appRole(), member.active) }
+            }
+            filtered(roster) { query.isBlank() || it.principal.contains(query, true) || it.device.contains(query, true) }
+        }
+    }
+
+    override suspend fun invitationPage(account: String, cursor: String?): ClientResult<WindowedPage<GroupInvitation>> {
+        if (!valid(account)) return invalid()
+        return invitationPages.page(account, cursor) { invitations(account) }
+    }
+
+    override suspend fun requestPage(account: String, group: String, cursor: String?): ClientResult<WindowedPage<GroupRequest>> {
+        if (!valid(account) || !valid(group)) return invalid()
+        return requestPages.page("$account\u0000$group", cursor) { requests(account, group) }
+    }
+
+    private suspend fun <T> filtered(rows: ClientResult<List<T>>, keep: (T) -> Boolean): ClientResult<List<T>> = when (rows) {
+        is ClientResult.Ready -> ClientResult.Ready(withContext(Dispatchers.Default) { rows.value.filter(keep) })
+        else -> rows
+    }
+    private fun valid(value: String) = value.isNotBlank() && value.length <= 4096
     override fun pending(account: String) = synchronized(journal) { journal[account]?.takeIf {
         it.result == null || (it.result as? ClientResult.Failed)?.problem?.outcome == ClientOutcome.UNKNOWN
     }?.let { PendingGroupOperation(it.id, it.change) } }
@@ -191,5 +231,8 @@ internal class DefaultGroupDirectoryRepository(transport: RepositoryTransport) :
         }
     }
 }
+
+private const val PAGE = 100
+private const val MAX_QUERY = 256
 
 internal val GROUP_TOPICS = listOf("group.changed", "conversation.changed")
