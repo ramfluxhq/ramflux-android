@@ -679,6 +679,7 @@ class RealRunFlowTest {
         try {
             old.forEach { ui.tap("code-key-$it") }
             next.forEach { ui.tap("code-key-$it") }
+            if (!ui.scrollTo("code-submit")) fail("the code change has no submit action on screen: ${ui.screen()}")
             ui.tap("code-submit")
             ui.find("code-changed", Ui.LONG) ?: fail("the code change was not confirmed: ${ui.screen()}")
             RunCode.save(next)
