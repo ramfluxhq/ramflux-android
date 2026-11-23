@@ -164,8 +164,8 @@ screen follows `group.changed` and `conversation.changed` (never `*`); an event 
 controls and any open review until the header has been read again. Rename, add an accepted contact, change
 a role and remove a member need the host confirmation and are re-validated against a fresh read in the data
 layer. Ownership transfer needs a creator certificate that a phone cannot produce and the SDK has no leave
-method; both rows explain this instead of acting. The reply parser accepts at most 4,096 JSON values per
-frame, which caps one unpaged reply at roughly 280 roster rows today.
+method; both rows explain this instead of acting. One unpaged reply is bounded by the
+1 MiB frame, about 2,490 roster rows with real-width ids; see "Reply size limits" in [bridge](bridge.md).
 
 Agents read `agent.list` (eight records per page: one agent reply is serialized into at most 8 KiB by the
 SDK) into a bounded `PageWindow` of twelve pages. `agent.list` pages forward only, so the data layer remembers

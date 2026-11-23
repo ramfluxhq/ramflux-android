@@ -9,6 +9,8 @@ import kotlinx.serialization.json.*
 import org.junit.Assert.*
 import org.junit.Test
 import org.ramflux.sdk.*
+
+private const val FRAME_BYTES = 1 shl 20
 @OptIn(ExperimentalCoroutinesApi::class)
 class GroupDirectoryDataTest {
     private class Oracle : NativeCore {
@@ -23,6 +25,8 @@ class GroupDirectoryDataTest {
         var requestId = "r"
         /** When positive, `group.members` returns a generated roster of this many peers besides the own device. */
         var roster = 0
+        /** Generated roster ids at real width (64-hex principal, root and device ids) instead of short labels. */
+        var wideIds = false
         private val delegate = abi
         override fun negotiate() = delegate.negotiate()
         override fun open(config: ByteArray) = delegate.open(config)
@@ -34,8 +38,9 @@ class GroupDirectoryDataTest {
         override fun eventReset(core: Long, generation: Long) = delegate.eventReset(core, generation)
         override fun eventPoll(core: Long) = delegate.eventPoll(core)
         fun detail(): JsonObject = Json.parseToJsonElement("""{"group_id":"g","name":"Actual name","group_epoch":"$epoch","members":["own-device","peer-device"],"roles":{"own-device":"$ownRole","peer-device":"member"},"member_roster":[{"identity":{"principal_id":"own","root_commitment":"own-root","device_id":"own-device"},"role":"$ownRole"},{"identity":{"principal_id":"peer","root_commitment":"peer-root","device_id":"peer-device"},"role":"member"}],"excluded_devices":[]}""").jsonObject
+        private fun id(tag: Int, index: Int, label: String) = if (wideIds) "%02x".format(tag) + "%062x".format(index) else "$label-$index"
         fun large(count: Int): JsonObject {
-            val devices = (0 until count).map { "peer-device-$it" }
+            val devices = (0 until count).map { id(3, it, "peer-device") }
             return buildJsonObject {
                 put("group_id", "g"); put("name", "Large"); put("group_epoch", "7")
                 put("members", buildJsonArray { add("own-device"); devices.forEach { add(it) } })
@@ -47,7 +52,7 @@ class GroupDirectoryDataTest {
                     })
                     devices.forEachIndexed { index, device ->
                         add(buildJsonObject {
-                            put("identity", buildJsonObject { put("principal_id", "peer-$index"); put("root_commitment", "peer-root-$index"); put("device_id", device) })
+                            put("identity", buildJsonObject { put("principal_id", id(1, index, "peer")); put("root_commitment", id(2, index, "peer-root")); put("device_id", device) })
                             put("role", "member")
                         })
                     }
@@ -173,7 +178,7 @@ class GroupDirectoryDataTest {
         val oracle = Oracle()
         val client = (CoreClient.open(oracle, "/test/group-roster", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
         try {
-            val repo = DefaultGroupDirectoryRepository(SdkRepositoryTransport { client })
+            val repo = DefaultGroupDirectoryRepository(SdkRepositoryTransport { client }, StandardTestDispatcher(testScheduler))
             val member = (repo.detail("account", "g") as ClientResult.Ready).value.roster.last()
             assertTrue(repo.mutate("account", GroupChange(GroupOperation.ROLE, "g", 7u, member = member, role = GroupRole.ADMIN), "role-op") is ClientResult.Ready)
             assertEquals("peer-root", oracle.abi.submitted.last()["body"]?.jsonObject?.get("member_principal_commitment")?.jsonPrimitive?.content)
@@ -193,7 +198,6 @@ class GroupDirectoryDataTest {
         assertEquals(listOf("group.changed", "conversation.changed"), GROUP_TOPICS)
     }
 
-    /** The reply parser accepts at most 4,096 JSON values per frame (`ByteJson`), about 280 roster rows. */
     @Test fun unpagedGroupListsAreServedAsWindowPagesFromOneSnapshot() = runTest(timeout = 20.seconds) {
         val oracle = Oracle().apply { roster = 250 }
         val client = (CoreClient.open(oracle, "/test/group-pages", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
@@ -223,6 +227,36 @@ class GroupDirectoryDataTest {
             assertEquals(listOf("g"), (repo.invitationPage("account") as ClientResult.Ready).value.rows.map { it.id })
             assertEquals(listOf("r"), (repo.requestPage("account", "g") as ClientResult.Ready).value.rows.map { it.id })
             assertTrue(repo.groupPage("account", "x".repeat(257)) is ClientResult.Failed)
+        } finally { client.close() }
+    }
+
+    /**
+     * `group.members` is unpaged: the whole roster is one reply bounded by the 1 MiB frame (`ByteJson`).
+     * With real-width ids every member costs a `members` entry, a `roles` entry and a roster row.
+     */
+    @Test fun aRosterFillingTheWholeFrameDecodesAndOneMemberTooManyIsATypedFailure() = runTest(timeout = 60.seconds) {
+        val oracle = Oracle().apply { wideIds = true }
+        val one = oracle.large(1).toString().length
+        val perMember = oracle.large(2).toString().length - one
+        val fits = (FRAME_BYTES - 256 - one) / perMember + 1
+        oracle.roster = fits
+        val client = (CoreClient.open(oracle, "/test/group-frame", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
+        try {
+            val repo = DefaultGroupDirectoryRepository(SdkRepositoryTransport { client })
+            val started = System.nanoTime()
+            val first = (repo.memberPage("account", "g") as ClientResult.Ready).value
+            println("group.members ${fits + 1} rows of $perMember bytes in one frame: first page in ${(System.nanoTime() - started) / 1_000_000} ms")
+            assertTrue(fits > 2_000)
+            var seen = first.rows.size
+            var cursor = first.next
+            while (cursor != null) {
+                val page = (repo.memberPage("account", "g", cursor = cursor) as ClientResult.Ready).value
+                seen += page.rows.size
+                cursor = page.next
+            }
+            assertEquals(fits + 1, seen)
+            oracle.roster = fits + 200
+            assertTrue(repo.detail("account", "g") is ClientResult.Failed)
         } finally { client.close() }
     }
 }

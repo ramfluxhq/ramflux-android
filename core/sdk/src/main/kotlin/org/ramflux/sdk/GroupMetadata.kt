@@ -3,6 +3,9 @@
 
 package org.ramflux.sdk
 
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+
 data class GroupDisplay(val id: String, val name: String?, val epoch: ULong, val members: List<String>)
 data class GroupMemberDisplay(val principal: String, val root: String?, val device: String, val role: String, val active: Boolean)
 data class GroupDetailDisplay(val group: GroupDisplay, val roster: List<GroupMemberDisplay>)
@@ -11,11 +14,11 @@ data class GroupInvitationDisplay(val id: String, val name: String?, val creator
 data class GroupRequestDisplay(val id: String, val group: String, val status: String, val waiting: Boolean, val expires: Long)
 data class GroupOutcomeDisplay(val group: String, val waiting: Boolean, val expired: Boolean, val request: String?)
 object GroupMetadataReader {
-    /** Row bound of the unpaged group lists, as for contacts; the reply parser's value bound (`ByteJson`) is lower today. */
+    /** Row bound of the unpaged group lists, as for contacts; the 1 MiB frame (`ByteJson`) runs out first. */
     const val MAX_ROWS = 10_000
 
-    fun list(reply: SecretReply) = decode(reply) { f -> f.rows("groups", MAX_ROWS).map { group(f, it) }.also { rows -> require(rows.map { it.id }.distinct().size == rows.size) } }
-    fun detail(reply: SecretReply) = decode(reply) { f ->
+    suspend fun list(reply: SecretReply, dispatcher: CoroutineDispatcher = Dispatchers.Default) = ListReplyDecoder.decode(reply, dispatcher) { f, chunks -> chunks.map(f.rows("groups", MAX_ROWS)) { group(f, it) }.also { rows -> require(rows.map { it.id }.distinct().size == rows.size) } }
+    suspend fun detail(reply: SecretReply, dispatcher: CoroutineDispatcher = Dispatchers.Default) = ListReplyDecoder.decode(reply, dispatcher) { f, chunks ->
         val group = group(f, f.root)
         val roster = if (f.field(f.root, "member_roster") == null) {
             // Device-only legacy display cannot grant root-qualified controls.
@@ -23,8 +26,8 @@ object GroupMetadataReader {
         } else {
             val roles = f.textMap(requireNotNull(f.field(f.root, "roles")), MAX_ROWS)
             val devices = group.members.toHashSet()
-            val excluded = f.rows("excluded_devices", MAX_ROWS).map { row -> text(f, row, "root_commitment") to text(f, row, "device_id") }.toSet()
-            f.rows("member_roster", MAX_ROWS).map { row ->
+            val excluded = chunks.map(f.rows("excluded_devices", MAX_ROWS)) { row -> text(f, row, "root_commitment") to text(f, row, "device_id") }.toSet()
+            chunks.map(f.rows("member_roster", MAX_ROWS)) { row ->
                 val identity = requireNotNull(f.field(row, "identity"))
                 val root = text(f, identity, "root_commitment"); val device = text(f, identity, "device_id"); val role = text(f, row, "role")
                 GroupMemberDisplay(text(f, identity, "principal_id"), root, device, role,
@@ -40,10 +43,10 @@ object GroupMetadataReader {
         val blocked = f.field(f.root, "authority_blocked") == null || f.boolean(f.root, "authority_blocked")
         GroupAuthorityDisplay(text(f, f.root, "principal_id"), text(f, f.root, "principal_commitment"), text(f, f.root, "device_id"), authorized && !blocked, text(f, f.root, "local_account_id"))
     }
-    fun invitations(reply: SecretReply) = decode(reply) { f -> f.rows("invitations", MAX_ROWS).map { row ->
+    suspend fun invitations(reply: SecretReply, dispatcher: CoroutineDispatcher = Dispatchers.Default) = ListReplyDecoder.decode(reply, dispatcher) { f, chunks -> chunks.map(f.rows("invitations", MAX_ROWS)) { row ->
         GroupInvitationDisplay(text(f, row, "group_id"), f.text(row, "name"), text(f, row, "creator"), text(f, row, "inviter"), requireNotNull(f.optionalSigned(row, "expires_at")))
     }.also { rows -> require(rows.map { it.id }.distinct().size == rows.size) } }
-    fun requests(reply: SecretReply) = decode(reply) { f -> f.rows("requests", MAX_ROWS).map { row ->
+    suspend fun requests(reply: SecretReply, dispatcher: CoroutineDispatcher = Dispatchers.Default) = ListReplyDecoder.decode(reply, dispatcher) { f, chunks -> chunks.map(f.rows("requests", MAX_ROWS)) { row ->
         GroupRequestDisplay(text(f, row, "request_id"), text(f, row, "group_id"), text(f, row, "status"), f.boolean(row, "waiting_for_owner"), requireNotNull(f.optionalSigned(row, "expires_at")))
     }.also { rows -> require(rows.map { it.id }.distinct().size == rows.size) } }
     fun conversation(reply: SecretReply, expected: String) = decode(reply) { f ->

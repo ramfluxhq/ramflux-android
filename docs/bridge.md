@@ -123,6 +123,34 @@ Errors from secret operations expose numeric status/effect, never parsed secret
 error details. `check-secret-boundary.py` guards decoder entrypoints and all 214
 SDK classifications of the pinned policy in CI.
 
+### Reply size limits
+
+The byte scanner (`ByteJson`) bounds work and memory by the reply itself, not by a
+row budget:
+
+- at most 1 MiB per reply, the SDK's frame ceiling (`MAX_FRAME_BYTES`,
+  `c_abi/v2/state.rs`); a larger reply is a typed invalid-response failure;
+- at most 32 levels of nesting, so recursion stays bounded on hostile input;
+- at most 524,288 JSON values, derived from the byte ceiling (every value after the
+  first needs its own byte plus a separator, so `[0,0,...]` filling 1 MiB is the
+  densest frame and is still accepted). Scalars share one empty child list, so a
+  frame costs one small offset node per value.
+
+Unpaged list replies (`contact.list`, `contact.requests.list`, `group.list`,
+`group.members`, `group.invitations.list`, `group.requests.list`) are whole snapshots
+in one frame. Their readers decode through `ListReplyDecoder`: the parse and the row
+projection run on a background dispatcher (never the caller's main thread), rows are
+mapped in chunks of 256 with a cancellation check between chunks, and the reply bytes
+are borrowed once and erased on success, failure and cancellation. Windowed pages are
+then served from that snapshot (`SnapshotPager`).
+
+With real-width identifiers (64-hex principal, root, link and device ids) one frame
+carries about 3,070 `contact.list` rows (about 340 bytes each) and about 2,490
+`group.members` rows (about 420 bytes each: a `members` entry, a `roles` entry and a
+roster row per member), measured by the frame-filling data tests. A larger roster
+needs a paged SDK method; until then the reply over 1 MiB is shown as a typed failure,
+never truncated.
+
 ## Capabilities and integration boundary
 
 Repository methods forward existing SDK bus request bodies; they do not invent

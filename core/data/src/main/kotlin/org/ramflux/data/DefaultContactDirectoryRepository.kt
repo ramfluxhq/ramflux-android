@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.data
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -12,7 +13,11 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.ramflux.sdk.*
 
-internal class DefaultContactDirectoryRepository(private val transport: RepositoryTransport) : ContactDirectoryRepository {
+/** [decoding] runs snapshot decoding and projection, never the caller's (main) thread. */
+internal class DefaultContactDirectoryRepository(
+    private val transport: RepositoryTransport,
+    private val decoding: CoroutineDispatcher = Dispatchers.Default,
+) : ContactDirectoryRepository {
     private val source = DefaultContactsRepository(transport)
 
     /** The last compare-and-set stamp per (account, root), read by [safety] and spent by VERIFY. */
@@ -30,7 +35,7 @@ internal class DefaultContactDirectoryRepository(private val transport: Reposito
         if (query.length > 256) return invalid()
         return contactPages.page("$account\u0000$scope\u0000$query", cursor) {
             when (val listed = links(account, scope)) {
-                is ClientResult.Ready -> ClientResult.Ready(withContext(Dispatchers.Default) { listed.value.filter { it.matches(query) } })
+                is ClientResult.Ready -> ClientResult.Ready(withContext(decoding) { listed.value.filter { it.matches(query) } })
                 else -> listed
             }
         }
@@ -41,7 +46,7 @@ internal class DefaultContactDirectoryRepository(private val transport: Reposito
         return requestPages.page("$account\u0000$scope\u0000$query", cursor) {
             when (val listed = requests(account)) {
                 is ClientResult.Ready -> ClientResult.Ready(
-                    withContext(Dispatchers.Default) {
+                    withContext(decoding) {
                         listed.value.filter {
                             when (scope) {
                                 ContactRequestScope.STRANGERS -> it.direction == RequestDirection.INBOUND && it.status == ContactRequestStatus.PENDING
@@ -85,15 +90,15 @@ internal class DefaultContactDirectoryRepository(private val transport: Reposito
         if (account.isBlank() || account.length > 4096) return invalid()
         return when (val reply = source.list(RepositoryContext(account), buildJsonObject {})) {
             is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
-            is CoreResult.Success -> when (val result = ContactDirectoryMetadataReader.contacts(reply.value)) {
+            is CoreResult.Success -> when (val result = ContactDirectoryMetadataReader.contacts(reply.value, decoding)) {
                 is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
-                is CoreResult.Success -> ClientResult.Ready(result.value.filter {
-                    when (scope) {
-                        ContactListScope.ACCEPTED -> it.relation == "accepted" && !it.blocked
-                        ContactListScope.BLOCKED -> it.blocked
-                    }
-                }.map {
-                    ContactSummary(it.id, it.principal, it.name, it.verified, it.root)
+                is CoreResult.Success -> ClientResult.Ready(withContext(decoding) {
+                    result.value.filter {
+                        when (scope) {
+                            ContactListScope.ACCEPTED -> it.relation == "accepted" && !it.blocked
+                            ContactListScope.BLOCKED -> it.blocked
+                        }
+                    }.map { ContactSummary(it.id, it.principal, it.name, it.verified, it.root) }
                 })
             }
         }
@@ -102,9 +107,9 @@ internal class DefaultContactDirectoryRepository(private val transport: Reposito
         if (account.isBlank() || account.length > 4096) return invalid()
         return when (val reply = source.requestsList(RepositoryContext(account), buildJsonObject {})) {
             is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
-            is CoreResult.Success -> when (val result = ContactDirectoryMetadataReader.requests(reply.value)) {
+            is CoreResult.Success -> when (val result = ContactDirectoryMetadataReader.requests(reply.value, decoding)) {
                 is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
-                is CoreResult.Success -> ClientResult.Ready(result.value.map {
+                is CoreResult.Success -> ClientResult.Ready(withContext(decoding) { result.value.map {
                     ContactRequestSummary(it.id, it.principal, it.name,
                         if (it.direction == "inbound") RequestDirection.INBOUND else RequestDirection.OUTBOUND,
                         when (it.state) {
@@ -115,7 +120,7 @@ internal class DefaultContactDirectoryRepository(private val transport: Reposito
                             "expired" -> ContactRequestStatus.EXPIRED
                             else -> ContactRequestStatus.UNKNOWN
                         }, it.note, it.count, it.expiresAt, it.root)
-                })
+                } })
             }
         }
     }
