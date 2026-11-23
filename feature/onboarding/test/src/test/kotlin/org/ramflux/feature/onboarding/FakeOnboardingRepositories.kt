@@ -38,6 +38,9 @@ class FakeAccountAccess : AccountAccessRepository {
         passphrase.fill('\u0000')
         return unlockResult
     }
+    var networkingReads = 0
+    var networking: (Int) -> ClientResult<Boolean> = { unavailable() }
+    override suspend fun networkingLive(id: String): ClientResult<Boolean> = networking(++networkingReads)
     val forgotten = mutableListOf<String>()
     override suspend fun forget(id: String): ClientResult<Unit> {
         forgotten += id

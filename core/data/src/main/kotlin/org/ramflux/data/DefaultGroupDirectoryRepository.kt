@@ -112,9 +112,17 @@ internal class DefaultGroupDirectoryRepository(
         }
         return result
     }
-    override suspend fun conversation(account: String, group: String): ClientResult<String> = decoded(source.history(RepositoryContext(account), buildJsonObject {
-        put("group_id", group); put("conversation_id", group); put("limit", 0)
-    }), { GroupMetadataReader.conversation(it, group) }) { it }
+    /**
+     * The group's conversation id. The `group.list` row names it; for a group created on this device it differs from the
+     * group id, and `group.history` refuses the group id as conversation (invalid_argument). History is the fallback.
+     */
+    override suspend fun conversation(account: String, group: String): ClientResult<String> {
+        val listed = decoded(source.list(RepositoryContext(account), buildJsonObject {}), { GroupMetadataReader.listedConversation(it, group, decoding) }) { it }
+        if (listed is ClientResult.Ready && listed.value != null) return ClientResult.Ready(requireNotNull(listed.value))
+        return decoded(source.history(RepositoryContext(account), buildJsonObject {
+            put("group_id", group); put("conversation_id", group); put("limit", 0)
+        }), { GroupMetadataReader.conversation(it, group) }) { it }
+    }
     /**
      * Journal topics of the pinned SDK (`bus/journal/project.rs`): `group.changed` follows the group,
      * member and ban projections; `conversation.changed` the group conversation rows. The SDK projects

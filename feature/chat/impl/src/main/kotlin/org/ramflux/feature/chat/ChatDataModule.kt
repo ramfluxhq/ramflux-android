@@ -18,10 +18,12 @@ import org.ramflux.data.AccountScopedStore
 import org.ramflux.data.AttachmentHost
 import org.ramflux.data.CardSurfaceRepository
 import org.ramflux.data.ChatDraftRepository
+import org.ramflux.data.ChatOutboxRepository
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.DefaultCardSurfaceRepository
 import org.ramflux.data.DefaultMediaRepository
 import org.ramflux.data.EncryptedChatDraftRepository
+import org.ramflux.data.EncryptedChatOutboxRepository
 import org.ramflux.data.MediaRepository
 import org.ramflux.data.MediaStager
 import org.ramflux.data.MediaTransfers
@@ -44,6 +46,13 @@ object ChatDataModule {
     /** Drafts sealed for an account are erased before the account leaves this device. */
     @Provides @Singleton @IntoSet
     fun draftStore(drafts: ChatDraftRepository): AccountScopedStore = AccountScopedStore { drafts.clearAccount(it) }
+
+    @Provides @Singleton
+    fun outbox(@ApplicationContext context: Context): ChatOutboxRepository = EncryptedChatOutboxRepository(context)
+
+    /** Queued sends sealed for an account are erased before the account leaves this device. */
+    @Provides @Singleton @IntoSet
+    fun outboxStore(outbox: ChatOutboxRepository): AccountScopedStore = AccountScopedStore { outbox.clearAccount(it) }
 
     /** Media files decrypted for an account are erased before the account leaves this device. */
     @Provides @Singleton @IntoSet

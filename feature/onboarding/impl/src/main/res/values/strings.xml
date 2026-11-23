@@ -46,9 +46,7 @@
     <string name="ui_recover_account">Recover account</string>
     <string name="ui_recover_an_account">Recover an account</string>
     <string name="ui_refresh">Refresh</string>
-    <string name="ui_return_to_edit">Return to edit</string>
     <string name="ui_return_to_edit_the_address">Return to edit the address.</string>
-    <string name="ui_return_to_start">Return to start</string>
     <string name="ui_review_saved_nodes">Review saved nodes</string>
     <string name="ui_review_your_connection">Review your connection</string>
     <string name="ui_save_this_node">Save this node</string>
@@ -235,4 +233,10 @@
     <string name="ui_unlock_account_named">Unlock %1$s</string>
     <!-- Button after the SDK refused an account offered from this phone's list for a reason other than the code; it removes only the offer, never account data. -->
     <string name="ui_forget_account_on_device">Remove from the list on this phone</string>
+    <!-- Account created step: the SDK reports the new account's network session as still being set up. -->
+    <string name="ui_created_network_connecting">Connecting to the network…</string>
+    <!-- Account created step: the SDK reports the new account's network session as live. -->
+    <string name="ui_created_network_connected">Connected to the network</string>
+    <!-- Account created step: the network session did not become live while the step was shown. -->
+    <string name="ui_created_network_not_confirmed">The network connection is not confirmed yet. The account works on this phone; messages go out once it connects.</string>
 </resources>

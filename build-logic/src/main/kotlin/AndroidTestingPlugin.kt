@@ -28,6 +28,10 @@ class AndroidTestingPlugin : Plugin<Project> {
             // Deliberate: the screenshot matrix renders hundreds of frames, so local `test` runs skip it.
             // CI sets CI=true; run `CI=true ./gradlew <module>:recordRoborazziDebug` to render locally.
             if (System.getenv("CI") != "true") exclude("**/*ScreenshotTest*")
+            // The screenshot tests write their captures below build/outputs. Declaring the directories makes
+            // them outputs of the task, so a build-cache hit restores the captures instead of skipping them.
+            outputs.dir(layout.buildDirectory.dir("outputs/roborazzi"))
+            outputs.dir(layout.buildDirectory.dir("outputs/roborazzi-variants"))
         }
         Unit
     }

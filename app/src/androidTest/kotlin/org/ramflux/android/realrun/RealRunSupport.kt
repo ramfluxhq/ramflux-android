@@ -3,17 +3,37 @@
 
 package org.ramflux.android.realrun
 
+import android.app.Activity
+import android.app.Instrumentation
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.view.View
+import android.view.inputmethod.EditorInfo
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.CharBuffer
+import java.security.KeyStore
+import java.security.SecureRandom
+import java.util.Properties
+import java.util.regex.Pattern
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -50,6 +70,18 @@ class PeerControl(private val base: String) {
         runCatching { post("/log", JSONObject().put("line", line.take(2000))) }
     }
 
+    fun config(): JSONObject = get("/config")
+
+    fun dmConversation(first: String, second: String): String =
+        post("/dm-conversation", JSONObject().put("first", first).put("second", second)).optString("conversation")
+
+    fun makeFile(name: String, kind: String, size: Int): JSONObject =
+        post("/make-file", JSONObject().put("name", name).put("kind", kind).put("size", size))
+
+    fun freshPath(name: String): String = post("/fresh-path", JSONObject().put("name", name)).optString("path")
+
+    fun fileInfo(path: String): JSONObject = post("/file-info", JSONObject().put("path", path))
+
     fun screenshot(name: String, png: ByteArray) {
         runCatching { raw("/screenshot/$name", png, "image/png", 30) }
     }
@@ -84,14 +116,179 @@ class Ui(private val control: PeerControl) {
     val device: UiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
     val packageName: String = InstrumentationRegistry.getInstrumentation().targetContext.packageName
 
+    private val instrumentation = InstrumentationRegistry.getInstrumentation()
+    val targetContext: android.content.Context = instrumentation.targetContext
+
     fun launch() {
-        val context = InstrumentationRegistry.getInstrumentation().context
+        val context = instrumentation.context
         val intent = context.packageManager.getLaunchIntentForPackage(packageName)
             ?: throw FlowStop("FAIL", "no launch intent for $packageName")
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
         device.wait(Until.hasObject(By.pkg(packageName).depth(0)), LONG)
+        portrait()
     }
+
+    /**
+     * The shared phone may lie sideways with auto-rotate on; the suite never changes its settings. Instead it asks
+     * for portrait on the app's own activity, which ends with the activity.
+     */
+    fun portrait() {
+        instrumentation.runOnMainSync {
+            resumed()?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+        device.waitForIdle()
+    }
+
+    fun resumed(): Activity? = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).firstOrNull()
+
+    fun foreground(): Boolean = device.currentPackageName == packageName
+
+    /** A string of the app in the phone's language, by resource name (the suite runs in any locale). */
+    fun str(name: String, vararg args: Any): String {
+        val id = targetContext.resources.getIdentifier(name, "string", packageName)
+        if (id == 0) throw FlowStop("FAIL", "the app has no string resource $name")
+        return targetContext.getString(id, *args)
+    }
+
+    fun text(fragment: String, timeout: Long = SHORT): UiObject2? =
+        device.wait(Until.findObject(By.pkg(packageName).textContains(fragment)), timeout)
+
+    fun hasText(fragment: String): Boolean = device.hasObject(By.pkg(packageName).textContains(fragment))
+
+    fun desc(fragment: String, timeout: Long = SHORT): UiObject2? =
+        device.wait(Until.findObject(By.pkg(packageName).descContains(fragment)), timeout)
+
+    fun tapText(text: String, timeout: Long = SHORT, step: String = text) {
+        repeat(3) {
+            val target = device.wait(Until.findObject(By.pkg(packageName).text(text)), timeout)
+                ?: device.wait(Until.findObject(By.pkg(packageName).desc(text)), 2_000)
+                ?: throw FlowStop("FAIL", "step '$step': no '$text' on screen; ${screen()}")
+            try {
+                target.click()
+                device.waitForIdle()
+                return
+            } catch (_: androidx.test.uiautomator.StaleObjectException) {
+                Thread.sleep(POLL)
+            }
+        }
+        throw FlowStop("FAIL", "step '$step': '$text' kept changing under the tap")
+    }
+
+    /** The visible test tags (resource ids) of the app, for failure details. */
+    fun ids(): String = device.findObjects(By.pkg(packageName).res(Pattern.compile(".+"))).mapNotNull { it.resourceName }
+        .filterNot { it.startsWith("android:") }.distinct().joinToString(",").take(700)
+
+    fun screen(): String = "screen: ${texts().take(500)}; tags: ${ids()}"
+
+    /** Polls [condition] until it holds or [timeout] passes. */
+    fun eventually(timeout: Long, every: Long = 1_000, condition: () -> Boolean): Boolean {
+        val end = System.currentTimeMillis() + timeout
+        while (true) {
+            if (runCatching(condition).getOrDefault(false)) return true
+            if (System.currentTimeMillis() >= end) return false
+            Thread.sleep(every)
+        }
+    }
+
+    /** Scrolls the first scrollable view of the app until [tag] is on screen; returns whether it is. */
+    fun scrollTo(tag: String): Boolean {
+        if (find(tag, 1_000) != null) return true
+        val list = device.findObject(By.pkg(packageName).scrollable(true)) ?: return false
+        repeat(12) {
+            runCatching { list.scroll(androidx.test.uiautomator.Direction.DOWN, 0.8f) }
+            if (find(tag, 500) != null) return true
+        }
+        return false
+    }
+
+    /** The first edit field under [tag] (or anywhere on screen without a tag). */
+    fun field(tag: String? = null, timeout: Long = SHORT): UiObject2 {
+        val end = System.currentTimeMillis() + timeout
+        while (System.currentTimeMillis() < end) {
+            val scope = tag?.let { device.findObject(By.res(it)) }
+            val found = if (tag == null) {
+                device.findObject(By.pkg(packageName).clazz(EDIT_TEXT))
+            } else {
+                scope?.let { if (it.className == EDIT_TEXT) it else it.findObject(By.clazz(EDIT_TEXT)) }
+            }
+            if (found != null) return found
+            Thread.sleep(POLL)
+        }
+        throw FlowStop("FAIL", "no text field${tag?.let { " under '$it'" }.orEmpty()}; ${screen()}")
+    }
+
+    /** Public text into the first text field under [tag] (accessibility set-text), looked up again if it recomposes. */
+    fun fill(tag: String?, value: String) {
+        repeat(4) {
+            try {
+                val target = field(tag)
+                target.click()
+                device.waitForIdle()
+                field(tag).text = value
+                device.waitForIdle()
+                if (field(tag).text == value) return
+            } catch (_: androidx.test.uiautomator.StaleObjectException) {
+                Thread.sleep(POLL)
+            }
+        }
+        throw FlowStop("FAIL", "could not enter text into the field${tag?.let { " under '$it'" }.orEmpty()}; ${screen()}")
+    }
+
+    /** A held press of about 1.5 s at the centre of [target] (longer than any long-press timeout setting). */
+    fun longPress(target: UiObject2) {
+        val point = target.visibleCenter
+        device.swipe(point.x, point.y, point.x, point.y, LONG_PRESS_STEPS)
+        device.waitForIdle()
+    }
+
+    /**
+     * Answers the next activity start that matches [action] with [uri] instead of opening the system picker: the
+     * picker UI belongs to the platform, and the shared phone's own photos and files must never be offered. What the
+     * app does with the returned document (copy, prepare, upload, send) is the real path.
+     */
+    fun stubPicker(actions: Set<String>, uri: Uri): Instrumentation.ActivityMonitor {
+        val result = Instrumentation.ActivityResult(
+            Activity.RESULT_OK,
+            Intent().setData(uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        )
+        val monitor = object : Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? = if (intent.action in actions) result else null
+        }
+        instrumentation.addMonitor(monitor)
+        return monitor
+    }
+
+    /**
+     * Runs [action] while the system share sheet is intercepted, and returns the shared text (the sheet never opens,
+     * so nothing reaches another app on the shared phone).
+     */
+    fun captureShare(action: () -> Unit): String? {
+        var shared: String? = null
+        val monitor = object : Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+                val inner = if (intent.action == Intent.ACTION_CHOOSER) {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
+                } else {
+                    intent
+                }
+                if (inner?.action != Intent.ACTION_SEND) return null
+                shared = inner.getStringExtra(Intent.EXTRA_TEXT)
+                return Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
+            }
+        }
+        instrumentation.addMonitor(monitor)
+        try {
+            action()
+            eventually(10_000, POLL) { shared != null }
+        } finally {
+            instrumentation.removeMonitor(monitor)
+        }
+        return shared
+    }
+
+    fun removeMonitor(monitor: Instrumentation.ActivityMonitor) = instrumentation.removeMonitor(monitor)
 
     fun find(tag: String, timeout: Long = SHORT): UiObject2? = device.wait(Until.findObject(By.res(tag)), timeout)
 
@@ -100,7 +297,31 @@ class Ui(private val control: PeerControl) {
         "step '$step': '$tag' did not appear within ${timeout / 1000} s; screen: ${texts().take(400)}"
     )
 
-    fun tap(tag: String, timeout: Long = SHORT) = need(tag, timeout).click()
+    /** Taps [tag] once it is shown and enabled (a row disabled while its screen loads ignores taps). */
+    fun tap(tag: String, timeout: Long = SHORT) {
+        need(tag, timeout)
+        val end = System.currentTimeMillis() + timeout
+        while (true) {
+            // Compose may replace the node while it recomposes: look it up again on every pass.
+            val clicked = try {
+                device.findObject(By.res(tag))?.takeIf { it.isEnabled }?.let {
+                    it.click()
+                    true
+                } ?: false
+            } catch (_: androidx.test.uiautomator.StaleObjectException) {
+                false
+            }
+            if (clicked) break
+            if (System.currentTimeMillis() >= end) {
+                throw FlowStop(
+                    "FAIL",
+                    "step '$tag': not shown enabled within ${timeout / 1000} s; ${screen()}"
+                )
+            }
+            Thread.sleep(POLL)
+        }
+        device.waitForIdle()
+    }
 
     /** The first of [tags] on screen within [timeout], or null. */
     fun first(vararg tags: String, timeout: Long = SHORT): String? {
@@ -115,8 +336,25 @@ class Ui(private val control: PeerControl) {
     /** Types public text into a field through its editable node (accessibility set-text). */
     fun type(tag: String, text: String) = enter(tag, text)
 
-    /** Codes and recovery words: same path, never logged; the String copy lives only in this process. */
-    fun keys(tag: String, chars: CharArray) = enter(tag, String(chars))
+    /**
+     * Codes and recovery words go straight to the app's erasable secret field (the instrumentation shares the app
+     * process): its input connection takes the characters as a [CharBuffer] over [chars], so no String copy, no
+     * shell command line and no key injection that could drop characters. Never logged.
+     */
+    fun keys(tag: String, chars: CharArray) {
+        need(tag)
+        var taken = false
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            val activity = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).firstOrNull()
+            val view = activity?.window?.decorView?.findViewWithTag<View>(tag) ?: return@runOnMainSync
+            view.requestFocus()
+            val connection = view.onCreateInputConnection(EditorInfo()) ?: return@runOnMainSync
+            connection.deleteSurroundingText(MAX_SECRET, MAX_SECRET)
+            taken = connection.commitText(CharBuffer.wrap(chars), 1)
+        }
+        device.waitForIdle()
+        if (!taken) throw FlowStop("FAIL", "the secret field '$tag' did not take input")
+    }
 
     private fun enter(tag: String, text: String) {
         val field = need(tag)
@@ -142,6 +380,8 @@ class Ui(private val control: PeerControl) {
         .mapNotNull { it.text?.takeIf(String::isNotBlank) }.distinct().joinToString(" | ")
 
     fun shot(name: String) {
+        // Only the app's own screens: never the shared phone's launcher or another app.
+        if (!foreground()) return
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return
         val out = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
@@ -154,5 +394,103 @@ class Ui(private val control: PeerControl) {
         const val LONG = 60_000L
         const val POLL = 300L
         private const val EDIT_TEXT = "android.widget.EditText"
+        private const val MAX_SECRET = 4096
+        private const val LONG_PRESS_STEPS = 300
+    }
+}
+
+/**
+ * The run's six-digit account code. scripts/realrun.sh runs the flows in several instrumentation invocations (each
+ * under ten minutes), so the code generated by flow 01 must outlive one process: it is kept on the phone only,
+ * in the app's no-backup storage, encrypted with an AES-GCM key in the Android Keystore of the app's uid. A fresh
+ * install removes both. It is never sent to the Mac, passed as an argument or logged.
+ */
+object RunCode {
+    private const val ALIAS = "org.ramflux.realrun.run-code"
+    private const val FILE = "realrun-run-code.bin"
+    private val file get() = File(InstrumentationRegistry.getInstrumentation().targetContext.noBackupFilesDir, FILE)
+
+    fun exists(): Boolean = file.exists()
+
+    /** A new code for a new account; replaces any saved one. */
+    fun create(): CharArray = generate().also(::save)
+
+    /** A code that differs from [current], for the code change (saved by the caller once the SDK accepted it). */
+    fun next(current: CharArray): CharArray {
+        while (true) {
+            val digits = generate()
+            if (!digits.contentEquals(current)) return digits
+            digits.fill('\u0000')
+        }
+    }
+
+    /** Six random digits, not all equal and not a straight run. */
+    private fun generate(): CharArray {
+        val random = SecureRandom()
+        while (true) {
+            val digits = CharArray(6) { '0' + random.nextInt(10) }
+            val same = digits.all { it == digits[0] }
+            val up = (1 until 6).all { digits[it] - digits[it - 1] == 1 }
+            val down = (1 until 6).all { digits[it - 1] - digits[it] == 1 }
+            if (!same && !up && !down) return digits
+            digits.fill('\u0000')
+        }
+    }
+
+    fun save(digits: CharArray) {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key())
+        val plain = ByteArray(digits.size) { digits[it].code.toByte() }
+        val sealed = try {
+            cipher.doFinal(plain)
+        } finally {
+            plain.fill(0)
+        }
+        file.writeBytes(byteArrayOf(cipher.iv.size.toByte()) + cipher.iv + sealed)
+    }
+
+    /** The saved code (the caller wipes it), or null when this install has none. */
+    fun load(): CharArray? {
+        if (!file.exists()) return null
+        val bytes = file.readBytes()
+        val ivSize = bytes[0].toInt()
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes, 1, ivSize))
+        val plain = cipher.doFinal(bytes, 1 + ivSize, bytes.size - 1 - ivSize)
+        return try {
+            CharArray(plain.size) { plain[it].toInt().toChar() }
+        } finally {
+            plain.fill(0)
+        }
+    }
+
+    private fun key(): SecretKey {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (store.getKey(ALIAS, null) as? SecretKey)?.let { return it }
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        generator.init(
+            KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .build()
+        )
+        return generator.generateKey()
+    }
+}
+
+/**
+ * Public run facts that later invocations need (display name, the phone's principal and commitment as alice sees
+ * them, conversation and group ids), kept in the app's no-backup storage on the phone. Nothing secret.
+ */
+object RunState {
+    private const val FILE = "realrun-run-state.properties"
+    private val file get() = File(InstrumentationRegistry.getInstrumentation().targetContext.noBackupFilesDir, FILE)
+    private fun load() = Properties().apply { if (file.exists()) file.inputStream().use { load(it) } }
+
+    operator fun get(key: String): String? = load().getProperty(key)?.takeIf { it.isNotEmpty() }
+
+    operator fun set(key: String, value: String) {
+        val values = load()
+        values.setProperty(key, value)
+        file.outputStream().use { values.store(it, null) }
     }
 }

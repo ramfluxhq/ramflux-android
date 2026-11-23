@@ -93,7 +93,11 @@ class CoreClient internal constructor(
                             }
                         }
                     }
-                    if (admission != null) return@withContext admission
+                    if (admission != null) {
+                        // Debug builds only (no trace is installed otherwise): refusals before the SDK answered.
+                        ReplyCodec.debugTrace?.event("sdk.refused.${admission.error.code}.${admission.error.javaClass.simpleName} method=$method")
+                        return@withContext admission
+                    }
                     var pause = 10L
                     var terminal: CoreResult<T>? = null
                     while (terminal == null) {
@@ -107,7 +111,10 @@ class CoreClient internal constructor(
                             continue
                         }
                         reply.body.fill(0)
-                        if (System.currentTimeMillis() >= deadline) return@withContext CoreResult.Failure(CoreError.Native(10, Effect.UNKNOWN), operationId)
+                        if (System.currentTimeMillis() >= deadline) {
+                            ReplyCodec.debugTrace?.event("sdk.deadline method=$method")
+                            return@withContext CoreResult.Failure(CoreError.Native(10, Effect.UNKNOWN), operationId)
+                        }
                         delay(pause); pause = (pause * 2).coerceAtMost(100)
                     }
                     terminal
@@ -168,8 +175,7 @@ class CoreClient internal constructor(
             pump = launch(io, start = CoroutineStart.LAZY) {
                 var subscription = 0L
                 try {
-                    val request = CoreRequest("subscription.open", "subscription", filter.accountId, null,
-                        filter.body, System.currentTimeMillis() + REQUEST_TIMEOUT_MS)
+                    val request = subscriptionRequest(filter, System.currentTimeMillis() + REQUEST_TIMEOUT_MS)
                     val admission = guard.withLock {
                         if (closing) CoreError.Closed() else {
                                 require(BoundedJson.accepts(filter.body))
@@ -303,6 +309,17 @@ class CoreClient internal constructor(
         private const val MAX_FRAME = 1 shl 20
         private const val CLEANUP_ATTEMPTS = 5
         private val SUBSCRIPTION_METHODS = setOf("subscription.open", "bus.subscribe", "subscription.close")
+
+        /**
+         * The native subscription request of [filter]. An account's read-model changes (`message.received`,
+         * `conversation.changed`, ...) come from its journal, which only `bus.subscribe` tails (SDK
+         * `bus/connection.rs`, `bus/subscription.rs`); `subscription.open` with an account only registers topics
+         * for daemon pushes and never delivers journal events. Without an account the SDK opens the
+         * daemon-scoped backup job stream, which keeps `subscription.open`. Both honour `attended_frontend`.
+         */
+        internal fun subscriptionRequest(filter: SubscriptionFilter, deadlineUnixMs: Long): CoreRequest =
+            if (filter.accountId != null) CoreRequest("bus.subscribe", "bus", filter.accountId, null, filter.body, deadlineUnixMs)
+            else CoreRequest("subscription.open", "subscription", null, null, filter.body, deadlineUnixMs)
 
         internal fun encodeRequest(request: CoreRequest, deadline: Long = request.deadlineUnixMs): ByteArray = buildJsonObject {
             request.accountId?.let { put("account_id", it) }

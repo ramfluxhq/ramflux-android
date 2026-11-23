@@ -1,8 +1,8 @@
 # Media on Android
 
 Images, animated images, videos and files travel as SDK attachments (`attachment.prepare.*`,
-`conversation.send` with `prepares`, `attachment.import.*`, `attachment.revoke`). The design is
-`MOBILE-MEDIA-DESIGN-01` in the planning workspace; this page states what the Android client does.
+`conversation.send` with `prepares`, `attachment.import.*`, `attachment.revoke`). This page states what the Android
+client does.
 
 ## Modules
 

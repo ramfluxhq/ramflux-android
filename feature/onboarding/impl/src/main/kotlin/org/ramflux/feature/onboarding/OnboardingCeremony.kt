@@ -248,4 +248,17 @@ internal fun RecoverPage(state: OnboardingState, entry: RecoveryEntry, onAction:
 internal fun CreatedAccountPage(state: OnboardingState) {
     Text(stringResource(R.string.ui_account_created_detail))
     state.createdAccountId?.let { Text(it) }
+    state.createdNetworking?.let { networking ->
+        Text(
+            stringResource(
+                when (networking) {
+                    CreatedNetworking.CONNECTING -> R.string.ui_created_network_connecting
+                    CreatedNetworking.LIVE -> R.string.ui_created_network_connected
+                    CreatedNetworking.NOT_CONFIRMED -> R.string.ui_created_network_not_confirmed
+                }
+            ),
+            color = LocalRFTheme.current.secondary,
+            modifier = Modifier.testTag("created-networking")
+        )
+    }
 }

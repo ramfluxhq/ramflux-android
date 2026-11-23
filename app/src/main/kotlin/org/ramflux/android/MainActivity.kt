@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
                         shellReady = startupUi.place == StartupPlace.SHELL,
                         policy = SHELL_ROUTE_POLICY,
                         tabs = tabs,
+                        sessionAccount = startupUi.activeAccount,
                         home = { navigate ->
                             StartupHost(navigate, shell = {
                                 // Shown only for an unlocked session: a tapped notification waits here behind the unlock.
@@ -80,7 +81,11 @@ class MainActivity : ComponentActivity() {
                                 OnboardingNavigation(
                                     onBack = onBack,
                                     onAccountSelected = { onBack() },
-                                    onAccountCreated = { navigate(PermissionsRoute(PermissionEntry.AFTER_ACCOUNT_CREATION, it)) },
+                                    // The finished ceremony leaves the stack, so back from the permission step goes into the account.
+                                    onAccountCreated = {
+                                        onBack()
+                                        navigate(PermissionsRoute(PermissionEntry.AFTER_ACCOUNT_CREATION, it))
+                                    },
                                     onRestoreBackup = { navigate(BackupRoute(freshInstall = true)) },
                                     openCreate = route.openCreate,
                                     unlockId = route.unlockId,

@@ -218,8 +218,8 @@ library's strict policy (`cleartextTrafficPermitted="false"`) unchanged.
 
 To use the node from an emulator, the node must advertise addresses the emulator can reach: `127.0.0.1` inside the
 emulator is the emulator itself, and the SDK uses the signed record's addresses as they are. The node is therefore
-initialised with the Mac's LAN address (`DEMO_HOST=<LAN IPv4>`, `DEMO_BIND_ADDR=0.0.0.0` in
-`ops/local-node/state/operator.env`, then `./reset.sh` and `./up.sh`), and the tester types
+initialised with the host machine's LAN address (the node's advertised host set to `<LAN IPv4>` and its bind address
+to `0.0.0.0`, as the node's own deployment guide describes, then reset and start the node), and the tester types
 `http://<LAN IPv4>:8482` in the app (a private-range address, accepted by debug builds). `http://10.0.2.2:8482`
 reaches discovery, but the gateway and relay addresses in the record would still name `127.0.0.1`.
 

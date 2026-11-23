@@ -102,6 +102,16 @@ internal class DefaultAccountAccessRepository(
             }
         }
     }
+    override suspend fun networkingLive(id: String): ClientResult<Boolean> {
+        if (!acceptable(id)) return invalid()
+        return when (val status = accounts.accountStatus(RepositoryContext(id), JsonObject(emptyMap()))) {
+            is CoreResult.Failure -> ClientResult.Failed(status.error.appProblem())
+            is CoreResult.Success -> when (val networking = AccountListMetadataReader.networking(status.value)) {
+                is CoreResult.Failure -> ClientResult.Failed(networking.error.appProblem())
+                is CoreResult.Success -> ClientResult.Ready(networking.value == "live")
+            }
+        }
+    }
     private fun codeRefused() = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE, statusName = "not_six_digits"))
     private suspend fun <T> io(block: () -> T): T = withContext(Dispatchers.IO) { block() }
     private fun acceptable(id: String) = id.isNotEmpty() && id.length <= 128

@@ -89,6 +89,34 @@ class TopLevelNavigatorTest {
         assertEquals(2, nav.selected)
     }
 
+    @Test fun theUnlockOfTheSameAccountBringsBackTheScreensTheLockDropped() {
+        val nav = navigator()
+        nav.openDetail(AccountKey("chat-a"))
+        nav.select(2)
+        nav.push(AccountKey("contacts"))
+        nav.dropAccountScoped(RoutePolicy()::isAccountScoped)
+        // A repeated lock signal with nothing left to drop keeps what was parked.
+        nav.dropAccountScoped(RoutePolicy()::isAccountScoped)
+        assertTrue(nav.restoreParked())
+        assertEquals(listOf(messages, AccountKey("chat-a")), nav.stacks[0])
+        assertEquals(listOf(more, AccountKey("contacts")), nav.stacks[2])
+        assertFalse(nav.restoreParked())
+    }
+
+    @Test fun parkedScreensStayGoneForAnotherAccountOrAChangedTab() {
+        val nav = navigator()
+        nav.openDetail(AccountKey("chat-a"))
+        nav.dropAccountScoped(RoutePolicy()::isAccountScoped)
+        nav.discardParked()
+        assertFalse(nav.restoreParked())
+        assertEquals(listOf(messages), nav.stacks[0])
+        nav.openDetail(AccountKey("chat-a"))
+        nav.dropAccountScoped(RoutePolicy()::isAccountScoped)
+        nav.push(Key("notices"))
+        assertFalse(nav.restoreParked())
+        assertEquals(listOf(messages, Key("notices")), nav.stacks[0])
+    }
+
     @Test fun compactShowsOnlyTheDetailAndTwoPaneShowsTheListBesideIt() {
         val stack = listOf<NavKey>(messages, AccountKey("chat-a"))
         val roles = mapOf<NavKey, PaneRole>(messages to PaneRole.LIST, AccountKey("chat-a") to PaneRole.DETAIL)

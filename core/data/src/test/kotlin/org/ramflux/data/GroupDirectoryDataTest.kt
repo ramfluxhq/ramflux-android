@@ -37,6 +37,7 @@ class GroupDirectoryDataTest {
         override fun operationRelease(core: Long, operation: Long) = delegate.operationRelease(core, operation)
         override fun eventReset(core: Long, generation: Long) = delegate.eventReset(core, generation)
         override fun eventPoll(core: Long) = delegate.eventPoll(core)
+        var listedConversation: String? = null
         fun detail(): JsonObject = Json.parseToJsonElement("""{"group_id":"g","name":"Actual name","group_epoch":"$epoch","members":["own-device","peer-device"],"roles":{"own-device":"$ownRole","peer-device":"member"},"member_roster":[{"identity":{"principal_id":"own","root_commitment":"own-root","device_id":"own-device"},"role":"$ownRole"},{"identity":{"principal_id":"peer","root_commitment":"peer-root","device_id":"peer-device"},"role":"member"}],"excluded_devices":[]}""").jsonObject
         private fun id(tag: Int, index: Int, label: String) = if (wideIds) "%02x".format(tag) + "%062x".format(index) else "$label-$index"
         fun large(count: Int): JsonObject {
@@ -69,7 +70,9 @@ class GroupDirectoryDataTest {
                     put("local_account_id", "account"); put("principal_id", "own"); put("principal_commitment", "own-root")
                     put("device_id", "own-device"); put("local_device_authorized", authorized); put("authority_blocked", false)
                 }
-                "group.list" -> buildJsonObject { put("groups", buildJsonArray { add(detail()) }) }
+                "group.list" -> buildJsonObject {
+                    put("groups", buildJsonArray { add(listedConversation?.let { JsonObject(detail() + ("conversation_id" to JsonPrimitive(it))) } ?: detail()) })
+                }
                 "group.members" -> if (roster > 0) large(roster) else detail()
                 "group.invitations.list" -> Json.parseToJsonElement("""{"invitations":[{"group_id":"g","name":"Invite","creator":"creator","inviter":"inviter","expires_at":2000000000}]}""").jsonObject
                 "group.requests.list" -> Json.parseToJsonElement("""{"requests":[{"group_id":"g","request_id":"$requestId","status":"$requestStatus","waiting_for_owner":${requestStatus == "waiting_for_owner"},"expires_at":2000000000}]}""").jsonObject
@@ -96,6 +99,10 @@ class GroupDirectoryDataTest {
             oracle.epoch = ULong.MAX_VALUE
             assertEquals(ULong.MAX_VALUE, (repo.list("account") as ClientResult.Ready).value.single().epoch)
             assertEquals("canonical-conversation", (repo.conversation("account", "g") as ClientResult.Ready).value)
+            // A group created on this device: its list row names a conversation of its own, and that one is opened.
+            oracle.listedConversation = "group-thread"
+            assertEquals("group-thread", (repo.conversation("account", "g") as ClientResult.Ready).value)
+            oracle.listedConversation = null
             oracle.epoch = 7u; oracle.ownRole = "member"
             assertTrue(repo.mutate("account", GroupChange(GroupOperation.RENAME, "g", 7u, name = "New"), "rename-op") is ClientResult.Failed)
             assertFalse(oracle.abi.submitted.any { it["method"]?.jsonPrimitive?.content == "group.name.set" })
@@ -169,8 +176,8 @@ class GroupDirectoryDataTest {
             assertEquals(ConversationHeader("Actual name", "g"), (repo.groupHeader("account", "g", "canonical-conversation") as ClientResult.Ready).value)
             val count = oracle.abi.submitted.size
             assertTrue(repo.groupHeader("account", "g", "other-conversation") is ClientResult.Failed)
-            assertEquals(1, oracle.abi.submitted.size - count)
-            assertEquals("group.history", oracle.abi.submitted.last()["method"]?.jsonPrimitive?.content)
+            // The list row names no conversation here, so group.history decides after group.list.
+            assertEquals(listOf("group.list", "group.history"), oracle.abi.submitted.drop(count).map { it["method"]?.jsonPrimitive?.content })
             assertTrue(repo.groupHeader("account", "wrong-group", "canonical-conversation") is ClientResult.Failed)
         } finally { client.close() }
     }

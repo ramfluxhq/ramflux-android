@@ -146,6 +146,18 @@ class FakeChatDrafts : ChatDraftRepository {
     }
 }
 
+class FakeChatOutbox : ChatOutboxRepository {
+    val stored = mutableMapOf<String, List<QueuedSend>>()
+    override suspend fun load(account: String, conversation: String): List<QueuedSend> = stored["$account/$conversation"].orEmpty()
+    override suspend fun save(account: String, conversation: String, sends: List<QueuedSend>): ClientResult<Unit> {
+        if (sends.isEmpty()) stored.remove("$account/$conversation") else stored["$account/$conversation"] = sends
+        return ClientResult.Ready(Unit)
+    }
+    override suspend fun clearAccount(account: String) {
+        stored.keys.removeAll { it.startsWith("$account/") }
+    }
+}
+
 class FakeChatMedia : MediaRepository {
     val held = mutableMapOf<String, java.io.File>()
     var downloadResult: (MediaAttachment) -> TransferState = { TransferState.Ready(java.io.File("/tmp/" + it.messageId)) }

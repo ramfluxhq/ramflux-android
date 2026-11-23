@@ -547,27 +547,37 @@ class GroupsViewModel @Inject constructor(
                             )
                         }
                         if (attempt.second.operation == GroupOperation.CREATE && !result.value.expired && !result.value.waiting) {
+                            clientDebugEvent("groups.create.acknowledged")
                             val readback = groups.detail(accountId, result.value.group)
                             current(expected, generation)
                             if (readback !is ClientResult.Ready) {
+                                clientDebugEvent("groups.create.readback_failed")
                                 failure(readback)
                                 return@launch
                             }
                             if (readback.value.group.id != result.value.group || !readback.value.own.authorized ||
                                 readback.value.ownRole != GroupRole.OWNER
                             ) {
+                                clientDebugEvent("groups.create.access_changed")
                                 local.update { it.copy(problem = uiText(R.string.groups_access_changed)) }
                                 return@launch
                             }
                             val destination = groups.conversation(accountId, result.value.group)
                             current(expected, generation)
-                            if (account(expected, generation, accountId) == null) return@launch
+                            if (account(expected, generation, accountId) == null) {
+                                clientDebugEvent("groups.create.account_changed")
+                                return@launch
+                            }
                             when (destination) {
                                 is ClientResult.Ready -> {
+                                    clientDebugEvent("groups.create.open_chat")
                                     channel.send(GroupsEvent.OpenChat(accountId, destination.value, result.value.group))
                                     return@launch
                                 }
-                                else -> failure(destination)
+                                else -> {
+                                    clientDebugEvent("groups.create.conversation_failed")
+                                    failure(destination)
+                                }
                             }
                         } else {
                             if (attempt.second.operation == GroupOperation.REMOVE && !result.value.waiting) {
@@ -579,6 +589,9 @@ class GroupsViewModel @Inject constructor(
                     }
                     else -> failure(result)
                 }
+            } catch (cancelled: CancellationException) {
+                clientDebugEvent("groups.mutate.retired:" + (expected != ticket))
+                throw cancelled
             } finally {
                 prepared = null
                 if (expected == ticket) {

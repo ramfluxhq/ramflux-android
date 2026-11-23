@@ -219,7 +219,9 @@ class OnboardingViewModelTest {
         val nodes = FakeNodeSetup().apply {
             listing = ClientResult.Ready(listOf(SavedNode("node-1", "https://node.example", "key", true, false, true)))
         }
-        val vm = OnboardingViewModel(FakeAccountAccess(), nodes, FakeOnboardingSession(), ceremony)
+        val access = FakeAccountAccess().apply { networking = { read -> ClientResult.Ready(read >= 3) } }
+        val vm = OnboardingViewModel(access, nodes, FakeOnboardingSession(), ceremony)
+        vm.networkWatch = 10 to 100L
         observe(vm)
         val events = mutableListOf<OnboardingEvent>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
@@ -256,14 +258,24 @@ class OnboardingViewModelTest {
         assertTrue(accepted)
         assertEquals(OnboardingPage.CREATED, vm.state.value.page)
         assertEquals("account-created", vm.state.value.createdAccountId)
+        // The completion step follows account.status: connecting while pending, then connected once live.
+        assertEquals(CreatedNetworking.CONNECTING, vm.state.value.createdNetworking)
+        advanceTimeBy(250)
+        runCurrent()
+        assertEquals(CreatedNetworking.LIVE, vm.state.value.createdNetworking)
+        assertEquals(3, access.networkingReads)
         assertTrue(words.all { it.isEmpty() })
         assertTrue(passphrase.isEmpty())
         assertFalse(vm.state.value.toString().contains("482915"))
         assertEquals("Ada", ceremony.lastName)
         assertEquals("node-1", ceremony.lastNode)
-        vm.onAction(OnboardingAction.ContinueCreated)
+        // Back from the created step continues into the account; it never returns to the ceremony or the start.
+        vm.onAction(OnboardingAction.Back)
         runCurrent()
         assertEquals("account-created", (events.single { it is OnboardingEvent.AccountCreated } as OnboardingEvent.AccountCreated).id)
+        assertFalse(events.contains(OnboardingEvent.Back))
+        // Continuing selects the new account (its switch makes the startup gate read the accounts again).
+        assertEquals(1, access.selections)
     }
 
     @Test fun stalePhraseCompletionWipesTheUnadoptedArrays() = runTest(timeout = 5.seconds) {

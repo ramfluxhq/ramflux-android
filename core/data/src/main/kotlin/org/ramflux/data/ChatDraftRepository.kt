@@ -61,14 +61,14 @@ class AesGcmDraftCipher(private val key: () -> SecretKey) : DraftCipher {
         private const val TAG_BITS = 128
         private const val ALIAS = "org.ramflux.chat.drafts.v1"
 
-        /** A non-exportable AES-256 key in the Android Keystore, created on first use. */
-        fun keystore(): AesGcmDraftCipher = AesGcmDraftCipher {
+        /** A non-exportable AES-256 key in the Android Keystore under [alias], created on first use. */
+        fun keystore(alias: String = ALIAS): AesGcmDraftCipher = AesGcmDraftCipher {
             val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-            (store.getEntry(ALIAS, null) as? KeyStore.SecretKeyEntry)?.secretKey ?: KeyGenerator
+            (store.getEntry(alias, null) as? KeyStore.SecretKeyEntry)?.secretKey ?: KeyGenerator
                 .getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
                 .apply {
                     init(
-                        KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                        KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                             .setKeySize(256)

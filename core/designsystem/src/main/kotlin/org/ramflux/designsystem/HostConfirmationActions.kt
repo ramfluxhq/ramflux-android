@@ -4,6 +4,7 @@
 package org.ramflux.designsystem
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
@@ -127,6 +128,12 @@ private class HostActionButton(context: Context) : Button(context) {
         armedKey = null
         repeated = false
         pressTime = 0
+    }
+
+    // Debuggable builds name the node by its tag, as Compose test tags are named there (UI automation).
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) (tag as? String)?.let { info.viewIdResourceName = it }
     }
     fun release() {
         removeCallbacks(focusDeny)

@@ -113,6 +113,26 @@ class BackupViewModelTest {
         assertEquals("unsubscribes on disappear", 0, backups.changes.subscriptionCount.value)
     }
 
+    @Test fun aRunningJobIsRereadWithoutStreamEventsUntilItEnds() = runTest(timeout = 5.seconds) {
+        val backups = Backups().apply { listed = listOf(job("b1", BackupJobKind.BACKUP, BackupJobState.WRITING)) }
+        val vm = BackupViewModel(backups, Accounts("account"))
+        vm.onAction(BackupAction.Open(false))
+        runCurrent()
+        val before = backups.calls.count { it.startsWith("jobs") }
+        // The job stream says nothing (daemon events do not reach the journal subscription); the list is polled.
+        backups.listed = listOf(job("b1", BackupJobKind.BACKUP, BackupJobState.DONE))
+        advanceTimeBy(2_500)
+        runCurrent()
+        assertTrue(backups.calls.count { it.startsWith("jobs") } > before)
+        assertEquals(BackupJobState.DONE, vm.state.value.jobs.single().state)
+        val settled = backups.calls.count { it.startsWith("jobs") }
+        advanceTimeBy(10_000)
+        runCurrent()
+        assertEquals("no polling once every job ended", settled, backups.calls.count { it.startsWith("jobs") })
+        vm.onAction(BackupAction.Visible(false))
+        runCurrent()
+    }
+
     @Test fun freshInstallRestoresAsANewAccountAfterImportAndVerify() = runTest(timeout = 5.seconds) {
         val backups = Backups().apply {
             verified = job("r1", BackupJobKind.RESTORE, BackupJobState.VERIFIED, BackupArchive("acct", "Lin", 1_700_000_000, merge = false))

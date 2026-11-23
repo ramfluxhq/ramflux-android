@@ -110,6 +110,23 @@ class CoreClientTest {
         assertTrue(abi.client(id).operations.isEmpty()); assertNull(client.cleanupFailure.value); client.close()
     }
 
+    @Test fun accountSubscriptionsTailTheJournalAndTheAccountlessOneKeepsSubscriptionOpen() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi(); val id = abi.newClient()
+        abi.onSubscription = { core, _ -> abi.event(core, "A", "one") }
+        val client = CoreClient(abi, id, StandardTestDispatcher(testScheduler))
+        (client.updates(SubscriptionFilter("A", empty)).take(1).toList().single() as CoreUpdate.Events).body.close()
+        advanceUntilIdle()
+        val opened = abi.submitted.last()
+        assertEquals("bus.subscribe", opened["method"]?.jsonPrimitive?.content)
+        assertEquals("bus", opened["sdk_api"]?.jsonPrimitive?.content)
+        assertEquals("A", opened["account_id"]?.jsonPrimitive?.content)
+        val daemon = CoreClient.subscriptionRequest(SubscriptionFilter(null, empty), 1L)
+        assertEquals("subscription.open", daemon.method)
+        assertEquals("subscription", daemon.sdkApi)
+        assertNull(daemon.accountId)
+        client.close()
+    }
+
     @Test fun exhaustedCleanupStaysVisibleAndRetainedUntilRepair() = runTest(timeout = 5.seconds) {
         val abi = FakeAbi(); val id = abi.newClient()
         val client = CoreClient(abi, id, StandardTestDispatcher(testScheduler))

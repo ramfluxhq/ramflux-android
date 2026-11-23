@@ -1,5 +1,5 @@
 {
- "source": "Ramflux-Desktop-Design.pen via Pencil MCP GetVariables(), 2026-11-16. Themes axis: mode = light | dark. All values exact as Pencil reports them. Names are the Pencil variable names (referenced in the design as $name).",
+ "source": "Exported from the Ramflux design file variables, 2026-11-16. Themes axis: mode = light | dark. Values are exact as exported. Names are the design variable names (referenced in the design as $name).",
  "themes": {
   "mode": [
    "light",
@@ -12,7 +12,7 @@
    "height": 852,
    "statusBarHeight": 59,
    "homeIndicatorSafeBottom": 34,
-   "note": "RF 393x852, safe 59/34 (CURRENT-HANDOFF). Tab bar frame is 83 tall: 8 top padding + 44 item row, remaining 31 is bottom inset (not equal to the 34 safe-bottom: see README inconsistencies)."
+   "note": "RF 393x852, safe 59/34. Tab bar frame is 83 tall: 8 top padding + 44 item row, remaining 31 is bottom inset (not equal to the 34 safe-bottom)."
   }
  },
  "color": {
