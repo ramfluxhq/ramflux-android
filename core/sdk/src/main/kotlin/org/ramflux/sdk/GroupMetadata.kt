@@ -12,7 +12,8 @@ data class GroupDetailDisplay(val group: GroupDisplay, val roster: List<GroupMem
 data class GroupAuthorityDisplay(val principal: String, val root: String, val device: String, val authorized: Boolean, val account: String)
 data class GroupInvitationDisplay(val id: String, val name: String?, val creator: String, val inviter: String, val expires: Long)
 data class GroupRequestDisplay(val id: String, val group: String, val status: String, val waiting: Boolean, val expires: Long)
-data class GroupOutcomeDisplay(val group: String, val waiting: Boolean, val expired: Boolean, val request: String?)
+/** [conversation] is the conversation the SDK bound to the group when the reply names it (a creation reply does). */
+data class GroupOutcomeDisplay(val group: String, val waiting: Boolean, val expired: Boolean, val request: String?, val conversation: String? = null)
 object GroupMetadataReader {
     /** Row bound of the unpaged group lists, as for contacts; the 1 MiB frame (`ByteJson`) runs out first. */
     const val MAX_ROWS = 10_000
@@ -62,6 +63,11 @@ object GroupMetadataReader {
         require(text(f, f.root, "group_id") == expected)
         text(f, f.root, "conversation_id")
     }
+    /** The conversation the group's metadata (`group.members`) names, or null when it names none. */
+    fun metadataConversation(reply: SecretReply, expected: String) = decode(reply) { f ->
+        require(text(f, f.root, "group_id") == expected)
+        f.text(f.root, "conversation_id")?.takeIf { it.isNotBlank() && it.length <= 256 }
+    }
     fun outcome(reply: SecretReply, expected: String, invitationAccept: Boolean?) = decode(reply) { f ->
         require(text(f, f.root, "group_id") == expected)
         val accepted = f.boolean(f.root, "accepted")
@@ -72,7 +78,8 @@ object GroupMetadataReader {
         else if (invitationAccept != null) {
             require(accepted == invitationAccept && f.boolean(f.root, "declined") == !invitationAccept)
         } else require(accepted)
-        GroupOutcomeDisplay(expected, waiting, expired, request)
+        val conversation = f.text(f.root, "conversation_id")?.takeIf { it.isNotBlank() && it.length <= 256 }
+        GroupOutcomeDisplay(expected, waiting, expired, request, conversation)
     }
     private fun group(f: DisplayFields, row: ByteJson.Node): GroupDisplay {
         val members = f.texts(row, "members", MAX_ROWS, 0, 4096)

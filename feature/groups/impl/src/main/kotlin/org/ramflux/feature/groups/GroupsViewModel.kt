@@ -548,6 +548,13 @@ class GroupsViewModel @Inject constructor(
                         }
                         if (attempt.second.operation == GroupOperation.CREATE && !result.value.expired && !result.value.waiting) {
                             clientDebugEvent("groups.create.acknowledged")
+                            // The creation reply is the group's metadata and names the conversation the SDK bound to it:
+                            // open it without further reads, which could run before the group list caught up.
+                            result.value.conversation?.let { conversation ->
+                                clientDebugEvent("groups.create.open_chat_from_reply")
+                                channel.send(GroupsEvent.OpenChat(accountId, conversation, result.value.group))
+                                return@launch
+                            }
                             val readback = groups.detail(accountId, result.value.group)
                             current(expected, generation)
                             if (readback !is ClientResult.Ready) {
