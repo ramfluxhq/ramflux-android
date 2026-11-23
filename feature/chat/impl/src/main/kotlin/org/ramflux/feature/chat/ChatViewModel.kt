@@ -5,6 +5,7 @@ package org.ramflux.feature.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.collections.immutable.persistentListOf
@@ -13,6 +14,8 @@ import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.ramflux.data.*
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.uiText
@@ -27,7 +30,8 @@ class ChatViewModel @Inject constructor(
     private val media: MediaRepository,
     private val stager: MediaStager,
     private val queue: MediaTransfers,
-    private val cards: CardSurfaceRepository
+    private val cards: CardSurfaceRepository,
+    private val outboxStore: ChatOutboxRepository = NoChatOutbox
 ) : ViewModel() {
     /** For hosts without an application-wide transfer queue: downloads then end with this chat. */
     constructor(
@@ -58,6 +62,14 @@ class ChatViewModel @Inject constructor(
     private var detached = false
     private var olderJob: Job? = null
     private val outbox = LinkedHashMap<String, Outgoing>()
+
+    /** The target whose sealed outbox was read back; until then nothing is written over it. */
+    private var outboxRestored: Target? = null
+    private var persistedOutbox: List<QueuedSend>? = null
+    private val outboxWrites = Mutex()
+
+    /** The SDK reported sending available for the open conversation (queued sends may go). */
+    private var sendReady = false
     private var lastMarked: String? = null
     private var markRefused = false
     private var unreadAtOpen = 0L
@@ -125,6 +137,7 @@ class ChatViewModel @Inject constructor(
                 local.value = ChatState(conversationId = openTarget.conversation)
                 ensureWatch(openTarget)
                 restoreDraft(openTarget)
+                restoreOutbox(openTarget)
                 onAction(ChatAction.Refresh)
             }
         }
@@ -150,6 +163,7 @@ class ChatViewModel @Inject constructor(
                     )
                     ensureWatch(next)
                     restoreDraft(next)
+                    restoreOutbox(next)
                     read()
                 }
             }
@@ -385,7 +399,8 @@ class ChatViewModel @Inject constructor(
                         }
                         publish()
                         loadCards(currentTarget)
-                        if (capability is ClientResult.Ready) resendQueued()
+                        sendReady = capability is ClientResult.Ready
+                        if (sendReady) resendQueued()
                     }
                     is ClientResult.Failed -> local.update {
                         it.copy(problem = uiText(R.string.ui_read_failed_code_value, UiText.Number(result.problem.code.toLong())))
@@ -646,6 +661,40 @@ class ChatViewModel @Inject constructor(
                 queued = outbox.values.any { item -> item.delivery == LocalDelivery.QUEUED }
             )
         }
+        persistOutbox()
+    }
+
+    /**
+     * Reads the sealed outbox of [next] back after open, unlock or relaunch: each send not admitted before comes back
+     * queued under its original operation id and goes again once sending is available, so the SDK reconciles a send
+     * that was in flight. Staged files that are gone are dropped.
+     */
+    private fun restoreOutbox(next: Target) {
+        viewModelScope.launch {
+            val stored = outboxStore.load(next.account, next.conversation)
+            if (target != next || session.status.value.phase != ClientPhase.OPEN) return@launch
+            for (send in stored) {
+                if (send.id in outbox || outbox.size >= OUTBOX_LIMIT) continue
+                val staged = send.media.map { File(it.path) to it }.filter { it.first.isFile }.map { (file, item) -> StagedMedia(file, item.fileName, item.mime) }
+                if (staged.isEmpty() && send.media.isNotEmpty() && send.text.isBlank()) continue
+                outbox[send.id] = Outgoing(send.operation, send.text, send.sentAt, LocalDelivery.QUEUED, send.definite, staged)
+            }
+            outboxRestored = next
+            publish()
+            if (sendReady) resendQueued()
+        }
+    }
+
+    /** Writes the outbox of the open conversation, sealed, whenever it changed (every change ends in [publish]). */
+    private fun persistOutbox() {
+        val current = target ?: return
+        if (outboxRestored != current) return
+        val snapshot = outbox.map { (id, outgoing) ->
+            QueuedSend(id, outgoing.operation, outgoing.text, outgoing.sentAt, outgoing.definite, outgoing.staged.map { QueuedMedia(it.file.path, it.fileName, it.mime) })
+        }
+        if (snapshot == persistedOutbox) return
+        persistedOutbox = snapshot
+        viewModelScope.launch(NonCancellable) { outboxWrites.withLock { outboxStore.save(current.account, current.conversation, snapshot) } }
     }
 
     /** The read-model page has no read position; the reader-scoped unread count places the divider. */
@@ -678,6 +727,9 @@ class ChatViewModel @Inject constructor(
         older = null
         detached = false
         outbox.clear()
+        outboxRestored = null
+        persistedOutbox = null
+        sendReady = false
         lastMarked = null
         markRefused = false
         unreadAtOpen = 0
@@ -1525,6 +1577,12 @@ internal fun forwardable(row: MessageItem) = row.delivery == null && !row.delete
 private val UNFORWARDABLE = setOf(AttachmentStatus.REVOKED, AttachmentStatus.EXPIRED, AttachmentStatus.NOT_ON_DEVICE)
 private const val WINDOW = 1_000
 private const val DRAFT_DEBOUNCE_MS = 400L
+
+private object NoChatOutbox : ChatOutboxRepository {
+    override suspend fun load(account: String, conversation: String): List<QueuedSend> = emptyList()
+    override suspend fun save(account: String, conversation: String, sends: List<QueuedSend>): ClientResult<Unit> = ClientResult.Ready(Unit)
+    override suspend fun clearAccount(account: String) = Unit
+}
 
 private object NoChatDrafts : ChatDraftRepository {
     override suspend fun load(account: String, conversation: String): String? = null

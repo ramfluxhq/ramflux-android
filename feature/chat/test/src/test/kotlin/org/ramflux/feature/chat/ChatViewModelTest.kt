@@ -331,6 +331,44 @@ class ChatViewModelTest {
         assertTrue(vm.state.value.rows.none { (it as MessageItem).delivery != null })
     }
 
+    @Test fun queuedSendsAreSealedAndResumedUnderTheirOperationIdAfterTheViewModelIsGone() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            sendResult = ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE))
+        }
+        val outbox = FakeChatOutbox()
+        fun model(): ChatViewModel {
+            val media = FakeChatMedia()
+            val session = FakeChatSession()
+            return ChatViewModel(
+                history, FakeChatAccounts(), session, FakeChatDrafts(), media, FakeChatStager(),
+                MediaTransfers(media, session, backgroundScope), FakeChatCards(), outbox
+            )
+        }
+        val first = model()
+        observe(first)
+        runCurrent()
+        load(first)
+        first.onAction(ChatAction.Draft("survives"))
+        first.onAction(ChatAction.Send)
+        runCurrent()
+        assertTrue(first.state.value.queued)
+        val stored = outbox.stored["a/c"].orEmpty().single()
+        assertEquals(history.sentOperations.single(), stored.operation)
+        assertFalse(stored.toString().contains("survives"))
+        // A new view model over the same store (process death or a lock) resumes the send once sending is available.
+        // The offline refusal was definite, so the retry is a new operation, as in one session.
+        history.sendResult = ClientResult.Ready(SendReceipt("sent"))
+        val second = model()
+        observe(second)
+        runCurrent()
+        load(second)
+        runCurrent()
+        assertEquals(2, history.sends)
+        assertFalse(second.state.value.queued)
+        assertTrue(outbox.stored["a/c"].isNullOrEmpty())
+    }
+
     @Test fun unknownSendRetriesTheSameOperationAndALaterEqualTextIsNew() = runTest(timeout = 5.seconds) {
         val unknown = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.UNKNOWN))
         val history = FakeChatHistory().apply {
