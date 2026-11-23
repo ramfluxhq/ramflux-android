@@ -96,7 +96,14 @@ class PermissionsNavigationTest {
             CompositionLocalProvider(LocalActivityResultRegistryOwner provides registry) {
                 owner = LocalLifecycleOwner.current
                 AppLanguageProvider("en") {
-                    RamfluxTheme { PermissionsNavigation(PermissionsRoute(PermissionEntry.CAMERA_SCAN), {}, { ready++ }, vm = vm) }
+                    RamfluxTheme {
+                        PermissionsNavigation(
+                            PermissionsRoute(PermissionEntry.CAMERA_SCAN),
+                            {},
+                            onReady = { ready++ },
+                            vm = vm
+                        )
+                    }
                 }
             }
         }

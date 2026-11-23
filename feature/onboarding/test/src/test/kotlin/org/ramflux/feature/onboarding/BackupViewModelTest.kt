@@ -38,13 +38,17 @@ class BackupViewModelTest {
         override suspend fun jobs(account: String?) = ClientResult.Ready(listed).also { calls += "jobs:$account" }
         override fun changes(account: String?): Flow<ClientResult<Unit>> = changes.onStart { calls += "watch:$account" }
         override suspend fun create(account: String, passphrase: CharArray): ClientResult<BackupJob> {
-            secrets += String(passphrase); passphrase.fill('\u0000'); calls += "create:$account"
+            secrets += String(passphrase)
+            passphrase.fill('\u0000')
+            calls += "create:$account"
             return ClientResult.Ready(job("b1", BackupJobKind.BACKUP, BackupJobState.PREPARING))
         }
         override suspend fun export(job: String, destination: Uri) = ClientResult.Ready(Unit).also { calls += "export:$job" }
         override suspend fun import(source: Uri) = importResult.also { calls += "import" }
         override suspend fun verify(account: String?, archive: String, passphrase: CharArray): ClientResult<BackupJob> {
-            secrets += String(passphrase); passphrase.fill('\u0000'); calls += "verify:$account:$archive"
+            secrets += String(passphrase)
+            passphrase.fill('\u0000')
+            calls += "verify:$account:$archive"
             return ClientResult.Ready(requireNotNull(verified))
         }
         override suspend fun install(account: String?, job: String, newCode: CharArray?): ClientResult<BackupJob> {
@@ -52,11 +56,23 @@ class BackupViewModelTest {
             newCode?.fill('\u0000')
             return ClientResult.Ready(job(job, BackupJobKind.RESTORE, BackupJobState.INSTALLING))
         }
-        override suspend fun cancel(account: String?, job: String) = ClientResult.Ready(job(job, BackupJobKind.RESTORE, BackupJobState.CANCELLED)).also { calls += "cancel:$job" }
-        override suspend fun discard(job: String) { discarded += job }
+        override suspend fun cancel(account: String?, job: String) =
+            ClientResult.Ready(job(job, BackupJobKind.RESTORE, BackupJobState.CANCELLED)).also { calls += "cancel:$job" }
+        override suspend fun discard(job: String) {
+            discarded += job
+        }
     }
     private class Accounts(private val active: String?) : AccountAccessRepository {
-        override suspend fun list() = ClientResult.Ready(AccountCatalog(listOfNotNull(active?.let { AccountSummary(it, "Work", true, "unlocked") }), active))
+        override suspend fun list() = ClientResult.Ready(
+            AccountCatalog(
+                listOfNotNull(
+                    active?.let {
+                        AccountSummary(it, "Work", true, "unlocked")
+                    }
+                ),
+                active
+            )
+        )
         override suspend fun select(id: String): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.ONBOARDING)
         override suspend fun setup(action: AccountSetupAction): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.ONBOARDING)
     }
@@ -155,7 +171,8 @@ class BackupViewModelTest {
         runCurrent()
         assertEquals("install:account:r2:null", backups.calls.first { it.startsWith("install") })
 
-        backups.importResult = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.REFUSED, statusName = TOO_LARGE))
+        val tooLarge = ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.REFUSED, statusName = TOO_LARGE)
+        backups.importResult = ClientResult.Failed(tooLarge)
         vm.onAction(BackupAction.Picked(Uri.parse("content://documents/huge")))
         runCurrent()
         assertEquals(BackupStep.LIST, vm.state.value.step)

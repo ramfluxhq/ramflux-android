@@ -186,4 +186,6 @@
     <string name="settings_pairing_failed">关联已中止。</string>
     <!-- Language row value: the language is planned, not translated. -->
     <string name="settings_language_untranslated">翻译进行中</string>
+    <!-- Separator between items of a short inline list, such as device rights. -->
+    <string name="settings_list_separator">、</string>
 </resources>

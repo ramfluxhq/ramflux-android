@@ -186,4 +186,6 @@
     <string name="settings_pairing_failed">Pairing stopped.</string>
     <!-- Language row value: the language is planned, not translated. -->
     <string name="settings_language_untranslated">Translation in progress</string>
+    <!-- Separator between items of a short inline list, such as device rights. -->
+    <string name="settings_list_separator">", "</string>
 </resources>

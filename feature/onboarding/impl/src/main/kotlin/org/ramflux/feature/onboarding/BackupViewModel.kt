@@ -73,6 +73,7 @@ class BackupViewModel @Inject constructor(
     private var opened = false
     private var watch: Job? = null
     private var work: Job? = null
+
     /** The private copy of a picked archive until its verify job exists. */
     private var imported: String? = null
 
@@ -83,12 +84,20 @@ class BackupViewModel @Inject constructor(
                 local.update { it.copy(freshInstall = action.freshInstall, step = if (action.freshInstall) BackupStep.LIST else it.step) }
                 viewModelScope.launch { resolve(action.freshInstall) }
             }
-            is BackupAction.Visible -> if (action.visible) watch() else { watch?.cancel(); watch = null }
+            is BackupAction.Visible -> if (action.visible) {
+                watch()
+            } else {
+                watch?.cancel()
+                watch = null
+            }
             BackupAction.StartCreate -> if (!local.value.freshInstall && local.value.account != null) step(BackupStep.CREATE)
             is BackupAction.SubmitCreate -> {
                 val account = local.value.account
                 val secret = action.passphrase.snapshot().also { action.passphrase.clear() }
-                if (account == null || busy()) { secret.fill('\u0000'); return }
+                if (account == null || busy()) {
+                    secret.fill('\u0000')
+                    return
+                }
                 run { reply(backups.create(account, secret)) { step(BackupStep.LIST) } }
             }
             BackupAction.StartRestore -> if (!busy()) {
@@ -97,26 +106,43 @@ class BackupViewModel @Inject constructor(
             }
             is BackupAction.Picked -> {
                 val source = action.source
-                if (source == null) { step(BackupStep.LIST); return }
+                if (source == null) {
+                    step(BackupStep.LIST)
+                    return
+                }
                 step(BackupStep.IMPORTING)
                 run {
                     when (val copied = backups.import(source)) {
-                        is ClientResult.Ready -> { imported = copied.value; step(BackupStep.RESTORE_PASSPHRASE) }
+                        is ClientResult.Ready -> {
+                            imported = copied.value
+                            step(BackupStep.RESTORE_PASSPHRASE)
+                        }
                         is ClientResult.Failed -> local.update { it.copy(step = BackupStep.LIST, problem = copied.problem.backupMessage()) }
-                        is ClientResult.Unavailable -> local.update { it.copy(step = BackupStep.LIST, problem = uiText(R.string.backup_unavailable)) }
+                        is ClientResult.Unavailable -> local.update {
+                            it.copy(
+                                step = BackupStep.LIST,
+                                problem = uiText(R.string.backup_unavailable)
+                            )
+                        }
                     }
                 }
             }
             is BackupAction.SubmitVerify -> {
                 val archive = imported
                 val secret = action.passphrase.snapshot().also { action.passphrase.clear() }
-                if (archive == null || busy()) { secret.fill('\u0000'); return }
+                if (archive == null || busy()) {
+                    secret.fill('\u0000')
+                    return
+                }
                 imported = null
                 step(BackupStep.VERIFYING)
                 run {
                     reply(backups.verify(local.value.account, archive, secret)) { job ->
-                        if (job.state == BackupJobState.VERIFIED) local.update { it.copy(step = BackupStep.INSTALL, verified = job) }
-                        else local.update { it.copy(step = BackupStep.LIST) }
+                        if (job.state == BackupJobState.VERIFIED) {
+                            local.update { it.copy(step = BackupStep.INSTALL, verified = job) }
+                        } else {
+                            local.update { it.copy(step = BackupStep.LIST) }
+                        }
                     }
                     if (local.value.step == BackupStep.VERIFYING) local.update { it.copy(step = BackupStep.LIST) }
                 }
@@ -128,17 +154,26 @@ class BackupViewModel @Inject constructor(
                 if (!local.value.confirmMerge || !archive.merge || busy()) return
                 local.update { it.copy(confirmMerge = false) }
                 // Merging writes into the existing account named by the archive; the SDK checks it is unlocked here.
-                run { reply(backups.install(archive.account, job.id, null)) { local.update { it.copy(step = BackupStep.LIST, verified = null) } } }
+                run {
+                    reply(
+                        backups.install(archive.account, job.id, null)
+                    ) { local.update { it.copy(step = BackupStep.LIST, verified = null) } }
+                }
             }
             is BackupAction.InstallNew -> {
                 val job = local.value.verified
                 val code = action.code.snapshot().also { action.code.clear() }
-                if (job == null || job.archive?.merge != false || busy()) { code.fill('\u0000'); return }
+                if (job == null || job.archive?.merge != false || busy()) {
+                    code.fill('\u0000')
+                    return
+                }
                 run { reply(backups.install(null, job.id, code)) { local.update { it.copy(step = BackupStep.LIST, verified = null) } } }
             }
             is BackupAction.Cancel -> if (!busy()) run { reply(backups.cancel(local.value.account, action.job)) {} }
-            is BackupAction.Export -> local.value.jobs.firstOrNull { it.id == action.job && it.kind == BackupJobKind.BACKUP && it.state == BackupJobState.DONE }?.let {
-                event(BackupEvent.SaveArchive(it.id, "ramflux-backup-${it.createdAt}.rfbackup"))
+            is BackupAction.Export -> local.value.jobs.firstOrNull {
+                it.id == action.job && it.kind == BackupJobKind.BACKUP && it.state == BackupJobState.DONE
+            }?.let {
+                event(BackupEvent.SaveArchive(it.id, "ramflux-backup-" + it.createdAt + ".rfbackup"))
             }
             is BackupAction.Exported -> {
                 val destination = action.destination ?: return
@@ -151,13 +186,24 @@ class BackupViewModel @Inject constructor(
                 }
             }
             BackupAction.Back -> when (local.value.step) {
-                BackupStep.LIST -> { discardImport(); event(BackupEvent.Back) }
+                BackupStep.LIST -> {
+                    discardImport()
+                    event(BackupEvent.Back)
+                }
                 BackupStep.INSTALL -> {
                     val job = local.value.verified
                     local.update { it.copy(step = BackupStep.LIST, verified = null, confirmMerge = false) }
-                    if (job != null) viewModelScope.launch { backups.cancel(local.value.account, job.id); backups.discard(job.id) }
+                    if (job != null) {
+                        viewModelScope.launch {
+                            backups.cancel(local.value.account, job.id)
+                            backups.discard(job.id)
+                        }
+                    }
                 }
-                else -> if (!busy()) { discardImport(); step(BackupStep.LIST) }
+                else -> if (!busy()) {
+                    discardImport()
+                    step(BackupStep.LIST)
+                }
             }
         }
     }
@@ -169,7 +215,13 @@ class BackupViewModel @Inject constructor(
             when (val listed = accounts.list()) {
                 is ClientResult.Ready -> {
                     val active = listed.value.accounts.find { it.id == listed.value.activeId && it.unlocked }?.id
-                    local.update { it.copy(account = active, ready = active != null, problem = if (active == null) uiText(R.string.backup_account_needed) else null) }
+                    local.update {
+                        it.copy(
+                            account = active,
+                            ready = active != null,
+                            problem = if (active == null) uiText(R.string.backup_account_needed) else null
+                        )
+                    }
                 }
                 is ClientResult.Failed -> local.update { it.copy(problem = listed.problem.backupMessage()) }
                 is ClientResult.Unavailable -> local.update { it.copy(problem = uiText(R.string.backup_unavailable)) }
@@ -187,8 +239,9 @@ class BackupViewModel @Inject constructor(
         val account = local.value.account
         watch = viewModelScope.launch {
             backups.changes(account).collect { change ->
-                if (change is ClientResult.Ready) reload()
-                else if (change is ClientResult.Failed) local.update { it.copy(problem = change.problem.backupMessage()) }
+                if (change is ClientResult.Ready) {
+                    reload()
+                } else if (change is ClientResult.Failed) local.update { it.copy(problem = change.problem.backupMessage()) }
             }
         }
     }
@@ -199,7 +252,9 @@ class BackupViewModel @Inject constructor(
             is ClientResult.Ready -> {
                 // A restore archive copy is removed as soon as its job ends.
                 rows.value.filter { it.kind == BackupJobKind.RESTORE && it.state.terminal }.forEach { backups.discard(it.id) }
-                rows.value.filter { it.kind == BackupJobKind.BACKUP && it.state.terminal && it.state != BackupJobState.DONE }.forEach { backups.discard(it.id) }
+                rows.value.filter {
+                    it.kind == BackupJobKind.BACKUP && it.state.terminal && it.state != BackupJobState.DONE
+                }.forEach { backups.discard(it.id) }
                 local.update { it.copy(loading = false, jobs = rows.value.toPersistentList()) }
             }
             is ClientResult.Failed -> local.update { it.copy(loading = false, problem = rows.problem.backupMessage()) }
@@ -209,7 +264,10 @@ class BackupViewModel @Inject constructor(
 
     private inline fun reply(result: ClientResult<BackupJob>, onReady: (BackupJob) -> Unit) {
         when (result) {
-            is ClientResult.Ready -> { onReady(result.value); local.update { it.copy(problem = null) } }
+            is ClientResult.Ready -> {
+                onReady(result.value)
+                local.update { it.copy(problem = null) }
+            }
             is ClientResult.Failed -> local.update { it.copy(problem = result.problem.backupMessage()) }
             is ClientResult.Unavailable -> local.update { it.copy(problem = uiText(R.string.backup_unavailable)) }
         }
@@ -218,12 +276,19 @@ class BackupViewModel @Inject constructor(
     private fun run(block: suspend () -> Unit) {
         work = viewModelScope.launch {
             local.update { it.copy(working = true, problem = null) }
-            try { block(); reload() } finally { local.update { it.copy(working = false) } }
+            try {
+                block()
+                reload()
+            } finally {
+                local.update { it.copy(working = false) }
+            }
         }
     }
     private fun busy() = work?.isActive == true
     private fun step(step: BackupStep) = local.update { it.copy(step = step, problem = null) }
-    private fun event(event: BackupEvent) { viewModelScope.launch { channel.send(event) } }
+    private fun event(event: BackupEvent) {
+        viewModelScope.launch { channel.send(event) }
+    }
     private fun discardImport() {
         val path = imported ?: return
         imported = null

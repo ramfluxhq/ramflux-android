@@ -143,6 +143,7 @@ class PermissionsViewModel @Inject constructor(private val repository: OsPermiss
             }
         }
     }
+
     /** The runtime permission the opening entry needs before it reports ready. */
     private fun entryPermission(): OsPermission? = when (local.value.entry) {
         PermissionEntry.CAMERA_SCAN, PermissionEntry.CAMERA_PHOTO -> OsPermission.CAMERA

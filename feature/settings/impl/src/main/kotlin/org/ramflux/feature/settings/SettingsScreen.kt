@@ -98,7 +98,13 @@ fun SettingsScreen(
                                     stringResource(R.string.settings_language),
                                     { onAction(SettingsAction.Page(SettingsPage.LANGUAGE)) },
                                     icon = "languages",
-                                    value = if (state.savedLanguage == AppLanguage.SYSTEM) stringResource(R.string.settings_system) else languageName(state.savedLanguage.tag),
+                                    value = if (state.savedLanguage == AppLanguage.SYSTEM) {
+                                        stringResource(
+                                            R.string.settings_system
+                                        )
+                                    } else {
+                                        languageName(state.savedLanguage.tag)
+                                    },
                                     testTag = "language"
                                 )
                             }

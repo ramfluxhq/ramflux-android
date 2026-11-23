@@ -109,7 +109,9 @@ fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
     entry<PermissionsRoute> { route -> PermissionsNavigation(route, shell::back) }
     entry<SettingsRoute> {
         SettingsNavigation(
-            shell::back, setup, setup,
+            shell::back,
+            setup,
+            setup,
             onPermissions = { shell.navigate(PermissionsRoute()) },
             onBackup = { shell.navigate(BackupRoute()) }
         )

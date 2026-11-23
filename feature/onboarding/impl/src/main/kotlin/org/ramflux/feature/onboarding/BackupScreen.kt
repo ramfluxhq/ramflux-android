@@ -31,12 +31,7 @@ import org.ramflux.feature.onboarding.impl.R
 
 /** Host owns navigation; archives move through the Storage Access Framework only (create and open document). */
 @Composable
-fun BackupNavigation(
-    freshInstall: Boolean,
-    onBack: () -> Unit,
-    vm: BackupViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
-) {
+fun BackupNavigation(freshInstall: Boolean, onBack: () -> Unit, modifier: Modifier = Modifier, vm: BackupViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     var saving by remember { mutableStateOf<String?>(null) }
@@ -52,7 +47,8 @@ fun BackupNavigation(
     LaunchedEffect(vm) {
         vm.events.collect { event ->
             when (event) {
-                BackupEvent.PickArchive -> pick.launch(arrayOf("*/*"))
+                // Archives have no registered type; providers report them as generic binary files.
+                BackupEvent.PickArchive -> pick.launch(arrayOf("application/octet-stream"))
                 is BackupEvent.SaveArchive -> {
                     saving = event.job
                     save.launch(event.suggestedName)
@@ -72,7 +68,9 @@ fun BackupScreen(state: BackupState, onAction: (BackupAction) -> Unit, modifier:
     var filled by remember { mutableIntStateOf(0) }
     Scaffold(modifier = modifier.testTag("backup-window"), contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
         Column(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)) {
-            KitPageHeader(stringResource(if (state.freshInstall) R.string.backup_restore_title else R.string.backup_title), onBack = { onAction(BackupAction.Back) })
+            KitPageHeader(stringResource(if (state.freshInstall) R.string.backup_restore_title else R.string.backup_title), onBack = {
+                onAction(BackupAction.Back)
+            })
             LazyColumn(
                 Modifier.weight(1f).fillMaxWidth().padding(horizontal = theme.gap.dp),
                 verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
@@ -83,11 +81,16 @@ fun BackupScreen(state: BackupState, onAction: (BackupAction) -> Unit, modifier:
                         item("actions") {
                             Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
                                 if (!state.freshInstall) {
-                                    KitButton(stringResource(R.string.backup_create), { onAction(BackupAction.StartCreate) }, enabled = state.ready && !state.working, tag = "backup-create")
+                                    KitButton(stringResource(R.string.backup_create), {
+                                        onAction(BackupAction.StartCreate)
+                                    }, enabled = state.ready && !state.working, tag = "backup-create")
                                 }
                                 KitButton(
-                                    stringResource(R.string.backup_restore), { onAction(BackupAction.StartRestore) },
-                                    kind = KitButtonKind.Secondary, enabled = state.ready && !state.working, tag = "backup-restore"
+                                    stringResource(R.string.backup_restore),
+                                    { onAction(BackupAction.StartRestore) },
+                                    kind = KitButtonKind.Secondary,
+                                    enabled = state.ready && !state.working,
+                                    tag = "backup-restore"
                                 )
                                 Text(stringResource(R.string.backup_storage_help), color = theme.secondary)
                             }
@@ -100,23 +103,43 @@ fun BackupScreen(state: BackupState, onAction: (BackupAction) -> Unit, modifier:
                     BackupStep.CREATE -> item("create") {
                         Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
                             Text(stringResource(R.string.backup_passphrase_help))
-                            ErasableSecretField(passphrase, stringResource(R.string.backup_passphrase), "backup-passphrase", !state.working, true, 1024) {
+                            ErasableSecretField(
+                                passphrase,
+                                stringResource(R.string.backup_passphrase),
+                                "backup-passphrase",
+                                !state.working,
+                                true,
+                                1024
+                            ) {
                                 filled = passphrase.owned().size
                             }
                             KitButton(
-                                stringResource(R.string.backup_create_confirm), { onAction(BackupAction.SubmitCreate(passphrase)) },
-                                enabled = !state.working && filled >= BackupRepository.MIN_ARCHIVE_PASSPHRASE, tag = "backup-create-confirm"
+                                stringResource(R.string.backup_create_confirm),
+                                { onAction(BackupAction.SubmitCreate(passphrase)) },
+                                enabled = !state.working && filled >= BackupRepository.MIN_ARCHIVE_PASSPHRASE,
+                                tag = "backup-create-confirm"
                             )
                         }
                     }
-                    BackupStep.IMPORTING, BackupStep.VERIFYING -> item("working") { KitEmpty("loader", stringResource(R.string.backup_working), "") }
+                    BackupStep.IMPORTING, BackupStep.VERIFYING -> item(
+                        "working"
+                    ) { KitEmpty("loader", stringResource(R.string.backup_working), "") }
                     BackupStep.RESTORE_PASSPHRASE -> item("verify") {
                         Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
                             Text(stringResource(R.string.backup_verify_help))
-                            ErasableSecretField(passphrase, stringResource(R.string.backup_passphrase), "restore-passphrase", !state.working, true, 1024) {
+                            ErasableSecretField(
+                                passphrase,
+                                stringResource(R.string.backup_passphrase),
+                                "restore-passphrase",
+                                !state.working,
+                                true,
+                                1024
+                            ) {
                                 filled = passphrase.owned().size
                             }
-                            KitButton(stringResource(R.string.backup_verify), { onAction(BackupAction.SubmitVerify(passphrase)) }, enabled = !state.working && filled > 0, tag = "backup-verify")
+                            KitButton(stringResource(R.string.backup_verify), {
+                                onAction(BackupAction.SubmitVerify(passphrase))
+                            }, enabled = !state.working && filled > 0, tag = "backup-verify")
                         }
                     }
                     BackupStep.INSTALL -> state.verified?.let { job -> item("install") { Install(job, state, code, onAction) } }
@@ -138,15 +161,33 @@ private fun Install(job: BackupJob, state: BackupState, code: ErasableBuffer, on
         if (archive.merge) {
             Text(stringResource(R.string.backup_merge_help))
             if (state.confirmMerge) {
-                KitSecurityWarning(stringResource(R.string.backup_merge_confirm_title), stringResource(R.string.backup_merge_confirm_body), KitWarningTone.Warning)
-                KitButton(stringResource(R.string.backup_merge_confirm), { onAction(BackupAction.ConfirmMerge) }, enabled = !state.working, tag = "backup-merge-confirm")
+                KitSecurityWarning(
+                    stringResource(R.string.backup_merge_confirm_title),
+                    stringResource(R.string.backup_merge_confirm_body),
+                    KitWarningTone.Warning
+                )
+                KitButton(stringResource(R.string.backup_merge_confirm), {
+                    onAction(BackupAction.ConfirmMerge)
+                }, enabled = !state.working, tag = "backup-merge-confirm")
             } else {
-                KitButton(stringResource(R.string.backup_merge), { onAction(BackupAction.Merge) }, enabled = !state.working, tag = "backup-merge")
+                KitButton(
+                    stringResource(R.string.backup_merge),
+                    { onAction(BackupAction.Merge) },
+                    enabled = !state.working,
+                    tag = "backup-merge"
+                )
             }
         } else {
             Text(stringResource(R.string.backup_new_account_help))
-            AccountCodeField(code, stringResource(R.string.backup_new_code), "backup-new-code", !state.working) { digits = code.owned().size }
-            KitButton(stringResource(R.string.backup_install_new), { onAction(BackupAction.InstallNew(code)) }, enabled = !state.working && digits == 6, tag = "backup-install-new")
+            AccountCodeField(
+                code,
+                stringResource(R.string.backup_new_code),
+                "backup-new-code",
+                !state.working
+            ) { digits = code.owned().size }
+            KitButton(stringResource(R.string.backup_install_new), {
+                onAction(BackupAction.InstallNew(code))
+            }, enabled = !state.working && digits == 6, tag = "backup-install-new")
         }
     }
 }
@@ -172,8 +213,11 @@ private fun JobRow(job: BackupJob, onAction: (BackupAction) -> Unit) {
             val total = job.bytesTotal ?: job.itemsTotal
             val done = if (job.bytesTotal != null) job.bytesDone else job.itemsDone
             Text(
-                if (total != null && total > 0) stringResource(R.string.backup_progress, (done * 100 / total).toInt(), job.category)
-                else stringResource(R.string.backup_progress_open, job.category),
+                if (total != null && total > 0) {
+                    stringResource(R.string.backup_progress, (done * 100 / total).toInt(), job.category)
+                } else {
+                    stringResource(R.string.backup_progress_open, job.category)
+                },
                 color = theme.secondary
             )
         }
@@ -181,10 +225,17 @@ private fun JobRow(job: BackupJob, onAction: (BackupAction) -> Unit) {
         job.failure?.let { LtrCode(it, tag = "job-failure") }
         Row(horizontalArrangement = Arrangement.spacedBy(theme.gap.dp), verticalAlignment = Alignment.CenterVertically) {
             if (!job.state.terminal && job.state != BackupJobState.INSTALLING) {
-                KitButton(stringResource(R.string.backup_cancel), { onAction(BackupAction.Cancel(job.id)) }, kind = KitButtonKind.Secondary, size = KitButtonSize.Compact, tag = "job-cancel")
+                KitButton(stringResource(R.string.backup_cancel), {
+                    onAction(BackupAction.Cancel(job.id))
+                }, kind = KitButtonKind.Secondary, size = KitButtonSize.Compact, tag = "job-cancel")
             }
             if (job.kind == BackupJobKind.BACKUP && job.state == BackupJobState.DONE) {
-                KitButton(stringResource(R.string.backup_save), { onAction(BackupAction.Export(job.id)) }, size = KitButtonSize.Compact, tag = "job-save")
+                KitButton(
+                    stringResource(R.string.backup_save),
+                    { onAction(BackupAction.Export(job.id)) },
+                    size = KitButtonSize.Compact,
+                    tag = "job-save"
+                )
             }
         }
     }

@@ -60,7 +60,8 @@ class SettingsViewModelTest {
         val devices = FakeDeviceDirectory()
         val status = FakeAccountStatus()
         val preferences = FakeSettingsAppearance()
-        val vm = SettingsViewModel(accounts, devices, status, preferences, FakeSettingsSession(), FakeSettingsLanguage(), FakeAccountSecurity())
+        val vm =
+            SettingsViewModel(accounts, devices, status, preferences, FakeSettingsSession(), FakeSettingsLanguage(), FakeAccountSecurity())
         observe(vm)
         runCurrent()
         assertTrue(vm.state.value.accountRequired)
@@ -151,7 +152,16 @@ class SettingsViewModelTest {
                 ClientResult.Ready(listOf(DeviceSummary("private", true, 1u)))
             }
         }
-        val vm = SettingsViewModel(accounts, devices, FakeAccountStatus(), FakeSettingsAppearance(), session, FakeSettingsLanguage(), FakeAccountSecurity())
+        val vm =
+            SettingsViewModel(
+                accounts,
+                devices,
+                FakeAccountStatus(),
+                FakeSettingsAppearance(),
+                session,
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
+            )
         observe(vm)
         runCurrent()
         accounts.result = ClientResult.Ready(AccountCatalog(listOf(AccountSummary("b", "Other", true, "unlocked")), "b"))

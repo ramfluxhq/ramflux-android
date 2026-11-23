@@ -14,12 +14,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun OnboardingNavigation(
     onBack: () -> Unit,
     onAccountSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
     onAccountCreated: (String) -> Unit = {},
     onRestoreBackup: () -> Unit = {},
     openCreate: Boolean = false,
     unlockId: String = "",
-    vm: OnboardingViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
+    vm: OnboardingViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(openCreate, unlockId) {

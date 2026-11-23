@@ -5,8 +5,8 @@ package org.ramflux.feature.settings
 
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.*
-import kotlinx.coroutines.test.*
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -23,8 +23,13 @@ class SettingsSecurityTest {
     }
     private fun TestScope.open(security: FakeAccountSecurity): SettingsViewModel {
         val vm = SettingsViewModel(
-            FakeSettingsAccounts(), FakeDeviceDirectory(), FakeAccountStatus(), FakeSettingsAppearance(),
-            FakeSettingsSession(), FakeSettingsLanguage(), security
+            FakeSettingsAccounts(),
+            FakeDeviceDirectory(),
+            FakeAccountStatus(),
+            FakeSettingsAppearance(),
+            FakeSettingsSession(),
+            FakeSettingsLanguage(),
+            security
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
         runCurrent()

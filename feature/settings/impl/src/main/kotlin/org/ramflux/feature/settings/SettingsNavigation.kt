@@ -15,10 +15,10 @@ fun SettingsNavigation(
     onBack: () -> Unit,
     onAccount: () -> Unit,
     onConnections: () -> Unit,
+    modifier: Modifier = Modifier,
     onPermissions: () -> Unit = {},
     onBackup: () -> Unit = {},
-    vm: SettingsViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
+    vm: SettingsViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)

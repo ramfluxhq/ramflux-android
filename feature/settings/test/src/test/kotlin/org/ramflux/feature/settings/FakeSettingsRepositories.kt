@@ -119,7 +119,8 @@ class FakeAccountSecurity : AccountSecurityRepository {
     }
     override suspend fun changeAccountCode(account: String, current: CharArray, next: CharArray): ClientResult<Unit> {
         codes += String(current) to String(next)
-        current.fill('\u0000'); next.fill('\u0000')
+        current.fill('\u0000')
+        next.fill('\u0000')
         return code
     }
 }

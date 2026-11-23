@@ -25,7 +25,16 @@ class SettingsScreenTest {
         val accounts = FakeSettingsAccounts().apply { result = ClientResult.Ready(AccountCatalog(emptyList(), null)) }
         val devices = FakeDeviceDirectory()
         val status = FakeAccountStatus()
-        val vm = SettingsViewModel(accounts, devices, status, FakeSettingsAppearance(), FakeSettingsSession(), FakeSettingsLanguage(), FakeAccountSecurity())
+        val vm =
+            SettingsViewModel(
+                accounts,
+                devices,
+                status,
+                FakeSettingsAppearance(),
+                FakeSettingsSession(),
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
+            )
         vm.onAction(SettingsAction.Page(SettingsPage.DEVICES))
         val actions = mutableListOf<SettingsAction>()
         compose.setContent {

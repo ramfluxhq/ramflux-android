@@ -171,12 +171,16 @@ class SettingsViewModel @Inject constructor(
                 }
             }
             SettingsAction.StartPairing -> startPairing()
-            is SettingsAction.ComparePairing -> pairingStep(PairingStep.COMPARE) { account, state -> security.confirmPairing(account, state, action.match) }
+            is SettingsAction.ComparePairing -> pairingStep(
+                PairingStep.COMPARE
+            ) { account, state -> security.confirmPairing(account, state, action.match) }
             SettingsAction.ApprovePairing -> if (local.value.pairing.step == PairingStep.REVIEW) pairing { it.copy(confirmApprove = true) }
             SettingsAction.ConfirmApprovePairing -> if (local.value.pairing.confirmApprove) {
                 pairingStep(PairingStep.REVIEW) { account, state -> security.approvePairing(account, state, true) }
             }
-            SettingsAction.DeclinePairing -> pairingStep(PairingStep.REVIEW) { account, state -> security.approvePairing(account, state, false) }
+            SettingsAction.DeclinePairing -> pairingStep(
+                PairingStep.REVIEW
+            ) { account, state -> security.approvePairing(account, state, false) }
             SettingsAction.CancelPairing -> cancelPairing()
             is SettingsAction.RequestPolicy -> writePolicy(action.policy)
             SettingsAction.OpenCodeChange -> if (activeAccount != null) {
@@ -201,6 +205,7 @@ class SettingsViewModel @Inject constructor(
     private var pairingState: PairingState? = null
     private var pairingJob: Job? = null
     private var pairingAccount: String? = null
+
     /** The begun operation (id, generation), known before the first status read. */
     private var pairingOperation: Pair<String, ULong>? = null
 
@@ -210,10 +215,17 @@ class SettingsViewModel @Inject constructor(
         val start = index * INVITATION_CHUNK
         if (index < 0 || start >= token.size) return
         val chunk = token.copyOfRange(start, minOf(token.size, start + INVITATION_CHUNK))
-        try { block(chunk) } finally { chunk.fill('\u0000') }
+        try {
+            block(chunk)
+        } finally {
+            chunk.fill('\u0000')
+        }
     }
 
     private fun pairing(update: (SettingsPairing) -> SettingsPairing) = local.update { it.copy(pairing = update(it.pairing)) }
+
+    private fun failedPairing(problem: ClientProblem) =
+        SettingsPairing(step = PairingStep.ENDED, ended = PairingEnd.FAILED, result = problem.statusName, problem = problem.message())
 
     private fun eraseInvitation() {
         invitation?.fill('\u0000')
@@ -246,8 +258,12 @@ class SettingsViewModel @Inject constructor(
                     }
                     follow(account, started.operationId, started.generation)
                 }
-                is ClientResult.Failed -> pairing { SettingsPairing(step = PairingStep.ENDED, ended = PairingEnd.FAILED, result = begun.problem.statusName, problem = begun.problem.message()) }
-                is ClientResult.Unavailable -> pairing { SettingsPairing(step = PairingStep.ENDED, ended = PairingEnd.FAILED, problem = begun.reason.message()) }
+                is ClientResult.Failed -> pairing {
+                    failedPairing(begun.problem)
+                }
+                is ClientResult.Unavailable -> pairing {
+                    SettingsPairing(step = PairingStep.ENDED, ended = PairingEnd.FAILED, problem = begun.reason.message())
+                }
             }
         }
     }
@@ -335,8 +351,12 @@ class SettingsViewModel @Inject constructor(
         pairingJob = viewModelScope.launch {
             when (val result = security.cancelPairing(account, operation, generation)) {
                 is ClientResult.Ready -> apply(result.value)
-                is ClientResult.Failed -> pairing { it.copy(step = PairingStep.ENDED, ended = PairingEnd.FAILED, result = result.problem.statusName, problem = result.problem.message()) }
-                is ClientResult.Unavailable -> pairing { it.copy(step = PairingStep.ENDED, ended = PairingEnd.FAILED, problem = result.reason.message()) }
+                is ClientResult.Failed -> pairing {
+                    failedPairing(result.problem)
+                }
+                is ClientResult.Unavailable -> pairing {
+                    it.copy(step = PairingStep.ENDED, ended = PairingEnd.FAILED, problem = result.reason.message())
+                }
             }
         }
     }
@@ -348,7 +368,15 @@ class SettingsViewModel @Inject constructor(
             val account = pairingAccount
             val operation = pairingOperation
             pairingJob?.cancel()
-            if (account != null && operation != null) viewModelScope.launch { security.cancelPairing(account, operation.first, operation.second) }
+            if (account != null && operation != null) {
+                viewModelScope.launch {
+                    security.cancelPairing(
+                        account,
+                        operation.first,
+                        operation.second
+                    )
+                }
+            }
         }
         eraseInvitation()
         pairingState = null
@@ -393,8 +421,16 @@ class SettingsViewModel @Inject constructor(
         local.update { it.copy(codeChange = form.copy(currentDigits = currentCount, nextDigits = nextCount, problem = null, done = false)) }
     }
     private fun typed(buffer: CharArray, count: Int, digit: Char?): Int = when {
-        digit == null -> if (count > 0) { buffer[count - 1] = '\u0000'; count - 1 } else 0
-        digit in '0'..'9' && count < buffer.size -> { buffer[count] = digit; count + 1 }
+        digit == null -> if (count > 0) {
+            buffer[count - 1] = '\u0000'
+            count - 1
+        } else {
+            0
+        }
+        digit in '0'..'9' && count < buffer.size -> {
+            buffer[count] = digit
+            count + 1
+        }
         else -> count
     }
     private fun submitCodeChange() {
@@ -550,11 +586,13 @@ private fun ClientProblem.codeMessage(): UiText = when (statusName) {
     SAME_CODE -> uiText(R.string.settings_code_same)
     else -> if (outcome == ClientOutcome.REFUSED) uiText(R.string.settings_code_refused) else message()
 }
+
 /** Invitation characters drawn per chunk; chunks are numbered so they can be checked in order. */
 private const val INVITATION_CHUNK = 32
 private const val PAIRING_POLL_MILLIS = 2_000L
+
 /** The name this phone gives itself in the invitation (`display_name`); the SDK bounds it to 128 bytes. */
-private val DEVICE_NAME = android.os.Build.MODEL?.takeIf { it.isNotBlank() }?.take(64) ?: "Android"
+private val DEVICE_NAME = android.os.Build.MODEL?.takeIf { it.isNotBlank() }?.take(64) ?: "android"
 private fun ClientProblem.message(): UiText = if (outcome == ClientOutcome.UNKNOWN) {
     uiText(R.string.settings_unknown_outcome)
 } else {

@@ -32,7 +32,8 @@ class SettingsLanguageIntegrationTest {
         val accounts = FakeSettingsAccounts()
         val devices = FakeDeviceDirectory()
         val status = FakeAccountStatus()
-        val vm = SettingsViewModel(accounts, devices, status, FakeSettingsAppearance(), FakeSettingsSession(), language, FakeAccountSecurity())
+        val vm =
+            SettingsViewModel(accounts, devices, status, FakeSettingsAppearance(), FakeSettingsSession(), language, FakeAccountSecurity())
         vm.onAction(SettingsAction.Page(SettingsPage.LANGUAGE))
         var identity: Any? = null
         compose.setContent {

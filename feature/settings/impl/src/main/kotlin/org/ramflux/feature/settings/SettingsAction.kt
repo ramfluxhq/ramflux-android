@@ -33,6 +33,7 @@ sealed interface SettingsAction {
     data class RequestPolicy(val policy: org.ramflux.data.ContactRequestPolicy) : SettingsAction
 
     data object OpenCodeChange : SettingsAction
+
     /** One typed digit (or deletion with null) of the current or the new account code. */
     data class CodeDigit(val next: Boolean, val digit: Char?) : SettingsAction
     data object SubmitCodeChange : SettingsAction
