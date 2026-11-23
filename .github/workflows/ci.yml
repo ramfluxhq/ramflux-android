@@ -23,12 +23,20 @@ jobs:
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0
       - uses: gradle/actions/setup-gradle@v4
-      # The key follows the Robolectric version and the API 28/35 jar versions in libs.versions.toml.
+      # The key follows only the Robolectric version and the API 28/35 jar versions in
+      # libs.versions.toml, so adding an unrelated library does not force a fresh
+      # download of the large jars (Maven Central throttles those with 429).
+      - name: Compute the Robolectric jar cache key
+        id: robolectric-key
+        run: python3 scripts/robolectric-cache-key.py
       - name: Cache Robolectric android-all jars
         uses: actions/cache@v4
         with:
           path: robolectric-jars
-          key: robolectric-android-all-v1-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          key: robolectric-android-all-v2-${{ runner.os }}-${{ steps.robolectric-key.outputs.hash }}
+          restore-keys: |
+            robolectric-android-all-v2-${{ runner.os }}-
+            robolectric-android-all-v1-${{ runner.os }}-
       - run: python3 scripts/check-secret-boundary.py
       - run: python3 scripts/check-client-architecture.py
       - run: python3 scripts/check-os-permissions.py

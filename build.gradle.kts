@@ -40,10 +40,33 @@ tasks.register("prefetchRobolectricJars") {
             !file.isFile || file.length() == 0L
         }
     }
+    // Maven Central answers bursts of large downloads from shared CI runners with
+    // 429 Too Many Requests. Resolve each jar with a few spaced retries instead of
+    // failing the build on the first throttled request. Every attempt resolves a
+    // fresh copy of the configuration, because a resolved configuration is final.
+    val attempts = providers.gradleProperty("ramflux.robolectric.fetchAttempts").map(String::toInt).orElse(5)
+    val firstDelayMs = providers.gradleProperty("ramflux.robolectric.fetchDelayMs").map(String::toLong).orElse(15_000L)
     doLast {
         listOf(robolectricAndroidAllSdk28, robolectricAndroidAllSdk35).forEach { jars ->
+            val maxAttempts = attempts.get().coerceAtLeast(1)
+            var delayMs = firstDelayMs.get()
+            var resolved: Set<File>? = null
+            for (attempt in 1..maxAttempts) {
+                try {
+                    resolved = jars.copy().resolve()
+                    break
+                } catch (failure: Exception) {
+                    if (attempt == maxAttempts) throw failure
+                    logger.warn(
+                        "Fetching ${jars.name} failed (attempt $attempt of $maxAttempts): " +
+                            "${failure.message}; retrying in ${delayMs / 1000.0} s",
+                    )
+                    Thread.sleep(delayMs)
+                    delayMs *= 2
+                }
+            }
             copy {
-                from(jars)
+                from(checkNotNull(resolved))
                 into(robolectricJarDir)
             }
         }
