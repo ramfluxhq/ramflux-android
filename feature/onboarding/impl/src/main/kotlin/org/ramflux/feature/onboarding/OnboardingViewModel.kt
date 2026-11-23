@@ -152,8 +152,13 @@ class OnboardingViewModel @Inject constructor(
             OnboardingAction.BeginCreate -> beginCreate()
             OnboardingAction.PhraseSaved -> hidePhrase()
             is OnboardingAction.ConfirmChallenge -> confirmChallenge(action)
+            // Continuing selects the new account: the switch publishes an account revision, so the startup gate reads
+            // the accounts again and opens the shell instead of the start screens it showed before the ceremony.
             OnboardingAction.ContinueCreated -> local.value.createdAccountId?.let { id ->
-                viewModelScope.launch { channel.send(OnboardingEvent.AccountCreated(id)) }
+                viewModelScope.launch {
+                    accounts.select(id)
+                    channel.send(OnboardingEvent.AccountCreated(id))
+                }
             }
             is OnboardingAction.SelectAccount -> {
                 val known = local.value.accounts.find { it.id == action.id }

@@ -272,6 +272,8 @@ class OnboardingViewModelTest {
         vm.onAction(OnboardingAction.ContinueCreated)
         runCurrent()
         assertEquals("account-created", (events.single { it is OnboardingEvent.AccountCreated } as OnboardingEvent.AccountCreated).id)
+        // Continuing selects the new account (its switch makes the startup gate read the accounts again).
+        assertEquals(1, access.selections)
     }
 
     @Test fun stalePhraseCompletionWipesTheUnadoptedArrays() = runTest(timeout = 5.seconds) {
