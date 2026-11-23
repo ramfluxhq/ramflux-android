@@ -243,6 +243,12 @@ fun OnboardingScreen(
                                 OnboardingPage.CHALLENGE -> ChallengePage(state, challenge)
                                 OnboardingPage.CREATED -> CreatedAccountPage(state)
                                 OnboardingPage.LOCAL_UNLOCK -> {
+                                    state.accounts.firstOrNull { it.id == state.unlockAccountId }?.let { account ->
+                                        Text(
+                                            stringResource(R.string.ui_unlock_account_named, account.label),
+                                            Modifier.testTag("unlock-account-name")
+                                        )
+                                    }
                                     AccountCodeField(
                                         unlockCode,
                                         stringResource(R.string.ui_account_code),
@@ -257,6 +263,15 @@ fun OnboardingScreen(
                                             kind = KitButtonKind.Secondary,
                                             enabled = !state.busy,
                                             tag = "recover-locked"
+                                        )
+                                    }
+                                    state.forgetAccountId?.let { id ->
+                                        KitButton(
+                                            stringResource(R.string.ui_forget_account_on_device),
+                                            { onAction(OnboardingAction.ForgetAccount(id)) },
+                                            kind = KitButtonKind.Secondary,
+                                            enabled = !state.busy,
+                                            tag = "forget-account"
                                         )
                                     }
                                 }

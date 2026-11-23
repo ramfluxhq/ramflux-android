@@ -26,7 +26,13 @@ phrase, word challenge, confirm with the six-digit account code) through
 backed by an erasable buffer; unlock and lock go through `AccountAccessRepository`,
 and the SDK's named refusals (wrong code, wait with its `retry_after_secs`, attempts
 exhausted, missing device unlock secret) map to `AccountCodeRefusal`. Phrase recovery
-(`account.recover.*`) works for an account whose data is on this installation; the SDK
+(`account.recover.*`) works for an account whose data is on this installation;
+the SDK's `account.list` reports only open accounts, so `KnownAccountRegistry` keeps the accounts created,
+recovered, restored or unlocked on this device (id, display name, node origin, creation time; nothing secret)
+in `noBackupFilesDir/known-accounts.json`. `AccountAccessRepository.list` names the SDK's rows from it and adds
+its other entries as locked offers (`listed = false`); unlock and the account list offer them by name and ask
+only for the six-digit code. The SDK stays the authority: an offer it refuses for a reason other than the code
+shows the typed reason and can be removed (`forget`), which removes only the offer; the SDK
 refuses it without local account data, so a new installation needs a data restore or
 pairing first. Pairing (`AccountAccessRepository.setup(PAIR)`) still returns typed
 custody-provider unavailable; no credential ceremony is simulated. Each

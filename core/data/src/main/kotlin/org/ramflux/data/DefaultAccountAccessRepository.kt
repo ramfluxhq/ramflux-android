@@ -5,17 +5,26 @@ package org.ramflux.data
 
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.sdk.*
 
-internal class DefaultAccountAccessRepository(transport: RepositoryTransport) : AccountAccessRepository {
+internal class DefaultAccountAccessRepository(
+    transport: RepositoryTransport,
+    private val known: KnownAccountRegistry = MemoryKnownAccountRegistry()
+) : AccountAccessRepository {
     private val accounts = DefaultAccountsRepository(transport)
     private val revisionCount = AtomicInteger()
     private val publishedRevisions = MutableSharedFlow<Int>(replay = 1, extraBufferCapacity = 1)
     override val revisions: Flow<Int> = publishedRevisions
-    override suspend fun list(): ClientResult<AccountCatalog> = when (val result = accounts.accountList(RepositoryContext(null), JsonObject(emptyMap()))) {
+    override suspend fun list(): ClientResult<AccountCatalog> = when (val listed = sdkList()) {
+        is ClientResult.Ready -> ClientResult.Ready(listed.value.mergedWith(io { known.all() }))
+        else -> listed
+    }
+    private suspend fun sdkList(): ClientResult<AccountCatalog> = when (val result = accounts.accountList(RepositoryContext(null), JsonObject(emptyMap()))) {
         is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
         is CoreResult.Success -> when (val decoded = AccountListMetadataReader.read(result.value)) {
             is CoreResult.Failure -> ClientResult.Failed(decoded.error.appProblem())
@@ -48,8 +57,29 @@ internal class DefaultAccountAccessRepository(transport: RepositoryTransport) : 
             is CoreResult.Failure -> ClientResult.Failed(unlocked.appProblem())
             is CoreResult.Success -> {
                 unlocked.value.close()
-                switch(id)
+                switch(id).also { if (it is ClientResult.Ready) rememberOpened(id) }
             }
+        }
+    }
+    override suspend fun forget(id: String): ClientResult<Unit> {
+        if (!acceptable(id)) return invalid()
+        val catalog = when (val current = sdkList()) {
+            is ClientResult.Ready -> current.value
+            is ClientResult.Failed -> return current
+            is ClientResult.Unavailable -> return current
+        }
+        if (catalog.accounts.any { it.id == id && it.unlocked }) return invalid()
+        io { known.remove(id) }
+        publishedRevisions.emit(revisionCount.incrementAndGet())
+        return ClientResult.Ready(Unit)
+    }
+
+    /** An account opened by its code is recorded (or renamed from the SDK's label) for the next start. */
+    private suspend fun rememberOpened(id: String) {
+        val label = ((sdkList() as? ClientResult.Ready)?.value?.accounts?.firstOrNull { it.id == id })?.label
+        io {
+            val existing = known.all().firstOrNull { it.id == id }
+            if (existing == null || !label.isNullOrBlank()) known.record(KnownAccount(id, label.orEmpty()))
         }
     }
     private suspend fun switch(id: String): ClientResult<Unit> =
@@ -73,6 +103,7 @@ internal class DefaultAccountAccessRepository(transport: RepositoryTransport) : 
         }
     }
     private fun codeRefused() = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE, statusName = "not_six_digits"))
+    private suspend fun <T> io(block: () -> T): T = withContext(Dispatchers.IO) { block() }
     private fun acceptable(id: String) = id.isNotEmpty() && id.length <= 128
     private fun invalid() = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
     override suspend fun setup(action: AccountSetupAction): ClientResult<Unit> = unavailable()

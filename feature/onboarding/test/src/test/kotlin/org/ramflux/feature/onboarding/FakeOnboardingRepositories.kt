@@ -38,6 +38,11 @@ class FakeAccountAccess : AccountAccessRepository {
         passphrase.fill('\u0000')
         return unlockResult
     }
+    val forgotten = mutableListOf<String>()
+    override suspend fun forget(id: String): ClientResult<Unit> {
+        forgotten += id
+        return ClientResult.Ready(Unit)
+    }
     override suspend fun setup(action: AccountSetupAction): ClientResult<Unit> {
         setups++
         return unavailable()

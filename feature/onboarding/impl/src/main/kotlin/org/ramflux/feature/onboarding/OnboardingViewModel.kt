@@ -60,7 +60,7 @@ class OnboardingViewModel @Inject constructor(
             savedNodes = emptyList()
             phrase?.close()
             phrase = null
-            local.value = OnboardingState(page = entryPage())
+            local.value = OnboardingState(page = entryPage(), unlockAccountId = pendingUnlock)
             if (phase == ClientPhase.OPEN) onAction(OnboardingAction.Refresh)
         }
     }
@@ -70,7 +70,9 @@ class OnboardingViewModel @Inject constructor(
         requestedCreate = create
         requestedUnlock = unlockId
         if (unlockId.isNotEmpty()) pendingUnlock = unlockId
-        if (session.status.value.phase == ClientPhase.OPEN) local.update { it.copy(page = entryPage()) }
+        if (session.status.value.phase == ClientPhase.OPEN) {
+            local.update { it.copy(page = entryPage(), unlockAccountId = pendingUnlock, forgetAccountId = null) }
+        }
     }
 
     fun onAction(action: OnboardingAction) {
@@ -151,7 +153,15 @@ class OnboardingViewModel @Inject constructor(
                 val known = local.value.accounts.find { it.id == action.id }
                 if (known != null && !known.unlocked) {
                     pendingUnlock = action.id
-                    local.update { it.copy(page = OnboardingPage.LOCAL_UNLOCK, notice = null) }
+                    local.update {
+                        it.copy(
+                            page = OnboardingPage.LOCAL_UNLOCK,
+                            notice = null,
+                            unlockAccountId = action.id,
+                            forgetAccountId = null,
+                            recoverAccountId = null
+                        )
+                    }
                 } else {
                     pendingUnlock = null
                     launch {
@@ -169,6 +179,7 @@ class OnboardingViewModel @Inject constructor(
             }
             is OnboardingAction.SubmitUnlock -> submitUnlock(action)
             is OnboardingAction.BeginRecover -> beginRecover(action.accountId)
+            is OnboardingAction.ForgetAccount -> forgetAccount(action.accountId)
             is OnboardingAction.ConfirmRecover -> confirmRecover(action)
             OnboardingAction.Back -> Unit
             OnboardingAction.RestoreBackup -> if (!local.value.busy) viewModelScope.launch { channel.send(OnboardingEvent.RestoreBackup) }
@@ -207,7 +218,8 @@ class OnboardingViewModel @Inject constructor(
                             "locked" -> uiText(R.string.ui_locked)
                             else -> uiText(R.string.ui_account_unavailable)
                         },
-                        row.unlocked
+                        row.unlocked,
+                        offered = row.known && !row.listed
                     )
                 }?.toPersistentList() ?: kotlinx.collections.immutable.persistentListOf(),
                 nodes = savedNodes.map { row -> row.item() }.toPersistentList(),
@@ -356,11 +368,39 @@ class OnboardingViewModel @Inject constructor(
                         val refusal = (result as? ClientResult.Failed)?.problem?.accountCodeRefusal(unlock = true)
                         if (refusal == AccountCodeRefusal.ATTEMPTS_EXHAUSTED || refusal == AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE) {
                             local.update { it.copy(recoverAccountId = id) }
+                        } else if (refusal == null && local.value.accounts.any { it.id == id && it.offered }) {
+                            // Not a code refusal: the SDK cannot open this offered account (for example its data
+                            // is gone). The typed reason is in the notice; the entry may be removed from the list.
+                            local.update { it.copy(forgetAccountId = id) }
                         }
                     }
                 }
             } finally {
                 code.fill('\u0000')
+            }
+        }
+    }
+
+    private fun forgetAccount(accountId: String) {
+        if (local.value.forgetAccountId != accountId) return
+        launch {
+            when (val result = accounts.forget(accountId)) {
+                is ClientResult.Ready -> {
+                    checkCurrent()
+                    pendingUnlock = null
+                    requestedUnlock = ""
+                    local.update {
+                        it.copy(
+                            page = OnboardingPage.START,
+                            unlockAccountId = null,
+                            forgetAccountId = null,
+                            recoverAccountId = null,
+                            notice = null
+                        )
+                    }
+                    read()
+                }
+                else -> failure(result)
             }
         }
     }

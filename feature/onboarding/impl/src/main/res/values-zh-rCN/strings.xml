@@ -230,4 +230,8 @@
     <string name="backup_unknown">结果暂不确定，请查看任务列表。</string>
     <!-- Generic backup failure. -->
     <string name="backup_failed">备份操作未成功。</string>
+    <!-- Code page heading: %1$s is the display name of the account being unlocked. -->
+    <string name="ui_unlock_account_named">解锁 %1$s</string>
+    <!-- Button after the SDK refused an account offered from this phone's list for a reason other than the code; it removes only the offer, never account data. -->
+    <string name="ui_forget_account_on_device">从本机列表中移除</string>
 </resources>

@@ -5,15 +5,21 @@ package org.ramflux.data
 
 import android.net.Uri
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.ramflux.sdk.*
 
-internal class DefaultBackupRepository(transport: RepositoryTransport, private val files: BackupFileStore) : BackupRepository {
+internal class DefaultBackupRepository(
+    transport: RepositoryTransport,
+    private val files: BackupFileStore,
+    private val known: KnownAccountRegistry = MemoryKnownAccountRegistry()
+) : BackupRepository {
     private val accounts = DefaultAccountsRepository(transport)
     private val events = transport
 
@@ -26,7 +32,11 @@ internal class DefaultBackupRepository(transport: RepositoryTransport, private v
             is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
             is CoreResult.Success -> when (val rows = BackupMetadataReader.jobs(reply.value)) {
                 is CoreResult.Failure -> ClientResult.Failed(rows.error.appProblem())
-                is CoreResult.Success -> ClientResult.Ready(rows.value.map { remember(it) }.sortedByDescending { it.createdAt })
+                is CoreResult.Success -> {
+                    val jobs = rows.value.map { remember(it) }.sortedByDescending { it.createdAt }
+                    jobs.forEach { recordInstalled(it) }
+                    ClientResult.Ready(jobs)
+                }
             }
         }
     }
@@ -97,7 +107,9 @@ internal class DefaultBackupRepository(transport: RepositoryTransport, private v
                 publicText("job_id", job)
                 if (newCode != null) chars("passphrase", newCode)
             }
-            return jobOf(accounts.accountRestoreInstall(context(account), body))
+            return jobOf(accounts.accountRestoreInstall(context(account), body)).also { result ->
+                if (result is ClientResult.Ready) recordInstalled(result.value)
+            }
         } finally { newCode?.fill('\u0000') }
     }
 
@@ -117,6 +129,13 @@ internal class DefaultBackupRepository(transport: RepositoryTransport, private v
             is CoreResult.Failure -> ClientResult.Failed(row.error.appProblem())
             is CoreResult.Success -> ClientResult.Ready(remember(row.value))
         }
+    }
+
+    /** A finished restore that installed an account adds it to this device's registry (public facts only). */
+    private suspend fun recordInstalled(job: BackupJob) {
+        val installed = job.installedAccount?.takeIf { job.kind == BackupJobKind.RESTORE && job.state == BackupJobState.DONE } ?: return
+        val name = job.archive?.takeIf { it.account == installed }?.label.orEmpty()
+        withContext(Dispatchers.IO) { known.record(KnownAccount(installed, name)) }
     }
 
     private fun remember(row: BackupJobDisplay): BackupJob {

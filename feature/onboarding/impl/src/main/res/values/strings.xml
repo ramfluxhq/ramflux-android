@@ -231,4 +231,8 @@
     <string name="backup_unknown">The result is not known yet. Check the job list.</string>
     <!-- Generic backup failure. -->
     <string name="backup_failed">The backup step did not succeed.</string>
+    <!-- Code page heading: %1$s is the display name of the account being unlocked. -->
+    <string name="ui_unlock_account_named">Unlock %1$s</string>
+    <!-- Button after the SDK refused an account offered from this phone's list for a reason other than the code; it removes only the offer, never account data. -->
+    <string name="ui_forget_account_on_device">Remove from the list on this phone</string>
 </resources>

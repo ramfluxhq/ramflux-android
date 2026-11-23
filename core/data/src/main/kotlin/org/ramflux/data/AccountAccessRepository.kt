@@ -7,7 +7,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
 /** Metadata is ordinary display information; credentials and ceremony replies never cross Data. */
-data class AccountSummary(val id: String, val label: String?, val unlocked: Boolean, val state: String)
+data class AccountSummary(
+    val id: String,
+    val label: String?,
+    val unlocked: Boolean,
+    val state: String,
+    /** In this device's registry of created or restored accounts ([KnownAccountRegistry]). */
+    val known: Boolean = false,
+    /** Reported by the SDK's `account.list`; false for a registry offer the SDK has not opened. */
+    val listed: Boolean = true
+)
 data class AccountCatalog(val accounts: List<AccountSummary>, val activeId: String?)
 enum class AccountSetupAction { CREATE, RECOVER, PAIR, SHOW_PHRASE, CHECK_PHRASE, LOCAL_UNLOCK }
 interface AccountAccessRepository {
@@ -30,5 +39,12 @@ interface AccountAccessRepository {
 
     /** Explicit lock: closes the account's data; only its account code opens it again on this device. */
     suspend fun lock(id: String): ClientResult<Unit> =
+        ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
+
+    /**
+     * Removes an account from this device's list of offered accounts. Only the offer goes: the SDK's data is
+     * untouched, and an account the SDK has open is refused.
+     */
+    suspend fun forget(id: String): ClientResult<Unit> =
         ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
 }

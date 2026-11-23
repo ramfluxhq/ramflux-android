@@ -3,6 +3,8 @@
 
 package org.ramflux.data
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -66,8 +68,13 @@ class UnavailableAccountCeremonyRepository : AccountCeremonyRepository {
 }
 
 /** SDK creation ceremony. The host custody provider, installed at open, stores the vault seed. */
-class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : AccountCeremonyRepository {
+class DefaultAccountCeremonyRepository(
+    transport: RepositoryTransport,
+    private val known: KnownAccountRegistry = MemoryKnownAccountRegistry(),
+    private val nodes: NodeSetupRepository? = null
+) : AccountCeremonyRepository {
     private val accounts = DefaultAccountsRepository(transport)
+    private var ceremonyNode: String? = null
     private val gate = Any()
     private var ceremony: String? = null
     private var recovery: String? = null
@@ -75,7 +82,10 @@ class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : Account
     override suspend fun beginCreate(displayName: String, nodeId: String?): ClientResult<CeremonyPending> {
         val name = displayName.trim()
         if (name.isEmpty() || name.length > 64) return failed()
-        synchronized(gate) { if (ceremony != null) return busy() }
+        synchronized(gate) {
+            if (ceremony != null) return busy()
+            ceremonyNode = nodeId?.takeIf { it.isNotBlank() }
+        }
         val reply = accounts.accountCreateBegin(context(), SecretBody.fields {
             publicText("display_name", name)
             publicText("principal_kind", "human")
@@ -141,7 +151,11 @@ class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : Account
                 is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
                 is CoreResult.Success -> try {
                     val created = reply.value.twoTexts("account_id", "display_name")
-                    synchronized(gate) { ceremony = null }
+                    val nodeId = synchronized(gate) {
+                        ceremony = null
+                        ceremonyNode.also { ceremonyNode = null }
+                    }
+                    remember(created.first, created.second, nodeId)
                     ClientResult.Ready(created.first)
                 } catch (_: IllegalArgumentException) {
                     failed()
@@ -207,7 +221,9 @@ class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : Account
             return when (reply) {
                 is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
                 is CoreResult.Success -> try {
-                    ClientResult.Ready(reply.value.twoTexts("account_id", "display_name").first)
+                    val recovered = reply.value.twoTexts("account_id", "display_name")
+                    remember(recovered.first, recovered.second, null)
+                    ClientResult.Ready(recovered.first)
                 } catch (_: IllegalArgumentException) {
                     failed()
                 } finally {
@@ -242,6 +258,14 @@ class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : Account
     }
 
     // custody_setup rejects a frame operation_id. The in-memory ceremony id is the guard.
+    /** Records a created or recovered account in this device's registry (public facts only). */
+    private suspend fun remember(id: String, displayName: String, nodeId: String?) {
+        val origin = nodeId?.let { wanted ->
+            (nodes?.list() as? ClientResult.Ready)?.value?.firstOrNull { it.id == wanted }?.url
+        }
+        withContext(Dispatchers.IO) { known.record(KnownAccount(id, displayName, origin)) }
+    }
+
     private fun context() = RepositoryContext(null)
     private fun <T> failed(): ClientResult<T> = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
     private fun <T> busy(): ClientResult<T> = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 5, ClientOutcome.NONE))

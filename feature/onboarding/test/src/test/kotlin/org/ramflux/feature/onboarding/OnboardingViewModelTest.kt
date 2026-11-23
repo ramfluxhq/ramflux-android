@@ -744,6 +744,39 @@ class OnboardingViewModelTest {
         assertNull(vm.state.value.recoverAccountId)
     }
 
+    @Test fun anOfferedAccountTheSdkRefusesShowsTheReasonAndCanBeRemoved() = runTest(timeout = 5.seconds) {
+        val accounts = FakeAccountAccess().apply {
+            listing = {
+                ClientResult.Ready(
+                    AccountCatalog(listOf(AccountSummary("a", "Phone", false, "locked", known = true, listed = false)), null)
+                )
+            }
+            unlockResult = refused("account_not_found")
+        }
+        val vm = OnboardingViewModel(accounts, FakeNodeSetup(), FakeOnboardingSession(), FakeAccountCeremony())
+        observe(vm)
+        runCurrent()
+        vm.onAction(OnboardingAction.SelectAccount("a"))
+        runCurrent()
+        assertEquals("the code page names the account", "a", vm.state.value.unlockAccountId)
+        assertTrue(vm.state.value.accounts.single().offered)
+        assertNull(vm.state.value.forgetAccountId)
+        vm.onAction(OnboardingAction.SubmitUnlock(ErasableBuffer().also { it.replace("482915".toCharArray()) }))
+        runCurrent()
+        assertEquals(R.string.ui_the_request_did_not_complete_code_value_name, (vm.state.value.notice?.message as UiText.Resource).id)
+        assertEquals("a", vm.state.value.forgetAccountId)
+        vm.onAction(OnboardingAction.ForgetAccount("a"))
+        runCurrent()
+        assertEquals(listOf("a"), accounts.forgotten)
+        assertEquals(OnboardingPage.START, vm.state.value.page)
+        assertNull(vm.state.value.forgetAccountId)
+    }
+
+    @Test fun aWrongCodeOnAnOfferedAccountOffersNoRemoval() = runTest(timeout = 5.seconds) {
+        val (vm, _) = lockedVm(refused("ValidationFailed"))
+        assertNull(vm.state.value.forgetAccountId)
+    }
+
     @Test fun aRateLimitedCodeShowsTheWaitTheSdkReported() = runTest(timeout = 5.seconds) {
         val (vm, _) = lockedVm(refused("UnlockRetryLater", 60))
         val message = vm.state.value.notice?.message as UiText.Quantity
