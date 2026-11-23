@@ -23,9 +23,12 @@ object ContactCompletionMetadataReader {
         if (blocked != null) require(fields.boolean(fields.root, "blocked") == blocked)
     }
 
-    /** `contact.verify` answers with the recorded state; only `verified` confirms the mark. */
+    /**
+     * `contact.verify` answers with the recorded state; only `verified` confirms the mark. The reply is the generated
+     * `ContactSafetyVerifyResult` message in its JSON mapping, so the field is camel case (`verificationState`).
+     */
     fun verified(reply: SecretReply): CoreResult<Unit> = consume(reply) { fields ->
-        require(fields.text(fields.root, "verification_state", true) == "verified")
+        require(fields.text(fields.root, "verificationState", true) == "verified")
     }
     private fun consume(reply: SecretReply, block: (DisplayFields) -> Unit): CoreResult<Unit> = try {
         reply.useOnce { block(DisplayFields(it)); CoreResult.Success(Unit) }
