@@ -339,8 +339,9 @@ private val MATRIX_STATES: Map<String, @Composable () -> Unit> = mapOf(
             )
         }
     },
-    "unlock-entry" to { StartupSurface(NO_INSETS) { UnlockEntry(ACCOUNT, "https://work.example", {}, {}, {}) } },
-    "unlock-details" to { StartupSurface(NO_INSETS) { UnlockDetails(ACCOUNT, {}, {}) } }
+    "unlock-entry" to { StartupSurface(NO_INSETS, grouped = true) { UnlockEntry(ACCOUNT, "https://work.example", {}, {}, {}) } },
+    "unlock-details" to { StartupSurface(NO_INSETS, grouped = true) { UnlockDetails(ACCOUNT, {}, {}) } },
+    "unlock-info" to { StartupSurface(NO_INSETS, grouped = true) { UnlockInfo({}, {}) } }
 )
 
-private val SECURITY_STATES = setOf("unlock-entry", "unlock-details", "contacts-safety", "onboarding-phrase")
+private val SECURITY_STATES = setOf("unlock-entry", "unlock-details", "unlock-info", "contacts-safety", "onboarding-phrase")
