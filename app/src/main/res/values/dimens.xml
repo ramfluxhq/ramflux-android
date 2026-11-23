@@ -3,4 +3,50 @@
 <resources>
     <!-- List pane width beside a detail: the design phone frame width (frame.mobile.width) until tablet artboards exist. -->
     <dimen name="shell_list_pane_width">393dp</dimen>
+
+    <!-- Startup and unlock pages, measured from MOB-S01, S02, S18, A01, A02 and A07 (393 x 852 dp boards). -->
+    <!-- Footer padding below the last button (the boards keep 12 dp above the home indicator). -->
+    <dimen name="startup_footer_bottom">12dp</dimen>
+    <!-- Covers the Kit header's bottom hairline, which the startup boards do not draw. -->
+    <dimen name="startup_rule_cover">1dp</dimen>
+    <dimen name="startup_hairline">0.5dp</dimen>
+    <dimen name="startup_section_height">44dp</dimen>
+    <!-- Space above the wordmark: below the status bar on S02 (no header), and with the welcome header on S18. -->
+    <dimen name="startup_intro_top">83dp</dimen>
+    <dimen name="startup_welcome_top">47dp</dimen>
+    <dimen name="startup_mark_gap">26dp</dimen>
+    <dimen name="startup_tagline_gap">16dp</dimen>
+    <dimen name="startup_welcome_tagline_gap">22dp</dimen>
+    <!-- S02: space from the tagline to the purpose line and from the node card to the node-change card. -->
+    <dimen name="startup_purpose_gap">12dp</dimen>
+    <dimen name="startup_card_gap">13dp</dimen>
+    <!-- The official node card at the height the Kit card has with Chinese text (77 dp; the board draws 74 dp), so the
+         node-change card below sits at the same place in every script. -->
+    <dimen name="startup_card_min">77dp</dimen>
+    <!-- Grouped pages: space from the header to the page title, the title to the first card, a row of a key-value card. -->
+    <dimen name="startup_grouped_top">18dp</dimen>
+    <dimen name="startup_title_gap">6dp</dimen>
+    <dimen name="startup_key_row">48dp</dimen>
+    <!-- A07: space above the introduction, below it, and the height of an explanation row. -->
+    <dimen name="startup_info_top">21dp</dimen>
+    <dimen name="startup_info_gap">13dp</dimen>
+    <dimen name="startup_info_row">76dp</dimen>
+    <!-- A01: the gap between the cards, their section title and the footnote. -->
+    <dimen name="startup_section_gap">7dp</dimen>
+    <dimen name="startup_footnote_gap">7dp</dimen>
+    <!-- S18: space above the recover text button. -->
+    <dimen name="startup_recover_gap">12dp</dimen>
+    <dimen name="startup_node_top">14dp</dimen>
+    <dimen name="startup_node_bottom">12dp</dimen>
+    <dimen name="startup_note_gap">10dp</dimen>
+    <!-- Splash: the app tile, its corner and the wordmark size. -->
+    <dimen name="startup_tile">72dp</dimen>
+    <dimen name="startup_tile_radius">18dp</dimen>
+    <dimen name="startup_tile_gap">16dp</dimen>
+    <dimen name="startup_splash_mark_gap">18dp</dimen>
+    <dimen name="startup_splash_loader_gap">10dp</dimen>
+    <dimen name="startup_splash_wordmark">28sp</dimen>
+    <!-- The flux line sits right of the centred wordmark on S01. -->
+    <dimen name="startup_splash_mark_shift">37dp</dimen>
+    <dimen name="startup_tile_letter">36sp</dimen>
 </resources>

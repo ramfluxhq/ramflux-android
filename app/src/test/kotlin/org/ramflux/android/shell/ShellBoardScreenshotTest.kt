@@ -194,6 +194,9 @@ private val BOARD_INSETS = WindowInsets(top = 59.dp, bottom = 34.dp)
 
 private const val ACCOUNT = ConversationBoards.ACCOUNT
 
+/** The display name typed on MOB-N01. */
+private const val BOARD_NAME = "林澈"
+
 /** Shell fixture: which tab and stack is shown, and the state of every tab screen. */
 private data class ShellFixture(
     val tab: Int = 0,
@@ -268,7 +271,7 @@ private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
     "MOB-G03" to { FixtureShell(ShellFixture(tab = 3, pushed = NavigationEditorRoute)) },
     "MOB-N01" to {
         OnboardingScreen(
-            OnboardingState(page = OnboardingPage.CREATE, sessionReady = true),
+            OnboardingState(page = OnboardingPage.CREATE, sessionReady = true, displayName = BOARD_NAME),
             {},
             modifier = Modifier.windowInsetsPadding(BOARD_INSETS)
         )
@@ -276,8 +279,9 @@ private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
     "MOB-S01" to { StartupSurface(BOARD_INSETS) { SplashScreen() } },
     "MOB-S02" to { StartupSurface(BOARD_INSETS) { GatewayScreen({}, {}) } },
     "MOB-S18" to { StartupSurface(BOARD_INSETS) { WelcomeScreen({}, {}, {}, {}) } },
-    "MOB-A01" to { StartupSurface(BOARD_INSETS) { UnlockEntry(ACCOUNT, "https://work.example", {}, {}, {}) } },
-    "MOB-A02" to { StartupSurface(BOARD_INSETS) { UnlockDetails(ACCOUNT, {}, {}) } }
+    "MOB-A01" to { StartupSurface(BOARD_INSETS, grouped = true) { UnlockEntry(ACCOUNT, "https://work.example", {}, {}, {}) } },
+    "MOB-A02" to { StartupSurface(BOARD_INSETS, grouped = true) { UnlockDetails(ACCOUNT, {}, {}) } },
+    "MOB-A07" to { StartupSurface(BOARD_INSETS, grouped = true) { UnlockInfo({}, {}) } }
 )
 
 private val NO_INSETS = WindowInsets(0, 0, 0, 0)

@@ -7,8 +7,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,12 +18,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -34,6 +39,7 @@ import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
 import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.kit.KitRow
+import org.ramflux.designsystem.kit.KitRowTrailing
 import org.ramflux.designsystem.kit.KitSecurityWarning
 import org.ramflux.designsystem.kit.KitTextField
 import org.ramflux.designsystem.kit.KitTipBar
@@ -52,11 +58,26 @@ internal fun CreateAccountPage(state: OnboardingState, onAction: (OnboardingActi
     } else {
         stringResource(R.string.ui_n01_official_node)
     }
+    // MOB-N01 sits on the grouped page tone, with the Kit header without its bottom rule.
+    CompositionLocalProvider(LocalRFTheme provides theme.copy(bg = theme.nav)) {
+        CreateAccountColumn(state, onAction, nodeLabel, modifier)
+    }
+}
+
+@Composable
+private fun CreateAccountColumn(state: OnboardingState, onAction: (OnboardingAction) -> Unit, nodeLabel: String, modifier: Modifier) {
+    val theme = LocalRFTheme.current
     Column(modifier.fillMaxSize().background(theme.bg).testTag("n01")) {
-        KitPageHeader(stringResource(R.string.ui_n01_header), onBack = { onAction(OnboardingAction.Back) }, tag = "n01")
+        Box {
+            KitPageHeader(stringResource(R.string.ui_n01_header), onBack = { onAction(OnboardingAction.Back) }, tag = "n01")
+            Spacer(
+                Modifier.align(Alignment.BottomStart).fillMaxWidth().height(dimensionResource(R.dimen.onboarding_rule_cover))
+                    .background(theme.bg)
+            )
+        }
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
-                .padding(horizontal = theme.gap.dp, vertical = (theme.gap * .5f).dp),
+                .padding(start = theme.gap.dp, end = theme.gap.dp, top = theme.gap.dp, bottom = (theme.gap * .5f).dp),
             verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
         ) {
             state.notice?.let { notice -> Text(notice.message.render(), color = theme.text) }
@@ -85,6 +106,7 @@ internal fun CreateAccountPage(state: OnboardingState, onAction: (OnboardingActi
                     {},
                     icon = "server",
                     value = stringResource(R.string.ui_n01_selected_node),
+                    trailing = KitRowTrailing.None,
                     locked = true,
                     divider = false,
                     testTag = "n01-node"

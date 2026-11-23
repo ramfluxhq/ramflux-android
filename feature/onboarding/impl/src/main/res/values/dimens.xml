@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <!-- Covers the Kit header's bottom hairline, which the MOB-N01 board does not draw. -->
+    <dimen name="onboarding_rule_cover">1dp</dimen>
+</resources>
