@@ -18,6 +18,7 @@ interface AgentsRepository {
     suspend fun agentOperationGet(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun agentPersonaEdit(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun agentDelete(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentRetire(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun agentWatch(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun botInstall(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun botList(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
@@ -49,6 +50,9 @@ class DefaultAgentsRepository(transport: RepositoryTransport) : SdkRepository(tr
 
     override suspend fun agentDelete(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
         execute("agent.delete", "agent", context, body)
+
+    override suspend fun agentRetire(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.retire", "agent", context, body)
 
     override suspend fun agentWatch(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
         execute("agent.watch", "agent", context, body)

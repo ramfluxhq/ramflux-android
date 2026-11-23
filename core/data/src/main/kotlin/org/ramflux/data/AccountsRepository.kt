@@ -34,8 +34,10 @@ interface AccountsRepository {
     suspend fun accountRecoverBegin(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountRecoverCancel(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun accountRecoverConfirm(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun accountRemove_local(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountRestoreInstall(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountRestoreVerify(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun accountSign_out(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountStatus(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun accountSwitch(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountUnlock(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -115,11 +117,17 @@ class DefaultAccountsRepository(transport: RepositoryTransport) : SdkRepository(
     override suspend fun accountRecoverConfirm(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("account.recover.confirm", "account", context, body)
 
+    override suspend fun accountRemove_local(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("account.remove_local", "account", context, body)
+
     override suspend fun accountRestoreInstall(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("account.restore.install", "account", context, body)
 
     override suspend fun accountRestoreVerify(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("account.restore.verify", "account", context, body)
+
+    override suspend fun accountSign_out(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("account.sign_out", "account", context, body)
 
     override suspend fun accountStatus(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("account.status", "account", context, SecretBody.publicJson("account.status", body))

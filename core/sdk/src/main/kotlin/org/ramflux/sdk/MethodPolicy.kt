@@ -39,8 +39,10 @@ object SdkMethodPolicy {
         "account.recover.begin" to MethodPolicy(true, true, false, false, true, "account"),
         "account.recover.cancel" to MethodPolicy(false, false, false, false, true, "account"),
         "account.recover.confirm" to MethodPolicy(true, true, false, false, true, "account"),
+        "account.remove_local" to MethodPolicy(true, false, false, false, true, "account"),
         "account.restore.install" to MethodPolicy(true, false, false, false, true, "account"),
         "account.restore.verify" to MethodPolicy(true, false, false, false, true, "account"),
+        "account.sign_out" to MethodPolicy(true, true, false, false, true, "account"),
         "account.status" to MethodPolicy(false, true, false, false, true, "account"),
         "account.switch" to MethodPolicy(true, true, false, false, true, "account"),
         "account.unlock" to MethodPolicy(true, true, false, false, true, "account"),
@@ -52,6 +54,7 @@ object SdkMethodPolicy {
         "agent.operation.get" to MethodPolicy(false, false, false, false, true, "agent"),
         "agent.persona.edit" to MethodPolicy(false, false, false, false, true, "agent"),
         "agent.delete" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.retire" to MethodPolicy(false, false, false, false, true, "agent"),
         "agent.watch" to MethodPolicy(false, false, false, false, true, "agent"),
         "attachment.enable" to MethodPolicy(true, true, false, false, true, "account"),
         "attachment.import.begin" to MethodPolicy(true, true, false, false, true, "account"),
@@ -77,6 +80,15 @@ object SdkMethodPolicy {
         "call.list" to MethodPolicy(false, true, false, false, true, "call"),
         "call.media.session" to MethodPolicy(true, true, false, false, true, "call"),
         "call.reject" to MethodPolicy(true, true, false, false, true, "call"),
+        "card.session.dispose" to MethodPolicy(false, true, false, false, true, "card"),
+        "card.session.event" to MethodPolicy(true, true, false, false, true, "card"),
+        "card.session.open" to MethodPolicy(false, true, false, false, true, "card"),
+        "card.session.present" to MethodPolicy(false, true, false, false, true, "card"),
+        "card.session.resume" to MethodPolicy(false, true, false, false, true, "card"),
+        "card.session.slot" to MethodPolicy(true, true, false, false, true, "card"),
+        "card.session.submit" to MethodPolicy(true, true, false, false, true, "card"),
+        "card.session.suspend" to MethodPolicy(false, true, false, false, true, "card"),
+        "card.session.update" to MethodPolicy(false, true, false, false, true, "card"),
         "contact.accept" to MethodPolicy(true, true, false, false, true, "contact"),
         "contact.add" to MethodPolicy(true, true, false, false, true, "contact"),
         "contact.block" to MethodPolicy(true, true, false, false, true, "contact"),
@@ -224,6 +236,11 @@ object SdkMethodPolicy {
         "task.resolve" to MethodPolicy(true, true, false, false, true, "task"),
         "task.start" to MethodPolicy(true, true, false, false, true, "task"),
         "task.update" to MethodPolicy(true, true, false, false, true, "task"),
+        "username.mutate" to MethodPolicy(true, true, false, false, false, "username"),
+        "username.status" to MethodPolicy(false, true, false, false, false, "username"),
+        "username.resolve" to MethodPolicy(false, true, false, false, false, "username"),
+        "username.contact.add" to MethodPolicy(true, true, false, false, false, "username"),
+        "profile.update" to MethodPolicy(true, true, false, false, false, "profile"),
     )
 }
 
@@ -231,6 +248,6 @@ object ContactVerifyCas {
     const val CONTRACT = "CONTACT-VERIFY-CAS-01"
     const val REQUEST_TYPE = "ramflux.message.v1.ContactSafetyVerifyRequest"
     const val RESPONSE_TYPE = "ramflux.message.v1.ContactSafetyVerifyResult"
-    const val MESSAGE_DESCRIPTOR = "d18147ce9e60d3ed594f27edcd4322b0c12dea72914d72eb912005c94cc146d5"
-    const val PRODUCT_PIN = "5d9281898913f2104e2a077865979059bc3e3c51"
+    const val MESSAGE_DESCRIPTOR = "88d7da63263e2132e048ee86d833bd12c95088c80e112cce03456bf00fd6dab9"
+    const val PRODUCT_PIN = "679c753bdaa6bd31c8b5b493cfc4cbe8088a3537"
 }
