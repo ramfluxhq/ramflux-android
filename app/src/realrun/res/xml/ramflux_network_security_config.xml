@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (c) 2026 Span Brain -->
+<!--
+    The realrun build type only (scripts/realrun.sh): the instrumented suite runs in the app process and
+    talks plain HTTP to the peer-control server on the device loopback (reached through adb reverse).
+    Cleartext is admitted for 127.0.0.1 alone; everything else keeps the library's strict policy.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>
