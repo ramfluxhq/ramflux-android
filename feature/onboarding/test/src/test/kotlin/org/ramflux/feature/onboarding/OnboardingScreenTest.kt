@@ -312,6 +312,28 @@ class OnboardingScreenTest {
         assertFalse(field.onKeyDown(KeyEvent.KEYCODE_ENTER, keyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER)))
     }
 
+    @Test fun secretFieldPresentsAnEditFieldToAccessibilityWithoutItsText() {
+        val buffer = ErasableBuffer()
+        var root: View? = null
+        compose.setContent {
+            root = LocalView.current
+            RamfluxTheme {
+                ErasableSecretField(buffer, "Word 7", "challenge-0", enabled = true, password = true, limit = 64, onEdited = {})
+            }
+        }
+        compose.waitForIdle()
+        val field = root!!.findTagged("challenge-0")
+        compose.runOnIdle { assertTrue(field.openConnection().second.commitText("hidden", 1)) }
+        compose.waitForIdle()
+        val info = android.view.accessibility.AccessibilityNodeInfo.obtain()
+        compose.runOnIdle { field.onInitializeAccessibilityNodeInfo(info) }
+        assertEquals("android.widget.EditText", info.className?.toString())
+        assertTrue(info.isEditable)
+        assertTrue(info.isPassword)
+        assertEquals("Word 7", info.hintText?.toString())
+        assertFalse(info.text?.toString().orEmpty().contains("hidden"))
+    }
+
     @Test fun secretFieldDoesNotReflectOnFrameworkTypes() {
         val files = erasableClassFiles()
         val names = files.map { it.first }

@@ -4,6 +4,7 @@
 package org.ramflux.feature.onboarding
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.os.Build
@@ -14,6 +15,7 @@ import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
@@ -245,6 +247,22 @@ class ErasableSecretView(context: Context) : View(context) {
     }
 
     override fun getAutofillType(): Int = AUTOFILL_TYPE_NONE
+
+    /**
+     * Assistive technology and UI automation see an edit field: its class, the label as the hint, and the
+     * password flag for masked input. The text is never exposed. Debuggable builds also name the node by
+     * the field tag, as they do for Compose test tags.
+     */
+    override fun getAccessibilityClassName(): CharSequence = EDIT_FIELD_CLASS
+
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        info.isEditable = isEnabled
+        info.isPassword = mask
+        info.hintText = contentDescription
+        val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        if (debuggable) (tag as? String)?.let { info.viewIdResourceName = it }
+    }
 
     override fun onCheckIsTextEditor(): Boolean = true
 
@@ -692,6 +710,7 @@ class ErasableSecretView(context: Context) : View(context) {
 
     private companion object {
         const val MASK_GLYPH = '\u2022'
+        const val EDIT_FIELD_CLASS = "android.widget.EditText"
         const val SECRET_INPUT_TYPE =
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         const val DIGITS_INPUT_TYPE = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
