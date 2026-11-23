@@ -80,6 +80,32 @@ class OsPermissionGuardTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unknown foreground service type'):
             self.run_guard(manifest(BASE), entries=[self.entry(kind='everything')])
 
+    def test_removal_markers_are_not_declarations(self):
+        tools = 'xmlns:tools="http://schemas.android.com/tools"'
+        removal = ('<manifest xmlns:android="http://schemas.android.com/apk/res/android" ' + tools + '>'
+                   '<uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove"/>'
+                   '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove"/>'
+                   '</manifest>')
+        found, _ = self.run_guard(manifest(BASE), removal)
+        self.assertNotIn('android.permission.WAKE_LOCK', found)
+        self.assertNotIn('android.permission.ACCESS_NETWORK_STATE', found)
+        # Any other tools:node value still declares the permission.
+        merge = removal.replace('tools:node="remove"', 'tools:node="merge"')
+        with self.assertRaisesRegex(ValueError, 'Unapproved permission'):
+            self.run_guard(manifest(BASE), merge)
+        # A removal marker never stands in for a permission the app must declare.
+        missing = manifest(BASE[1:]).replace('<application>', '<uses-permission android:name="android.permission.INTERNET" '
+                                             'xmlns:tools="http://schemas.android.com/tools" tools:node="remove"/><application>')
+        with self.assertRaisesRegex(ValueError, 'Missing expected'):
+            self.run_guard(missing)
+
+    def test_repository_allowlist_admits_only_the_media_transfer_service(self):
+        services = guard.load_allowlist(Path(__file__).with_name('os-service-allowlist.json'))
+        self.assertEqual({'org.ramflux.feature.chat.MediaTransferService'}, set(services))
+        kinds, permissions = services['org.ramflux.feature.chat.MediaTransferService']
+        self.assertEqual({'dataSync'}, kinds)
+        self.assertEqual({'android.permission.FOREGROUND_SERVICE', 'android.permission.FOREGROUND_SERVICE_DATA_SYNC'}, permissions)
+
     def test_repository_allowlist_loads(self):
         guard.load_allowlist(Path(__file__).with_name('os-service-allowlist.json'))
 

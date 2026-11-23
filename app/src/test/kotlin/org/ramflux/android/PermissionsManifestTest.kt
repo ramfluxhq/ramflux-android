@@ -24,9 +24,26 @@ class PermissionsManifestTest {
                 Manifest.permission.INTERNET,
                 Manifest.permission.POST_NOTIFICATIONS,
                 Manifest.permission.CAMERA,
-                Manifest.permission.RECORD_AUDIO
+                Manifest.permission.RECORD_AUDIO,
+                // Brought by the allowlisted media transfer service (scripts/os-service-allowlist.json).
+                Manifest.permission.FOREGROUND_SERVICE,
+                FOREGROUND_SERVICE_DATA_SYNC
             ),
             requireNotNull(info.requestedPermissions).toSet() - privateReceiver
         )
     }
+
+    @Test fun theMediaTransferServiceIsDeclaredAndNotExported() {
+        val app = ApplicationProvider.getApplicationContext<RamfluxApplication>()
+        val info = app.packageManager.getPackageInfo(app.packageName, PackageManager.GET_SERVICES)
+        val services = requireNotNull(info.services).associateBy { it.name }
+        assertEquals(setOf("org.ramflux.feature.chat.MediaTransferService"), services.keys)
+        assertEquals(false, services.getValue("org.ramflux.feature.chat.MediaTransferService").exported)
+    }
+
+    private companion object {
+        /** Manifest.permission.FOREGROUND_SERVICE_DATA_SYNC is API 34; the manifest names it on every level. */
+        const val FOREGROUND_SERVICE_DATA_SYNC = "android.permission.FOREGROUND_SERVICE_DATA_SYNC"
+    }
 }
+

@@ -194,3 +194,47 @@ with `KitApprovalCard`: approve or deny first re-reads the approval (`permission
 approval reaches the host confirmation, and the data layer re-reads it again before `grant.approve` or
 `grant.deny`. A `remote_app` approval needs a grant signed by the requesting app (`RemoteAppApprovalRequired`
 otherwise) and the C ABI exposes no app signing, so its card says so and offers deny only.
+
+## System services
+
+A production manifest may declare a `<service>` only when `scripts/os-service-allowlist.json` names its exact
+class, foreground service type and the permissions it brings; `scripts/check-os-permissions.py` enforces this for
+every `src/main` manifest and the merged debug manifest (`scripts/test-os-permissions.py` holds its tests). A
+`uses-permission` marked `tools:node="remove"` removes a library permission from the merged manifest and is not
+counted as a declaration, so such removals (Media3's network-state and wake-lock permissions in `:core:media`)
+live in `src/main`.
+
+Declared today: `org.ramflux.feature.chat.MediaTransferService` (`dataSync`, not exported, with
+`FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_DATA_SYNC`) in `:feature:chat:impl`, so media imports and uploads
+continue when the chat closes inside the unlocked session (see [media](media.md)).
+
+Not declared until calls carry media (request R28): the call foreground service and the self-managed Telecom
+connection service. Their classes are in `:feature:calls:impl` (`CallSystem.kt`) and stay inert because
+`CallTelecom.declared()` checks the declaration at run time and the call media engine refuses until R28. When R28 lands, these are the lines to
+add to `feature/calls/impl/src/main/AndroidManifest.xml`, each with an allowlist entry:
+
+```xml
+<uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+<application>
+    <service
+        android:name="org.ramflux.feature.calls.CallForegroundService"
+        android:exported="false"
+        android:foregroundServiceType="phoneCall|microphone" />
+    <service
+        android:name="org.ramflux.feature.calls.RamfluxConnectionService"
+        android:exported="true"
+        android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE">
+        <intent-filter>
+            <action android:name="android.telecom.ConnectionService" />
+        </intent-filter>
+    </service>
+</application>
+```
+
+The connection service must be exported to the system's Telecom process (guarded by
+`BIND_TELECOM_CONNECTION_SERVICE`), which the guard's "not exported" rule does not admit today; that rule needs a
+reviewed exception for it when R28 lands.
+

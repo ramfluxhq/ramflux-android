@@ -1,3 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<manifest />
+<!--
+  Media3 declares network-state and wake-lock permissions for streaming and screen-off playback. This
+  app plays only app-private files in the foreground and never sets a wake mode, so both are removed
+  from the merged manifest. The permission guard does not count removal markers.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove" />
+</manifest>

@@ -30,7 +30,8 @@ import org.ramflux.feature.calls.impl.R
  * Self-managed system call integration: the phone shows Ramflux calls in its call surfaces and gives them
  * priority audio routing. Nothing here signals the call; the call view model stays the only caller of
  * `call.*`. It needs `MANAGE_OWN_CALLS` and the service declaration, neither of which is in the manifest
- * yet; [CallTelecom.declared] keeps every entry point inert until they are.
+ * until calls carry media (request R28; the pending lines are in docs/client-architecture.md, "System
+ * services"); [CallTelecom.declared] keeps every entry point inert until they are.
  */
 class RamfluxConnectionService : ConnectionService() {
     override fun onCreateOutgoingConnection(account: PhoneAccountHandle?, request: ConnectionRequest?): Connection =
@@ -111,7 +112,8 @@ class CallTelecom(private val context: Context) {
 
 /**
  * Keeps a live call in the foreground (types `phoneCall` and `microphone`) while an engine carries
- * audio. Not declared yet; with the refusing engine nothing starts it.
+ * audio. Not declared until calls carry media (request R28; see docs/client-architecture.md, "System
+ * services"); with the refusing engine nothing starts it.
  */
 class CallForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null

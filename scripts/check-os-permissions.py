@@ -5,12 +5,15 @@
 
 Services are forbidden except the exact classes in os-service-allowlist.json, each with its declared
 foreground service type, not exported, and only then with the permissions that entry brings.
+A uses-permission element marked tools:node="remove" takes a library permission out of the merged
+manifest; it declares nothing and is not counted.
 """
 import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ANDROID = '{http://schemas.android.com/apk/res/android}'
+TOOLS = '{http://schemas.android.com/tools}'
 KEY = ANDROID + 'name'
 ALLOWED = {'android.permission.INTERNET', 'android.permission.POST_NOTIFICATIONS',
            'android.permission.CAMERA', 'android.permission.RECORD_AUDIO'}
@@ -39,7 +42,7 @@ def check_manifest(path, services):
     manifest = ET.parse(path).getroot()
     permissions = set()
     for element in manifest:
-        if element.tag.startswith('uses-permission'):
+        if element.tag.startswith('uses-permission') and element.get(TOOLS + 'node') != 'remove':
             permissions.add(element.get(KEY))
     declared = set()
     for service in manifest.findall('.//service'):

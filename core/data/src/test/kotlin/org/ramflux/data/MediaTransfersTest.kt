@@ -8,6 +8,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -19,6 +20,24 @@ import org.junit.Test
 class MediaTransfersTest {
     private class GatedMedia : MediaRepository by UnavailableMediaRepository() {
         val gates = HashMap<String, CompletableDeferred<TransferState>>()
+        val sendGate = CompletableDeferred<ClientResult<SendReceipt>>()
+        val sends = mutableListOf<String>()
+        var sending = 0
+        override suspend fun send(
+            account: String,
+            destination: MediaDestination,
+            caption: String,
+            items: List<StagedMedia>,
+            operationId: String,
+            progress: (TransferState) -> Unit
+        ): ClientResult<SendReceipt> {
+            sending++
+            try {
+                return sendGate.await().also { sends.add(operationId) }
+            } finally {
+                sending--
+            }
+        }
         var running = 0
         var peak = 0
         override suspend fun download(account: String, attachment: MediaAttachment, progress: (TransferState) -> Unit): TransferState {
@@ -71,4 +90,32 @@ class MediaTransfersTest {
         assertTrue(queue.current.value.isEmpty())
         assertFalse(queue.active.value)
     }
+
+    @Test fun anUploadGoesOnWhenItsCallerLeavesAndEndsWithTheSession() = runTest(timeout = 5.seconds) {
+        val media = GatedMedia()
+        val session = Session()
+        val queue = MediaTransfers(media, session, backgroundScope)
+        val caller = launch { queue.upload("a", MediaDestination("c", null), "", emptyList(), "op-1") }
+        runCurrent()
+        assertTrue(queue.active.value)
+        caller.cancel()
+        runCurrent()
+        assertEquals(1, media.sending)
+        assertTrue(queue.active.value)
+        media.sendGate.complete(ClientResult.Ready(SendReceipt("m")))
+        runCurrent()
+        assertEquals(listOf("op-1"), media.sends)
+        assertFalse(queue.active.value)
+
+        val second = GatedMedia()
+        val closing = MediaTransfers(second, session, backgroundScope)
+        launch { runCatching { closing.upload("a", MediaDestination("c", null), "", emptyList(), "op-2") } }
+        runCurrent()
+        assertEquals(1, second.sending)
+        session.status.value = ClientSnapshot(ClientPhase.CLOSED, 1)
+        runCurrent()
+        assertEquals(0, second.sending)
+        assertFalse(closing.active.value)
+    }
 }
+

@@ -128,7 +128,7 @@ enum class LocalDelivery {
 }
 
 /** One conversation the chooser offers; [title] is peer-controlled. */
-@Immutable data class ForwardRow(val conversation: String, val title: String) {
+@Immutable data class ForwardRow(val conversation: String, val title: String, val group: String? = null) {
     override fun toString() = "ForwardRow(<redacted>)"
 }
 

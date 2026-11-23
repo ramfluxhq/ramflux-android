@@ -457,7 +457,8 @@ class ChatViewModel @Inject constructor(
             val sent = if (staged.isEmpty()) {
                 history.send(currentTarget.account, currentTarget.conversation, outgoing.text, outgoing.operation)
             } else {
-                media.send(
+                // The application queue owns the upload, so it goes on when this chat closes.
+                queue.upload(
                     currentTarget.account,
                     MediaDestination(currentTarget.conversation, currentTarget.group),
                     outgoing.text,
@@ -1345,7 +1346,7 @@ class ChatViewModel @Inject constructor(
                     val ids = known.mapTo(HashSet()) { it.conversation }
                     val fresh = result.value.rows.filter { it.conversation != job.target.conversation && ids.add(it.conversation) }
                     // A bounded window: the chooser keeps at most FORWARD_WINDOW conversations.
-                    val rows = (known + fresh.map { ForwardRow(it.conversation, it.title) }).take(FORWARD_WINDOW)
+                    val rows = (known + fresh.map { ForwardRow(it.conversation, it.title, it.group) }).take(FORWARD_WINDOW)
                     local.update {
                         it.copy(
                             forward = open.copy(
@@ -1378,7 +1379,8 @@ class ChatViewModel @Inject constructor(
     private fun forwardTo(conversation: String) {
         val job = forwarding ?: return
         val sheet = local.value.forward ?: return
-        if (sheet.sending || sheet.rows.none { it.conversation == conversation }) return
+        val destination = sheet.rows.firstOrNull { it.conversation == conversation } ?: return
+        if (sheet.sending) return
         val row = window.firstOrNull { it.id == job.messageId } as? MessageItem ?: return
         val items = references.values.filter { it.messageId == job.messageId && (job.index == null || it.index == job.index) }
             .sortedBy { it.index }
@@ -1405,7 +1407,7 @@ class ChatViewModel @Inject constructor(
             val sent = when {
                 failure != null -> ClientResult.Failed(failure)
                 staged.isEmpty() -> history.send(account, conversation, caption, operation)
-                else -> media.send(account, MediaDestination(conversation, null), caption, staged, operation)
+                else -> queue.upload(account, MediaDestination(conversation, destination.group), caption, staged, operation)
             }
             if (sent !is ClientResult.Ready) staged.forEach { it.file.delete() }
             val stale = forwarding?.messageId != job.messageId || target != job.target

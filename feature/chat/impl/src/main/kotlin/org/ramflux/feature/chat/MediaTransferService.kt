@@ -28,8 +28,9 @@ import org.ramflux.feature.chat.impl.R
  * transfers the person started are still running inside the unlocked session. It never opens the SDK,
  * holds no secrets and stops as soon as the queue is idle or the session closes.
  *
- * It is not declared in the manifest yet; [MediaTransferServiceController] detects that and does
- * nothing until the service and its `dataSync` permission are declared.
+ * Declared in this module's manifest with its `dataSync` permissions (the only entry of
+ * `scripts/os-service-allowlist.json`). [MediaTransferServiceController] still checks the declaration,
+ * so a build without it stays inert.
  */
 class MediaTransferService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
@@ -65,9 +66,8 @@ class MediaTransferService : Service() {
 }
 
 /**
- * Starts [MediaTransferService] while [MediaTransfers.active] is true and stops it when the queue is
- * idle. Until the manifest declares the service this is a no-op, so enabling background transfer is a
- * manifest change only.
+ * Starts [MediaTransferService] while [MediaTransfers.active] is true (imports and uploads) and stops it
+ * when the queue is idle. Without the manifest declaration this is a no-op.
  */
 class MediaTransferServiceController(private val context: Context, private val transfers: MediaTransfers) {
     fun start(scope: CoroutineScope) {

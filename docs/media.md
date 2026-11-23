@@ -54,7 +54,7 @@ Decrypted files live under `noBackupFilesDir/media/<account>/media/<conversation
 
 Imports and uploads run over the SDK's live gateway session inside the app process. WorkManager cannot
 continue them after the session closes, because nothing can open the account without the person.
-Downloads therefore run in the application queue: they continue when the chat closes and end when the
-session locks or closes. Sends run while their chat is open. `MediaTransferService` (a `dataSync`
-foreground service) keeps the process in the foreground with a notification while the queue is busy;
-it is not declared in the manifest yet and its controller does nothing until it is.
+Downloads and uploads therefore run in the application queue (`MediaTransfers`): they continue when the
+chat closes and end when the session locks or closes. `MediaTransferService` (a `dataSync` foreground
+service, declared in `:feature:chat:impl` and allowlisted in `scripts/os-service-allowlist.json`) keeps
+the process in the foreground with a notification naming no file or person while the queue is busy.
