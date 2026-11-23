@@ -34,4 +34,13 @@ object AccountListMetadataReader {
         }
     } catch (_: Exception) { CoreResult.Failure(CoreError.InvalidResponse()) }
     finally { reply.close() }
+
+    /** The `networking` field of an `account.status` reply (`live`, `networking_pending`, ...). */
+    fun networking(reply: SecretReply): CoreResult<String> = try {
+        reply.useOnce { raw ->
+            val fields = DisplayFields(raw)
+            CoreResult.Success(requireNotNull(fields.text(fields.root, "networking", true)))
+        }
+    } catch (_: Exception) { CoreResult.Failure(CoreError.InvalidResponse()) }
+    finally { reply.close() }
 }

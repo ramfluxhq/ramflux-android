@@ -21,4 +21,10 @@ class AccountListMetadataTest {
             assertTrue(raw.all { it == 0.toByte() })
         }
     }
+    @Test fun accountStatusNetworkingIsReadAndAMissingFieldFails() {
+        val raw = """{"account_id":"a","state":"unlocked","networking":"networking_pending"}""".toByteArray()
+        assertEquals("networking_pending", (AccountListMetadataReader.networking(SecretReply(SecretBytes.take(raw))) as CoreResult.Success).value)
+        assertTrue(raw.all { it == 0.toByte() })
+        assertTrue(AccountListMetadataReader.networking(SecretReply(SecretBytes.take("""{"state":"unlocked"}""".toByteArray()))) is CoreResult.Failure)
+    }
 }

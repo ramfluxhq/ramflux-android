@@ -42,6 +42,13 @@ interface AccountAccessRepository {
         ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
 
     /**
+     * Whether the SDK reports the account's networking as `live` now (`account.status`). A newly created account
+     * starts pending and turns live once its node session is established.
+     */
+    suspend fun networkingLive(id: String): ClientResult<Boolean> =
+        ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
+
+    /**
      * Removes an account from this device's list of offered accounts. Only the offer goes: the SDK's data is
      * untouched, and an account the SDK has open is refused.
      */

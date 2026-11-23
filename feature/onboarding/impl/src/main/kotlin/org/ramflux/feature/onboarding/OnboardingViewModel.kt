@@ -37,9 +37,14 @@ class OnboardingViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), OnboardingState())
     private var work: Job? = null
+    private var network: Job? = null
     private var phrase: RecoveryPhrase? = null
 
+    /** How often and how long the completion step follows `account.status` (shorter in tests). */
+    var networkWatch: Pair<Int, Long> = NETWORK_ATTEMPTS to NETWORK_INTERVAL_MS
+
     override fun onCleared() {
+        network?.cancel()
         phrase?.close()
         phrase = null
         super.onCleared()
@@ -55,6 +60,7 @@ class OnboardingViewModel @Inject constructor(
     private val lifecycle = viewModelScope.launch {
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect { (phase, _) ->
             work?.cancel()
+            network?.cancel()
             ticket++
             candidate = null
             savedNodes = emptyList()
@@ -521,10 +527,12 @@ class OnboardingViewModel @Inject constructor(
                                     it.copy(
                                         page = OnboardingPage.CREATED,
                                         createdAccountId = result.value,
+                                        createdNetworking = CreatedNetworking.CONNECTING,
                                         challengePositions = kotlinx.collections.immutable.persistentListOf(),
                                         notice = null
                                     )
                                 }
+                                watchNetworking(result.value)
                             } catch (cancelled: CancellationException) {
                                 unknownOutcome()
                                 throw cancelled
@@ -588,6 +596,37 @@ class OnboardingViewModel @Inject constructor(
     }
 
     /** Every completion is fenced by lifecycle generation as well as cancellation. */
+    /**
+     * Follows `account.status` while the completion step shows [account], so it states the real networking: a new
+     * account starts pending and turns live once its node session is established. Without the status method the
+     * line is left out rather than guessed.
+     */
+    private fun watchNetworking(account: String) {
+        network?.cancel()
+        val (attempts, interval) = networkWatch
+        network = viewModelScope.launch {
+            repeat(attempts) {
+                when (val live = accounts.networkingLive(account)) {
+                    is ClientResult.Ready -> if (live.value) {
+                        publishNetworking(account, CreatedNetworking.LIVE)
+                        return@launch
+                    }
+                    is ClientResult.Unavailable -> {
+                        publishNetworking(account, null)
+                        return@launch
+                    }
+                    is ClientResult.Failed -> Unit
+                }
+                delay(interval)
+            }
+            publishNetworking(account, CreatedNetworking.NOT_CONFIRMED)
+        }
+    }
+
+    private fun publishNetworking(account: String, value: CreatedNetworking?) {
+        local.update { if (it.createdAccountId == account && it.page == OnboardingPage.CREATED) it.copy(createdNetworking = value) else it }
+    }
+
     private fun launch(block: suspend () -> Unit) {
         work?.cancel()
         val expected = ++ticket
@@ -628,6 +667,9 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 }
+private const val NETWORK_ATTEMPTS = 45
+private const val NETWORK_INTERVAL_MS = 2_000L
+
 private fun SavedNode.item() = NodeItem(id, url, keyChanged, isDefault, enabled)
 
 /** Words missing: ask for everything; words present but a refused new code: say why. */

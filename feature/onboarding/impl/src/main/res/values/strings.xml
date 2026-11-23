@@ -235,4 +235,10 @@
     <string name="ui_unlock_account_named">Unlock %1$s</string>
     <!-- Button after the SDK refused an account offered from this phone's list for a reason other than the code; it removes only the offer, never account data. -->
     <string name="ui_forget_account_on_device">Remove from the list on this phone</string>
+    <!-- Account created step: the SDK reports the new account's network session as still being set up. -->
+    <string name="ui_created_network_connecting">Connecting to the network…</string>
+    <!-- Account created step: the SDK reports the new account's network session as live. -->
+    <string name="ui_created_network_connected">Connected to the network</string>
+    <!-- Account created step: the network session did not become live while the step was shown. -->
+    <string name="ui_created_network_not_confirmed">The network connection is not confirmed yet. The account works on this phone; messages go out once it connects.</string>
 </resources>

@@ -55,6 +55,9 @@ enum class OnboardingNoticeKind { ERROR, UNAVAILABLE, UNKNOWN_OUTCOME }
 /** A started phrase recovery: the anchor the user compares before entering the phrase. */
 @Immutable data class RecoveryFacts(val accountId: String, val anchor: String)
 
+/** Networking of a newly created account: pending right after creation, live once its node session works. */
+enum class CreatedNetworking { CONNECTING, LIVE, NOT_CONFIRMED }
+
 @Immutable data class OnboardingState(
     val page: OnboardingPage = OnboardingPage.START,
     val accounts: ImmutableList<AccountItem> = persistentListOf(),
@@ -74,6 +77,8 @@ enum class OnboardingNoticeKind { ERROR, UNAVAILABLE, UNKNOWN_OUTCOME }
     val phraseSlots: Int = 0,
     val challengePositions: ImmutableList<Int> = persistentListOf(),
     val createdAccountId: String? = null,
+    /** The created account's networking as `account.status` reports it while the completion step is shown. */
+    val createdNetworking: CreatedNetworking? = null,
     val recovery: RecoveryFacts? = null,
     /** Set when the SDK says only phrase recovery opens this account now. */
     val recoverAccountId: String? = null,
