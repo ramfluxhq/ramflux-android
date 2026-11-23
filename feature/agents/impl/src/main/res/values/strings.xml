@@ -1,46 +1,131 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Name of the agents feature -->
     <string name="agents_title">Agents</string>
-    <string name="agents_directory">Your Agents</string>
-    <string name="agents_create">Create Agent</string>
-    <string name="agents_create_on_desktop">Create agents on your desktop</string>
-    <string name="agents_empty_body">Agents you create on your desktop appear here.</string>
-    <string name="agents_empty_title">No agents</string>
+    <!-- Title of the agents tab -->
     <string name="agents_shell_title">Agents</string>
-    <string name="agents_profile">Profile</string>
-    <string name="agents_advanced">Advanced settings</string>
-    <string name="agents_chat">Private conversation</string>
-    <string name="agents_goal">Responsibility</string>
-    <string name="agents_manage">Manage Agent</string>
-    <string name="agents_collaboration">Collaboration</string>
+    <!-- Title of one agent's profile page -->
+    <string name="agents_profile">Agent profile</string>
+    <!-- Title and button for editing an agent's name and responsibility -->
     <string name="agents_edit">Edit profile</string>
-    <string name="agents_remove">Remove Agent</string>
-    <string name="agents_pause">Pause Agent</string>
-    <string name="agents_hide">Hidden Agents</string>
-    <string name="agents_back">Back</string>
+    <!-- Header action that reads the agents again -->
     <string name="agents_retry">Refresh</string>
-    <string name="agents_setup">Set up an account</string>
+    <!-- Button that repeats a failed read -->
+    <string name="agents_try_again">Try again</string>
+    <!-- Shown while an agent action runs -->
+    <string name="agents_loading">Working…</string>
+    <!-- Title when the agents cannot be read -->
+    <string name="agents_unavailable">Agents are unavailable</string>
+    <!-- Shown when no unlocked account is active -->
     <string name="agents_account">An unlocked active account is required.</string>
+    <!-- Button that opens account setup -->
+    <string name="agents_setup">Set up an account</string>
+    <!-- Shown while private data is closed -->
     <string name="agents_closed">Private data is closed.</string>
-    <string name="agents_loading">Checking Agent configuration…</string>
-    <string name="agents_unavailable">Agent configuration is unavailable</string>
-    <string name="agents_explanation">This SDK does not support Agent creation or configuration. No Agent has been created or changed.</string>
-    <string name="agents_read_failure">Unable to check Agent configuration (code %1$s).</string>
+    <!-- Shown when the active account changed during a read -->
+    <string name="agents_account_changed">The active account changed. Open Agents again.</string>
+    <!-- Generic failure; %1$s is a numeric error code -->
+    <string name="agents_read_failure">Unable to read agents (code %1$s).</string>
+    <!-- Outcome of a change is unknown -->
+    <string name="agents_unknown">The outcome is unknown. Refresh before trying again.</string>
+    <!-- Empty state title of the agent directory (board MOB-D20) -->
+    <string name="agents_empty_title">No agents yet</string>
+    <!-- Empty state body of the agent directory (board MOB-D20) -->
+    <string name="agents_empty_body">Agents you create sync to this phone. You can view and use them here.</string>
+    <!-- Tip that agents are created on the desktop -->
+    <string name="agents_create_on_desktop">Create agents on your desktop</string>
+    <!-- Placeholder of the agent filter field -->
+    <string name="agents_search">Search by name…</string>
+    <!-- No agent matches the filter (board MOB-D01E) -->
+    <string name="agents_no_match">No agents found</string>
+    <!-- Hint when no agent matches the filter -->
+    <string name="agents_no_match_body">Try another name or keyword.</string>
+    <!-- The filter only searches the agents loaded so far -->
+    <string name="agents_filter_loaded_only">Only the agents loaded so far are searched. Scroll to load more.</string>
+    <!-- Agent row second line; %1$s is the agent's responsibility, %2$s its status -->
+    <string name="agents_row_value">%1$s · %2$s</string>
+    <!-- Button that reads more agents -->
+    <string name="agents_load_more">Load more</string>
+    <!-- Status of an agent that is in use -->
+    <string name="agents_status_active">Active</string>
+    <!-- Status of an agent that was deleted -->
+    <string name="agents_status_deleted">Deleted</string>
+    <!-- Status the app cannot read -->
+    <string name="agents_status_unknown">Status unavailable</string>
+    <!-- Label of the agent's responsibility -->
+    <string name="agents_responsibility">Responsibility</string>
+    <!-- Label of the agent's role -->
+    <string name="agents_role">Role</string>
+    <!-- Role of an agent with its own name and identity -->
+    <string name="agents_role_named">Named agent</string>
+    <!-- Role not known to the app; %1$s is the raw role token -->
+    <string name="agents_role_other">Role: %1$s</string>
+    <!-- Label: who may message the agent directly -->
+    <string name="agents_access_dm">Direct messages</string>
+    <!-- Label: who may invite the agent to groups -->
+    <string name="agents_access_groups">Group invitations</string>
+    <!-- Access value: only the owner -->
+    <string name="agents_access_owner">Only you</string>
+    <!-- Access value: the owner's contacts -->
+    <string name="agents_access_contacts">Your contacts</string>
+    <!-- Access value: anyone -->
+    <string name="agents_access_open">Anyone</string>
+    <!-- Explains that access settings are read only on the phone -->
+    <string name="agents_access_read_only">Access is shown read only. This phone cannot change it yet; change it on your desktop.</string>
+    <!-- Button that opens the conversation with the agent -->
+    <string name="agents_message">Message</string>
+    <!-- Shown when no conversation with the agent exists on this phone -->
+    <string name="agents_no_conversation">There is no conversation with this agent on this phone yet. Start it on your desktop; it then appears in Messages.</string>
+    <!-- Button and review title for deleting an agent -->
+    <string name="agents_delete">Delete agent</string>
+    <!-- Shown in the delete review; must state what is not removed -->
+    <string name="agents_delete_explanation">The agent is retired for your account and its material on this phone is removed. Its keys on your desktop are not removed by this, and the record published on your node stays.</string>
+    <!-- Notice after a delete -->
+    <string name="agents_deleted">Agent deleted on this phone. Its desktop keys and node record were not removed.</string>
+    <!-- Explains which controls are not on the phone -->
+    <string name="agents_desktop_only_controls">Pausing, hiding and goal settings are not available on this phone.</string>
+    <!-- Label of the agent name field -->
     <string name="agents_name">Name</string>
-    <string name="agents_responsibility">One-line responsibility</string>
-    <string name="agents_avatar">Avatar</string>
-    <string name="agents_orbit">Orbit</string>
-    <string name="agents_prism">Prism</string>
-    <string name="agents_waves">Waves</string>
-    <string name="agents_star">Star</string>
-    <string name="agents_defaults">Planned defaults · configuration unavailable</string>
-    <string name="agents_runtime">Not bound · Not running. No provider, model or runtime binding is configured.</string>
-    <string name="agents_tools">No tools are enabled. Full authorization is off.</string>
-    <string name="agents_scope">Owner private conversation only.</string>
-    <string name="agents_desktop">Full configuration belongs in the desktop flow when supported.</string>
+    <!-- Error: the name is empty -->
     <string name="agents_name_required">Enter a name.</string>
-    <string name="agents_name_limit">Use at most 40 Unicode characters and 256 UTF-8 bytes.</string>
-    <string name="agents_goal_required">Enter a responsibility.</string>
-    <string name="agents_goal_limit">Use at most 256 UTF-8 bytes.</string>
-    <string name="agents_draft_only">Draft only · nothing is provisioned or authorized.</string>
+    <!-- Error: the name is too long -->
+    <string name="agents_name_limit">Use at most 256 UTF-8 bytes.</string>
+    <!-- Error: the responsibility is empty -->
+    <string name="agents_responsibility_required">Enter a responsibility.</string>
+    <!-- Error: the responsibility is too long -->
+    <string name="agents_responsibility_limit">Use at most 4,096 UTF-8 bytes.</string>
+    <!-- Explains where a profile edit goes -->
+    <string name="agents_edit_sync">The change is sent to your other devices.</string>
+    <!-- Shown in the edit review -->
+    <string name="agents_edit_explanation">The new name and responsibility are saved for your account and sent to your other devices.</string>
+    <!-- Button that reviews a profile edit -->
+    <string name="agents_save">Review and save</string>
+    <!-- Notice after a profile edit -->
+    <string name="agents_saved">Profile saved.</string>
+    <!-- Title of the confirmation dialog -->
+    <string name="agents_review">Confirm agent change</string>
+    <!-- Account line in the review; %1$s is the account id -->
+    <string name="agents_review_account">Account: %1$s</string>
+    <!-- Button that cancels the change -->
+    <string name="agents_deny">Cancel</string>
+    <!-- Button that confirms the change -->
+    <string name="agents_confirm">Confirm</string>
+    <!-- Accessibility label of the confirm button; %1$s is the change -->
+    <string name="agents_confirm_accessibility">Confirm: %1$s</string>
+    <!-- Who started a pending agent creation -->
+    <string name="agents_pending_requester">Your desktop</string>
+    <!-- Title of a pending agent creation without a name -->
+    <string name="agents_pending_title">New agent waiting for approval</string>
+    <!-- Title of a pending agent creation; %1$s is the agent's name -->
+    <string name="agents_pending_named">%1$s is waiting for approval</string>
+    <!-- Status chip of a pending creation -->
+    <string name="agents_pending_waiting">Waiting</string>
+    <!-- Heading of the pending creation explanation -->
+    <string name="agents_pending_scope">Approval is not available on this phone yet</string>
+    <!-- Explains why the phone cannot approve -->
+    <string name="agents_pending_blocked">This phone cannot read the request\'s check value, so it cannot approve or decline. Nothing has been approved.</string>
+    <!-- Expiry of a pending creation; %1$s is a date and time -->
+    <string name="agents_pending_expires">Expires %1$s</string>
+    <!-- Access value: a list of chosen people; %1$s is how many -->
+    <plurals name="agents_access_allowlist"><item quantity="one">%1$s chosen person</item><item quantity="other">%1$s chosen people</item></plurals>
 </resources>

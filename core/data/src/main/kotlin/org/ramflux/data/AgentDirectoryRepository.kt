@@ -3,26 +3,71 @@
 
 package org.ramflux.data
 
-enum class AgentCapability { DIRECTORY, CREATE, PROFILE, ADVANCED, CHAT, GOAL, MANAGE, COLLABORATION, EDIT, REMOVE, PAUSE, HIDE }
-enum class AgentAvatar { ORBIT, PRISM, WAVES, STAR }
-enum class AgentDraftIssue { NAME_REQUIRED, NAME_LIMIT, GOAL_REQUIRED, GOAL_LIMIT }
-data class AgentDraft(val name: String = "", val goal: String = "", val avatar: AgentAvatar = AgentAvatar.ORBIT) {
-    val issue: AgentDraftIssue? get() = when {
-        name.isBlank() -> AgentDraftIssue.NAME_REQUIRED
-        name.codePointCount(0, name.length) > 40 || name.toByteArray(Charsets.UTF_8).size > 256 -> AgentDraftIssue.NAME_LIMIT
-        goal.isBlank() -> AgentDraftIssue.GOAL_REQUIRED
-        goal.toByteArray(Charsets.UTF_8).size > 256 -> AgentDraftIssue.GOAL_LIMIT
-        else -> null
+/** `lifecycle` of a stored agent record: `U` (active) or `X` (retired). */
+enum class AgentLifecycle { ACTIVE, RETIRED, UNKNOWN }
+
+/** The access policy of an agent as stored (closed tokens `owner`, `contacts`, `allowlist`, `open`). Read only. */
+data class AgentAccess(val dm: String, val groupInviters: String, val allowedHumans: Int)
+
+/** Persona fields of `agent.persona.edit`; byte limits are the SDK's (`agent_record/policy.rs`). */
+data class AgentPersona(val name: String, val avatar: String, val responsibility: String) {
+    val valid: Boolean
+        get() = name.isNotBlank() && responsibility.isNotBlank() && name.toByteArray().size <= MAX_NAME_BYTES &&
+            avatar.toByteArray().size <= MAX_AVATAR_BYTES && responsibility.toByteArray().size <= MAX_RESPONSIBILITY_BYTES
+    override fun toString() = "AgentPersona(<redacted>)"
+
+    companion object {
+        const val MAX_NAME_BYTES = 256
+        const val MAX_AVATAR_BYTES = 2048
+        const val MAX_RESPONSIBILITY_BYTES = 4096
     }
-    override fun toString() = "AgentDraft(<redacted>)"
 }
+
+/** One stored agent record of this account. [anchor] is the agent's account anchor, the stable id. */
+data class AgentSummary(
+    val anchor: String,
+    val persona: AgentPersona,
+    val lifecycle: AgentLifecycle,
+    val role: String,
+    val access: AgentAccess,
+    /** `node_record_retained` after a delete: the record published on the home node stays. */
+    val cleanup: String = ""
+) {
+    override fun toString() = "AgentSummary(<redacted>)"
+}
+
+/** A window page of agents plus the journal cursor at which a watch continues. */
+data class AgentPage(val page: WindowedPage<AgentSummary>, val journal: String)
+
+/** The records changed after a journal cursor (`agent.watch`). */
+data class AgentChanges(val records: List<AgentSummary>, val journal: String, val more: Boolean) {
+    override fun toString() = "AgentChanges(rows=${records.size})"
+}
+
+/**
+ * A creation started on a paired desktop that waits for this device's decision (`agent.operation.get` with an
+ * empty id). The phone cannot approve it today: `agent.creation.decide` needs the plan hash, which the C ABI does
+ * not return.
+ */
+data class PendingAgentCreation(val requestId: String, val state: String, val anchor: String?, val name: String?, val expiresAt: Long?) {
+    override fun toString() = "PendingAgentCreation(<redacted>)"
+}
+
 interface AgentDirectoryRepository {
-    suspend fun availability(account: String, capability: AgentCapability): ClientResult<Unit>
-    suspend fun create(account: String, draft: AgentDraft): ClientResult<String>
-}
-/** AGENT-CONFIG-01 owns provisioning; bot installation is a separate SDK domain. */
-internal class UnavailableAgentDirectoryRepository : AgentDirectoryRepository {
-    override suspend fun availability(account: String, capability: AgentCapability): ClientResult<Unit> = unavailable()
-    override suspend fun create(account: String, draft: AgentDraft): ClientResult<String> = unavailable()
-    private fun unavailable() = ClientResult.Unavailable(ClientFeature.AGENTS, UnavailableReason.UNSUPPORTED_BY_CORE)
+    /** A window page of `agent.list`; a null cursor starts a new read. */
+    suspend fun agentPage(account: String, cursor: String? = null): ClientResult<AgentPage>
+    suspend fun agent(account: String, anchor: String): ClientResult<AgentSummary>
+    suspend fun changes(account: String, journal: String): ClientResult<AgentChanges>
+
+    /** The oldest creation waiting for this device, or null when none waits. */
+    suspend fun pendingCreation(account: String): ClientResult<PendingAgentCreation?>
+
+    /** Requires the host confirmation ([confirmed]); returns the stored record after the edit. */
+    suspend fun editPersona(account: String, anchor: String, persona: AgentPersona, confirmed: Boolean): ClientResult<AgentSummary>
+
+    /** Requires the host confirmation; only an active record can be deleted. Returns the retired record. */
+    suspend fun delete(account: String, anchor: String, confirmed: Boolean): ClientResult<AgentSummary>
+
+    /** The existing direct conversation with the agent, or null when none exists on this device yet. */
+    suspend fun conversation(account: String, anchor: String): ClientResult<String?>
 }

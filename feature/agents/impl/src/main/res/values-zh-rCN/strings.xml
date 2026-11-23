@@ -1,46 +1,131 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="agents_title">Agent</string>
-    <string name="agents_directory">我的 Agent</string>
-    <string name="agents_create">创建 Agent</string>
-    <string name="agents_create_on_desktop">请在桌面端创建 Agent</string>
-    <string name="agents_empty_body">在桌面端创建的 Agent 会显示在这里。</string>
-    <string name="agents_empty_title">暂无 Agent</string>
+    <!-- Name of the agents feature -->
+    <string name="agents_title">Agents</string>
+    <!-- Title of the agents tab -->
     <string name="agents_shell_title">Agents</string>
-    <string name="agents_profile">档案</string>
-    <string name="agents_advanced">高级设置</string>
-    <string name="agents_chat">私人会话</string>
-    <string name="agents_goal">职责</string>
-    <string name="agents_manage">管理 Agent</string>
-    <string name="agents_collaboration">协作</string>
-    <string name="agents_edit">编辑档案</string>
-    <string name="agents_remove">移除 Agent</string>
-    <string name="agents_pause">暂停 Agent</string>
-    <string name="agents_hide">已隐藏的 Agent</string>
-    <string name="agents_back">返回</string>
+    <!-- Title of one agent's profile page -->
+    <string name="agents_profile">Agent 资料</string>
+    <!-- Title and button for editing an agent's name and responsibility -->
+    <string name="agents_edit">编辑资料</string>
+    <!-- Header action that reads the agents again -->
     <string name="agents_retry">刷新</string>
-    <string name="agents_setup">设置账户</string>
-    <string name="agents_account">需要已解锁的当前账户。</string>
+    <!-- Button that repeats a failed read -->
+    <string name="agents_try_again">重试</string>
+    <!-- Shown while an agent action runs -->
+    <string name="agents_loading">正在处理…</string>
+    <!-- Title when the agents cannot be read -->
+    <string name="agents_unavailable">暂时无法读取 Agent</string>
+    <!-- Shown when no unlocked account is active -->
+    <string name="agents_account">需要一个已解锁的当前账号。</string>
+    <!-- Button that opens account setup -->
+    <string name="agents_setup">设置账号</string>
+    <!-- Shown while private data is closed -->
     <string name="agents_closed">私密数据已关闭。</string>
-    <string name="agents_loading">正在检查 Agent 配置…</string>
-    <string name="agents_unavailable">Agent 配置暂不可用</string>
-    <string name="agents_explanation">此 SDK 不支持创建或配置 Agent。尚未创建或更改任何 Agent。</string>
-    <string name="agents_read_failure">无法检查 Agent 配置（代码 %1$s）。</string>
+    <!-- Shown when the active account changed during a read -->
+    <string name="agents_account_changed">当前账号已更改，请重新打开 Agent。</string>
+    <!-- Generic failure; %1$s is a numeric error code -->
+    <string name="agents_read_failure">无法读取 Agent（代码 %1$s）。</string>
+    <!-- Outcome of a change is unknown -->
+    <string name="agents_unknown">结果未知。请先刷新再重试。</string>
+    <!-- Empty state title of the agent directory (board MOB-D20) -->
+    <string name="agents_empty_title">还没有 Agent</string>
+    <!-- Empty state body of the agent directory (board MOB-D20) -->
+    <string name="agents_empty_body">你创建的 Agent 会同步到这台手机，可以在这里查看和使用。</string>
+    <!-- Tip that agents are created on the desktop -->
+    <string name="agents_create_on_desktop">请在桌面端创建 Agent</string>
+    <!-- Placeholder of the agent filter field -->
+    <string name="agents_search">按名称搜索…</string>
+    <!-- No agent matches the filter (board MOB-D01E) -->
+    <string name="agents_no_match">没有找到 Agent</string>
+    <!-- Hint when no agent matches the filter -->
+    <string name="agents_no_match_body">试试其他姓名或关键词。</string>
+    <!-- The filter only searches the agents loaded so far -->
+    <string name="agents_filter_loaded_only">只搜索已加载的 Agent，滚动可加载更多。</string>
+    <!-- Agent row second line; %1$s is the agent's responsibility, %2$s its status -->
+    <string name="agents_row_value">%1$s · %2$s</string>
+    <!-- Button that reads more agents -->
+    <string name="agents_load_more">加载更多</string>
+    <!-- Status of an agent that is in use -->
+    <string name="agents_status_active">使用中</string>
+    <!-- Status of an agent that was deleted -->
+    <string name="agents_status_deleted">已删除</string>
+    <!-- Status the app cannot read -->
+    <string name="agents_status_unknown">状态未知</string>
+    <!-- Label of the agent's responsibility -->
+    <string name="agents_responsibility">职责</string>
+    <!-- Label of the agent's role -->
+    <string name="agents_role">角色</string>
+    <!-- Role of an agent with its own name and identity -->
+    <string name="agents_role_named">具名 Agent</string>
+    <!-- Role not known to the app; %1$s is the raw role token -->
+    <string name="agents_role_other">角色：%1$s</string>
+    <!-- Label: who may message the agent directly -->
+    <string name="agents_access_dm">私信</string>
+    <!-- Label: who may invite the agent to groups -->
+    <string name="agents_access_groups">群组邀请</string>
+    <!-- Access value: only the owner -->
+    <string name="agents_access_owner">仅限你</string>
+    <!-- Access value: the owner's contacts -->
+    <string name="agents_access_contacts">你的联系人</string>
+    <!-- Access value: anyone -->
+    <string name="agents_access_open">任何人</string>
+    <!-- Explains that access settings are read only on the phone -->
+    <string name="agents_access_read_only">访问设置仅供查看。这台手机暂时无法更改，请在桌面端更改。</string>
+    <!-- Button that opens the conversation with the agent -->
+    <string name="agents_message">发消息</string>
+    <!-- Shown when no conversation with the agent exists on this phone -->
+    <string name="agents_no_conversation">这台手机上还没有与此 Agent 的会话。请先在桌面端开始会话，之后会显示在消息中。</string>
+    <!-- Button and review title for deleting an agent -->
+    <string name="agents_delete">删除 Agent</string>
+    <!-- Shown in the delete review; must state what is not removed -->
+    <string name="agents_delete_explanation">该 Agent 将在你的账号中停用，并删除其在这台手机上的数据。此操作不会删除其在桌面端的密钥，发布在你节点上的记录也会保留。</string>
+    <!-- Notice after a delete -->
+    <string name="agents_deleted">已在这台手机上删除 Agent。其桌面端密钥和节点记录未被删除。</string>
+    <!-- Explains which controls are not on the phone -->
+    <string name="agents_desktop_only_controls">这台手机不支持暂停、隐藏和目标设置。</string>
+    <!-- Label of the agent name field -->
     <string name="agents_name">名称</string>
-    <string name="agents_responsibility">一句职责或说明</string>
-    <string name="agents_avatar">头像</string>
-    <string name="agents_orbit">轨道</string>
-    <string name="agents_prism">棱镜</string>
-    <string name="agents_waves">波纹</string>
-    <string name="agents_star">星形</string>
-    <string name="agents_defaults">计划的默认设置 · 配置暂不可用</string>
-    <string name="agents_runtime">未绑定 · 未运行。尚未配置提供方、模型或运行绑定。</string>
-    <string name="agents_tools">未启用任何工具。完全授权已关闭。</string>
-    <string name="agents_scope">仅限所有者的私人会话。</string>
-    <string name="agents_desktop">完整配置将在受支持时通过桌面端进行。</string>
+    <!-- Error: the name is empty -->
     <string name="agents_name_required">请输入名称。</string>
-    <string name="agents_name_limit">最多输入 40 个 Unicode 字符和 256 个 UTF-8 字节。</string>
-    <string name="agents_goal_required">请输入职责。</string>
-    <string name="agents_goal_limit">最多输入 256 个 UTF-8 字节。</string>
-    <string name="agents_draft_only">仅为草稿 · 尚未部署或授权任何内容。</string>
+    <!-- Error: the name is too long -->
+    <string name="agents_name_limit">最多 256 个 UTF-8 字节。</string>
+    <!-- Error: the responsibility is empty -->
+    <string name="agents_responsibility_required">请输入职责。</string>
+    <!-- Error: the responsibility is too long -->
+    <string name="agents_responsibility_limit">最多 4096 个 UTF-8 字节。</string>
+    <!-- Explains where a profile edit goes -->
+    <string name="agents_edit_sync">更改会同步到你的其他设备。</string>
+    <!-- Shown in the edit review -->
+    <string name="agents_edit_explanation">新的名称和职责将保存到你的账号，并同步到你的其他设备。</string>
+    <!-- Button that reviews a profile edit -->
+    <string name="agents_save">检查并保存</string>
+    <!-- Notice after a profile edit -->
+    <string name="agents_saved">资料已保存。</string>
+    <!-- Title of the confirmation dialog -->
+    <string name="agents_review">确认 Agent 更改</string>
+    <!-- Account line in the review; %1$s is the account id -->
+    <string name="agents_review_account">账号：%1$s</string>
+    <!-- Button that cancels the change -->
+    <string name="agents_deny">取消</string>
+    <!-- Button that confirms the change -->
+    <string name="agents_confirm">确认</string>
+    <!-- Accessibility label of the confirm button; %1$s is the change -->
+    <string name="agents_confirm_accessibility">确认：%1$s</string>
+    <!-- Who started a pending agent creation -->
+    <string name="agents_pending_requester">你的桌面端</string>
+    <!-- Title of a pending agent creation without a name -->
+    <string name="agents_pending_title">有新 Agent 等待批准</string>
+    <!-- Title of a pending agent creation; %1$s is the agent's name -->
+    <string name="agents_pending_named">%1$s 正在等待批准</string>
+    <!-- Status chip of a pending creation -->
+    <string name="agents_pending_waiting">等待中</string>
+    <!-- Heading of the pending creation explanation -->
+    <string name="agents_pending_scope">这台手机暂时无法批准</string>
+    <!-- Explains why the phone cannot approve -->
+    <string name="agents_pending_blocked">这台手机无法读取该请求的校验值，因此无法批准或拒绝。尚未批准任何内容。</string>
+    <!-- Expiry of a pending creation; %1$s is a date and time -->
+    <string name="agents_pending_expires">%1$s 过期</string>
+    <!-- Access value: a list of chosen people; %1$s is how many -->
+    <plurals name="agents_access_allowlist"><item quantity="other">%1$s 位指定的人</item></plurals>
 </resources>

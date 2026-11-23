@@ -14,6 +14,8 @@ data class ConversationDirectoryEntry(
     val kind: String? = null,
     val participants: List<String> = emptyList(),
     val muted: Boolean = false,
+    /** The recipient root commitment of a direct conversation's route (public); null for groups and unknown. */
+    val peer: String? = null,
 )
 /** One event of the directory topics; [row] is null when the frame carries no usable row. */
 data class ConversationDirectoryEvent(val topic: String?, val row: ConversationDirectoryEntry?)
@@ -28,7 +30,7 @@ object ConversationDirectoryMetadataReader {
                 ConversationDirectoryEntry(requireNotNull(fields.text(row, "id", true)), fields.text(row, "title"),
                     fields.unsigned(row, "unread_count"), fields.boolean(row, "archived"), fields.boolean(row, "hidden"),
                     fields.boolean(row, "is_unread"), fields.optionalSigned(row, "last_activity"),
-                    fields.text(row, "kind"), participants, fields.optionalBoolean(row, "muted") == true)
+                    fields.text(row, "kind"), participants, fields.optionalBoolean(row, "muted") == true, directPeer(fields, row))
             }
             require(rows.map { it.id }.distinct().size == rows.size)
             CoreResult.Success(ConversationDirectoryMetadata(rows, fields.text(fields.root, "next_cursor")))
@@ -49,6 +51,14 @@ object ConversationDirectoryMetadataReader {
         }
     } catch (_: Exception) { ConversationDirectoryEvent(null, null) }
     finally { reply.close() }
+}
+
+/** The recipient commitment of a direct route; a route that does not read is omitted, never a failure. */
+private fun directPeer(fields: DisplayFields, row: ByteJson.Node): String? = try {
+    fields.field(row, "direct_route")?.takeIf { it.kind == 123 }
+        ?.let { fields.text(it, "recipient_principal_commitment") }?.takeIf { it.length in 1..128 }
+} catch (_: Exception) {
+    null
 }
 
 /** A participants array that does not fit is omitted. The row and the rest of the page still list. */

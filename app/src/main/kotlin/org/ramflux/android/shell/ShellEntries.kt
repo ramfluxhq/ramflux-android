@@ -70,7 +70,13 @@ fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
         )
     }
     entry<AgentsRoute> {
-        AgentsNavigation(onBack = shell::back, onSetupAccount = setup, rooted = true, onAtRoot = { shell.reportAtRoot(TAB_AGENTS, it) })
+        AgentsNavigation(
+            onBack = shell::back,
+            onSetupAccount = setup,
+            onChat = { account, conversation -> shell.openDetail(ChatRoute(account, conversation)) },
+            rooted = true,
+            onAtRoot = { shell.reportAtRoot(TAB_AGENTS, it) }
+        )
     }
     entry<MoreRoute> {
         MoreHub(

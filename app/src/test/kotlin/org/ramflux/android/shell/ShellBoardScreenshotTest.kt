@@ -35,9 +35,11 @@ import org.junit.runner.RunWith
 import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.uiText
+import org.ramflux.feature.agents.AgentRow
 import org.ramflux.feature.agents.AgentsScreen
 import org.ramflux.feature.agents.AgentsState
 import org.ramflux.feature.agents.api.AgentsRoute
+import org.ramflux.feature.agents.impl.R as AgentsR
 import org.ramflux.feature.appshell.ShellPage
 import org.ramflux.feature.appshell.api.MoreRoute
 import org.ramflux.feature.appshell.api.NavigationEditorRoute
@@ -233,6 +235,14 @@ private val GROUPS_C01 = persistentListOf(
     GroupRow("design", "设计协作", UiText.Data("频道与帖子"))
 )
 
+/** MOB-D01: three agents; the status line is the record's lifecycle (the board's collaboration state has no SDK field). */
+private val AGENTS_D01 = persistentListOf(
+    AgentRow("nova", "Nova", "研究搭档", "orbit", uiText(AgentsR.string.agents_status_active), true),
+    AgentRow("atlas", "Atlas", "规划助手", "gem", uiText(AgentsR.string.agents_status_active), true),
+    AgentRow("mira", "Mira", "写作伙伴", "user-round", uiText(AgentsR.string.agents_status_active), true)
+)
+private val AGENTS_LIST = AgentsState(loaded = true, rows = AGENTS_D01, loadedCount = AGENTS_D01.size)
+
 /** One renderer per board key. Boards whose content the state model cannot express render what it can. */
 private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
     "MOB-B01" to { FixtureShell(ShellFixture()) },
@@ -246,9 +256,9 @@ private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
         FixtureShell(ShellFixture(tab = 1, groups = groups))
     },
     "MOB-C15" to { FixtureShell(ShellFixture(tab = 1)) },
-    "MOB-D01" to { FixtureShell(ShellFixture(tab = 2)) },
-    "MOB-D01E" to { FixtureShell(ShellFixture(tab = 2)) },
-    "MOB-D20" to { FixtureShell(ShellFixture(tab = 2)) },
+    "MOB-D01" to { FixtureShell(ShellFixture(tab = 2, agents = AGENTS_LIST)) },
+    "MOB-D01E" to { FixtureShell(ShellFixture(tab = 2, agents = AGENTS_LIST.copy(rows = persistentListOf(), query = "Orion"))) },
+    "MOB-D20" to { FixtureShell(ShellFixture(tab = 2, agents = AgentsState(loaded = true))) },
     "MOB-G01" to { FixtureShell(ShellFixture(tab = 3)) },
     "MOB-G02" to { FixtureShell(ShellFixture(tab = 3, pushed = SettingsRoute)) },
     "MOB-G03" to { FixtureShell(ShellFixture(tab = 3, pushed = NavigationEditorRoute)) },
@@ -304,7 +314,7 @@ private val MATRIX_STATES: Map<String, @Composable () -> Unit> = mapOf(
         val groups = GroupsState(page = GroupsPage.LIST, account = ACCOUNT, loaded = true, groups = GROUPS_C01)
         FixtureShell(ShellFixture(tab = 1, groups = groups), NO_INSETS)
     },
-    "agents" to { FixtureShell(ShellFixture(tab = 2), NO_INSETS) },
+    "agents" to { FixtureShell(ShellFixture(tab = 2, agents = AGENTS_LIST), NO_INSETS) },
     "settings" to { FixtureShell(ShellFixture(tab = 3, pushed = SettingsRoute), NO_INSETS) },
     "contacts-safety" to { FixtureShell(ShellFixture(tab = 3, pushed = ContactsRoute, contacts = SAFETY_CONTACT), NO_INSETS) },
     "tasks" to { FixtureShell(ShellFixture(tab = 3, pushed = TasksRoute), NO_INSETS) },

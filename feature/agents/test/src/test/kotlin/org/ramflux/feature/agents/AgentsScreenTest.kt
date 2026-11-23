@@ -2,111 +2,87 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.agents
-import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.text.intl.LocaleList
-import androidx.compose.ui.unit.*
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.ramflux.data.*
 import org.ramflux.designsystem.*
 import org.ramflux.feature.agents.impl.R
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class AgentsScreenTest {
     @get:Rule val compose = createComposeRule()
+    private val nova = AgentRow("nova", "Nova", "Research partner", "orbit", uiText(R.string.agents_status_active), true)
+    private val profile = AgentProfile(
+        nova,
+        "orbit",
+        uiText(R.string.agents_role_named),
+        uiText(R.string.agents_access_owner),
+        uiText(R.string.agents_access_contacts)
+    )
 
-    @Test fun creationIsOnlyAnIntentAndDraftFieldsHaveLocalizedAdjacentErrors() {
+    @Test fun rowsEmitSelectionAndNoCreationIsOffered() {
         val actions = mutableListOf<AgentsAction>()
         compose.setContent {
             RamfluxTheme {
                 AgentsScreen(
-                    AgentsState(
-                        mode = AgentCapability.CREATE,
-                        nameIssue = uiText(R.string.agents_name_required),
-                        goalIssue = uiText(R.string.agents_goal_required)
-                    ),
-                    actions::add
+                    AgentsState(loaded = true, loadedCount = 1, rows = persistentListOf(nova)),
+                    actions::add,
+                    rooted = true
                 )
             }
         }
-        compose.onNodeWithText("Enter a name.").performScrollTo().assertExists()
-        compose.onNodeWithText("Enter a responsibility.").performScrollTo().assertExists()
-        compose.onAllNodesWithText("Create Agent").onLast().performClick()
-        compose.runOnIdle { assertEquals(listOf(AgentsAction.Create), actions) }
+        compose.onNodeWithTag("agent:nova").performClick()
+        compose.onNodeWithText("Create Agent").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(AgentsAction.Select("nova"), actions.last()) }
     }
 
-    @Test fun actualCreationScreenShowsInactiveFinalDefaultsInBothLocales() {
-        var locale by mutableStateOf("en")
-        val repo = FakeAgentConfiguration()
-        val vm = AgentsViewModel(repo, FakeAgentAccounts(), FakeAgentSession())
-        vm.onAction(AgentsAction.Visible(true))
+    @Test fun profileOffersMessageEditAndDeleteWithReadOnlyAccess() {
+        val actions = mutableListOf<AgentsAction>()
         compose.setContent {
-            AppLanguageProvider(locale) {
-                DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(900.dp, 1200.dp))) {
-                    val state by vm.state.collectAsState()
-                    RamfluxTheme { AgentsScreen(state, vm::onAction) }
-                }
-            }
+            RamfluxTheme { AgentsScreen(AgentsState(page = AgentsPage.PROFILE, loaded = true, selected = profile), actions::add) }
         }
-        compose.waitUntil(5_000) { vm.state.value.unavailable }
-        compose.runOnIdle { vm.onAction(AgentsAction.Mode(AgentCapability.CREATE)) }
-        compose.waitUntil(5_000) { vm.state.value.mode == AgentCapability.CREATE && !vm.state.value.loading }
-        compose.onNodeWithText("Not bound · Not running. No provider, model or runtime binding is configured.").assertExists()
-        compose.onNodeWithText("No tools are enabled. Full authorization is off.").assertExists()
-        compose.onNodeWithText("Owner private conversation only.").assertExists()
-        val checks = repo.modes.size
-        compose.runOnIdle { locale = "zh-CN" }
-        compose.onNodeWithText("未绑定 · 未运行。尚未配置提供方、模型或运行绑定。").assertExists()
-        compose.onNodeWithText("未启用任何工具。完全授权已关闭。").assertExists()
-        compose.onNodeWithText("仅限所有者的私人会话。").assertExists()
-        compose.runOnIdle {
-            assertEquals(checks, repo.modes.size)
-            assertTrue(repo.creates.isEmpty())
-            assertTrue(vm.state.value.unavailable)
-        }
-        vm.onAction(AgentsAction.Visible(false))
+        compose.onNodeWithText("Only you").assertExists()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("agent-message"))
+        compose.onNodeWithTag("agent-message").performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("agent-edit"))
+        compose.onNodeWithTag("agent-edit").performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("agent-delete"))
+        compose.onNodeWithTag("agent-delete").performClick()
+        compose.runOnIdle { assertEquals(listOf(AgentsAction.Message, AgentsAction.Edit, AgentsAction.Delete), actions) }
     }
 
-    @Test fun chineseUnavailableDoesNotClaimAnEmptyOrCreatedAgent() {
+    @Test fun chineseEmptyDirectoryPointsToTheDesktopAndFailureIsNotEmpty() {
         compose.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.Locales(LocaleList("zh-CN"))) {
-                RamfluxTheme { AgentsScreen(AgentsState(unavailable = true), {}) }
+                RamfluxTheme { AgentsScreen(AgentsState(loaded = true), {}, rooted = true) }
             }
         }
-        compose.onNodeWithText("Agent 配置暂不可用").assertExists()
-        compose.onNodeWithText("此 SDK 不支持创建或配置 Agent。尚未创建或更改任何 Agent。").assertExists()
+        compose.onNodeWithText("还没有 Agent").assertExists()
+        compose.onNodeWithText("请在桌面端创建 Agent").assertExists()
     }
 
-    @Test fun actualViewModelPreservesLiteralDraftAcrossLocaleChangeWithoutAnotherRepositoryRead() {
-        var locale by mutableStateOf("en")
-        val repo = FakeAgentConfiguration()
-        val vm = AgentsViewModel(repo, FakeAgentAccounts(), FakeAgentSession())
-        vm.onAction(AgentsAction.Visible(true))
+    @Test fun failedFirstReadShowsRetryNotTheEmptyState() {
+        val actions = mutableListOf<AgentsAction>()
         compose.setContent {
-            DeviceConfigurationOverride(DeviceConfigurationOverride.Locales(LocaleList(locale))) {
-                val state by vm.state.collectAsState()
-                RamfluxTheme { AgentsScreen(state, vm::onAction) }
+            RamfluxTheme {
+                AgentsScreen(
+                    AgentsState(problem = uiText(R.string.agents_read_failure, UiText.Number(8))),
+                    actions::add,
+                    rooted = true
+                )
             }
         }
-        compose.waitUntil(5_000) { vm.state.value.unavailable }
-        compose.runOnIdle { vm.onAction(AgentsAction.Mode(AgentCapability.CREATE)) }
-        compose.waitUntil(5_000) { vm.state.value.mode == AgentCapability.CREATE && !vm.state.value.loading }
-        compose.runOnIdle {
-            vm.onAction(AgentsAction.Name("agents_title"))
-            vm.onAction(AgentsAction.Goal("Literal responsibility"))
-        }
-        val reads = repo.modes.size
-        compose.runOnIdle { locale = "zh-CN" }
-        compose.onNodeWithText("名称").performScrollTo().assertExists()
-        compose.onNodeWithText("agents_title").assertExists()
-        compose.runOnIdle { assertEquals(reads, repo.modes.size) }
-        vm.onAction(AgentsAction.Visible(false))
+        compose.onNodeWithTag("agents-empty").assertDoesNotExist()
+        compose.onNodeWithText("Try again").performClick()
+        compose.runOnIdle { assertEquals(AgentsAction.Refresh, actions.last()) }
     }
 }

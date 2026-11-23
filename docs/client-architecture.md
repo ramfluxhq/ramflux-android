@@ -166,3 +166,17 @@ a role and remove a member need the host confirmation and are re-validated again
 layer. Ownership transfer needs a creator certificate that a phone cannot produce and the SDK has no leave
 method; both rows explain this instead of acting. The reply parser accepts at most 4,096 JSON values per
 frame, which caps one unpaged reply at roughly 280 roster rows today.
+
+Agents read `agent.list` (eight records per page: one agent reply is serialized into at most 8 KiB by the
+SDK) into a bounded `PageWindow` of twelve pages. `agent.list` pages forward only, so the data layer remembers
+the start cursor of each page of the current listing (an id-only index) and serves it as the page's previous
+cursor. The name filter runs over the loaded rows off the main thread. The SDK projects no agent event topic:
+a refresh (resume, retry, after an own change) asks `agent.watch` for the records changed after the list's
+journal cursor and reloads only when something changed. The phone edits the persona (`agent.persona.edit`)
+and deletes an active agent (`agent.delete`), both with `confirmed` after the host confirmation; the delete
+review says that the agent's keys on the desktop and its node record are not removed. Creation stays on the
+desktop. A creation waiting for this device (`agent.operation.get` with an empty id) is shown read only:
+`agent.creation.decide` needs the plan hash, which the C ABI does not return. The access policy is read only:
+`agent.access.set` needs a base identity the read result does not carry. "Message" opens the existing direct
+conversation whose route names the agent's anchor as the recipient commitment; the client does not derive
+the SDK's direct conversation id itself.
