@@ -12,6 +12,8 @@
 - Debug trace: one start line per process, the sink is volatile, the suite marks flows under the trace tag directly, and the confirmation trace logs at warning level.
 - Debug and realrun builds also write the trace to a private file that `scripts/realrun.sh` copies to `app-trace.txt`, because the test phone keeps only part of an app's own log lines.
 - Groups: after an add the member list is shown again, and a finished change always clears the busy state.
+- Chat: a send refused for a missing contact card (`authority_unavailable`) is shown as not sent with a retry and a hint to exchange contact cards, not as offline; the keyboard closes before the attach menu opens.
+- Real run: each invocation exits non-zero when one of its own flows fails; new flows cover the group image, the invitation list, sign-out and removal from the phone.
 - Live updates: the SDK's account journal is followed through `bus.subscribe`, so conversations and account state update without a manual refresh.
 - The outbox is sealed at rest and resumes after a lock or a relaunch; a local attachment send is shown as waiting or not sent, never as a failed download.
 - Onboarding fixes: one back control per step, the new account opens after the permission step, the account-created step follows `account.status` until the account is live, and the whole account row opens or unlocks the account.
