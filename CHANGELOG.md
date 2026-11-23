@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- SDK pin moved to the core's `next` head `e39111de5`: phone attachment send, own replies and the invitation list fixed in the SDK; account list with locked accounts, the unlock wait, sign-out and local removal; card session methods in the policy.
+- Groups: a contact is added by its principal id alone (an explicit root made the SDK read the principal id as a device id, code 16); a new group opens the conversation its creation reply names, and opening a listed group asks the group's metadata before history.
+- Accounts come from the SDK's `account.list` (locked ones included); the app's own account registry is removed. Settings signs the account out and removes it from this phone.
+- The wait after wrong account codes is read from the SDK's `retry_after_ms`.
+- Contact verification reads the SDK's `verificationState` reply field, so a successful verify is no longer reported as an unknown outcome.
+- The composer draft survives background and lock: a session change while the draft was still being restored no longer erases the sealed draft.
+- Own replies use the SDK's `is_own`; the client-side author-device workaround is removed.
+- Debug trace: one start line per process, the sink is volatile, the suite marks flows under the trace tag directly, and the confirmation trace logs at warning level.
 - Live updates: the SDK's account journal is followed through `bus.subscribe`, so conversations and account state update without a manual refresh.
 - The outbox is sealed at rest and resumes after a lock or a relaunch; a local attachment send is shown as waiting or not sent, never as a failed download.
 - Onboarding fixes: one back control per step, the new account opens after the permission step, the account-created step follows `account.status` until the account is live, and the whole account row opens or unlocks the account.
