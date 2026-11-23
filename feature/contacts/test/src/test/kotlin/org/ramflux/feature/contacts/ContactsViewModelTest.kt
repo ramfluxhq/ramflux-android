@@ -434,4 +434,3 @@ class ContactsViewModelTest {
         assertEquals(uiText(R.string.contacts_no_conversation), vm.state.value.unavailable)
     }
 }
-

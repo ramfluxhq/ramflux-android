@@ -125,7 +125,16 @@ class GroupsViewModel @Inject constructor(
             GroupsAction.Refresh -> if (request?.isActive != true) read()
             GroupsAction.Back -> {
                 val parent = local.value.page.parent()
-                if (parent == null || local.value.page == entry) event(GroupsEvent.Back) else page(parent, local.value.selected.takeIf { parent != GroupsPage.LIST })
+                if (parent == null || local.value.page == entry) {
+                    event(GroupsEvent.Back)
+                } else {
+                    page(
+                        parent,
+                        local.value.selected.takeIf {
+                            parent != GroupsPage.LIST
+                        }
+                    )
+                }
             }
             GroupsAction.SetupAccount -> event(GroupsEvent.SetupAccount)
             is GroupsAction.Page -> page(action.page, action.id)

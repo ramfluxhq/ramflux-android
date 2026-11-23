@@ -297,4 +297,3 @@ class ConversationsViewModelTest {
         assertEquals(listOf(ConversationsEvent.OpenChat("a", "thread", "Team", "g")), events)
     }
 }
-

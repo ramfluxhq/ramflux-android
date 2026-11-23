@@ -47,7 +47,12 @@ fun KitIconTile(icon: String, modifier: Modifier = Modifier, tag: String? = null
 }
 
 @Composable
-fun KitInfoButton(onClick: () -> Unit, modifier: Modifier = Modifier, label: String = stringResource(R.string.kit_info_label), tag: String? = null) {
+fun KitInfoButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    label: String = stringResource(R.string.kit_info_label),
+    tag: String? = null
+) {
     val theme = LocalRFTheme.current
     Box(
         modifier

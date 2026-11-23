@@ -282,4 +282,3 @@ class GroupsViewModelTest {
         assertEquals(listOf(GroupsEvent.Back), events)
     }
 }
-

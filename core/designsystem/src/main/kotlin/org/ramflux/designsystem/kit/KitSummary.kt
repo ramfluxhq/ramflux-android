@@ -32,9 +32,17 @@ fun KitSummaryCard(title: String, body: String, modifier: Modifier = Modifier, s
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.tabGap))) {
             // Design-line boxes: the card keeps one height whichever script's face renders the text.
-            KitText(title, designLine = true, style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle))
+            KitText(
+                title,
+                designLine = true,
+                style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
+            )
             if (body.isNotEmpty()) {
-                KitText(body, designLine = true, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))
+                KitText(
+                    body,
+                    designLine = true,
+                    style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary)
+                )
             }
         }
         if (selected) KitIcon("circle-check", RfMetrics.iconAction, theme.text)

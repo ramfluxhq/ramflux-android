@@ -46,4 +46,3 @@ class PermissionsManifestTest {
         const val FOREGROUND_SERVICE_DATA_SYNC = "android.permission.FOREGROUND_SERVICE_DATA_SYNC"
     }
 }
-

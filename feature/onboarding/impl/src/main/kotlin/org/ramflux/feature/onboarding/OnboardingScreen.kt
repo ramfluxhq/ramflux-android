@@ -172,7 +172,10 @@ fun OnboardingScreen(
                                         tag = "use-node"
                                     )
                                 }
-                                OnboardingPage.ADDRESS, OnboardingPage.CONNECTION_FAILED, OnboardingPage.OFFLINE, OnboardingPage.REFUSED -> {
+                                OnboardingPage.ADDRESS,
+                                OnboardingPage.CONNECTION_FAILED,
+                                OnboardingPage.OFFLINE,
+                                OnboardingPage.REFUSED -> {
                                     Text(stringResource(R.string.ui_add_your_node), style = MaterialTheme.typography.titleLarge)
                                     Text(stringResource(R.string.ui_enter_its_https_address_you_will_review_the))
                                     state.operatorKeyIssue?.let { issue ->

@@ -315,4 +315,3 @@ class SettingsViewModelTest {
         assertEquals(listOf(SettingsEvent.Storage("a")), events)
     }
 }
-
