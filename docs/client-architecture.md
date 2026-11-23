@@ -67,12 +67,24 @@ approval implementation is installed by the shell.
   list. Folding and unfolding only change the scene; the stack, and with it the
   selected conversation, is untouched. The list pane is the design frame width
   and at most 45 percent of the window.
+- **Bottom inset owners.** An entry declared with `pane(role, ownsBottomInset = true)`
+  (the chat) receives the bottom window inset through `LocalShellBottomInset`
+  instead of being padded above it, so its composer band reaches the home
+  indicator; every other entry is padded. With the tab bar visible the bar takes
+  the inset and owners receive zero.
+- **Routes from the chat.** The chat's header and menu reach the group details
+  (`GroupDetailRoute`, group chats only), a one-to-one call (`CallRoute`, direct
+  chats only), the camera explanation (`PermissionsRoute(CAMERA_PHOTO)`), the
+  conversation gallery (a sheet inside the chat) and media storage
+  (`MediaStorageRoute`, also linked from Settings). The call history is a More
+  hub row; answering an incoming call there opens `CallRoute(callId)`.
 - **Global routes.** Account setup (`OnboardingRoute`) and the post-creation
   permission flow open on the root stack over the whole shell
   (`RoutePolicy.isGlobal`), framed by `ShellPage` (window insets including the
   keyboard, and the width cap); every other key is pushed on the selected tab.
-- **Locked sessions.** Route keys implementing `AccountScoped` (chat, contacts,
-  tasks, calls, cards, settings and permissions declare it in their API module;
+- **Locked sessions.** Route keys implementing `AccountScoped` (chat, group details,
+  call, media storage, contacts, tasks, calls, cards, settings and permissions
+  declare it in their API module;
   the route policy keeps no list) are dropped from the root stack and from every
   tab stack while the shell is not ready, so unlocking never reopens restored
   account data. Tab roots stay.
