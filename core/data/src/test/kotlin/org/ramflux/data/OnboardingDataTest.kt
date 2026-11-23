@@ -58,7 +58,7 @@ class OnboardingDataTest {
     }
     @Test fun lockedAccountUnlocksThroughTheAccountAbiAndSetupStaysLocal() = runTest(timeout = 5.seconds) {
         val abi = FakeAbi().apply { completionBody = buildJsonObject {
-            put("account_details", buildJsonArray { add(buildJsonObject { put("id", "a"); put("label", "Work"); put("state", "locked") }) }); put("active_account_id", JsonNull)
+            put("account_details", buildJsonArray { add(buildJsonObject { put("id", "a"); put("display_name", "Work"); put("state", "locked") }) }); put("active_account_id", JsonNull)
         } }
         val client = (CoreClient.open(abi, "/test/onboarding", "a".repeat(64)) as CoreResult.Success).value
         try {
@@ -77,7 +77,7 @@ class OnboardingDataTest {
             assertEquals(listOf(1), revisions)
             assertTrue(passphrase.all { it == '\u0000' })
             // After the switch one list read names the account for this device's registry of known accounts.
-            assertEquals(listOf("account.unlock", "account.switch", "account.list"), abi.submitted.drop(2).map { it.getValue("method").jsonPrimitive.content })
+            assertEquals(listOf("account.unlock", "account.switch"), abi.submitted.drop(2).map { it.getValue("method").jsonPrimitive.content })
             val unlock = abi.submitted[2]
             assertEquals("a", unlock.getValue("account_id").jsonPrimitive.content)
             assertEquals("482915", unlock.getValue("body").jsonObject.getValue("passphrase").jsonPrimitive.content)

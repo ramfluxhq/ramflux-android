@@ -26,7 +26,7 @@ sealed interface OnboardingAction {
     /** Starts phrase recovery of an account whose data is on this phone. */
     data class BeginRecover(val accountId: String) : OnboardingAction
 
-    /** Removes an account the SDK refuses from this device's list of offered accounts. */
+    /** Removes an account the SDK refuses to open, with its local data, from this phone (`account.remove_local`). */
     data class ForgetAccount(val accountId: String) : OnboardingAction
 
     /** The handler owns both buffers: it reads them once and erases them after the call returns. */

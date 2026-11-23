@@ -26,8 +26,14 @@ object AccountListMetadataReader {
             }
             val rows = parser.field(root, "account_details") ?: throw IllegalArgumentException("missing account metadata")
             require(rows.kind == 91 && rows.children.size <= 256)
+            // Every account on this device, open or locked (`account.list`, `bus/account_local.rs`): `display_name` is the
+            // profile name of a custody account or the label of an index account, empty when it has neither.
             val entries = rows.children.map { row ->
-                AccountListEntry(requireNotNull(text(row, "id", true)), text(row, "label"), requireNotNull(text(row, "state", true)))
+                AccountListEntry(
+                    requireNotNull(text(row, "id", true)),
+                    text(row, "display_name")?.takeIf { it.isNotEmpty() },
+                    requireNotNull(text(row, "state", true))
+                )
             }
             require(entries.map { it.id }.distinct().size == entries.size)
             CoreResult.Success(AccountListMetadata(entries, text(root, "active_account_id")))

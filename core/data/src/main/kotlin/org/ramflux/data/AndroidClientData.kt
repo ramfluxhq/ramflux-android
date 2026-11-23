@@ -16,12 +16,9 @@ class AndroidClientData(context: Context, expectedDescriptor: String, languages:
     val accountStores = AccountScopedStores()
     val session: ClientSessionRepository = DefaultClientSessionRepository(driver)
 
-    /** Accounts created or restored here, offered on unlock (public facts; `noBackupFilesDir`, see [KnownAccount]). */
-    private val knownAccounts: KnownAccountRegistry =
-        FileKnownAccountRegistry(java.io.File(context.applicationContext.noBackupFilesDir, "known-accounts.json"))
     val nodes: NodeSetupRepository = DefaultNodeSetupRepository(driver.transport)
-    val accounts: AccountAccessRepository = DefaultAccountAccessRepository(driver.transport, knownAccounts)
-    val ceremony: AccountCeremonyRepository = DefaultAccountCeremonyRepository(driver.transport, knownAccounts, nodes)
+    val accounts: AccountAccessRepository = DefaultAccountAccessRepository(driver.transport, accountStores)
+    val ceremony: AccountCeremonyRepository = DefaultAccountCeremonyRepository(driver.transport)
     val conversations: ConversationDirectoryRepository = DefaultConversationDirectoryRepository(driver.transport)
     val history: MessageHistoryRepository = DefaultMessageHistoryRepository(driver.transport)
     val calls: CallDirectoryRepository = DefaultCallDirectoryRepository(driver.transport)
@@ -32,7 +29,7 @@ class AndroidClientData(context: Context, expectedDescriptor: String, languages:
     val contacts: ContactDirectoryRepository = DefaultContactDirectoryRepository(driver.transport)
     val devices: DeviceDirectoryRepository = DefaultDeviceDirectoryRepository(driver.transport)
     val security: AccountSecurityRepository = DefaultAccountSecurityRepository(driver.transport)
-    val backups: BackupRepository = DefaultBackupRepository(driver.transport, AndroidBackupFileStore(context.applicationContext), knownAccounts)
+    val backups: BackupRepository = DefaultBackupRepository(driver.transport, AndroidBackupFileStore(context.applicationContext))
     val accountStatus: AccountStatusRepository = DefaultAccountStatusRepository(driver.transport)
     val language: LanguageRepository = AndroidLanguageRepository(context.applicationContext, languages)
     val appearance: AppearanceRepository = AndroidAppearanceRepository(context.applicationContext)

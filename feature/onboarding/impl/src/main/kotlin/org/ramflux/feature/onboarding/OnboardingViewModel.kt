@@ -234,8 +234,7 @@ class OnboardingViewModel @Inject constructor(
                             "locked" -> uiText(R.string.ui_locked)
                             else -> uiText(R.string.ui_account_unavailable)
                         },
-                        row.unlocked,
-                        offered = row.known && !row.listed
+                        row.unlocked
                     )
                 }?.toPersistentList() ?: kotlinx.collections.immutable.persistentListOf(),
                 nodes = savedNodes.map { row -> row.item() }.toPersistentList(),
@@ -384,9 +383,9 @@ class OnboardingViewModel @Inject constructor(
                         val refusal = (result as? ClientResult.Failed)?.problem?.accountCodeRefusal(unlock = true)
                         if (refusal == AccountCodeRefusal.ATTEMPTS_EXHAUSTED || refusal == AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE) {
                             local.update { it.copy(recoverAccountId = id) }
-                        } else if (refusal == null && local.value.accounts.any { it.id == id && it.offered }) {
-                            // Not a code refusal: the SDK cannot open this offered account (for example its data
-                            // is gone). The typed reason is in the notice; the entry may be removed from the list.
+                        } else if (refusal == null && local.value.accounts.any { it.id == id && !it.unlocked }) {
+                            // Not a code refusal: the SDK cannot open this account (for example a failed restore). The
+                            // typed reason is in the notice; the account and its local data may be removed from the phone.
                             local.update { it.copy(forgetAccountId = id) }
                         }
                     }
@@ -400,7 +399,7 @@ class OnboardingViewModel @Inject constructor(
     private fun forgetAccount(accountId: String) {
         if (local.value.forgetAccountId != accountId) return
         launch {
-            when (val result = accounts.forget(accountId)) {
+            when (val result = accounts.removeLocal(accountId)) {
                 is ClientResult.Ready -> {
                     checkCurrent()
                     pendingUnlock = null

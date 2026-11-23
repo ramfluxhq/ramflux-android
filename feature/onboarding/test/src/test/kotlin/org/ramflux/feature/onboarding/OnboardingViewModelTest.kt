@@ -756,11 +756,11 @@ class OnboardingViewModelTest {
         assertNull(vm.state.value.recoverAccountId)
     }
 
-    @Test fun anOfferedAccountTheSdkRefusesShowsTheReasonAndCanBeRemoved() = runTest(timeout = 5.seconds) {
+    @Test fun aLockedAccountTheSdkRefusesShowsTheReasonAndCanBeRemoved() = runTest(timeout = 5.seconds) {
         val accounts = FakeAccountAccess().apply {
             listing = {
                 ClientResult.Ready(
-                    AccountCatalog(listOf(AccountSummary("a", "Phone", false, "locked", known = true, listed = false)), null)
+                    AccountCatalog(listOf(AccountSummary("a", "Phone", false, "restore_failed")), null)
                 )
             }
             unlockResult = refused("account_not_found")
@@ -771,7 +771,7 @@ class OnboardingViewModelTest {
         vm.onAction(OnboardingAction.SelectAccount("a"))
         runCurrent()
         assertEquals("the code page names the account", "a", vm.state.value.unlockAccountId)
-        assertTrue(vm.state.value.accounts.single().offered)
+        assertFalse(vm.state.value.accounts.single().unlocked)
         assertNull(vm.state.value.forgetAccountId)
         vm.onAction(OnboardingAction.SubmitUnlock(ErasableBuffer().also { it.replace("482915".toCharArray()) }))
         runCurrent()
@@ -784,7 +784,7 @@ class OnboardingViewModelTest {
         assertNull(vm.state.value.forgetAccountId)
     }
 
-    @Test fun aWrongCodeOnAnOfferedAccountOffersNoRemoval() = runTest(timeout = 5.seconds) {
+    @Test fun aWrongCodeOffersNoRemoval() = runTest(timeout = 5.seconds) {
         val (vm, _) = lockedVm(refused("ValidationFailed"))
         assertNull(vm.state.value.forgetAccountId)
     }

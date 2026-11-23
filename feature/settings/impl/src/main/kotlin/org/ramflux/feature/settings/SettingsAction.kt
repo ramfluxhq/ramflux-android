@@ -24,6 +24,11 @@ sealed interface SettingsAction {
     /** Explicit lock: only the account code opens the account again on this phone. */
     data object Lock : SettingsAction
 
+    /** Asks for confirmation; nothing leaves the phone until [ConfirmAccountExit]. */
+    data class AccountExit(val exit: SettingsAccountExit) : SettingsAction
+    data object ConfirmAccountExit : SettingsAction
+    data object CancelAccountExit : SettingsAction
+
     /** Linking a new device: this phone invites, compares, reviews and approves. */
     data object StartPairing : SettingsAction
     data class InvitationAsText(val text: Boolean) : SettingsAction

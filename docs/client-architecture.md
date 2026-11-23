@@ -24,17 +24,15 @@ Account creation runs the SDK's connection-local creation ceremony (begin, recov
 phrase, word challenge, confirm with the six-digit account code) through
 `AccountCeremonyRepository`. The account code is entered through the Kit code field
 backed by an erasable buffer; unlock and lock go through `AccountAccessRepository`,
-and the SDK's named refusals (wrong code, wait with its `retry_after_secs`, attempts
+and the SDK's named refusals (wrong code, wait with its `retry_after_ms`, attempts
 exhausted, missing device unlock secret) map to `AccountCodeRefusal`. Phrase recovery
 (`account.recover.*`) works for an account whose data is on this installation;
-the SDK's `account.list` reports only open accounts, so `KnownAccountRegistry` keeps the accounts created,
-recovered, restored or unlocked on this device (id, display name, node origin, creation time; nothing secret)
-in `noBackupFilesDir/known-accounts.json`. `AccountAccessRepository.list` names the SDK's rows from it and adds
-its other entries as locked offers (`listed = false`); unlock and the account list offer them by name and ask
-only for the six-digit code. The SDK stays the authority: an offer it refuses for a reason other than the code
-shows the typed reason and can be removed (`forget`), which removes only the offer; the SDK
-refuses it without local account data, so a new installation needs a data restore or
-pairing first. Pairing (`AccountAccessRepository.setup(PAIR)`) still returns typed
+the SDK's `account.list` reports every account on this device, open or locked, with its display name, so
+unlock and the account list offer locked accounts by name and ask only for the six-digit code; the app keeps no
+list of its own. An account the SDK refuses to open for a reason other than the code shows the typed reason and
+can be removed with its local data (`removeLocal`, `account.remove_local`). Settings also signs the account out
+(`signOut`, `account.sign_out`); both erase the host's account-scoped stores (drafts, outbox, media) first.
+A new installation needs a data restore or pairing first. Pairing (`AccountAccessRepository.setup(PAIR)`) still returns typed
 custody-provider unavailable; no credential ceremony is simulated. Each
 subsequent feature integrates through its public API and repository contract.
 

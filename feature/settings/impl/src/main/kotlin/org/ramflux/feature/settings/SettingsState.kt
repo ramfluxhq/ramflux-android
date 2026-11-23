@@ -86,6 +86,8 @@ enum class PairingEnd { COMPLETED, CANCELLED, EXPIRED, REJECTED, FAILED }
     val deviceProblem: UiText? = null,
     /** The device whose revocation waits for confirmation. */
     val confirmRevoke: String? = null,
+    /** Sign-out or removal of the active account, waiting for confirmation. */
+    val confirmExit: SettingsAccountExit? = null,
     val status: SettingsStatus? = null,
     val pairing: SettingsPairing = SettingsPairing(),
     val privacy: SettingsPrivacy = SettingsPrivacy(),
@@ -94,3 +96,6 @@ enum class PairingEnd { COMPLETED, CANCELLED, EXPIRED, REJECTED, FAILED }
     val problem: UiText? = null,
     val unavailable: UiText? = null
 )
+
+/** How the active account leaves this phone: signed out (its data stays, the code opens it again) or removed with its data. */
+enum class SettingsAccountExit { SIGN_OUT, REMOVE }

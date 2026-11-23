@@ -7,15 +7,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
 /** Metadata is ordinary display information; credentials and ceremony replies never cross Data. */
+/** One account on this device as the SDK's `account.list` reports it, open or locked; [label] is its display name. */
 data class AccountSummary(
     val id: String,
     val label: String?,
     val unlocked: Boolean,
-    val state: String,
-    /** In this device's registry of created or restored accounts ([KnownAccountRegistry]). */
-    val known: Boolean = false,
-    /** Reported by the SDK's `account.list`; false for a registry offer the SDK has not opened. */
-    val listed: Boolean = true
+    val state: String
 )
 data class AccountCatalog(val accounts: List<AccountSummary>, val activeId: String?)
 enum class AccountSetupAction { CREATE, RECOVER, PAIR, SHOW_PHRASE, CHECK_PHRASE, LOCAL_UNLOCK }
@@ -49,9 +46,16 @@ interface AccountAccessRepository {
         ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
 
     /**
-     * Removes an account from this device's list of offered accounts. Only the offer goes: the SDK's data is
-     * untouched, and an account the SDK has open is refused.
+     * Signs the account out on this phone (`account.sign_out`): the host's account-scoped stores are erased first, then
+     * the SDK closes the account like a lock; only its account code opens it again.
      */
-    suspend fun forget(id: String): ClientResult<Unit> =
+    suspend fun signOut(id: String): ClientResult<Unit> =
+        ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
+
+    /**
+     * Removes the account and all its local data from this phone (`account.remove_local`, confirmed by the account id):
+     * the host's account-scoped stores, then the SDK's keys, database and custody record. Nothing is sent to the node.
+     */
+    suspend fun removeLocal(id: String): ClientResult<Unit> =
         ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
 }
