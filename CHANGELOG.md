@@ -10,6 +10,8 @@
 - The composer draft survives background and lock: a session change while the draft was still being restored no longer erases the sealed draft.
 - Own replies use the SDK's `is_own`; the client-side author-device workaround is removed.
 - Debug trace: one start line per process, the sink is volatile, the suite marks flows under the trace tag directly, and the confirmation trace logs at warning level.
+- Debug and realrun builds also write the trace to a private file that `scripts/realrun.sh` copies to `app-trace.txt`, because the test phone keeps only part of an app's own log lines.
+- Groups: after an add the member list is shown again, and a finished change always clears the busy state.
 - Live updates: the SDK's account journal is followed through `bus.subscribe`, so conversations and account state update without a manual refresh.
 - The outbox is sealed at rest and resumes after a lock or a relaunch; a local attachment send is shown as waiting or not sent, never as a failed download.
 - Onboarding fixes: one back control per step, the new account opens after the permission step, the account-created step follows `account.status` until the account is live, and the whole account row opens or unlocks the account.
