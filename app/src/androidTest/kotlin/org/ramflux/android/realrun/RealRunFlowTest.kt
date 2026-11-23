@@ -179,6 +179,7 @@ class RealRunFlowTest {
             "startup-info-header",
             "unlock-account-name",
             "shell-locked",
+            "onboarding-header",
             timeout = Ui.LONG
         )
             ?: fail("no locked state after lock: ${ui.screen()}")
@@ -843,6 +844,7 @@ class RealRunFlowTest {
                     "startup-details-header",
                     "startup-unlock-header",
                     "shell-locked",
+                    "onboarding-header",
                     timeout = Ui.SHORT
                 )
             ) {
@@ -851,6 +853,8 @@ class RealRunFlowTest {
                 "shell-locked" -> ui.tap("shell-locked-unlock")
                 "startup-details-header" -> ui.tap("startup-view-unlock")
                 "startup-info-header" -> ui.tap("startup-unlock-code")
+                // After a lock from settings the account chooser offers the locked account by name.
+                "onboarding-header" -> lockedAccountRow()?.click() ?: fail("the account chooser offers no account: ${ui.screen()}")
                 "unlock-account-name" -> {
                     val code = RunCode.load() ?: blocked("no saved run code on this install")
                     try {
@@ -869,6 +873,9 @@ class RealRunFlowTest {
         }
         fail("unlock did not finish within ${Ui.LONG / 1000} s: ${ui.screen()}")
     }
+
+    private fun lockedAccountRow(): UiObject2? =
+        ui.device.findObjects(By.pkg(ui.packageName).res(java.util.regex.Pattern.compile("account-.+"))).firstOrNull()
 
     private fun openSettings() {
         ui.tap("shell-tabs-3")
