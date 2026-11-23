@@ -46,9 +46,7 @@
     <string name="ui_recover_account">Recover account</string>
     <string name="ui_recover_an_account">Recover an account</string>
     <string name="ui_refresh">Refresh</string>
-    <string name="ui_return_to_edit">Return to edit</string>
     <string name="ui_return_to_edit_the_address">Return to edit the address.</string>
-    <string name="ui_return_to_start">Return to start</string>
     <string name="ui_review_saved_nodes">Review saved nodes</string>
     <string name="ui_review_your_connection">Review your connection</string>
     <string name="ui_save_this_node">Save this node</string>

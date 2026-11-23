@@ -46,7 +46,8 @@ fun OnboardingScreen(
                     KitPageHeader(
                         state.page.title.render(),
                         subtitle = subtitle,
-                        onBack = { onAction(OnboardingAction.Back) },
+                        // The created account is reached by Continue only; going back into the finished ceremony is not offered.
+                        onBack = if (state.page == OnboardingPage.CREATED) null else ({ onAction(OnboardingAction.Back) }),
                         actionLabel = stringResource(R.string.ui_refresh),
                         onAction = { if (!state.busy && state.sessionReady) onAction(OnboardingAction.Refresh) }
                     )
@@ -276,18 +277,10 @@ fun OnboardingScreen(
                                     }
                                 }
                                 OnboardingPage.RECOVER -> RecoverPage(state, recovery, onAction)
-                                OnboardingPage.PAIR -> {
-                                    Text(
-                                        stringResource(R.string.ui_secure_setup_is_unavailable_no_account_phrase_or)
-                                    )
-                                    KitButton(
-                                        stringResource(R.string.ui_return_to_start),
-                                        { onAction(OnboardingAction.Page(OnboardingPage.START)) },
-                                        kind = KitButtonKind.Secondary,
-                                        enabled = !state.busy,
-                                        tag = "return-start"
-                                    )
-                                }
+                                // One back control per step: the header's back returns to the start.
+                                OnboardingPage.PAIR -> Text(
+                                    stringResource(R.string.ui_secure_setup_is_unavailable_no_account_phrase_or)
+                                )
                             }
                         }
                     }
@@ -320,21 +313,13 @@ private fun OnboardingFooter(
                     enabled = !state.busy && state.address.isNotBlank(),
                     tag = "review-address"
                 )
-            OnboardingPage.CONFIRM -> {
-                KitButton(
-                    stringResource(R.string.ui_verify_this_address),
-                    { onAction(OnboardingAction.Discover) },
-                    enabled = !state.busy && state.normalizedOrigin != null,
-                    tag = "verify-origin"
-                )
-                KitButton(
-                    stringResource(R.string.ui_return_to_edit),
-                    { onAction(OnboardingAction.Page(OnboardingPage.ADDRESS)) },
-                    kind = KitButtonKind.Secondary,
-                    enabled = !state.busy,
-                    tag = "edit-address"
-                )
-            }
+            // One back control per step: the header's back returns to the address.
+            OnboardingPage.CONFIRM -> KitButton(
+                stringResource(R.string.ui_verify_this_address),
+                { onAction(OnboardingAction.Discover) },
+                enabled = !state.busy && state.normalizedOrigin != null,
+                tag = "verify-origin"
+            )
             OnboardingPage.PHRASE -> KitButton(
                 stringResource(R.string.ui_i_have_saved_the_phrase),
                 { onAction(OnboardingAction.PhraseSaved) },

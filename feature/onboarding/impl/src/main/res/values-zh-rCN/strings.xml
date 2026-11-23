@@ -46,9 +46,7 @@
     <string name="ui_recover_account">恢复账户</string>
     <string name="ui_recover_an_account">恢复账户</string>
     <string name="ui_refresh">刷新</string>
-    <string name="ui_return_to_edit">返回修改</string>
     <string name="ui_return_to_edit_the_address">返回修改地址。</string>
-    <string name="ui_return_to_start">返回开始页面</string>
     <string name="ui_review_saved_nodes">查看已保存的节点</string>
     <string name="ui_review_your_connection">检查连接</string>
     <string name="ui_save_this_node">保存此节点</string>

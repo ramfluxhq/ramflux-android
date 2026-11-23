@@ -269,9 +269,11 @@ class OnboardingViewModelTest {
         assertFalse(vm.state.value.toString().contains("482915"))
         assertEquals("Ada", ceremony.lastName)
         assertEquals("node-1", ceremony.lastNode)
-        vm.onAction(OnboardingAction.ContinueCreated)
+        // Back from the created step continues into the account; it never returns to the ceremony or the start.
+        vm.onAction(OnboardingAction.Back)
         runCurrent()
         assertEquals("account-created", (events.single { it is OnboardingEvent.AccountCreated } as OnboardingEvent.AccountCreated).id)
+        assertFalse(events.contains(OnboardingEvent.Back))
         // Continuing selects the new account (its switch makes the startup gate read the accounts again).
         assertEquals(1, access.selections)
     }

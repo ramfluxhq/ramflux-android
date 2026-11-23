@@ -82,6 +82,11 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun onAction(action: OnboardingAction) {
+        // The finished ceremony has no step to go back to: back from the created step continues into the account.
+        if (action == OnboardingAction.Back && local.value.page == OnboardingPage.CREATED && local.value.createdAccountId != null) {
+            onAction(OnboardingAction.ContinueCreated)
+            return
+        }
         if (action == OnboardingAction.Back) {
             work?.cancel()
             ticket++
