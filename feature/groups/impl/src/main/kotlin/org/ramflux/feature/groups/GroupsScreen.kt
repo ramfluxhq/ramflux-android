@@ -19,7 +19,7 @@ import org.ramflux.designsystem.kit.*
 import org.ramflux.feature.groups.impl.R
 
 @Composable
-fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: Boolean = false, modifier: Modifier = Modifier) {
+fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, modifier: Modifier = Modifier, rooted: Boolean = false) {
     val theme = LocalRFTheme.current
     val title = stringResource(
         when (state.page) {

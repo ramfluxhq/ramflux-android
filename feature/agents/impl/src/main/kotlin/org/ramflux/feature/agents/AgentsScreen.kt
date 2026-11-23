@@ -19,7 +19,7 @@ import org.ramflux.designsystem.kit.*
 import org.ramflux.feature.agents.impl.R
 
 @Composable
-fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, rooted: Boolean = false, modifier: Modifier = Modifier) {
+fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, modifier: Modifier = Modifier, rooted: Boolean = false) {
     val theme = LocalRFTheme.current
     val title = stringResource(
         when (state.page) {

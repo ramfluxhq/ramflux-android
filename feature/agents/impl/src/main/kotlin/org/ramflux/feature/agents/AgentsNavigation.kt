@@ -13,11 +13,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun AgentsNavigation(
     onBack: () -> Unit,
     onSetupAccount: () -> Unit,
+    modifier: Modifier = Modifier,
     onChat: (String, String) -> Unit = { _, _ -> },
     vm: AgentsViewModel = hiltViewModel(),
     rooted: Boolean = false,
-    onAtRoot: (Boolean) -> Unit = {},
-    modifier: Modifier = Modifier
+    onAtRoot: (Boolean) -> Unit = {}
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
@@ -39,5 +39,5 @@ fun AgentsNavigation(
             }
         }
     }
-    AgentsScreen(state, vm::onAction, rooted, modifier = modifier)
+    AgentsScreen(state, vm::onAction, modifier = modifier, rooted = rooted)
 }

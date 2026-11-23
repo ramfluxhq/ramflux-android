@@ -225,9 +225,11 @@ private fun EntryProviderScope<NavKey>.fixtureEntries(fixture: ShellFixture) {
 @Composable
 private fun FixtureShell(fixture: ShellFixture, insets: WindowInsets = BOARD_INSETS) {
     val navigator = rememberTopLevelNavigator(SHELL_TAB_ROOTS)
+    // Selects the fixture's tab and stack once per navigator, before the first frame.
     remember(navigator) {
         navigator.select(fixture.tab)
         fixture.pushed?.let(navigator::openDetail)
+        navigator
     }
     RamfluxShell(navigator, SHELL_ROUTE_POLICY, {}, insets = insets) { fixtureEntries(fixture) }
 }

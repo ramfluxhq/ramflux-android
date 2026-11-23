@@ -14,10 +14,10 @@ fun GroupsNavigation(
     onBack: () -> Unit,
     onSetupAccount: () -> Unit,
     onChat: (String, String, String) -> Unit,
+    modifier: Modifier = Modifier,
     vm: GroupsViewModel = hiltViewModel(),
     rooted: Boolean = false,
-    onAtRoot: (Boolean) -> Unit = {},
-    modifier: Modifier = Modifier
+    onAtRoot: (Boolean) -> Unit = {}
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
@@ -39,5 +39,5 @@ fun GroupsNavigation(
             }
         }
     }
-    GroupsScreen(state, vm::onAction, rooted, modifier = modifier)
+    GroupsScreen(state, vm::onAction, modifier = modifier, rooted = rooted)
 }
