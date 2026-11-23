@@ -172,7 +172,7 @@ class OnboardingViewModelTest {
         observe(vm)
         runCurrent()
         val words = challengeBuffers("alpha", "bravo", "delta")
-        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        val passphrase = ErasableBuffer().also { it.replace("482915".toCharArray()) }
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
         assertEquals(listOf("confirm.failed.5.CustodyConfirmationFailed.NONE"), traced)
@@ -202,13 +202,16 @@ class OnboardingViewModelTest {
         runCurrent()
         assertEquals(OnboardingPage.CREATE, vm.state.value.page)
         assertEquals(null, vm.state.value.notice)
-        for (page in listOf(OnboardingPage.PAIR, OnboardingPage.RECOVER)) {
-            vm.onAction(OnboardingAction.Page(page))
-            runCurrent()
-            assertEquals(page, vm.state.value.page)
-            assertEquals(OnboardingNoticeKind.UNAVAILABLE, vm.state.value.notice?.kind)
-        }
-        assertEquals(2, accounts.setups)
+        vm.onAction(OnboardingAction.Page(OnboardingPage.PAIR))
+        runCurrent()
+        assertEquals(OnboardingPage.PAIR, vm.state.value.page)
+        assertEquals(OnboardingNoticeKind.UNAVAILABLE, vm.state.value.notice?.kind)
+        // Recovery lists the accounts on this phone instead of a setup refusal.
+        vm.onAction(OnboardingAction.Page(OnboardingPage.RECOVER))
+        runCurrent()
+        assertEquals(OnboardingPage.RECOVER, vm.state.value.page)
+        assertNull(vm.state.value.notice)
+        assertEquals(1, accounts.setups)
     }
 
     @Test fun createDrawsThePhraseOnceAndLeavesItOutOfState() = runTest(timeout = 5.seconds) {
@@ -243,11 +246,11 @@ class OnboardingViewModelTest {
         ceremony.confirmResult = { typed, secret ->
             accepted = typed.size == 3 && typed[0].contentEquals("alpha1".toCharArray()) &&
                 typed[1].contentEquals("alpha14".toCharArray()) && typed[2].contentEquals("alpha23".toCharArray()) &&
-                secret.contentEquals("seal".toCharArray())
+                secret.contentEquals("482915".toCharArray())
             ClientResult.Ready("account-created")
         }
         val words = challengeBuffers("alpha1", "alpha14", "alpha23")
-        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        val passphrase = ErasableBuffer().also { it.replace("482915".toCharArray()) }
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
         assertTrue(accepted)
@@ -255,7 +258,7 @@ class OnboardingViewModelTest {
         assertEquals("account-created", vm.state.value.createdAccountId)
         assertTrue(words.all { it.isEmpty() })
         assertTrue(passphrase.isEmpty())
-        assertFalse(vm.state.value.toString().contains("seal"))
+        assertFalse(vm.state.value.toString().contains("482915"))
         assertEquals("Ada", ceremony.lastName)
         assertEquals("node-1", ceremony.lastNode)
         vm.onAction(OnboardingAction.ContinueCreated)
@@ -492,7 +495,7 @@ class OnboardingViewModelTest {
         observe(vm)
         runCurrent()
         val words = challengeBuffers("alpha", "bravo", "delta")
-        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        val passphrase = ErasableBuffer().also { it.replace("482915".toCharArray()) }
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
         assertTrue(sawSecrets)
@@ -519,7 +522,7 @@ class OnboardingViewModelTest {
         observe(vm)
         runCurrent()
         val words = challengeBuffers("alpha", "bravo", "delta")
-        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        val passphrase = ErasableBuffer().also { it.replace("482915".toCharArray()) }
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
         assertEquals(1, ceremony.confirmations)
@@ -542,7 +545,7 @@ class OnboardingViewModelTest {
         observe(vm)
         runCurrent()
         val words = challengeBuffers("alpha", "bravo", "delta")
-        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        val passphrase = ErasableBuffer().also { it.replace("482915".toCharArray()) }
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
         assertEquals(1, ceremony.confirmations)
@@ -573,7 +576,7 @@ class OnboardingViewModelTest {
         assertEquals(0, ceremony.confirmations)
         assertEquals(listOf("confirm.rejected.3"), traced)
         val message = vm.state.value.notice?.message as UiText.Resource
-        assertEquals(R.string.ui_enter_the_recovery_words_and_the_data_passphrase, message.id)
+        assertEquals(R.string.ui_enter_the_recovery_words_and_the_account_code, message.id)
         assertEquals(OnboardingNoticeKind.ERROR, vm.state.value.notice?.kind)
         assertFalse(vm.state.value.busy)
     }
@@ -588,7 +591,7 @@ class OnboardingViewModelTest {
         observe(vm)
         runCurrent()
         val words = challengeBuffers("alpha", "bravo", "delta")
-        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        val passphrase = ErasableBuffer().also { it.replace("482915".toCharArray()) }
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
         assertEquals(1, ceremony.confirmations)
@@ -619,7 +622,7 @@ class OnboardingViewModelTest {
         observe(vm)
         runCurrent()
         val words = challengeBuffers("alpha", "bravo", "delta")
-        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        val passphrase = ErasableBuffer().also { it.replace("482915".toCharArray()) }
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
         assertEquals(1, ceremony.confirmations)
@@ -643,7 +646,7 @@ class OnboardingViewModelTest {
         observe(vm)
         runCurrent()
         val words = challengeBuffers("alpha", "bravo", "delta")
-        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        val passphrase = ErasableBuffer().also { it.replace("482915".toCharArray()) }
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
         assertEquals(1, ceremony.confirmations)
@@ -667,7 +670,7 @@ class OnboardingViewModelTest {
         observe(vm)
         runCurrent()
         val words = challengeBuffers("alpha", "bravo", "delta")
-        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        val passphrase = ErasableBuffer().also { it.replace("482915".toCharArray()) }
         vm.onAction(OnboardingAction.ConfirmChallenge(words, passphrase))
         runCurrent()
         assertTrue(vm.state.value.busy)
@@ -700,10 +703,10 @@ class OnboardingViewModelTest {
         runCurrent()
         assertEquals(0, accounts.unlocks)
         val rejected = vm.state.value.notice?.message as UiText.Resource
-        assertEquals(R.string.ui_enter_the_data_passphrase, rejected.id)
+        assertEquals(R.string.ui_enter_the_account_code, rejected.id)
         val events = mutableListOf<OnboardingEvent>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
-        val passphrase = ErasableBuffer().also { it.replace("seal".toCharArray()) }
+        val passphrase = ErasableBuffer().also { it.replace("482915".toCharArray()) }
         vm.onAction(OnboardingAction.SubmitUnlock(passphrase))
         runCurrent()
         assertEquals(listOf(OnboardingEvent.AccountSelected("a")), events)
@@ -711,6 +714,114 @@ class OnboardingViewModelTest {
         assertEquals("a", accounts.lastUnlockId)
         assertTrue(passphrase.isEmpty())
         assertNull(vm.state.value.notice)
+    }
+
+    private fun TestScope.lockedVm(
+        result: ClientResult<Unit>,
+        ceremony: FakeAccountCeremony = FakeAccountCeremony()
+    ): Pair<OnboardingViewModel, FakeAccountAccess> {
+        val accounts = FakeAccountAccess().apply {
+            listing = { ClientResult.Ready(AccountCatalog(listOf(AccountSummary("a", "Phone", false, "locked")), null)) }
+            unlockResult = result
+        }
+        val vm = OnboardingViewModel(accounts, FakeNodeSetup(), FakeOnboardingSession(), ceremony)
+        observe(vm)
+        runCurrent()
+        vm.onAction(OnboardingAction.SelectAccount("a"))
+        runCurrent()
+        vm.onAction(OnboardingAction.SubmitUnlock(ErasableBuffer().also { it.replace("482915".toCharArray()) }))
+        runCurrent()
+        return vm to accounts
+    }
+
+    private fun refused(name: String, retry: Long? = null) =
+        ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE, statusName = name, retryAfterSecs = retry))
+
+    @Test fun aWrongCodeIsNamedAndNotRetriedSilently() = runTest(timeout = 5.seconds) {
+        val (vm, accounts) = lockedVm(refused("ValidationFailed"))
+        assertEquals(1, accounts.unlocks)
+        assertEquals(R.string.ui_code_wrong, (vm.state.value.notice?.message as UiText.Resource).id)
+        assertNull(vm.state.value.recoverAccountId)
+    }
+
+    @Test fun anOfferedAccountTheSdkRefusesShowsTheReasonAndCanBeRemoved() = runTest(timeout = 5.seconds) {
+        val accounts = FakeAccountAccess().apply {
+            listing = {
+                ClientResult.Ready(
+                    AccountCatalog(listOf(AccountSummary("a", "Phone", false, "locked", known = true, listed = false)), null)
+                )
+            }
+            unlockResult = refused("account_not_found")
+        }
+        val vm = OnboardingViewModel(accounts, FakeNodeSetup(), FakeOnboardingSession(), FakeAccountCeremony())
+        observe(vm)
+        runCurrent()
+        vm.onAction(OnboardingAction.SelectAccount("a"))
+        runCurrent()
+        assertEquals("the code page names the account", "a", vm.state.value.unlockAccountId)
+        assertTrue(vm.state.value.accounts.single().offered)
+        assertNull(vm.state.value.forgetAccountId)
+        vm.onAction(OnboardingAction.SubmitUnlock(ErasableBuffer().also { it.replace("482915".toCharArray()) }))
+        runCurrent()
+        assertEquals(R.string.ui_the_request_did_not_complete_code_value_name, (vm.state.value.notice?.message as UiText.Resource).id)
+        assertEquals("a", vm.state.value.forgetAccountId)
+        vm.onAction(OnboardingAction.ForgetAccount("a"))
+        runCurrent()
+        assertEquals(listOf("a"), accounts.forgotten)
+        assertEquals(OnboardingPage.START, vm.state.value.page)
+        assertNull(vm.state.value.forgetAccountId)
+    }
+
+    @Test fun aWrongCodeOnAnOfferedAccountOffersNoRemoval() = runTest(timeout = 5.seconds) {
+        val (vm, _) = lockedVm(refused("ValidationFailed"))
+        assertNull(vm.state.value.forgetAccountId)
+    }
+
+    @Test fun aRateLimitedCodeShowsTheWaitTheSdkReported() = runTest(timeout = 5.seconds) {
+        val (vm, _) = lockedVm(refused("UnlockRetryLater", 60))
+        val message = vm.state.value.notice?.message as UiText.Quantity
+        assertEquals(R.plurals.ui_code_retry_later, message.id)
+        assertEquals(60uL, message.value)
+    }
+
+    @Test fun exhaustedAttemptsOfferPhraseRecoveryWhichNeedsTheAnchorPhraseAndCode() = runTest(timeout = 5.seconds) {
+        val ceremony = FakeAccountCeremony()
+        val (vm, _) = lockedVm(refused("UnlockAttemptsExhausted"), ceremony)
+        assertEquals(R.string.ui_code_attempts_exhausted, (vm.state.value.notice?.message as UiText.Resource).id)
+        assertEquals("a", vm.state.value.recoverAccountId)
+        val events = mutableListOf<OnboardingEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(OnboardingAction.BeginRecover("a"))
+        runCurrent()
+        assertEquals(OnboardingPage.RECOVER, vm.state.value.page)
+        assertEquals(RecoveryFacts("a", "anchor-abcd-efgh"), vm.state.value.recovery)
+        val phrase = ErasableBuffer().also { it.replace("abandon ability able".toCharArray()) }
+        val code = ErasableBuffer().also { it.replace("482915".toCharArray()) }
+        vm.onAction(OnboardingAction.ConfirmRecover(phrase, code))
+        runCurrent()
+        assertEquals("anchor-abcd-efgh", ceremony.lastAnchor)
+        val held = ceremony.heldRecovery!!
+        assertTrue(held.first.all { it == '\u0000' } && held.second.all { it == '\u0000' })
+        assertTrue(phrase.isEmpty() && code.isEmpty())
+        assertNull(vm.state.value.recovery)
+        assertEquals(listOf(OnboardingEvent.AccountSelected("a")), events)
+    }
+
+    @Test fun anIncompleteCodeNeverReachesTheSdk() = runTest(timeout = 5.seconds) {
+        val accounts = FakeAccountAccess().apply {
+            listing = { ClientResult.Ready(AccountCatalog(listOf(AccountSummary("a", "Phone", false, "locked")), null)) }
+        }
+        val vm = OnboardingViewModel(accounts, FakeNodeSetup(), FakeOnboardingSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(OnboardingAction.SelectAccount("a"))
+        runCurrent()
+        val short = ErasableBuffer().also { it.replace("4829".toCharArray()) }
+        vm.onAction(OnboardingAction.SubmitUnlock(short))
+        runCurrent()
+        assertEquals(0, accounts.unlocks)
+        assertTrue(short.isEmpty())
+        assertEquals(R.string.ui_enter_the_account_code, (vm.state.value.notice?.message as UiText.Resource).id)
     }
 }
 

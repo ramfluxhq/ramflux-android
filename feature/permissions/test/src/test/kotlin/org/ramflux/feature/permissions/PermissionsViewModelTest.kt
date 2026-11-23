@@ -28,6 +28,7 @@ class PermissionsViewModelTest {
         val asked = mutableSetOf<OsPermission>()
         val accounts = mutableSetOf<String>()
         var camera = OsPermissionStatus.NOT_ASKED
+        var microphone = OsPermissionStatus.NOT_ASKED
         var notifications = OsPermissionStatus.NOT_ASKED
         var fail = false
         var barrier: CompletableDeferred<Unit>? = null
@@ -36,6 +37,7 @@ class PermissionsViewModelTest {
             return OsPermissionResult.Ready(
                 listOf(
                     OsPermissionRow(OsPermission.CAMERA, camera),
+                    OsPermissionRow(OsPermission.MICROPHONE, microphone),
                     OsPermissionRow(OsPermission.NOTIFICATIONS, notifications),
                     OsPermissionRow(OsPermission.BATTERY, OsPermissionStatus.DENIED)
                 )
@@ -93,7 +95,7 @@ class PermissionsViewModelTest {
 
     @Test fun creationHookIsOnceAndSettingsLaunchNeverRequestsNotificationsOrMedia() = runTest(timeout = 5.seconds) {
         val repo = Repository()
-        for (entry in listOf(PermissionEntry.SETTINGS, PermissionEntry.MICROPHONE, PermissionEntry.INCOMING_CALL)) {
+        for (entry in listOf(PermissionEntry.SETTINGS, PermissionEntry.INCOMING_CALL)) {
             val vm = PermissionsViewModel(repo)
             val events = mutableListOf<PermissionsEvent>()
             observe(vm, events)
@@ -114,6 +116,43 @@ class PermissionsViewModelTest {
             runCurrent()
             assertTrue(events.isEmpty())
         }
+    }
+
+    @Test fun microphoneEntryExplainsThenRequestsRecordAudioAndReportsReadyOnGrant() = runTest(timeout = 5.seconds) {
+        val repo = Repository()
+        val vm = PermissionsViewModel(repo)
+        val events = mutableListOf<PermissionsEvent>()
+        observe(vm, events)
+        vm.onAction(PermissionsAction.Open(PermissionEntry.MICROPHONE, null))
+        runCurrent()
+        assertEquals(OsPermission.MICROPHONE, vm.state.value.explanation)
+        assertFalse(vm.state.value.unavailable)
+        vm.onAction(PermissionsAction.Continue)
+        runCurrent()
+        val request = events.single() as PermissionsEvent.Request
+        assertEquals(OsPermission.MICROPHONE, request.permission)
+        assertTrue(vm.consumeRequest(request))
+        repo.microphone = OsPermissionStatus.ALLOWED
+        vm.onAction(PermissionsAction.SystemFinished)
+        runCurrent()
+        assertEquals(1, events.count { it == PermissionsEvent.Ready })
+    }
+
+    @Test fun settingsRowsExplainAnUnaskedRuntimePermissionAndSendAskedOnesToAppSettings() = runTest(timeout = 5.seconds) {
+        val repo = Repository().apply { camera = OsPermissionStatus.DENIED }
+        val vm = PermissionsViewModel(repo)
+        val events = mutableListOf<PermissionsEvent>()
+        observe(vm, events)
+        vm.onAction(PermissionsAction.Open(PermissionEntry.SETTINGS, null))
+        runCurrent()
+        vm.onAction(PermissionsAction.Select(OsPermission.MICROPHONE))
+        runCurrent()
+        assertEquals(OsPermission.MICROPHONE, vm.state.value.explanation)
+        vm.onAction(PermissionsAction.Cancel)
+        vm.onAction(PermissionsAction.Select(OsPermission.CAMERA))
+        runCurrent()
+        assertNull(vm.state.value.explanation)
+        assertEquals(PermissionsEvent.OpenSettings, events.single())
     }
 
     @Test fun deniedFailedAndCancelledRoutesCannotLaunchQueuedPrompts() = runTest(timeout = 5.seconds) {

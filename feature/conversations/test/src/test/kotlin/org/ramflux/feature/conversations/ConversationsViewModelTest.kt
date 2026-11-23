@@ -34,7 +34,11 @@ class ConversationsViewModelTest {
             catalog = ClientResult.Ready(AccountCatalog(listOf(AccountSummary("a", "Work", true, "unlocked")), null))
         }
         val directory = FakeConversationDirectory()
-        val vm = ConversationsViewModel(directory, accounts, FakeConversationSession())
+        val vm = ConversationsViewModel(
+            directory,
+            accounts,
+            FakeConversationSession()
+        ).also { it.work = UnconfinedTestDispatcher(testScheduler) }
         observe(vm)
         runCurrent()
         assertTrue(vm.state.value.accountRequired)
@@ -44,7 +48,9 @@ class ConversationsViewModelTest {
 
     @Test fun failedReadIsDifferentFromSuccessfulEmptyAndSearchIsTypedUnavailable() = runTest(timeout = 5.seconds) {
         val directory = FakeConversationDirectory().apply { response = { failed() } }
-        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession())
+        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession()).also {
+            it.work = UnconfinedTestDispatcher(testScheduler)
+        }
         observe(vm)
         runCurrent()
         assertFalse(vm.state.value.loaded)
@@ -67,7 +73,9 @@ class ConversationsViewModelTest {
                 ClientResult.Ready(ConversationPage(listOf(ConversationSummary(id, "Title", ULong.MAX_VALUE, false, true)), next))
             }
         }
-        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession())
+        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession()).also {
+            it.work = UnconfinedTestDispatcher(testScheduler)
+        }
         observe(vm)
         runCurrent()
         vm.onAction(ConversationsAction.LoadMore)
@@ -86,7 +94,9 @@ class ConversationsViewModelTest {
                 ClientResult.Ready(ConversationPage(listOf(ConversationSummary("one", "Title", 1u, false, true)), "same"))
             }
         }
-        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession())
+        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession()).also {
+            it.work = UnconfinedTestDispatcher(testScheduler)
+        }
         observe(vm)
         runCurrent()
         vm.onAction(ConversationsAction.Refresh)
@@ -111,7 +121,11 @@ class ConversationsViewModelTest {
                 ClientResult.Ready(ConversationPage(listOf(ConversationSummary("private", "Old account", 1u, false, true)), null))
             }
         }
-        val vm = ConversationsViewModel(directory, accounts, FakeConversationSession())
+        val vm = ConversationsViewModel(
+            directory,
+            accounts,
+            FakeConversationSession()
+        ).also { it.work = UnconfinedTestDispatcher(testScheduler) }
         observe(vm)
         runCurrent()
         accounts.catalog = ClientResult.Ready(AccountCatalog(listOf(AccountSummary("b", "Other", true, "unlocked")), "b"))
@@ -131,7 +145,11 @@ class ConversationsViewModelTest {
                 ClientResult.Ready(ConversationPage(listOf(ConversationSummary("private", "Private", 1u, false, true)), null))
             }
         }
-        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), session)
+        val vm = ConversationsViewModel(
+            directory,
+            FakeConversationAccounts(),
+            session
+        ).also { it.work = UnconfinedTestDispatcher(testScheduler) }
         observe(vm)
         runCurrent()
         session.background()
@@ -147,7 +165,9 @@ class ConversationsViewModelTest {
         val directory = FakeConversationDirectory().apply {
             response = { ClientResult.Ready(ConversationPage(listOf(ConversationSummary("one", "Title", 1u, false, true)), null)) }
         }
-        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession())
+        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession()).also {
+            it.work = UnconfinedTestDispatcher(testScheduler)
+        }
         observe(vm)
         runCurrent()
         val events = mutableListOf<ConversationsEvent>()
@@ -159,7 +179,7 @@ class ConversationsViewModelTest {
         directory.canOpen = ClientResult.Ready(Unit)
         vm.onAction(ConversationsAction.Open("one"))
         runCurrent()
-        assertEquals(listOf(ConversationsEvent.OpenChat("a", "one")), events)
+        assertEquals(listOf(ConversationsEvent.OpenChat("a", "one", "Title")), events)
         collection.cancel()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
         runCurrent()
@@ -173,7 +193,9 @@ class ConversationsViewModelTest {
                 ClientResult.Ready(ConversationPage(listOf(row), null))
             }
         }
-        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession())
+        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession()).also {
+            it.work = UnconfinedTestDispatcher(testScheduler)
+        }
         observe(vm)
         runCurrent()
         assertEquals("Work", vm.state.value.accountLabel)
@@ -188,7 +210,11 @@ class ConversationsViewModelTest {
             val directory = FakeConversationDirectory().apply {
                 response = { ClientResult.Ready(ConversationPage(listOf(ConversationSummary("c", "Private", 0u, false, true)), null)) }
             }
-            val vm = ConversationsViewModel(directory, accounts, FakeConversationSession())
+            val vm = ConversationsViewModel(
+                directory,
+                accounts,
+                FakeConversationSession()
+            ).also { it.work = UnconfinedTestDispatcher(testScheduler) }
             observe(vm)
             runCurrent()
             assertFalse(vm.state.value.accountRequired)
@@ -204,7 +230,11 @@ class ConversationsViewModelTest {
             catalog = ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
         }
         val directory = FakeConversationDirectory()
-        val vm = ConversationsViewModel(directory, accounts, FakeConversationSession())
+        val vm = ConversationsViewModel(
+            directory,
+            accounts,
+            FakeConversationSession()
+        ).also { it.work = UnconfinedTestDispatcher(testScheduler) }
         observe(vm)
         runCurrent()
         assertFalse(vm.state.value.accountRequired)
@@ -227,7 +257,11 @@ class ConversationsViewModelTest {
                 canOpen = ClientResult.Ready(Unit)
                 response = { ClientResult.Ready(ConversationPage(listOf(ConversationSummary("c", "Private", 0u, false, true)), null)) }
             }
-            val vm = ConversationsViewModel(directory, accounts, FakeConversationSession())
+            val vm = ConversationsViewModel(
+                directory,
+                accounts,
+                FakeConversationSession()
+            ).also { it.work = UnconfinedTestDispatcher(testScheduler) }
             observe(vm)
             runCurrent()
             val events = mutableListOf<ConversationsEvent>()
@@ -240,5 +274,26 @@ class ConversationsViewModelTest {
             assertFalse(vm.state.value.accountRequired)
             assertTrue(vm.state.value.problem != null || vm.state.value.unavailable != null)
         }
+    }
+
+    @Test fun groupConversationsOpenWithTheirGroupId() = runTest(timeout = 5.seconds) {
+        val directory = FakeConversationDirectory().apply {
+            response = {
+                ClientResult.Ready(
+                    ConversationPage(listOf(ConversationSummary("thread", "Team", 0u, false, false, group = true, groupId = "g")), null)
+                )
+            }
+            canOpen = ClientResult.Ready(Unit)
+        }
+        val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession()).also {
+            it.work = UnconfinedTestDispatcher(testScheduler)
+        }
+        observe(vm)
+        runCurrent()
+        val events = mutableListOf<ConversationsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(ConversationsAction.Open("thread"))
+        runCurrent()
+        assertEquals(listOf(ConversationsEvent.OpenChat("a", "thread", "Team", "g")), events)
     }
 }

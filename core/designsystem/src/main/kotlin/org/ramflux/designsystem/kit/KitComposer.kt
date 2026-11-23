@@ -9,10 +9,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -52,11 +56,19 @@ fun KitComposer(
     sendLabel: String = "send",
     attachLabel: String = "plus",
     closeLabel: String = "x",
-    tag: String? = null
+    tag: String? = null,
+    bottomInset: WindowInsets = WindowInsets(0)
 ) {
     val theme = LocalRFTheme.current
+    // As the tab bar does, the composer band draws over the home-indicator area and keeps its controls above it.
     Column(
-        modifier.fillMaxWidth().background(theme.bg).kitHairline(theme.line, top = true).kitTag(tag).padding(dp(RfMetrics.composerPad)),
+        modifier
+            .fillMaxWidth()
+            .background(theme.bg)
+            .kitHairline(theme.line, top = true)
+            .kitTag(tag)
+            .windowInsetsPadding(bottomInset.only(WindowInsetsSides.Bottom))
+            .padding(dp(RfMetrics.composerPad)),
         verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
     ) {
         if (!mode.isNullOrEmpty()) {

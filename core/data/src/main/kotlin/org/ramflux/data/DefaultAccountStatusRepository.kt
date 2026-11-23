@@ -21,6 +21,4 @@ internal class DefaultAccountStatusRepository(transport: RepositoryTransport) : 
             }
         }
     }
-    override suspend fun backupAvailability(): ClientResult<Unit> =
-        ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
 }

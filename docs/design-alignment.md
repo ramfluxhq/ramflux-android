@@ -50,13 +50,14 @@ The status bar glyphs and the home indicator are drawn by the system, not the ap
 those regions and the transparent frame corners are masked.
 
 Board content the state model cannot produce today (rendered as far as the model
-allows, and part of the expected deviations): the message-requests row of B01
-(written as a plain conversation), avatar kinds (agent, group, channel, requests),
-pinned, muted and read markers, relative day labels, the tab badge, the account
-subtitle suffix, header actions; the chat header's call and more actions and the
+allows, and part of the expected deviations): message previews and the per-request
+copy of the B01 message-requests row, the agent avatar kind, pinned and read
+markers, relative day labels, the tab badge, the account subtitle suffix, the
+list's more menu; the chat header's call and more actions and the
 file bubble (B02, DK01); agent rows and agent search (D01, D01E); the `#channel`
-suffix of group rows (C01). A07 (no client screen) and F03 (contacts) are not
-captured.
+suffix of group rows (C01). F03 (contacts) is not captured. A07 (device unlock info)
+is captured with the client's copy: the six-digit account code instead of the board's
+data passphrase, and no biometric unlock.
 
 ## Comparison
 

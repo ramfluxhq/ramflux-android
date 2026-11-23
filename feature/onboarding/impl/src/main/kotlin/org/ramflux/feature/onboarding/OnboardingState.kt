@@ -35,7 +35,14 @@ enum class OnboardingPage(val board: String, val title: UiText) {
     RECOVER("S25", uiText(R.string.ui_recover_an_account))
 }
 
-@Immutable data class AccountItem(val id: String, val label: String, val subtitle: UiText, val unlocked: Boolean)
+/** [offered]: in this device's account list but not opened by the SDK (only the code can tell whether it opens). */
+@Immutable data class AccountItem(
+    val id: String,
+    val label: String,
+    val subtitle: UiText,
+    val unlocked: Boolean,
+    val offered: Boolean = false
+)
 
 @Immutable data class NodeItem(val id: String, val url: String, val keyChanged: Boolean, val isDefault: Boolean, val enabled: Boolean)
 
@@ -44,6 +51,9 @@ enum class OperatorKeyIssue { REQUIRED, MISMATCH }
 enum class OnboardingNoticeKind { ERROR, UNAVAILABLE, UNKNOWN_OUTCOME }
 
 @Immutable data class OnboardingNotice(val message: UiText, val kind: OnboardingNoticeKind = OnboardingNoticeKind.ERROR)
+
+/** A started phrase recovery: the anchor the user compares before entering the phrase. */
+@Immutable data class RecoveryFacts(val accountId: String, val anchor: String)
 
 @Immutable data class OnboardingState(
     val page: OnboardingPage = OnboardingPage.START,
@@ -63,5 +73,12 @@ enum class OnboardingNoticeKind { ERROR, UNAVAILABLE, UNKNOWN_OUTCOME }
     val displayName: String = "",
     val phraseSlots: Int = 0,
     val challengePositions: ImmutableList<Int> = persistentListOf(),
-    val createdAccountId: String? = null
+    val createdAccountId: String? = null,
+    val recovery: RecoveryFacts? = null,
+    /** Set when the SDK says only phrase recovery opens this account now. */
+    val recoverAccountId: String? = null,
+    /** The account the code page unlocks, shown there by name. */
+    val unlockAccountId: String? = null,
+    /** Set when the SDK refused an offered account for a reason other than the code; it can then be removed. */
+    val forgetAccountId: String? = null
 )

@@ -8,14 +8,18 @@ import android.util.Log
 import androidx.lifecycle.ProcessLifecycleOwner
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
+import org.ramflux.android.notify.MessageNotificationService
 import org.ramflux.data.installProcessDebugTrace
 
 @HiltAndroidApp
 class RamfluxApplication : Application() {
     @Inject lateinit var sessionLifecycle: SessionLifecycle
+
+    @Inject lateinit var notifications: MessageNotificationService
     override fun onCreate() {
         if (BuildConfig.DEBUG) installProcessDebugTrace { message -> Log.d("ramflux.abi", message) }
         super.onCreate()
         ProcessLifecycleOwner.get().lifecycle.addObserver(sessionLifecycle)
+        notifications.start()
     }
 }

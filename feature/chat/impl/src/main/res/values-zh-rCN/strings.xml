@@ -63,4 +63,238 @@
     <string name="chat_replying_to">回复 %1$s</string>
     <!-- Accessibility label of the long-press action that opens the message actions. -->
     <string name="chat_message_actions">消息操作</string>
+    <!-- Message action that copies the message text to the clipboard. -->
+    <string name="chat_action_copy">复制文字</string>
+    <!-- Status line under an own message the SDK refused or failed to send. -->
+    <string name="chat_not_sent">未发送</string>
+    <!-- Action next to "Not sent" that sends the same message again. -->
+    <string name="chat_retry">重试</string>
+    <!-- Message action that removes an unsent local message from this device. -->
+    <string name="chat_discard">丢弃</string>
+    <!-- Status inside an own bubble that waits for a connection before it is sent. -->
+    <string name="chat_queued">待发送</string>
+    <!-- Status inside an own bubble that is being handed to the SDK. -->
+    <string name="chat_sending">发送中</string>
+    <!-- Notice above the timeline while messages wait for the connection to return. -->
+    <string name="chat_offline_notice">当前离线 · 消息将在恢复连接后发送</string>
+    <!-- Header action that opens the conversation details. -->
+    <string name="chat_conversation_details">会话详情</string>
+    <!-- Header action that starts a one-to-one call. -->
+    <string name="chat_call">通话</string>
+    <!-- Row at the top of the timeline while an older page loads. -->
+    <string name="chat_loading_older">正在加载更早的消息</string>
+    <!-- Accessibility label of one quick reaction; %1$s is the emoji, shown as is. -->
+    <string name="chat_react_with">用 %1$s 回应</string>
+    <!-- One reaction with its count; %1$s is the reaction emoji, %2$d the number of people. -->
+    <string name="chat_reaction_count">%1$s %2$d</string>
+    <!-- Separator between short status words under a message, as in "Not sent · Retry". -->
+    <string name="chat_meta_separator">·</string>
+    <!-- Problem shown when a picked photo or file could not be prepared for sending. -->
+    <string name="chat_media_not_staged">所选内容无法准备发送。</string>
+    <!-- Status inside a media bubble that is not on this device yet; tapping downloads it. -->
+    <string name="chat_media_download">点按下载</string>
+    <!-- Status inside a media bubble while it downloads; the SDK reports no byte progress. -->
+    <string name="chat_media_loading">正在下载…</string>
+    <!-- Status inside a media bubble whose download failed; tapping retries. -->
+    <string name="chat_media_failed">下载失败 · 点按重试</string>
+    <!-- Status of an attachment whose 24-hour access window has passed. -->
+    <string name="chat_media_expired">已不可用</string>
+    <!-- Status of an attachment the sender removed. -->
+    <string name="chat_media_revoked">发送者已移除</string>
+    <!-- Status of an attachment this device holds no key for (paired after it was sent). -->
+    <string name="chat_media_not_on_device">此设备无法查看</string>
+    <!-- Status of an attachment from an untrusted sender; nothing is shown until tapped. -->
+    <string name="chat_media_hidden">点按显示</string>
+    <!-- Status inside an own media bubble while it is prepared and uploaded. -->
+    <string name="chat_media_sending">正在发送…</string>
+    <!-- Accessibility label of an image bubble. -->
+    <string name="chat_media_image">图片</string>
+    <!-- Accessibility label of a video bubble. -->
+    <string name="chat_media_video">视频</string>
+    <!-- Attach menu entry that opens the system photo picker. -->
+    <string name="chat_attach_photo">照片</string>
+    <!-- Attach menu entry that opens the system document picker. -->
+    <string name="chat_attach_file">文件</string>
+    <!-- Viewer action that saves the image to the photo library. -->
+    <string name="chat_media_save">保存</string>
+    <!-- Viewer action that opens the system share sheet. -->
+    <string name="chat_media_share">分享</string>
+    <!-- Viewer action that closes the full-screen image. -->
+    <string name="chat_media_close">关闭</string>
+    <!-- Title of the confirmation before a file is opened in another app. -->
+    <string name="chat_media_open_title">在其他应用中打开？</string>
+    <!-- Body of the open confirmation; %1$s is the file name, shown isolated. -->
+    <string name="chat_media_open_body">%1$s 将交给此设备上的其他应用。Ramflux 之外的副本之后不会被删除。</string>
+    <!-- Confirm button of the open confirmation. -->
+    <string name="chat_media_open">打开</string>
+    <!-- Notice after an image was saved to the photo library. -->
+    <string name="chat_media_saved">已保存到相册</string>
+    <!-- Notice when no app can open or save the file. -->
+    <string name="chat_media_no_app">此设备上没有可打开此文件的应用。</string>
+    <!-- File bubble meta line; %1$s is the file size, %2$s the transfer status. -->
+    <string name="chat_file_meta">%1$s · %2$s</string>
+    <!-- Attach menu entry that opens the system camera for one photo. -->
+    <string name="chat_attach_camera">拍照</string>
+    <!-- Message action that sends the message again to another conversation. -->
+    <string name="chat_action_forward">转发</string>
+    <!-- Title of the chooser that picks the conversation to forward a message to. -->
+    <string name="chat_forward_title">转发到</string>
+    <!-- Shown in the forward chooser when no direct conversation can receive the message. -->
+    <string name="chat_forward_empty">没有可转发的会话</string>
+    <!-- Shown in the forward chooser while the message is encrypted and sent again; no percentage is known. -->
+    <string name="chat_forward_sending">正在转发…</string>
+    <!-- Notice after a forwarded message was handed to the network. -->
+    <string name="chat_forward_sent">已转发</string>
+    <!-- Shown when forwarding is not available on this device or for this message. -->
+    <string name="chat_forward_unavailable">此处无法转发。</string>
+    <!-- Accessibility label of the button that closes the forward chooser. -->
+    <string name="chat_forward_close">关闭</string>
+    <!-- Shown when a picked video is longer than the 10-minute cap for compressed video. -->
+    <string name="chat_media_video_too_long">此视频超过 10 分钟，请改为以文件发送。</string>
+    <!-- Shown when a compressed video is still larger than the 200 MB cap. -->
+    <string name="chat_media_video_too_large">压缩后此视频仍超过 200 MB，请改为以文件发送。</string>
+    <!-- Shown when a media send is refused because the group has more than 64 recipient devices. -->
+    <string name="chat_media_recipient_limit">暂不支持向超过 64 台设备的群组发送媒体。</string>
+    <!-- Shown when the recipient's devices are too old to receive encrypted media. -->
+    <string name="chat_media_peer_upgrade">对方需要更新 Ramflux 才能接收媒体。</string>
+    <!-- Shown when the attachment is too large for the relay quota or the device storage. -->
+    <string name="chat_media_too_large">附件过大或存储空间已满。</string>
+    <!-- Title of the send preview for picked photos and videos. -->
+    <string name="chat_preview_title">发送媒体</string>
+    <!-- Button that sends the previewed photos and videos as one message. -->
+    <string name="chat_preview_send">发送</string>
+    <!-- Button that closes the send preview and discards the staged items. -->
+    <string name="chat_preview_cancel">取消</string>
+    <!-- Accessibility label of the button that removes one item from the send preview. -->
+    <string name="chat_preview_remove">移除</string>
+    <!-- Accessibility label of the button that moves one item earlier in the album. -->
+    <string name="chat_preview_move">前移</string>
+    <!-- Placeholder of the caption field in the send preview. -->
+    <string name="chat_preview_caption">添加说明</string>
+    <!-- Status while picked items are compressed on this device; %1$d is the percentage of local work done. -->
+    <string name="chat_preview_preparing">正在准备… %1$d%%</string>
+    <!-- Count on the last album tile; %1$d is how many more items the album holds. -->
+    <string name="chat_media_more">+%1$d</string>
+    <!-- Accessibility label of an animated image bubble. -->
+    <string name="chat_media_animated">动图</string>
+    <!-- Accessibility label of an album bubble; %1$d is the number of items. -->
+    <plurals name="chat_media_album">
+        <item quantity="other">相册，%1$d 项</item>
+    </plurals>
+    <!-- Viewer button that starts the video. -->
+    <string name="chat_viewer_play">播放</string>
+    <!-- Viewer button that pauses the video. -->
+    <string name="chat_viewer_pause">暂停</string>
+    <!-- Viewer button that mutes the video. -->
+    <string name="chat_viewer_mute">静音</string>
+    <!-- Viewer button that turns the video sound back on. -->
+    <string name="chat_viewer_unmute">取消静音</string>
+    <!-- Viewer button that shows the previous item of the same message. -->
+    <string name="chat_viewer_previous">上一项</string>
+    <!-- Viewer button that shows the next item of the same message. -->
+    <string name="chat_viewer_next">下一项</string>
+    <!-- Viewer position in a message with several items; %1$d is the item, %2$d the count. -->
+    <string name="chat_viewer_position">第 %1$d 项，共 %2$d 项</string>
+    <!-- Shown in the viewer when the video cannot be played on this device. -->
+    <string name="chat_viewer_video_failed">此设备无法播放此视频。</string>
+    <!-- Elapsed and total video time; %1$s and %2$s are media times in Western digits, shown left to right. -->
+    <string name="chat_viewer_time">%1$s / %2$s</string>
+    <!-- Title of the conversation media gallery and its menu entry. -->
+    <string name="gallery_title">媒体和文件</string>
+    <!-- Gallery tab with pictures and videos. -->
+    <string name="gallery_media">媒体</string>
+    <!-- Gallery tab with files. -->
+    <string name="gallery_files">文件</string>
+    <!-- Shown while the gallery reads older messages for media. -->
+    <string name="gallery_loading">正在查找媒体…</string>
+    <!-- Shown when the loaded part of the conversation has no media of the selected kind. -->
+    <string name="gallery_empty">此会话中没有媒体</string>
+    <!-- Title of the media storage screen and its menu entry. -->
+    <string name="storage_title">存储空间</string>
+    <!-- Row with the bytes of decrypted media this account keeps on this device. -->
+    <string name="storage_total">此设备上的媒体</string>
+    <!-- Row with the bytes of outgoing files waiting to be sent. -->
+    <string name="storage_outbox">等待发送</string>
+    <!-- Explains the retention policy on the storage screen. -->
+    <string name="storage_policy">收到的媒体会保留在此设备上，直到你清除或发送者将其移除。超过一天未发送的文件会自动移除。</string>
+    <!-- Shown while the storage screen measures media files. -->
+    <string name="storage_loading">正在计算…</string>
+    <!-- Shown when this account keeps no decrypted media on this device. -->
+    <string name="storage_empty">此设备上没有存储媒体</string>
+    <!-- Button that clears the media of every conversation after confirmation. -->
+    <string name="storage_clear_all">清除所有媒体</string>
+    <!-- Title of the confirmation before clearing one conversation's media. -->
+    <string name="storage_clear_title">清除此会话的媒体？</string>
+    <!-- Title of the confirmation before clearing every conversation's media. -->
+    <string name="storage_clear_all_title">清除所有媒体？</string>
+    <!-- Body of the clear confirmation; after the relay window the local copy may be the only one. -->
+    <string name="storage_clear_body">在此移除的文件可能无法再次下载。保存或分享到 Ramflux 之外的副本不会被移除。</string>
+    <!-- Confirm button that clears media. -->
+    <string name="storage_clear">清除</string>
+    <!-- Ongoing notification while media the person started is still transferring; it names no file or person. -->
+    <string name="transfer_notification_title">正在传输媒体…</string>
+    <!-- Accessibility label of the chat header button that opens the conversation menu. -->
+    <string name="chat_conversation_menu">更多</string>
+    <!-- Shown under an agent card that this device may only show as plain text (not one of this account's own agents). -->
+    <string name="card_plain">以纯文本显示</string>
+    <!-- Shown when part of an agent card cannot be drawn on this phone; the author's fallback text follows. -->
+    <string name="card_partly_unsupported">此卡片的部分内容在本机不受支持。智能体的文本版本：</string>
+    <!-- Placeholder for one card component this phone does not draw. -->
+    <string name="card_component_unsupported">本机不支持此内容</string>
+    <!-- Shown under a link button on a card; links need a confirmation screen that is not available yet. -->
+    <string name="card_link_unsupported">本机暂不能打开卡片中的链接。</string>
+    <!-- Status of a card the agent has closed; it has no active controls. -->
+    <string name="card_closed">已关闭</string>
+    <!-- Status of a card whose state is behind the agent's; controls stay off until it catches up. -->
+    <string name="card_out_of_sync">内容已过期，正在等待智能体。</string>
+    <!-- Status while a card action is sent to the agent. -->
+    <string name="card_sending">正在发送…</string>
+    <!-- Status after a card action was handed to the network. -->
+    <string name="card_sent">已发送</string>
+    <!-- Shown when the card changed after the person saw it, so the action was refused. -->
+    <string name="card_changed">此卡片在你查看后已更改，请重新查看后再试。</string>
+    <!-- Shown when it is not known whether a card action reached the agent; pressing again retries the same action. -->
+    <string name="card_outcome_unknown">无法确定智能体是否已收到，再次点按可重试。</string>
+    <!-- Shown when card actions are not available on this device. -->
+    <string name="card_unavailable">此处无法使用卡片操作。</string>
+    <!-- Requester line of an approval card from one of the person's agents. -->
+    <string name="card_approval_requester">你的智能体</string>
+    <!-- Status of an open approval request on a card. -->
+    <string name="card_approval_pending">等待决定</string>
+    <!-- Label of the scope line of an approval card. -->
+    <string name="card_approval_scope">决定</string>
+    <!-- Scope detail of an approval card that belongs to a task. -->
+    <string name="card_approval_task">请在“任务”中决定此请求。</string>
+    <!-- Scope detail of an approval card without a task. -->
+    <string name="card_approval_elsewhere">此请求不在卡片中决定。</string>
+    <!-- Decline label of an approval card. -->
+    <string name="card_approval_decline">拒绝</string>
+    <!-- Approve label of an approval card. -->
+    <string name="card_approval_approve">批准</string>
+    <!-- Reaction bar button and picker title for choosing any emoji as a reaction. -->
+    <string name="chat_react_more">更多表情</string>
+    <!-- Shown while the direct-conversation details are read. -->
+    <string name="direct_details_loading">正在读取会话详情…</string>
+    <!-- Shown when the SDK did not return the conversation row. -->
+    <string name="direct_details_unavailable">无法读取会话详情，请稍后再试。</string>
+    <!-- Switch that mutes this direct conversation. -->
+    <string name="direct_details_mute">静音通知</string>
+    <!-- Shown when the SDK refused to change the mute state. -->
+    <string name="direct_details_mute_failed">静音状态未改变，请重试。</string>
+    <!-- Section title for the contact's safety number. -->
+    <string name="direct_details_safety">安全码</string>
+    <!-- Safety number state: the person compared it with the contact. -->
+    <string name="direct_details_safety_verified">已验证</string>
+    <!-- Safety number state: never compared. -->
+    <string name="direct_details_safety_unverified">尚未验证。请当面或通话时与联系人核对。</string>
+    <!-- Safety number state: the contact's keys changed. -->
+    <string name="direct_details_safety_changed">自你验证后已变更。发送敏感内容前请重新核对。</string>
+    <!-- Safety number state the app cannot name. -->
+    <string name="direct_details_safety_unknown">验证状态未知。</string>
+    <!-- Shown when the peer has no safety number (not a contact). -->
+    <string name="direct_details_safety_unavailable">此人的安全码暂不可用，成为联系人后才会显示。</string>
+    <!-- Shown when the conversation row has no direct route. -->
+    <string name="direct_details_safety_no_peer">此会话没有可显示安全码的对方。</string>
+    <!-- Row with the size of this conversation's decrypted media on this phone. -->
+    <string name="direct_details_storage">此会话占用的存储</string>
 </resources>

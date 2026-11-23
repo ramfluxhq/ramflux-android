@@ -1,3 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<manifest />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background media transfer within the unlocked session (scripts/os-service-allowlist.json). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <application>
+        <service
+            android:name="org.ramflux.feature.chat.MediaTransferService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <!-- Grants other apps read access to one transient copy of an attachment the person chose to open or share. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.chatmedia"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/chat_media_paths" />
+        </provider>
+    </application>
+</manifest>

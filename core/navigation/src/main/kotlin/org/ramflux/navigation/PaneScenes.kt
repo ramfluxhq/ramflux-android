@@ -4,6 +4,7 @@
 package org.ramflux.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.min
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.scene.Scene
 import androidx.navigation3.scene.SceneStrategy
@@ -30,6 +32,16 @@ val LocalPaneRole = compositionLocalOf<PaneRole?> { null }
 
 /** Pane geometry supplied by the shell from design tokens. Only the shell caps widths. */
 data class PaneMetrics(val listPaneWidth: Dp, val maxPaneWidth: Dp)
+
+/** The list's largest share of the width the two panes get. */
+const val LIST_PANE_MAX_FRACTION = 0.45f
+
+/**
+ * Width of the list pane when the two panes share [available] (the width left after the rail and
+ * window insets, never the whole window): the token width, but never more than
+ * [LIST_PANE_MAX_FRACTION] of [available], so the detail is always the larger pane.
+ */
+fun listPaneWidth(available: Dp, preferred: Dp): Dp = min(preferred, available * LIST_PANE_MAX_FRACTION)
 
 /** Which entries of a stack are visible, decided without Compose so it can be unit tested. */
 data class PaneLayout<T>(val list: T?, val detail: T?, val single: T?, val previous: List<T>) {
@@ -102,8 +114,16 @@ private data class TwoPaneScene<T : Any>(
     override val key: Any = listOf("two-pane", list.contentKey)
     override val entries: List<NavEntry<T>> = listOfNotNull(list, detail)
     override val content: @Composable () -> Unit = {
+        // Measured from the scene's own constraints: the rail and insets are already outside them.
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            TwoPaneRow(listPaneWidth(maxWidth, metrics.listPaneWidth))
+        }
+    }
+
+    @Composable
+    private fun TwoPaneRow(listWidth: Dp) {
         Row(Modifier.fillMaxSize()) {
-            Box(Modifier.width(metrics.listPaneWidth).fillMaxHeight().testTag("pane-list")) {
+            Box(Modifier.width(listWidth).fillMaxHeight().testTag("pane-list")) {
                 CompositionLocalProvider(LocalPaneRole provides PaneRole.LIST) { list.Content() }
             }
             separator()

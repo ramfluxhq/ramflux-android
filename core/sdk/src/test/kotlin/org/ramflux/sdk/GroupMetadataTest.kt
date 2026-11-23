@@ -3,9 +3,10 @@
 
 package org.ramflux.sdk
 import org.junit.Assert.*
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 class GroupMetadataTest {
-    @Test fun exactEpochAndRootQualifiedRosterNeverGrantControlFromDeviceNameAlone() {
+    @Test fun exactEpochAndRootQualifiedRosterNeverGrantControlFromDeviceNameAlone() = runBlocking {
         val raw = """{"group_id":"g","name":"Actual name","group_epoch":18446744073709551615,"members":["same"],"roles":{"same":"owner"},"member_roster":[{"identity":{"principal_id":"own","root_commitment":"own-root","device_id":"same"},"role":"admin"},{"identity":{"principal_id":"peer","root_commitment":"peer-root","device_id":"same"},"role":"owner"}],"excluded_devices":[],"sender_key":"must-not-copy"}""".toByteArray()
         val result = (GroupMetadataReader.detail(SecretReply(SecretBytes.take(raw))) as CoreResult.Success).value
         assertEquals(ULong.MAX_VALUE, result.group.epoch)

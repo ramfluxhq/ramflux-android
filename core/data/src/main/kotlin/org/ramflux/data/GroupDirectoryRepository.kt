@@ -27,6 +27,7 @@ data class GroupChange(val operation: GroupOperation, val group: String, val epo
 data class GroupOutcome(val group: String, val waiting: Boolean, val expired: Boolean, val request: String?)
 data class PendingGroupOperation(val operationId: String, val change: GroupChange)
 interface GroupDirectoryRepository {
+    /** Unpaged; for the creation read-back only. Lists read [groupPage]. */
     suspend fun list(account: String): ClientResult<List<GroupSummary>>
     suspend fun detail(account: String, group: String): ClientResult<GroupDetail>
     suspend fun invitations(account: String): ClientResult<List<GroupInvitation>>
@@ -34,5 +35,22 @@ interface GroupDirectoryRepository {
     suspend fun conversation(account: String, group: String): ClientResult<String>
     suspend fun mutate(account: String, change: GroupChange, operationId: String): ClientResult<GroupOutcome>
     fun pending(account: String): PendingGroupOperation?
+
+    /**
+     * Window pages over the unpaged SDK lists (`group.list`, `group.members`, `group.invitations.list`,
+     * `group.requests.list`). A null cursor takes a fresh snapshot; the page cursors continue it in either
+     * direction. [query] filters by name or id (members: principal or device), case-insensitive.
+     */
+    suspend fun groupPage(account: String, query: String = "", cursor: String? = null): ClientResult<WindowedPage<GroupSummary>> =
+        ClientResult.Unavailable(ClientFeature.GROUPS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
+    suspend fun memberPage(account: String, group: String, query: String = "", cursor: String? = null): ClientResult<WindowedPage<GroupMember>> =
+        ClientResult.Unavailable(ClientFeature.GROUPS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
+    suspend fun invitationPage(account: String, cursor: String? = null): ClientResult<WindowedPage<GroupInvitation>> =
+        ClientResult.Unavailable(ClientFeature.GROUPS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
+    suspend fun requestPage(account: String, group: String, cursor: String? = null): ClientResult<WindowedPage<GroupRequest>> =
+        ClientResult.Unavailable(ClientFeature.GROUPS, UnavailableReason.UNSUPPORTED_BY_CORE)
     fun updates(account: String): Flow<ClientResult<Unit>>
 }

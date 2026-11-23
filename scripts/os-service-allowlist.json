@@ -1,0 +1,14 @@
+{
+  "comment": "Every <service> a production manifest may declare. Each entry names the exact class, its foreground service type and the permissions that service brings; nothing else may declare a service. Services must not be exported. Add an entry only with a reviewed reason.",
+  "services": [
+    {
+      "name": "org.ramflux.feature.chat.MediaTransferService",
+      "foregroundServiceType": "dataSync",
+      "permissions": [
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_DATA_SYNC"
+      ],
+      "reason": "Keeps the process in the foreground with a visible notification while media imports and uploads the person started run inside the unlocked session; it opens nothing and stops when the queue is idle or the session closes (docs/media.md, Background transfer)."
+    }
+  ]
+}

@@ -136,7 +136,7 @@ class OnboardingScreenTest {
                 RamfluxTheme {
                     ErasableSecretField(
                         buffer,
-                        stringResource(R.string.ui_data_passphrase),
+                        stringResource(R.string.ui_account_code),
                         "data-passphrase",
                         enabled = true,
                         password = true,
@@ -176,7 +176,7 @@ class OnboardingScreenTest {
             RamfluxTheme {
                 ErasableSecretField(
                     buffer,
-                    stringResource(R.string.ui_data_passphrase),
+                    stringResource(R.string.ui_account_code),
                     "data-passphrase",
                     enabled = true,
                     password = true,
@@ -222,7 +222,7 @@ class OnboardingScreenTest {
             RamfluxTheme {
                 ErasableSecretField(
                     buffer,
-                    stringResource(R.string.ui_data_passphrase),
+                    stringResource(R.string.ui_account_code),
                     "data-passphrase",
                     enabled = true,
                     password = true,
@@ -356,14 +356,14 @@ class OnboardingScreenTest {
             view.findTagged("challenge-0").commit("alpha")
             view.findTagged("challenge-1").commit("bravo")
             view.findTagged("challenge-2").commit("charlie")
-            view.findTagged("data-passphrase").commit("seal")
+            view.findTagged("account-code").commit("482915")
         }
         val word = view.findTagged("challenge-0")
-        val secret = view.findTagged("data-passphrase")
+        val secret = view.findTagged("account-code")
         val wordInfo = word.openConnection().first
         val secretInfo = secret.openConnection().first
         assertTrue(wordInfo.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0)
-        assertTrue(secretInfo.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0)
+        assertEquals(InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD, secretInfo.inputType)
         assertFalse(word.masksInput())
         assertTrue(secret.masksInput())
         assertTrue(wordInfo.imeOptions and EditorInfo.IME_FLAG_FORCE_ASCII != 0)
@@ -375,9 +375,9 @@ class OnboardingScreenTest {
         assertBuffer(action.words[0], "alpha")
         assertBuffer(action.words[1], "bravo")
         assertBuffer(action.words[2], "charlie")
-        assertBuffer(action.passphrase, "seal")
+        assertBuffer(action.code, "482915")
         assertFalse(view.findTagged("challenge-0").isSecretEmpty())
-        assertFalse(view.findTagged("data-passphrase").isSecretEmpty())
+        assertFalse(view.findTagged("account-code").isSecretEmpty())
     }
 
     @Test fun losingFocusDoesNotClearTheSecretBuffer() {
@@ -396,9 +396,9 @@ class OnboardingScreenTest {
             }
         }
         compose.waitForIdle()
-        val field = root!!.findTagged("data-passphrase")
+        val field = root!!.findTagged("account-code")
         compose.runOnIdle {
-            field.commit("seal")
+            field.commit("482915")
             assertTrue(field.requestFocus())
             field.clearFocus()
             assertFalse(field.isFocused)
@@ -459,11 +459,11 @@ class OnboardingScreenTest {
                 view.findTagged("challenge-0").commit("alpha")
                 view.findTagged("challenge-1").commit("bravo")
                 view.findTagged("challenge-2").commit("charlie")
-                view.findTagged("data-passphrase").commit("seal")
+                view.findTagged("account-code").commit("482915")
             }
             compose.onNodeWithTag("confirm-account").performClick()
             assertFalse(view.findTagged("challenge-0").isSecretEmpty())
-            assertFalse(view.findTagged("data-passphrase").isSecretEmpty())
+            assertFalse(view.findTagged("account-code").isSecretEmpty())
             runCurrent()
             assertTrue(stillEntered)
             assertTrue(vm.state.value.busy)
@@ -474,7 +474,7 @@ class OnboardingScreenTest {
             assertEquals(OnboardingPage.CREATED, vm.state.value.page)
             assertEquals("account-created", vm.state.value.createdAccountId)
             assertTrue(view.findTagged("challenge-0").isSecretEmpty())
-            assertTrue(view.findTagged("data-passphrase").isSecretEmpty())
+            assertTrue(view.findTagged("account-code").isSecretEmpty())
         } finally {
             Dispatchers.resetMain()
         }
@@ -515,7 +515,7 @@ class OnboardingScreenTest {
                 view.findTagged("challenge-0").commit("alpha")
                 view.findTagged("challenge-1").commit("bravo")
                 view.findTagged("challenge-2").commit("charlie")
-                view.findTagged("data-passphrase").commit("seal")
+                view.findTagged("account-code").commit("482915")
             }
             compose.onNodeWithTag("confirm-account").assertIsEnabled()
             compose.onNodeWithTag("confirm-account").performClick()
@@ -525,7 +525,7 @@ class OnboardingScreenTest {
             assertEquals(OnboardingNoticeKind.ERROR, vm.state.value.notice?.kind)
             assertFalse(vm.state.value.busy)
             assertTrue(view.findTagged("challenge-0").isSecretEmpty())
-            assertTrue(view.findTagged("data-passphrase").isSecretEmpty())
+            assertTrue(view.findTagged("account-code").isSecretEmpty())
             compose.onNodeWithTag("confirm-account").assertIsNotEnabled()
             compose.onNodeWithText("Unable to continue").assertIsDisplayed()
         } finally {

@@ -2,6 +2,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <resources>
     <string name="marked_unread">Marked unread</string>
+    <!-- Accessibility label of the round information button next to a section or header. -->
+    <string name="kit_info_label">More information</string>
     <string name="time_unavailable">Time unavailable</string>
     <string name="unread_count">%1$s unread</string>
     <plurals name="unread_messages">

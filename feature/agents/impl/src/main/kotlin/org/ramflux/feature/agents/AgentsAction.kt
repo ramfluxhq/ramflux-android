@@ -2,16 +2,22 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.agents
-import org.ramflux.data.AgentAvatar
-import org.ramflux.data.AgentCapability
 sealed interface AgentsAction {
     data class Visible(val value: Boolean) : AgentsAction
-    data class Mode(val value: AgentCapability) : AgentsAction
-    data class Name(val value: String) : AgentsAction
-    data class Goal(val value: String) : AgentsAction
-    data class Avatar(val value: AgentAvatar) : AgentsAction
-    data object Create : AgentsAction
     data object Refresh : AgentsAction
     data object Back : AgentsAction
     data object SetupAccount : AgentsAction
+    data class Query(val value: String) : AgentsAction
+
+    /** Loads the next ([forward]) or previous window page of agents. */
+    data class More(val forward: Boolean = true) : AgentsAction
+    data class Select(val id: String) : AgentsAction
+    data object Edit : AgentsAction
+    data class Name(val value: String) : AgentsAction
+    data class Responsibility(val value: String) : AgentsAction
+    data object Save : AgentsAction
+    data object Delete : AgentsAction
+    data object Message : AgentsAction
+    data object Confirm : AgentsAction
+    data object Deny : AgentsAction
 }

@@ -4,9 +4,12 @@
 package org.ramflux.android.shell
 
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -50,6 +53,7 @@ class MoreHubTest {
                 }
             }
         }
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Open-source notices"))
         compose.onNodeWithText("Open-source notices").performClick()
         compose.runOnIdle { assertEquals(true, opened) }
         compose.onNodeWithText("Open-source notices").assertExists()

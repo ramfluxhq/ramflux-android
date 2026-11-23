@@ -16,23 +16,32 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
-import java.util.Locale
 import org.ramflux.data.AppLanguage
 import org.ramflux.designsystem.*
 import org.ramflux.designsystem.kit.*
 import org.ramflux.feature.settings.impl.R
 
 @Composable
-fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    state: SettingsState,
+    onAction: (SettingsAction) -> Unit,
+    modifier: Modifier = Modifier,
+    drawInvitation: (Int, (CharArray) -> Unit) -> Unit = { _, _ -> },
+    drawInvitationQr: (((Int, Int) -> Boolean) -> Unit) -> Unit = {}
+) {
     val theme = LocalRFTheme.current
-    val subtitle = state.accountLabel?.takeIf { it.isNotEmpty() }
+    // The root page (MOB-G02) shows the account in its first row; sub-pages name it under the title.
+    val subtitle = state.accountLabel?.takeIf { it.isNotEmpty() && state.page != SettingsPage.GENERAL }
     val title = stringResource(
         when (state.page) {
             SettingsPage.GENERAL -> R.string.settings_settings
-            SettingsPage.APPEARANCE -> R.string.settings_appearance
+            SettingsPage.ACCOUNT -> R.string.settings_account_security
+            SettingsPage.PRIVACY -> R.string.settings_privacy
+            SettingsPage.PAIRING -> R.string.settings_pairing_title
+            SettingsPage.DIAGNOSTICS -> R.string.settings_diagnostics_about
+            SettingsPage.APPEARANCE -> R.string.settings_appearance_language
             SettingsPage.LANGUAGE -> R.string.settings_language
             SettingsPage.DEVICES -> R.string.settings_devices
-            SettingsPage.BACKUP -> R.string.settings_backup
         }
     )
     Scaffold(modifier = modifier, contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
@@ -42,10 +51,9 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, mod
                     title,
                     subtitle = subtitle,
                     onBack = { onAction(SettingsAction.Back) },
-                    actionLabel = stringResource(R.string.settings_refresh),
-                    onAction = { if (!state.loading) onAction(SettingsAction.Refresh) }
+                    actionLabel = if (state.page == SettingsPage.GENERAL) null else stringResource(R.string.settings_refresh),
+                    onAction = if (state.page == SettingsPage.GENERAL) null else ({ if (!state.loading) onAction(SettingsAction.Refresh) })
                 )
-                if (subtitle != null) Text(subtitle, color = theme.secondary)
                 LazyColumn(
                     Modifier.weight(1f).fillMaxWidth().padding(horizontal = theme.gap.dp),
                     verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
@@ -65,7 +73,7 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, mod
                             KitEmpty("inbox", stringResource(R.string.settings_unavailable), message.render())
                         }
                     }
-                    if (state.accountRequired && state.page in setOf(SettingsPage.GENERAL, SettingsPage.DEVICES)) {
+                    if (state.accountRequired && state.page in setOf(SettingsPage.GENERAL, SettingsPage.ACCOUNT, SettingsPage.DEVICES)) {
                         item("account-required") {
                             KitEmpty(
                                 "inbox",
@@ -77,90 +85,30 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, mod
                         }
                     }
                     when (state.page) {
-                        SettingsPage.GENERAL -> {
-                            item("permissions") {
-                                KitRow(
-                                    stringResource(R.string.settings_permissions),
-                                    { onAction(SettingsAction.Permissions) },
-                                    value = stringResource(R.string.settings_permissions_help),
-                                    trailing = KitRowTrailing.None,
-                                    testTag = "permissions"
-                                )
-                            }
-                            item("appearance") {
-                                KitRow(
-                                    stringResource(R.string.settings_appearance),
-                                    { onAction(SettingsAction.Page(SettingsPage.APPEARANCE)) },
-                                    trailing = KitRowTrailing.None,
-                                    testTag = "appearance"
-                                )
-                            }
+                        SettingsPage.GENERAL -> generalPage(state, onAction)
+                        SettingsPage.ACCOUNT -> accountPage(state, onAction)
+                        SettingsPage.PRIVACY -> privacyPage(state, onAction)
+                        SettingsPage.PAIRING -> pairingPage(state, onAction, drawInvitation, drawInvitationQr)
+                        SettingsPage.DIAGNOSTICS -> diagnosticsPage(state, { AboutVersion() }) { label, value -> StatusRow(label, value) }
+                        SettingsPage.LANGUAGE -> languagePage(state, onAction) { id, label, selected, enabled, select ->
+                            ThemeChoiceRow(id, label, selected, enabled, select)
+                        }
+                        SettingsPage.APPEARANCE -> {
                             item("language") {
                                 KitRow(
                                     stringResource(R.string.settings_language),
                                     { onAction(SettingsAction.Page(SettingsPage.LANGUAGE)) },
-                                    trailing = KitRowTrailing.None,
-                                    testTag = "language"
-                                )
-                            }
-                            item("devices") {
-                                KitRow(
-                                    stringResource(R.string.settings_devices),
-                                    { onAction(SettingsAction.Page(SettingsPage.DEVICES)) },
-                                    trailing = KitRowTrailing.None,
-                                    testTag = "devices"
-                                )
-                            }
-                            item("backup") {
-                                KitRow(
-                                    stringResource(R.string.settings_backup),
-                                    { onAction(SettingsAction.Page(SettingsPage.BACKUP)) },
-                                    trailing = KitRowTrailing.None,
-                                    testTag = "backup"
-                                )
-                            }
-                            item("connections") {
-                                KitRow(
-                                    stringResource(R.string.settings_connections),
-                                    { onAction(SettingsAction.Connections) },
-                                    value = stringResource(R.string.settings_manage_connections),
-                                    trailing = KitRowTrailing.None,
-                                    testTag = "connections"
-                                )
-                            }
-                            state.statusProblem?.let { problem -> item("status-error") { Text(problem.render()) } }
-                            state.status?.let { status ->
-                                item("secure-sessions") { StatusRow(stringResource(R.string.settings_sessions), status.sessions) }
-                                item("sync") { StatusRow(stringResource(R.string.settings_sync), status.sync) }
-                                item("node") { StatusRow(stringResource(R.string.settings_node), status.node) }
-                                item("last-run") { StatusRow(stringResource(R.string.settings_last_run), status.lastRun) }
-                            }
-                            item("about") { AboutVersion() }
-                        }
-                        SettingsPage.LANGUAGE -> {
-                            item("language-help") { Text(stringResource(R.string.settings_language_help)) }
-                            for (language in state.languages) item("language:" + language.tag) {
-                                ThemeChoiceRow(
-                                    "language:" + language.tag,
-                                    if (language == AppLanguage.SYSTEM) {
+                                    icon = "languages",
+                                    value = if (state.savedLanguage == AppLanguage.SYSTEM) {
                                         stringResource(
                                             R.string.settings_system
                                         )
                                     } else {
-                                        languageName(language)
+                                        languageName(state.savedLanguage.tag)
                                     },
-                                    state.selectedLanguage == language,
-                                    !state.savingLanguage
-                                ) { onAction(SettingsAction.Language(language)) }
+                                    testTag = "language"
+                                )
                             }
-                            item("apply-language") {
-                                TextButton(
-                                    enabled = !state.savingLanguage && state.selectedLanguage != state.savedLanguage,
-                                    onClick = { onAction(SettingsAction.ApplyLanguage) }
-                                ) { Text(stringResource(R.string.settings_apply_language)) }
-                            }
-                        }
-                        SettingsPage.APPEARANCE -> {
                             item("appearance-help") { Text(stringResource(R.string.settings_appearance_help)) }
                             item("system") {
                                 ThemeChoiceRow(
@@ -180,9 +128,43 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, mod
                             }
                         }
                         SettingsPage.DEVICES -> {
+                            item("link-device") {
+                                KitRow(
+                                    stringResource(R.string.settings_pairing_title),
+                                    { onAction(SettingsAction.Page(SettingsPage.PAIRING)) },
+                                    icon = "link",
+                                    value = stringResource(R.string.settings_pairing_row_help),
+                                    enabled = state.accountLabel != null,
+                                    testTag = "link-device"
+                                )
+                            }
                             state.deviceProblem?.let { problem -> item("device-error") { Text(problem.render()) } }
                             if (state.devicesLoaded && state.devices.isEmpty()) {
                                 item("no-devices") { Text(stringResource(R.string.settings_empty_devices)) }
+                            }
+                            state.confirmRevoke?.let { device ->
+                                item("confirm-revoke") {
+                                    Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                                        KitSecurityWarning(
+                                            stringResource(R.string.settings_revoke_confirm_title),
+                                            stringResource(R.string.settings_revoke_confirm_body),
+                                            KitWarningTone.Danger
+                                        )
+                                        LtrCode(device, tag = "revoke-device-id")
+                                        KitButton(
+                                            stringResource(R.string.settings_revoke_confirm),
+                                            { onAction(SettingsAction.ConfirmRevoke) },
+                                            kind = KitButtonKind.Destructive,
+                                            tag = "confirm-revoke"
+                                        )
+                                        KitButton(
+                                            stringResource(R.string.settings_cancel),
+                                            { onAction(SettingsAction.CancelRevoke) },
+                                            kind = KitButtonKind.Secondary,
+                                            tag = "cancel-revoke"
+                                        )
+                                    }
+                                }
                             }
                             items(state.devices, key = { "device:" + it.id }, contentType = { "device" }) { device ->
                                 KitRow(
@@ -203,7 +185,6 @@ fun SettingsScreen(state: SettingsState, onAction: (SettingsAction) -> Unit, mod
                                 )
                             }
                         }
-                        SettingsPage.BACKUP -> item("backup-info") { Text(stringResource(R.string.settings_backup_help)) }
                     }
                 }
             }
@@ -242,10 +223,4 @@ private fun ThemeChoiceRow(id: String, label: String, selected: Boolean, enabled
         RadioButton(selected = selected, onClick = null, enabled = enabled)
         Text(label)
     }
-}
-
-/** A language's own name in that language (its endonym), as language pickers show it. */
-private fun languageName(language: AppLanguage): String {
-    val locale = Locale.forLanguageTag(language.tag)
-    return locale.getDisplayName(locale).replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
 }

@@ -89,4 +89,30 @@
     <string name="tasks_invalid_decision">无效决定</string>
     <string name="tasks_submit_conflict">提交冲突</string>
     <string name="tasks_confirm_accessibility">确认：%1$s</string>
+    <!-- Button and confirmation title that approves a pending tool or task approval request. -->
+    <string name="tasks_approve">批准</string>
+    <!-- First line of the host confirmation before approving an approval request. -->
+    <string name="tasks_approval_approve">你正在批准此请求。</string>
+    <!-- First line of the host confirmation before denying an approval request. -->
+    <string name="tasks_approval_deny">你正在拒绝此请求。</string>
+    <!-- Shown when the re-read approval request differs from the one the user tapped. -->
+    <string name="tasks_approval_changed">此请求已变更或已被处理，未发送任何内容。列表已重新读取。</string>
+    <!-- Notice after an approval request was approved. -->
+    <string name="tasks_approval_approved">已批准。列表显示记录的结果。</string>
+    <!-- Notice after an approval request was denied. -->
+    <string name="tasks_approval_denied">已拒绝。列表显示记录的结果。</string>
+    <!-- Explains on the approval card why a remote-app approval request has no approve button. -->
+    <string name="tasks_approval_remote_only">只有发起请求的应用能批准此请求；本机只能拒绝。</string>
+    <!-- Label above the requested capability or scope on an approval card. -->
+    <string name="tasks_approval_scope">请求的访问权限</string>
+    <!-- Who asked on an approval card; %1$s is a tool server or account name from the request. -->
+    <string name="tasks_approval_requester">通过 %1$s 请求</string>
+    <!-- Section header above pending approval requests. -->
+    <string name="tasks_pending_approvals">等待你批准</string>
+    <!-- Section header above recorded grants, approvals and decision receipts. -->
+    <string name="tasks_records">已记录的授权和回执</string>
+    <!-- Button that loads the rows before the loaded part of a long list. -->
+    <string name="tasks_more_before">加载更早的内容</string>
+    <!-- Section header above the steps of a task. -->
+    <string name="tasks_steps">步骤</string>
 </resources>

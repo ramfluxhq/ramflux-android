@@ -9,12 +9,12 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import org.ramflux.data.AgentCapability
 @Composable
 fun AgentsNavigation(
     onBack: () -> Unit,
     onSetupAccount: () -> Unit,
     modifier: Modifier = Modifier,
+    onChat: (String, String) -> Unit = { _, _ -> },
     vm: AgentsViewModel = hiltViewModel(),
     rooted: Boolean = false,
     onAtRoot: (Boolean) -> Unit = {}
@@ -22,8 +22,9 @@ fun AgentsNavigation(
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val setup by rememberUpdatedState(onSetupAccount)
-    SideEffect { onAtRoot(!rooted || state.mode == AgentCapability.DIRECTORY) }
-    BackHandler(enabled = !rooted || state.mode != AgentCapability.DIRECTORY) { vm.onAction(AgentsAction.Back) }
+    val chat by rememberUpdatedState(onChat)
+    SideEffect { onAtRoot(!rooted || state.page == AgentsPage.LIST) }
+    BackHandler(enabled = !rooted || state.page != AgentsPage.LIST) { vm.onAction(AgentsAction.Back) }
     DisposableEffect(vm) {
         vm.onAction(AgentsAction.Visible(true))
         onDispose { vm.onAction(AgentsAction.Visible(false)) }
@@ -34,8 +35,9 @@ fun AgentsNavigation(
             when (it) {
                 AgentsEvent.Back -> back()
                 AgentsEvent.SetupAccount -> setup()
+                is AgentsEvent.OpenChat -> chat(it.account, it.conversation)
             }
         }
     }
-    AgentsScreen(state, vm::onAction, modifier, rooted)
+    AgentsScreen(state, vm::onAction, modifier = modifier, rooted = rooted)
 }

@@ -10,10 +10,17 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
-fun CallsNavigation(onBack: () -> Unit, onSetupAccount: () -> Unit, modifier: Modifier = Modifier, vm: CallsViewModel = hiltViewModel()) {
+fun CallsNavigation(
+    onBack: () -> Unit,
+    onSetupAccount: () -> Unit,
+    modifier: Modifier = Modifier,
+    onOpenCall: (account: String, call: String) -> Unit = { _, _ -> },
+    vm: CallsViewModel = hiltViewModel()
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val setup by rememberUpdatedState(onSetupAccount)
+    val open by rememberUpdatedState(onOpenCall)
     BackHandler { vm.onAction(CallsAction.Back) }
     DisposableEffect(vm) {
         vm.onAction(CallsAction.Visible(true))
@@ -25,6 +32,7 @@ fun CallsNavigation(onBack: () -> Unit, onSetupAccount: () -> Unit, modifier: Mo
             when (it) {
                 CallsEvent.Back -> back()
                 CallsEvent.SetupAccount -> setup()
+                is CallsEvent.OpenCall -> open(it.accountId, it.callId)
             }
         }
     }

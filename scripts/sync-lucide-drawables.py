@@ -4,7 +4,8 @@
 """Write Lucide stroke icons as Android vector drawables. Geometry comes from Lucide, not the design export.
 
 The icon list and the mirroring table live in core/designsystem/kit-icons.json, shared with
-KitIconMirrorTest: icons listed under "mirror" get android:autoMirrored="true". Missing drawables are
+KitIconMirrorTest: icons listed under "mirror" get android:autoMirrored="true"; "lucide" maps a Kit name to
+the Lucide file name where Lucide renamed the icon (for example help-circle). Missing drawables are
 fetched from Lucide (--refresh fetches all); existing drawables only have their mirroring flag brought
 in line with the table, so the table can be applied offline.
 """
@@ -211,6 +212,9 @@ def main():
     spec = Path(arguments[0]) if arguments else SPEC
     table = json.loads(spec.read_text())
     names = table["icons"]
+    sources = table.get("lucide", {})
+    if set(sources) - set(names):
+        raise SystemExit(f"lucide table names unknown icons: {sorted(set(sources) - set(names))}")
     mirror = set(table["mirror"])
     unknown = (mirror | set(table["neverMirror"])) - set(names)
     if unknown:
@@ -223,7 +227,7 @@ def main():
         if target.exists() and "--refresh" not in sys.argv:
             current = target.read_text()
         else:
-            with urllib.request.urlopen(LUCIDE.format(name=name), timeout=30) as response:
+            with urllib.request.urlopen(LUCIDE.format(name=sources.get(name, name)), timeout=30) as response:
                 current = drawable(name, response.read())
             print(name)
         updated = with_mirroring(current, name in mirror)

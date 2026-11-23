@@ -15,8 +15,8 @@
     <string name="groups_account_help">群组属于当前已解锁的账号。</string>
     <string name="groups_account_action">设置或选择账号</string>
     <string name="groups_filter">筛选群组</string>
-    <string name="groups_empty">没有匹配的群组</string>
-    <string name="groups_empty_help">读取账号后，您加入的群组将显示在此处。</string>
+    <string name="groups_empty">还没有群组</string>
+    <string name="groups_empty_help">创建一个群组，或等别人邀请你加入。</string>
     <string name="groups_invitations">邀请</string>
     <string name="groups_creator_only">创建者最初是唯一成员。</string>
     <string name="groups_review_create">核对群组创建</string>
@@ -26,7 +26,6 @@
     <string name="groups_messages">打开群会话</string>
     <string name="groups_rename">重命名群组</string>
     <string name="groups_permissions">管理需要当前绑定身份根的群主或管理员记录。</string>
-    <string name="groups_other_controls">更多群组操作</string>
     <string name="groups_inactive">非活动或已排除的设备</string>
     <string name="groups_promote">设为管理员</string>
     <string name="groups_demote">设为成员</string>
@@ -68,4 +67,42 @@
     <string name="groups_invalid_request">群组请求无效。</string>
     <string name="groups_confirm">确认</string>
     <string name="groups_confirm_accessibility">确认：%1$s</string>
+    <!-- Title of one member's page in a group -->
+    <string name="groups_member_title">成员</string>
+    <!-- Button that repeats a failed read -->
+    <string name="groups_retry">重试</string>
+    <!-- Button that reads more rows of a list -->
+    <string name="groups_load_more">加载更多</string>
+    <!-- Empty state when the filter matches no row -->
+    <string name="groups_no_matches">没有匹配项</string>
+    <!-- Your role in the group; %1$s is a role such as Owner -->
+    <string name="groups_own_role">你的角色：%1$s</string>
+    <!-- Row for handing group ownership to another member -->
+    <string name="groups_transfer">转让群主</string>
+    <!-- Row for leaving the group -->
+    <string name="groups_leave">退出群组</string>
+    <!-- Short value on a row whose action this phone cannot perform -->
+    <string name="groups_not_on_phone">此手机暂不支持</string>
+    <!-- Explains why ownership transfer is not offered -->
+    <string name="groups_transfer_unavailable">转让群主需要创建该群组的设备出具的证书，手机无法生成，请在该设备上转让。未做任何更改。</string>
+    <!-- Explains why leaving is not offered -->
+    <string name="groups_leave_unavailable">暂不支持退出群组：目前没有退出操作，移除自己只会向群主发送请求。未做任何更改。</string>
+    <!-- Placeholder of the member filter field -->
+    <string name="groups_member_filter">筛选成员</string>
+    <!-- Empty state of the member list -->
+    <string name="groups_no_members">没有可显示的成员</string>
+    <!-- Member row value for an inactive device; %1$s is the role -->
+    <string name="groups_role_inactive">%1$s · 非活动</string>
+    <!-- Label above a member's device identifier -->
+    <string name="groups_device">设备</string>
+    <!-- Label above a member's identity root identifier -->
+    <string name="groups_identity_root">身份根</string>
+    <!-- Explains why no role or removal controls are shown for a member -->
+    <string name="groups_member_fixed">你无法更改此成员：需要当前的群主或管理员记录，且群主和你自己的设备不能在此更改。</string>
+    <!-- Placeholder of the contact filter in the add-member picker -->
+    <string name="groups_contact_filter">筛选联系人</string>
+    <!-- Empty state of the add-member picker -->
+    <string name="groups_no_contacts">没有可添加的已通过联系人</string>
+    <!-- Shown in the removal review -->
+    <string name="groups_remove_explanation">该成员将无法收到新的群消息。其已收到的消息仍保留在其设备上。</string>
 </resources>

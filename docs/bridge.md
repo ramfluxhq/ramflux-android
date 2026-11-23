@@ -79,8 +79,17 @@ its reply fails. Registration uses fixed 64-slot storage; cleanup makes at most
 five attempts with backoff outside the native guard. Exhaustion retains the token
 and exposes cleanup pending; it never closes the client to recover a submit OOM.
 
-Ordinary `execute` rejects all subscription methods. Only `updates` creates and
-owns the native subscription. There is one active event collector per core queue. Collection holds the subscription
+Ordinary `execute` rejects all subscription methods. Only the internal `updates` creates and
+owns the native subscription, and only the shared `EventHub` (`CoreClient.events`) calls it:
+every repository collector shares one native subscription whose topics are the union of the
+collectors' topics. Each collector has a bounded buffer of 64 events; a collector that falls
+behind gets its own `resync_required` while the others continue, so a slow pane never stalls the
+native pump. On native overflow or an in-band `stream.lagged` frame the hub resets the native
+queue, sends `resync_required` to every collector (they reload their snapshots; their flows stay
+open) and reopens. A collector whose topics are not covered reopens with the union, and the others
+reload. The subscription follows one account at a time and is cancelled with its last collector.
+`RepositoryTransport.resetEvents` is therefore a no-op on the SDK transport. Below the hub there
+is one active native collector per core queue. Collection holds the subscription
 operation token until `awaitClose` cancels the producer, then cancels/releases that
 same token. Recollection and reset join preceding cleanup; a fast restart cannot
 race a dying subscription. The SDK clears the previous queue on successful
@@ -114,19 +123,134 @@ Errors from secret operations expose numeric status/effect, never parsed secret
 error details. `check-secret-boundary.py` guards decoder entrypoints and all 214
 SDK classifications of the pinned policy in CI.
 
+### Reply size limits
+
+The byte scanner (`ByteJson`) bounds work and memory by the reply itself, not by a
+row budget:
+
+- at most 1 MiB per reply, the SDK's frame ceiling (`MAX_FRAME_BYTES`,
+  `c_abi/v2/state.rs`); a larger reply is a typed invalid-response failure;
+- at most 32 levels of nesting, so recursion stays bounded on hostile input;
+- at most 524,288 JSON values, derived from the byte ceiling (every value after the
+  first needs its own byte plus a separator, so `[0,0,...]` filling 1 MiB is the
+  densest frame and is still accepted). Scalars share one empty child list, so a
+  frame costs one small offset node per value.
+
+Unpaged list replies (`contact.list`, `contact.requests.list`, `group.list`,
+`group.members`, `group.invitations.list`, `group.requests.list`) are whole snapshots
+in one frame. Their readers decode through `ListReplyDecoder`: the parse and the row
+projection run on a background dispatcher (never the caller's main thread), rows are
+mapped in chunks of 256 with a cancellation check between chunks, and the reply bytes
+are borrowed once and erased on success, failure and cancellation. Windowed pages are
+then served from that snapshot (`SnapshotPager`).
+
+With real-width identifiers (64-hex principal, root, link and device ids) one frame
+carries about 3,070 `contact.list` rows (about 340 bytes each) and about 2,490
+`group.members` rows (about 420 bytes each: a `members` entry, a `roles` entry and a
+roster row per member), measured by the frame-filling data tests. A larger roster
+needs a paged SDK method; until then the reply over 1 MiB is shown as a typed failure,
+never truncated.
+
 ## Capabilities and integration boundary
 
 Repository methods forward existing SDK bus request bodies; they do not invent
 another message schema. `sdk-contract/ramflux_sdk_methods.json` is the exact pinned SDK policy;
 `pin.json` records its immutable source revision/hash. `scripts/sync-sdk-policy.py`
 reproduces classifications and repository signatures from that artifact. Account creation
-uses the SDK's actual connection-local creation ceremony; recovery and pairing setup return
-typed custody-provider unavailable until their host flows exist. Successful unknown message content stays successful.
+uses the SDK's actual connection-local creation ceremony; joining an account from this phone
+returns typed custody-provider unavailable (see below). Successful unknown message content stays successful.
 SDK errors are never converted into fabricated rows or optimistic delivery success.
 
-The product v2 checkpoint lacks dedicated full-text search, Agent
-CRUD/configuration and stranger reports/batch decisions. Their app-side interfaces
-return typed unavailable results, as documented in [client capabilities](client-capabilities.md).
+The pinned C ABI v2 refuses every `search.*` method before admission (`bridge_allowed`
+false in the policy; `c_abi/v2/tests.rs` "local_search_is_refused_before_native_supervisor_admission"),
+so local search stays typed unavailable and has no generated forwarders. The `agent.*`
+methods (AGENT-IDENTITY-01) cross the ABI and are generated into `AgentsRepository`;
+`agent.create` and `agent.creation.decide` are key-export class methods admitted
+because the client opens with `allow_secret_exports`. Stranger reports and batch
+decisions have no SDK method; their app-side interfaces return typed unavailable
+results, as documented in [client capabilities](client-capabilities.md).
+
+Inviting another device from this phone works in-process: settings, "Link a new device",
+calls `device.pair.begin` (every linked-device capability, a seven-day lease), follows
+`device.pair.status`, sends the short-authentication-string comparison with
+`device.pair.confirm` and, after the host confirmation, `device.pair.approve`; leaving the
+page cancels an unfinished ceremony with `device.pair.cancel`. The invitation token is read
+out of the reply as owned bytes (`PairingMetadataReader`), kept as erasable characters, drawn
+through `LtrSecretWords` only, covered while the window is not focused and erased once the
+joining device has used it. The token is shown as a QR code (`KitQrCode`, ZXing core 3.5.4,
+Apache-2.0): it is encoded from the erasable characters through an owned UTF-8 buffer into a
+byte-mode symbol (level M, or L when M does not fit; the UTF-8 ECI only for non-ASCII), with the
+segment, padding and Reed-Solomon interleaving built in buffers the app erases and only symbol
+placement and mask scoring delegated to ZXing (`ErasableByteEncoder`, in ZXing's package because
+those are package-private; ZXing's public encoder takes an immutable String). The module matrix lives
+in the view model, is lent to the Kit for each draw and erased with the token. Reed-Solomon
+temporaries inside ZXing are not reachable and are left to the collector. "Show as text" switches to
+the numbered text chunks; an invitation too long for version 40 is shown as text only.
+
+Backup and restore run on the phone (`account.backup.create/jobs/cancel`,
+`account.restore.verify/install`). The SDK admits backup jobs only from an attended
+connection (`bus/backup_jobs/routing.rs`): the shared event subscription therefore carries
+`attended_frontend: true` (the app subscribes only while a screen is shown); with no account
+the screen subscribes to the account-less backup-job stream. The archive has its own
+passphrase (at least 15 characters, not a common password, `passphrase/archive.rs`). Archives
+are written to and read from `noBackupFilesDir/backups` only; a finished backup is handed to
+the user with the Storage Access Framework (create document) and the private copy is removed;
+an archive to restore is copied in with the 256 MiB limit checked against the declared size and
+again while copying, and removed when its job ends. Install merges into an existing account
+(host confirmation, no code) or restores a new account with a new six-digit code. Restore is
+reachable from onboarding ("Restore from a backup") for a fresh install.
+
+## Local test node (debug builds only)
+
+Release builds accept only `https://` discovery origins. Debug builds also accept `http://` when the host is a
+loopback address (`127.0.0.0/8`, `localhost`, `[::1]`), the emulator's alias for the host machine (`10.0.2.2`) or a
+private-range IPv4 address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), so the local node on a developer
+machine can be added. The switch is the build-type constant `BuildConfig.LOCAL_NODE_HTTP` of `:core:data` (true in
+`debug`, false in `release`), read by `DiscoveryOriginParser.preview`, which `DefaultNodeSetupRepository.discover`
+re-checks; nothing at run time can turn it on. `OnboardingDataTest` checks the rule for both values and that the
+constant follows the build type (`testDebugUnitTest` and `testReleaseUnitTest`). An address typed without a scheme
+still becomes `https://`, so a tester types the `http://` prefix. Discovery over HTTP stays authenticated by the
+Ed25519 signature the operator key pin checks.
+
+No network-security configuration is added: discovery, gateway and relay traffic comes from the SDK's native
+sockets (reqwest, quinn), which Android's cleartext policy does not govern, and the release manifest keeps the
+library's strict policy (`cleartextTrafficPermitted="false"`) unchanged.
+
+To use the node from an emulator, the node must advertise addresses the emulator can reach: `127.0.0.1` inside the
+emulator is the emulator itself, and the SDK uses the signed record's addresses as they are. The node is therefore
+initialised with the Mac's LAN address (`DEMO_HOST=<LAN IPv4>`, `DEMO_BIND_ADDR=0.0.0.0` in
+`ops/local-node/state/operator.env`, then `./reset.sh` and `./up.sh`), and the tester types
+`http://<LAN IPv4>:8482` in the app (a private-range address, accepted by debug builds). `http://10.0.2.2:8482`
+reaches discovery, but the gateway and relay addresses in the record would still name `127.0.0.1`.
+
+## Notifications
+
+Local message notifications are groundwork only. While the process is alive with an open session and the
+app is not resumed, `MessageNotificationDriver` follows the conversation directory's topics through the
+shared event hub (never `*`), re-reads the first `conversation.directory` page of the active unlocked
+account on each change and compares unread counts: the first read is the baseline, a grown count
+notifies, muted conversations are skipped. The notification says only "New message": no sender, title,
+text or conversation id; the tap carries a random token that an in-memory map (`NotificationRoutes`)
+turns back into the conversation, opened through the shell (a locked session shows the unlock first, a
+different active account drops it). The app never asks for the notification permission here and posts
+only when notifications and the message channel are already allowed; release builds (which set
+`FLAG_SECURE`) hide it on the lock screen (`VISIBILITY_SECRET`), debug builds post it private with an
+equally generic public version. Only conversations on the first directory page (100 rows) are compared.
+
+Known beta limitation: the session closes when the app goes to the background (owner decision,
+2026-11-23), so no event reaches the app after it stopped and nothing is posted then. Real background
+delivery needs the node's push and background-delivery design (request R21: what the node sends, what a
+phone may decrypt or must fetch, and the wake path) and, for incoming calls, the call wake of request R28.
+No Firebase Cloud Messaging or other push dependency is added until that design exists.
+
+Joining an existing account from this phone (`device.pair.join`, request R32) is not
+built. The new device's account code must reach the SDK through its credential
+channel (action `setup`, `crates/ramflux-sdk/src/bus/credentials.rs`), which exists
+only on local-bus socket connections and on `ramflux_pairing_call`. The in-process
+C ABI v2 exports (`c_abi/v2/exports.rs`) have no credential channel, and
+`ramflux_pairing_call` (`c_abi/pairing.rs`) talks to a configured same-user local
+daemon socket, which an Android app does not have. The JNI secret transport carries
+secret request bodies only, so it cannot supply that credential.
 Unified edit/reaction/reply operations follow the SDK message-unification contract. Deferred video, group calls, screen sharing, channel/thread/post
 flows remain outside this module's acceptance.
 

@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.conversations
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import kotlinx.collections.immutable.toPersistentList
@@ -31,15 +34,49 @@ class ConversationsScreenTest {
             }
         }
         compose.onNodeWithText("Read failed").assertExists()
-        compose.onNodeWithText("No conversations").assertDoesNotExist()
+        compose.onNodeWithText("No conversations yet").assertDoesNotExist()
         compose.onNodeWithText("Refresh").performClick()
         compose.runOnIdle { assertEquals(ConversationsAction.Refresh, action) }
     }
 
     @Test fun successfulEmptyHasExplicitEmptyState() {
-        compose.setContent { RamfluxTheme { ConversationsScreen(ConversationsState(loaded = true), {}) } }
-        compose.onNodeWithText("No conversations").assertExists()
-        compose.onNodeWithTag("conversation-search").assertExists()
+        var action: ConversationsAction? = null
+        compose.setContent { RamfluxTheme { ConversationsScreen(ConversationsState(loaded = true), { action = it }) } }
+        compose.onNodeWithText("No conversations yet").assertExists()
+        compose.onNodeWithTag("conversation-search").assertDoesNotExist()
+        compose.onNodeWithText("Add contact").performClick()
+        compose.runOnIdle { assertEquals(ConversationsAction.Compose, action) }
+    }
+
+    @Test fun firstLoadShowsSkeletonAndFirstFailureIsCentredWithRetry() {
+        var state by mutableStateOf(ConversationsState(loading = true, accountId = "a"))
+        var action: ConversationsAction? = null
+        compose.setContent { RamfluxTheme { ConversationsScreen(state, { action = it }, rooted = true) } }
+        compose.onNodeWithTag("conversations-loading").assertExists()
+        compose.runOnIdle { state = ConversationsState(accountId = "a", problem = UiText.Data("Offline")) }
+        compose.onNodeWithTag("conversations-loading").assertDoesNotExist()
+        compose.onNodeWithText("Cannot connect right now").assertExists()
+        compose.onNodeWithText("Retry").performClick()
+        compose.runOnIdle { assertEquals(ConversationsAction.Refresh, action) }
+    }
+
+    @Test fun requestsRowShowsPendingCountAndOpensRequests() {
+        var action: ConversationsAction? = null
+        compose.setContent {
+            RamfluxTheme {
+                ConversationsScreen(
+                    ConversationsState(accountId = "a", loaded = true, requests = 3),
+                    { action = it },
+                    rooted = true
+                )
+            }
+        }
+        compose.onNodeWithText("No conversations yet").assertDoesNotExist()
+        compose.onNodeWithText("3").assertExists()
+        compose.onNodeWithTag("conversations-requests").performClick()
+        compose.runOnIdle { assertEquals(ConversationsAction.OpenRequests, action) }
+        compose.onNodeWithContentDescription("New message").performClick()
+        compose.runOnIdle { assertEquals(ConversationsAction.Compose, action) }
     }
 
     @Test fun exactUnreadTimestampAndManualMarkerStayInsideRowsUnderFixedAccountHeader() {

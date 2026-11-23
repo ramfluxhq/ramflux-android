@@ -129,12 +129,25 @@ fun LtrSecretWords(count: Int, draw: (Int, (CharArray) -> Unit) -> Unit, modifie
     }
 }
 
+/**
+ * Receives each secret word as it is drawn. Only the opt-in real-run test build provides one (the app's
+ * `RealRunProbe`, same process as its instrumentation); every other build leaves it null, so the words reach
+ * nothing but the canvas. The probe must copy into erasable storage and never log.
+ */
+fun interface SecretWordsProbe {
+    fun seen(index: Int, chars: CharArray)
+}
+
+val LocalSecretWordsProbe = androidx.compose.runtime.staticCompositionLocalOf<SecretWordsProbe?> { null }
+
 @Composable
 private fun SecretWord(index: Int, draw: (Int, (CharArray) -> Unit) -> Unit, paint: Paint, modifier: Modifier) {
+    val probe = LocalSecretWordsProbe.current
     Canvas(modifier) {
         val metrics = paint.fontMetrics
         val baseline = size.height / 2f - (metrics.ascent + metrics.descent) / 2f
         draw(index) { chars ->
+            probe?.seen(index, chars)
             val width = paint.measureText(chars, 0, chars.size)
             val canvas = drawContext.canvas.nativeCanvas
             canvas.withSave {

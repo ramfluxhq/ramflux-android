@@ -39,8 +39,12 @@ class SettingsScreenshotTest(
                     add(arrayOf(SettingsPage.GENERAL, dark, locale, width, kind))
                     if (kind == "account") add(arrayOf(SettingsPage.DEVICES, dark, locale, width, kind))
                 }
+            // The pairing invitation as a QR code (a fixture token, not a real invitation).
+            for (dark in listOf(false, true)) add(arrayOf(SettingsPage.PAIRING, dark, "en", 400, "invited"))
         }
     }
+
+    private val invitation = requireNotNull(InvitationQr.encode("{\"schema\":\"fixture.invitation\"}".toCharArray()))
 
     @Test fun screen() {
         val populated = SettingsState(
@@ -54,19 +58,25 @@ class SettingsScreenshotTest(
                 uiText(R.string.settings_not_recorded),
                 uiText(R.string.settings_not_recorded),
                 uiText(R.string.settings_not_recorded)
-            ),
-            unavailable = if (page == SettingsPage.BACKUP) uiText(R.string.settings_custody_missing) else null
+            )
         )
         val state = when (kind) {
             "loading" -> SettingsState(loading = true)
             "error" -> SettingsState(problem = uiText(R.string.settings_read_failed, UiText.Number(8)))
             "account" -> SettingsState(page = page, accountRequired = true)
+            "invited" -> populated.copy(
+                pairing = SettingsPairing(
+                    step = PairingStep.INVITED,
+                    invitationChunks = 1,
+                    invitationModules = invitation.modules
+                )
+            )
             else -> populated
         }
         compose.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.Locales(LocaleList(locale))) {
                 DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(width.dp, 500.dp))) {
-                    RamfluxTheme(dark) { SettingsScreen(state, {}) }
+                    RamfluxTheme(dark) { SettingsScreen(state, {}, drawInvitationQr = invitation::lend) }
                 }
             }
         }

@@ -23,10 +23,17 @@
     <string name="permissions_unavailable">Unavailable</string>
     <string name="permissions_picker_help">Use the system photo picker or file chooser. Ramflux does not request access to your entire library or storage.</string>
     <string name="permissions_save_help">Android 10 or later saves with MediaStore. Earlier versions use the system file exporter.</string>
-    <string name="permissions_media_help">Voice calling is not available yet. Microphone and incoming-call requests stay off.</string>
+    <!-- Help under the incoming-call row in system permissions: system call integration is not requested yet. -->
+    <string name="permissions_media_help">Incoming-call integration is not requested yet.</string>
     <string name="permissions_notification_title">Turn on notifications?</string>
     <string name="permissions_notification_why">Alerts you to new messages and calls. Notifications show only New message, with no sender or content.</string>
     <string name="permissions_notification_without">Without notifications, messages still arrive when Ramflux is open, with no alert.</string>
+    <!-- Title of the explanation shown before Android asks for the microphone. -->
+    <string name="permissions_microphone_title">Allow microphone access?</string>
+    <!-- Why the microphone is needed, shown before the system prompt. -->
+    <string name="permissions_microphone_why">Calls and voice messages use the microphone only while a call or a recording is open.</string>
+    <!-- What still works when the microphone is not allowed. -->
+    <string name="permissions_microphone_without">Without microphone access, others cannot hear you in calls; messages still work.</string>
     <string name="permissions_camera_title">Allow camera access?</string>
     <string name="permissions_camera_why">Scan a QR code or take a photo only while the scan or camera feature is open.</string>
     <string name="permissions_camera_without">Without camera access, enter a pairing code by hand or choose a photo with the system picker.</string>
@@ -49,6 +56,6 @@
     <string name="permissions_files">Files</string>
     <string name="permissions_take_photo">Take photo</string>
     <string name="permissions_selection">Selected on this device. No attachment has been sent.</string>
-    <string name="permissions_camera_unavailable">Taking photos is not available yet. Choose a photo or file with the system picker.</string>
+    <string name="permissions_camera_in_chat">To take a photo, use the camera in a chat\'s attachment menu; the camera permission is asked there.</string>
     <string name="permissions_battery_settings_unavailable">This device does not provide a battery optimization settings screen. Open app settings below or find battery settings in the Settings app.</string>
 </resources>

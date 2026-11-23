@@ -17,7 +17,8 @@ fun GroupsNavigation(
     modifier: Modifier = Modifier,
     vm: GroupsViewModel = hiltViewModel(),
     rooted: Boolean = false,
-    onAtRoot: (Boolean) -> Unit = {}
+    onAtRoot: (Boolean) -> Unit = {},
+    openGroup: String? = null
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
@@ -27,6 +28,7 @@ fun GroupsNavigation(
     BackHandler(enabled = !rooted || state.page != GroupsPage.LIST) { vm.onAction(GroupsAction.Back) }
     DisposableEffect(vm) {
         vm.onAction(GroupsAction.Visible(true))
+        openGroup?.let { vm.onAction(GroupsAction.Enter(it)) }
         onDispose { vm.onAction(GroupsAction.Visible(false)) }
     }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(GroupsAction.Refresh) }
@@ -39,5 +41,5 @@ fun GroupsNavigation(
             }
         }
     }
-    GroupsScreen(state, vm::onAction, modifier, rooted)
+    GroupsScreen(state, vm::onAction, modifier = modifier, rooted = rooted)
 }

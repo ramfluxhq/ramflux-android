@@ -4,9 +4,12 @@
 package org.ramflux.android.shell
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
@@ -41,6 +44,7 @@ class NoticesBackTest {
                 )
             }
         }
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Open-source notices"))
         compose.onNodeWithText("Open-source notices").performClick()
         compose.onNodeWithText("SIL", substring = true).assertExists()
         compose.activity.onBackPressedDispatcher.onBackPressed()

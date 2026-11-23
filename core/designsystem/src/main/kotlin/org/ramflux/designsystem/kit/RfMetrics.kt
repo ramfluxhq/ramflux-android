@@ -93,6 +93,9 @@ internal object RfMetrics {
     val bubblePadH = 12f
     val bubbleGap = 4f
     val metaIcon = 14f
+
+    /** The failed-send mark beside a bubble (board MOB-B05). */
+    val failedMark = 22f
     val agentTag = 18f
     val avatar18 = 18f
     val avatar28 = 28f
@@ -141,7 +144,13 @@ internal object RfMetrics {
     val datePadV = 8f
     val chipPadV = 4f
     val chipPadH = 8f
+
+    /** Space between album tiles (no board yet; media design B23). */
+    val albumGap = 2f
     val unread = 28f
+
+    /** Filled-slot dot of the account code field. */
+    val codeDot = 10f
     val unreadGap = 12f
     val unreadLine = 1f
     val tipPadV = 10f

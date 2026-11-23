@@ -6,5 +6,8 @@ sealed interface SettingsEvent {
     data object Back : SettingsEvent
     data object OpenAccount : SettingsEvent
     data object Permissions : SettingsEvent
+    data object MyCard : SettingsEvent
     data object Connections : SettingsEvent
+    data object Backup : SettingsEvent
+    data class Storage(val accountId: String) : SettingsEvent
 }

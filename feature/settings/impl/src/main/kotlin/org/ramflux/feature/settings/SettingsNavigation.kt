@@ -3,7 +3,9 @@
 
 package org.ramflux.feature.settings
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -17,13 +19,19 @@ fun SettingsNavigation(
     onConnections: () -> Unit,
     modifier: Modifier = Modifier,
     onPermissions: () -> Unit = {},
-    vm: SettingsViewModel = hiltViewModel()
+    onBackup: () -> Unit = {},
+    onStorage: (account: String) -> Unit = {},
+    vm: SettingsViewModel = hiltViewModel(),
+    cardVm: MyContactCardViewModel = hiltViewModel()
 ) {
+    var myCard by rememberSaveable { mutableStateOf(false) }
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val account by rememberUpdatedState(onAccount)
     val connections by rememberUpdatedState(onConnections)
     val permissions by rememberUpdatedState(onPermissions)
+    val backup by rememberUpdatedState(onBackup)
+    val storage by rememberUpdatedState(onStorage)
     BackHandler { vm.onAction(SettingsAction.Back) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(SettingsAction.Refresh) }
     LaunchedEffect(vm) {
@@ -33,8 +41,23 @@ fun SettingsNavigation(
                 SettingsEvent.OpenAccount -> account()
                 SettingsEvent.Connections -> connections()
                 SettingsEvent.Permissions -> permissions()
+                SettingsEvent.Backup -> backup()
+                is SettingsEvent.Storage -> storage(event.accountId)
+                SettingsEvent.MyCard -> {
+                    myCard = true
+                    cardVm.load()
+                }
             }
         }
     }
-    SettingsScreen(state, vm::onAction, modifier = modifier)
+    Box(modifier) {
+        SettingsScreen(state, vm::onAction, drawInvitation = vm::drawInvitation, drawInvitationQr = vm::drawInvitationQr)
+        if (myCard) {
+            val card by cardVm.state.collectAsStateWithLifecycle()
+            MyContactCard(card, cardVm::lendQr, onRetry = cardVm::load) {
+                myCard = false
+                cardVm.close()
+            }
+        }
+    }
 }

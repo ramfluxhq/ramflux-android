@@ -46,6 +46,7 @@ class ContactsViewModelTest {
 
     @Test fun safetyPageReadsActualMaterialButDoesNotVerifyAnUnboundComparison() = runTest(timeout = 5.seconds) {
         val repo = FakeContactDirectory().apply {
+            capability = ClientResult.Ready(Unit)
             reading = { ClientResult.Ready(listOf(ContactSummary("link", "peer", "Name", false, "root"))) }
         }
         val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
@@ -54,11 +55,117 @@ class ContactsViewModelTest {
         vm.onAction(ContactsAction.Select("link"))
         vm.onAction(ContactsAction.Page(ContactsPage.SAFETY))
         runCurrent()
-        assertEquals(SafetyItem("1234 5678", "abcdef"), vm.state.value.safety)
+        assertEquals(
+            SafetyItem("1234 5678", "abcdef", uiText(R.string.contacts_safety_state_unverified), verified = false, verifiable = false),
+            vm.state.value.safety
+        )
         vm.onAction(ContactsAction.Operate(ContactOperation.VERIFY))
         runCurrent()
-        assertEquals(uiText(R.string.contacts_safety_binding_unavailable), vm.state.value.unavailable)
+        assertNull(vm.state.value.approval)
         assertTrue(repo.submitted.isEmpty())
+    }
+
+    @Test fun numbersMatchVerifiesTheComparedRootAfterConfirmationAndRereads() = runTest(timeout = 5.seconds) {
+        val repo = FakeContactDirectory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(ContactSummary("link", "peer", "Name", false, "root"))) }
+            safetyResult = ClientResult.Ready(ContactSafety("1234 5678", "abcdef", SafetyState.UNVERIFIED, verifiable = true))
+        }
+        val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(ContactsAction.Select("link"))
+        vm.onAction(ContactsAction.Page(ContactsPage.SAFETY))
+        runCurrent()
+        vm.onAction(ContactsAction.Operate(ContactOperation.VERIFY))
+        runCurrent()
+        assertEquals(ContactOperation.VERIFY, vm.state.value.approval?.kind)
+        assertTrue(repo.submitted.isEmpty())
+        repo.safetyResult = ClientResult.Ready(ContactSafety("1234 5678", "abcdef", SafetyState.VERIFIED, verifiable = false))
+        vm.onAction(ContactsAction.Confirm)
+        runCurrent()
+        val command = repo.submitted.single()
+        assertEquals(ContactOperation.VERIFY, command.operation)
+        assertEquals("root", command.target)
+        assertEquals(true, vm.state.value.safety?.verified)
+        assertEquals(ContactsPage.SAFETY, vm.state.value.page)
+    }
+
+    @Test fun removeBlockAndUnblockActOnTheLinkAfterConfirmationAndReturnToTheList() = runTest(timeout = 5.seconds) {
+        val repo = FakeContactDirectory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(ContactSummary("link", "peer", "Name", false, "root"))) }
+            blockedReading = { ClientResult.Ready(listOf(ContactSummary("gone", "other", "Other", false, "root2"))) }
+        }
+        val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(ContactsAction.Select("link"))
+        vm.onAction(ContactsAction.Operate(ContactOperation.UNBLOCK))
+        runCurrent()
+        assertNull(vm.state.value.approval)
+        vm.onAction(ContactsAction.Operate(ContactOperation.REMOVE))
+        runCurrent()
+        assertEquals(listOf("Name"), vm.state.value.approval?.targets)
+        assertEquals(uiText(R.string.contacts_remove_explanation), vm.state.value.approval?.explanation)
+        vm.onAction(ContactsAction.Confirm)
+        runCurrent()
+        assertEquals(
+            ContactCommand("a", repo.submitted.single().operationId, ContactOperation.REMOVE, "link", "peer"),
+            repo.submitted.single()
+        )
+        assertEquals(ContactsPage.LIST, vm.state.value.page)
+        vm.onAction(ContactsAction.Tab(ContactsTab.BLOCKED))
+        runCurrent()
+        vm.onAction(ContactsAction.Select("gone"))
+        vm.onAction(ContactsAction.Operate(ContactOperation.REMOVE))
+        runCurrent()
+        assertNull(vm.state.value.approval)
+        vm.onAction(ContactsAction.Operate(ContactOperation.UNBLOCK))
+        runCurrent()
+        vm.onAction(ContactsAction.Confirm)
+        runCurrent()
+        assertEquals(ContactOperation.UNBLOCK to "gone", repo.submitted.last().let { it.operation to it.target })
+    }
+
+    @Test fun fiftyThousandRowSourceStaysWindowedAndLiveChangesReloadWhileVisible() = runTest(timeout = 20.seconds) {
+        val rows = List(50_000) { ContactSummary("link-$it", "peer-$it", "Name $it", it % 3 == 0, "root-$it") }
+        val repo = FakeContactDirectory().apply { reading = { ClientResult.Ready(rows) } }
+        val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
+        observe(vm)
+        runCurrent()
+        val started = System.nanoTime()
+        var slowest = 0L
+        repeat(499) {
+            val before = System.nanoTime()
+            vm.onAction(ContactsAction.LoadMore)
+            runCurrent()
+            slowest = maxOf(slowest, System.nanoTime() - before)
+            assertTrue(vm.state.value.rows.size <= 600)
+        }
+        val total = (System.nanoTime() - started) / 1_000_000
+        println("contacts 50k: 500 pages in $total ms, slowest page ${slowest / 1_000_000} ms, window ${vm.state.value.rows.size}")
+        assertEquals("link-49999", vm.state.value.rows.last().id)
+        assertFalse(vm.state.value.hasMore)
+        assertTrue(vm.state.value.hasBefore)
+        vm.onAction(ContactsAction.LoadPrevious)
+        runCurrent()
+        assertEquals("link-49300", vm.state.value.rows.first().id)
+        assertTrue(vm.state.value.rows.size <= 600)
+        assertEquals(0, repo.watchers)
+        vm.onAction(ContactsAction.Visible(true))
+        runCurrent()
+        assertEquals(1, repo.watchers)
+        val reads = repo.reads
+        repo.live.emit(ClientResult.Ready(ContactChange.CONTACTS))
+        runCurrent()
+        assertEquals(reads + 1, repo.reads)
+        assertEquals(null, repo.cursors.last())
+        repo.live.emit(ClientResult.Ready(ContactChange.SAFETY))
+        runCurrent()
+        vm.onAction(ContactsAction.Visible(false))
+        runCurrent()
+        assertEquals(0, repo.watchers)
     }
 
     @Test fun hostDenialNeverSubmitsAndSingleConfirmationBindsExactTarget() = runTest(timeout = 5.seconds) {
@@ -66,7 +173,7 @@ class ContactsViewModelTest {
         val vm = requestVm(repo)
         vm.onAction(ContactsAction.Operate(ContactOperation.ACCEPT))
         runCurrent()
-        assertEquals(listOf("request"), vm.state.value.approval?.targets)
+        assertEquals(listOf("Name"), vm.state.value.approval?.targets)
         vm.onAction(ContactsAction.Deny)
         runCurrent()
         assertTrue(repo.submitted.isEmpty())
@@ -119,19 +226,25 @@ class ContactsViewModelTest {
         assertTrue(vm.state.value.rows.isEmpty())
     }
 
-    @Test fun filteringIsLocalAndClearingRestoresTheNativeSnapshot() = runTest(timeout = 5.seconds) {
+    @Test fun filteringIsDebouncedAndReadThroughTheWindowedSource() = runTest(timeout = 5.seconds) {
         val repo = FakeContactDirectory().apply { reading = { ClientResult.Ready(listOf(ContactSummary("one", "peer", "Name", false))) } }
         val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
         observe(vm)
         runCurrent()
         val reads = repo.reads
+        vm.onAction(ContactsAction.Query("mis"))
         vm.onAction(ContactsAction.Query("missing"))
+        advanceTimeBy(100)
+        runCurrent()
+        assertEquals(reads, repo.reads)
+        advanceTimeBy(300)
         runCurrent()
         assertTrue(vm.state.value.rows.isEmpty())
+        assertEquals(reads + 1, repo.reads)
         vm.onAction(ContactsAction.Query(""))
+        advanceTimeBy(300)
         runCurrent()
         assertEquals(listOf("one"), vm.state.value.rows.map { it.id })
-        assertEquals(reads, repo.reads)
     }
 
     @Test fun failedReadIsDistinctFromEmptyAndRefreshRecovers() = runTest(timeout = 5.seconds) {
@@ -294,5 +407,30 @@ class ContactsViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
         runCurrent()
         assertEquals(1, events.size)
+    }
+
+    @Test fun messageOpensTheContactsDirectConversationAndKeepsTheProfile() = runTest(timeout = 5.seconds) {
+        val repo = FakeContactDirectory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(ContactSummary("link", "peer", "Name", false, "root"))) }
+        }
+        val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
+        observe(vm)
+        runCurrent()
+        val events = mutableListOf<ContactsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(ContactsAction.Select("link"))
+        vm.onAction(ContactsAction.Message)
+        runCurrent()
+        assertEquals(listOf("root"), repo.conversationRoots)
+        assertEquals(1, events.size)
+        assertTrue(events.single() is ContactsEvent.OpenChat)
+        assertEquals("dm:peer", (events.single() as ContactsEvent.OpenChat).conversation)
+        assertEquals(ContactsPage.DETAIL, vm.state.value.page)
+        repo.conversationResult = ClientResult.Ready(null)
+        vm.onAction(ContactsAction.Message)
+        runCurrent()
+        assertEquals(1, events.size)
+        assertEquals(uiText(R.string.contacts_no_conversation), vm.state.value.unavailable)
     }
 }

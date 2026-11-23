@@ -23,12 +23,20 @@ jobs:
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0
       - uses: gradle/actions/setup-gradle@v4
-      # The key follows the Robolectric version and the API 28/35 jar versions in libs.versions.toml.
+      # The key follows only the Robolectric version and the API 28/35 jar versions in
+      # libs.versions.toml, so adding an unrelated library does not force a fresh
+      # download of the large jars (Maven Central throttles those with 429).
+      - name: Compute the Robolectric jar cache key
+        id: robolectric-key
+        run: python3 scripts/robolectric-cache-key.py
       - name: Cache Robolectric android-all jars
         uses: actions/cache@v4
         with:
           path: robolectric-jars
-          key: robolectric-android-all-v1-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          key: robolectric-android-all-v2-${{ runner.os }}-${{ steps.robolectric-key.outputs.hash }}
+          restore-keys: |
+            robolectric-android-all-v2-${{ runner.os }}-
+            robolectric-android-all-v1-${{ runner.os }}-
       - run: python3 scripts/check-secret-boundary.py
       - run: python3 scripts/check-client-architecture.py
       - run: python3 scripts/check-os-permissions.py
@@ -39,7 +47,7 @@ jobs:
       - run: python3 scripts/test-ui-resource-guard.py
       - run: python3 scripts/test-board-compare.py
       - run: python3 scripts/sync-board-references.py check app/src/test/resources/shell-previews
-      - run: ./gradlew ktlintCheck :core:designsystem:testDebugUnitTest :app:testDebugUnitTest :core:navigation:testDebugUnitTest :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :feature:permissions:test:testDebugUnitTest :feature:cards:test:testDebugUnitTest :feature:tasks:test:testDebugUnitTest :feature:agents:test:testDebugUnitTest :feature:calls:test:testDebugUnitTest :feature:groups:test:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest :feature:onboarding:test:testDebugUnitTest :feature:conversations:test:testDebugUnitTest :feature:chat:test:testDebugUnitTest :feature:settings:test:testDebugUnitTest :feature:contacts:test:testDebugUnitTest --console=plain
+      - run: ./gradlew ktlintCheck :core:designsystem:testDebugUnitTest :app:testDebugUnitTest :core:navigation:testDebugUnitTest :core:sdk:testDebugUnitTest :core:data:testDebugUnitTest :core:media:testDebugUnitTest :feature:permissions:test:testDebugUnitTest :feature:cards:test:testDebugUnitTest :feature:tasks:test:testDebugUnitTest :feature:agents:test:testDebugUnitTest :feature:calls:test:testDebugUnitTest :feature:groups:test:testDebugUnitTest :feature:app-shell:test:testDebugUnitTest :feature:onboarding:test:testDebugUnitTest :feature:conversations:test:testDebugUnitTest :feature:chat:test:testDebugUnitTest :feature:settings:test:testDebugUnitTest :feature:contacts:test:testDebugUnitTest --console=plain
       - run: python3 scripts/check-os-permissions.py
       - name: Record client screenshots
         run: ./gradlew :feature:app-shell:test:recordRoborazziDebug :feature:onboarding:test:recordRoborazziDebug :feature:conversations:test:recordRoborazziDebug :feature:chat:test:recordRoborazziDebug :feature:settings:test:recordRoborazziDebug :feature:permissions:test:recordRoborazziDebug :feature:cards:test:recordRoborazziDebug :feature:tasks:test:recordRoborazziDebug :feature:agents:test:recordRoborazziDebug :feature:calls:test:recordRoborazziDebug :feature:groups:test:recordRoborazziDebug :feature:contacts:test:recordRoborazziDebug --console=plain

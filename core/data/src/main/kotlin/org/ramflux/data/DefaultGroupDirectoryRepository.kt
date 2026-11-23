@@ -3,21 +3,66 @@
 
 package org.ramflux.data
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.*
 import org.ramflux.sdk.*
 
-internal class DefaultGroupDirectoryRepository(transport: RepositoryTransport) : GroupDirectoryRepository {
+/** [decoding] runs snapshot decoding and projection, never the caller's (main) thread. */
+internal class DefaultGroupDirectoryRepository(
+    transport: RepositoryTransport,
+    private val decoding: CoroutineDispatcher = Dispatchers.Default,
+) : GroupDirectoryRepository {
     private val source = DefaultGroupsRepository(transport)
     private val accounts = DefaultAccountsRepository(transport)
-    private val people = DefaultContactDirectoryRepository(transport)
+    private val people = DefaultContactDirectoryRepository(transport, decoding)
     private data class Attempt(val id: String, val change: GroupChange, var result: ClientResult<GroupOutcome>?, val origin: GroupAuthority? = null)
     private val journal = mutableMapOf<String, Attempt>()
+    private val groupPages = SnapshotPager<GroupSummary>(PAGE)
+    private val memberPages = SnapshotPager<GroupMember>(PAGE)
+    private val invitationPages = SnapshotPager<GroupInvitation>(PAGE)
+    private val requestPages = SnapshotPager<GroupRequest>(PAGE)
+
+    override suspend fun groupPage(account: String, query: String, cursor: String?): ClientResult<WindowedPage<GroupSummary>> {
+        if (!valid(account) || query.length > MAX_QUERY) return invalid()
+        return groupPages.page("$account\u0000$query", cursor) {
+            filtered(list(account)) { query.isBlank() || it.name?.contains(query, true) == true || it.id.contains(query, true) }
+        }
+    }
+
+    override suspend fun memberPage(account: String, group: String, query: String, cursor: String?): ClientResult<WindowedPage<GroupMember>> {
+        if (!valid(account) || !valid(group) || query.length > MAX_QUERY) return invalid()
+        return memberPages.page("$account\u0000$group\u0000$query", cursor) {
+            val roster = decoded(source.members(RepositoryContext(account), buildJsonObject { put("group_id", group) }), { GroupMetadataReader.detail(it, decoding) }) {
+                require(it.group.id == group)
+                it.roster.map { member -> GroupMember(member.principal, member.root, member.device, member.role.appRole(), member.active) }
+            }
+            filtered(roster) { query.isBlank() || it.principal.contains(query, true) || it.device.contains(query, true) }
+        }
+    }
+
+    override suspend fun invitationPage(account: String, cursor: String?): ClientResult<WindowedPage<GroupInvitation>> {
+        if (!valid(account)) return invalid()
+        return invitationPages.page(account, cursor) { invitations(account) }
+    }
+
+    override suspend fun requestPage(account: String, group: String, cursor: String?): ClientResult<WindowedPage<GroupRequest>> {
+        if (!valid(account) || !valid(group)) return invalid()
+        return requestPages.page("$account\u0000$group", cursor) { requests(account, group) }
+    }
+
+    private suspend fun <T> filtered(rows: ClientResult<List<T>>, keep: (T) -> Boolean): ClientResult<List<T>> = when (rows) {
+        is ClientResult.Ready -> ClientResult.Ready(withContext(decoding) { rows.value.filter(keep) })
+        else -> rows
+    }
+    private fun valid(value: String) = value.isNotBlank() && value.length <= 4096
     override fun pending(account: String) = synchronized(journal) { journal[account]?.takeIf {
         it.result == null || (it.result as? ClientResult.Failed)?.problem?.outcome == ClientOutcome.UNKNOWN
     }?.let { PendingGroupOperation(it.id, it.change) } }
     override suspend fun list(account: String): ClientResult<List<GroupSummary>> {
-        val result = decoded(source.list(RepositoryContext(account), buildJsonObject {}), GroupMetadataReader::list) {
+        val result = decoded(source.list(RepositoryContext(account), buildJsonObject {}), { GroupMetadataReader.list(it, decoding) }) {
             it.map { row -> row.appGroup() }
         }
         val attempt = synchronized(journal) { journal[account] }
@@ -34,7 +79,7 @@ internal class DefaultGroupDirectoryRepository(transport: RepositoryTransport) :
     override suspend fun detail(account: String, group: String): ClientResult<GroupDetail> {
         val authority = authority(account)
         if (authority !is ClientResult.Ready) return authority.failure()
-        return decoded(source.members(RepositoryContext(account), buildJsonObject { put("group_id", group) }), GroupMetadataReader::detail) {
+        return decoded(source.members(RepositoryContext(account), buildJsonObject { put("group_id", group) }), { GroupMetadataReader.detail(it, decoding) }) {
             require(it.group.id == group)
             GroupDetail(it.group.appGroup(), it.roster.map { member -> GroupMember(member.principal, member.root, member.device, member.role.appRole(), member.active) }, authority.value)
         }
@@ -43,11 +88,11 @@ internal class DefaultGroupDirectoryRepository(transport: RepositoryTransport) :
         require(it.account == account)
         GroupAuthority(it.principal, it.root, it.device, it.authorized)
     }
-    override suspend fun invitations(account: String): ClientResult<List<GroupInvitation>> = decoded(source.invitationsList(RepositoryContext(account), buildJsonObject {}), GroupMetadataReader::invitations) {
+    override suspend fun invitations(account: String): ClientResult<List<GroupInvitation>> = decoded(source.invitationsList(RepositoryContext(account), buildJsonObject {}), { GroupMetadataReader.invitations(it, decoding) }) {
         it.map { row -> GroupInvitation(row.id, row.name, row.creator, row.inviter, row.expires) }
     }
     override suspend fun requests(account: String, group: String): ClientResult<List<GroupRequest>> {
-        val result = decoded(source.requestsList(RepositoryContext(account), buildJsonObject { put("group_id", group) }), GroupMetadataReader::requests) {
+        val result = decoded(source.requestsList(RepositoryContext(account), buildJsonObject { put("group_id", group) }), { GroupMetadataReader.requests(it, decoding) }) {
             require(it.all { row -> row.group == group }); it.map { row -> GroupRequest(row.id, row.group, row.status, row.waiting, row.expires) }
         }
         val attempt = synchronized(journal) { journal[account] }
@@ -70,11 +115,20 @@ internal class DefaultGroupDirectoryRepository(transport: RepositoryTransport) :
     override suspend fun conversation(account: String, group: String): ClientResult<String> = decoded(source.history(RepositoryContext(account), buildJsonObject {
         put("group_id", group); put("conversation_id", group); put("limit", 0)
     }), { GroupMetadataReader.conversation(it, group) }) { it }
-    override fun updates(account: String): Flow<ClientResult<Unit>> = source.updates(SubscriptionFilter(account, buildJsonObject { put("topics", buildJsonArray { add("*") }) })).map { update ->
+    /**
+     * Journal topics of the pinned SDK (`bus/journal/project.rs`): `group.changed` follows the group,
+     * member and ban projections; `conversation.changed` the group conversation rows. The SDK projects
+     * no topic of its own for inbound invitations; they reload on resume and on resync.
+     */
+    override fun updates(account: String): Flow<ClientResult<Unit>> = source.updates(SubscriptionFilter(account, buildJsonObject {
+        put("topics", buildJsonArray { GROUP_TOPICS.forEach { add(it) } })
+    })).map { update ->
         when(update) {
             is CoreUpdate.Events -> { update.body.close(); ClientResult.Ready(Unit) }
             is CoreUpdate.Failure -> ClientResult.Failed(update.error.appProblem())
-            is CoreUpdate.Terminal -> ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 27, ClientOutcome.NONE))
+            // The shared event hub has already reset the native queue: reload the snapshot.
+            is CoreUpdate.Terminal -> if (update.kind == "resync_required") ClientResult.Ready(Unit)
+                else ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 27, ClientOutcome.NONE))
         }
     }
     override suspend fun mutate(account: String, change: GroupChange, operationId: String): ClientResult<GroupOutcome> {
@@ -174,11 +228,17 @@ internal class DefaultGroupDirectoryRepository(transport: RepositoryTransport) :
     private fun <T> ClientResult<T>.failure(): ClientResult<Nothing> = when(this) {
         is ClientResult.Failed -> this; is ClientResult.Unavailable -> this; is ClientResult.Ready -> invalid()
     }
-    private fun <T,R> decoded(reply: CoreResult<SecretReply>, reader: (SecretReply) -> CoreResult<T>, map: (T) -> R): ClientResult<R> = when(reply) {
+    private suspend fun <T,R> decoded(reply: CoreResult<SecretReply>, reader: suspend (SecretReply) -> CoreResult<T>, map: (T) -> R): ClientResult<R> = when(reply) {
         is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
         is CoreResult.Success -> when(val result = reader(reply.value)) {
             is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
-            is CoreResult.Success -> try { ClientResult.Ready(map(result.value)) } catch (_: Exception) { invalid() }
+            // Projection of a several-thousand-row snapshot stays off the caller's (main) thread.
+            is CoreResult.Success -> try { ClientResult.Ready(withContext(decoding) { map(result.value) }) } catch (_: Exception) { invalid() }
         }
     }
 }
+
+private const val PAGE = 100
+private const val MAX_QUERY = 256
+
+internal val GROUP_TOPICS = listOf("group.changed", "conversation.changed")

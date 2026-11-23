@@ -6,7 +6,14 @@ import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
 import org.ramflux.designsystem.UiText
 
-enum class GroupsPage { LIST, CREATE, DETAIL, MEMBERS, REQUESTS, INVITATION }
+/** MEMBER is one member's roles page; INVITE picks an accepted contact to add. */
+enum class GroupsPage { LIST, CREATE, DETAIL, MEMBERS, MEMBER, INVITE, REQUESTS, INVITATION }
+
+/** The windowed lists of the groups screen; each reads through its own repository pages. */
+enum class GroupList { GROUPS, INVITATIONS, MEMBERS, CONTACTS, REQUESTS }
+
+/** Controls the SDK cannot perform from a phone today; tapping one explains why instead of acting. */
+enum class GroupControl { TRANSFER, LEAVE }
 
 @Immutable data class GroupRow(val id: String, val title: String, val count: UiText)
 
@@ -17,7 +24,8 @@ enum class GroupsPage { LIST, CREATE, DETAIL, MEMBERS, REQUESTS, INVITATION }
     val device: String,
     val role: UiText,
     val active: Boolean,
-    val manageable: Boolean
+    val manageable: Boolean,
+    val admin: Boolean = false
 )
 
 @Immutable data class InviteRow(val id: String, val title: String, val creator: String, val inviter: String, val expiry: UiText)
@@ -25,6 +33,9 @@ enum class GroupsPage { LIST, CREATE, DETAIL, MEMBERS, REQUESTS, INVITATION }
 @Immutable data class RequestRow(val id: String, val status: UiText, val expiry: UiText)
 
 @Immutable data class GroupFacts(val operation: UiText, val values: ImmutableList<UiText>)
+
+/** Cursor state of one windowed list: more rows after or before the loaded window. */
+@Immutable data class ListPaging(val more: Boolean = false, val before: Boolean = false)
 
 @Immutable data class GroupsState(
     val page: GroupsPage = GroupsPage.LIST,
@@ -35,8 +46,12 @@ enum class GroupsPage { LIST, CREATE, DETAIL, MEMBERS, REQUESTS, INVITATION }
     val members: ImmutableList<MemberRow> = persistentListOf(),
     val contacts: ImmutableList<GroupRow> = persistentListOf(),
     val requests: ImmutableList<RequestRow> = persistentListOf(),
+    val paging: ImmutableMap<GroupList, ListPaging> = persistentMapOf(),
     val selected: String? = null,
     val title: String? = null,
+    val memberCount: UiText = UiText.Empty,
+    val ownRole: UiText? = null,
+    val selectedMember: MemberRow? = null,
     val selectedInvitation: InviteRow? = null,
     val epoch: UiText = UiText.Empty,
     val query: String = "",
@@ -44,6 +59,7 @@ enum class GroupsPage { LIST, CREATE, DETAIL, MEMBERS, REQUESTS, INVITATION }
     val canManage: Boolean = false,
     val authorityFresh: Boolean = false,
     val loading: Boolean = false,
+    val loadingMore: Boolean = false,
     val loaded: Boolean = false,
     val busy: Boolean = false,
     val problem: UiText? = null,
@@ -51,5 +67,6 @@ enum class GroupsPage { LIST, CREATE, DETAIL, MEMBERS, REQUESTS, INVITATION }
     val pending: String? = null,
     val confirmation: GroupFacts? = null
 ) {
+    fun paging(list: GroupList) = paging[list] ?: ListPaging()
     override fun toString() = "GroupsState(<redacted>)"
 }

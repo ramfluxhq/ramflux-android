@@ -29,7 +29,7 @@ class ConversationsLocaleTest {
             }
         }
         compose.runOnIdle { locale = "zh-CN" }
-        compose.onNodeWithText("暂无会话").assertExists()
+        compose.onNodeWithText("还没有会话").assertExists()
         compose.runOnIdle { assertEquals(0, actions) }
     }
 }

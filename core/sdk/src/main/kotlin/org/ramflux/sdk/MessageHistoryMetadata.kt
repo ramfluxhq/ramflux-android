@@ -28,8 +28,31 @@ data class MessageHistoryEntry(
     val replyPreview: String? = null,
     val placeholder: Boolean = false,
     val service: Boolean = false,
+    val attachments: List<TimelineAttachment> = emptyList(),
 ) : TimelineMetadata {
     override fun toString() = "MessageHistoryEntry(<redacted>)"
+}
+
+/** An inline preview carried in the read model; at most 64 KiB, 1..4096 px per side. */
+class TimelineThumbnail(val mimeType: String, val width: Int, val height: Int, val bytes: ByteArray) {
+    override fun toString() = "TimelineThumbnail(<redacted>)"
+}
+
+/** One `content.message.media[]` reference of a message row. Key material never reaches the host. */
+data class TimelineAttachment(
+    val index: Int,
+    val mimeType: String,
+    val fileName: String,
+    val size: Long,
+    val thumbnail: TimelineThumbnail?,
+    val expiresAt: Long?,
+) {
+    override fun toString() = "TimelineAttachment(<redacted>)"
+}
+
+/** One `message.read` page: visible rows and the backwards cursor, passed back unchanged as `before_order_key`. */
+data class MessageHistoryPage(val rows: List<TimelineMetadata>, val nextBefore: String?) {
+    override fun toString() = "MessageHistoryPage(<redacted>)"
 }
 data class CallHistoryEntry(
     override val id: String,
@@ -59,9 +82,17 @@ object MessageHistoryMetadataReader {
     private val RECEIPT_STATES = setOf("sent", "delivered", "read")
     private const val MAX_MS = 253_402_300_799_000L
     private const val MAX_SECONDS = 253_402_300_799L
+    private const val MAX_CURSOR = 8192
+    const val MAX_ATTACHMENTS = 16
 
     /** Generation-1 read model only. An unknown kind is a placeholder and never fails the page. */
-    fun read(reply: SecretReply): CoreResult<List<TimelineMetadata>> = try {
+    fun read(reply: SecretReply): CoreResult<List<TimelineMetadata>> = when (val page = page(reply)) {
+        is CoreResult.Success -> CoreResult.Success(page.value.rows)
+        is CoreResult.Failure -> page
+    }
+
+    /** As [read], plus the paging cursor `next_before` and each row's attachment references. */
+    fun page(reply: SecretReply): CoreResult<MessageHistoryPage> = try {
         reply.useOnce { raw ->
             val fields = DisplayFields(raw)
             require(fields.text(fields.root, "schema") == SCHEMA)
@@ -78,7 +109,7 @@ object MessageHistoryMetadataReader {
                 if (kind in HIDDEN) continue
                 visible += rowOf(fields, row, pageConversation, kind, overlays)
             }
-            CoreResult.Success(withPreviews(visible))
+            CoreResult.Success(MessageHistoryPage(withPreviews(visible), nextBefore(fields)))
         }
     } catch (_: Exception) {
         CoreResult.Failure(CoreError.InvalidResponse())
@@ -157,7 +188,66 @@ object MessageHistoryMetadataReader {
             shown, createdAt, revision, edited,
             reactions(fields, row), if (own) receipts(fields, row) else emptyList(),
             replyTo = replyTo(fields, row), placeholder = !usable, service = kind == "service",
+            attachments = attachments(fields, row),
         )
+    }
+
+    private fun nextBefore(fields: DisplayFields): String? {
+        val node = fields.field(fields.root, "next_before") ?: return null
+        if (node.kind == 110) return null
+        require(node.kind == 123)
+        val cursor = fields.raw(node)
+        require(cursor.length <= MAX_CURSOR)
+        return cursor
+    }
+
+    private fun attachments(fields: DisplayFields, row: ByteJson.Node): List<TimelineAttachment> {
+        val content = fields.field(row, "content")?.takeIf { it.kind == 123 } ?: return emptyList()
+        val message = fields.field(content, "message")?.takeIf { it.kind == 123 } ?: return emptyList()
+        val list = fields.field(message, "media")?.takeIf { it.kind == 91 } ?: return emptyList()
+        return list.children.take(MAX_ATTACHMENTS).mapIndexedNotNull { index, item ->
+            if (item.kind != 123) return@mapIndexedNotNull null
+            val mime = textOf(fields, item, "mimeType", "mime_type")?.takeIf { it.length in 1..256 } ?: "application/octet-stream"
+            val size = numberOf(fields, item, "size")?.takeIf { it >= 0 } ?: 0L
+            val name = textOf(fields, item, "fileName", "file_name")?.takeIf { it.length <= 256 }.orEmpty()
+            val manifest = (fields.field(item, "largeManifest") ?: fields.field(item, "large_manifest"))?.takeIf { it.kind == 123 }
+            val expires = manifest?.let { numberOf(fields, it, "expiresAt", "expires_at") }?.takeIf { it > 0 }
+            val thumbnail = (fields.field(item, "inlineThumbnail") ?: fields.field(item, "inline_thumbnail"))
+                ?.takeIf { it.kind == 123 }?.let { thumbnail(fields, it) }
+            TimelineAttachment(index, mime, name, size, thumbnail, expires)
+        }
+    }
+
+    private fun thumbnail(fields: DisplayFields, node: ByteJson.Node): TimelineThumbnail? {
+        val mime = textOf(fields, node, "mimeType", "mime_type")?.takeIf { it.length in 1..256 } ?: return null
+        val width = numberOf(fields, node, "width")?.takeIf { it in 1..4096 }?.toInt() ?: return null
+        val height = numberOf(fields, node, "height")?.takeIf { it in 1..4096 }?.toInt() ?: return null
+        val encoded = textOf(fields, node, "encodedImage", "encoded_image") ?: return null
+        if (encoded.length > 90_000) return null
+        val bytes = try {
+            java.util.Base64.getDecoder().decode(encoded)
+        } catch (_: IllegalArgumentException) {
+            return null
+        }
+        if (bytes.isEmpty() || bytes.size > 64 * 1024) return null
+        return TimelineThumbnail(mime, width, height, bytes)
+    }
+
+    /** A malformed optional field drops that field, never the page. */
+    private fun textOf(fields: DisplayFields, node: ByteJson.Node, vararg names: String): String? = names.firstNotNullOfOrNull { name ->
+        val value = fields.field(node, name) ?: return@firstNotNullOfOrNull null
+        if (value.kind == 34) fields.text(node, name) else null
+    }
+
+    /** pbjson writes 64-bit integers as strings; both forms are read. */
+    private fun numberOf(fields: DisplayFields, node: ByteJson.Node, vararg names: String): Long? = names.firstNotNullOfOrNull { name ->
+        val value = fields.field(node, name) ?: return@firstNotNullOfOrNull null
+        if (value.kind != 34 && value.kind !in 48..57) return@firstNotNullOfOrNull null
+        try {
+            fields.optionalUnsigned(node, name)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
     }
 
     private fun replyTo(fields: DisplayFields, row: ByteJson.Node): String? {

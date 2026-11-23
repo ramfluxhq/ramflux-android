@@ -35,3 +35,5 @@ include(":feature:agents:api", ":feature:agents:impl", ":feature:agents:test")
 include(":feature:tasks:api", ":feature:tasks:impl", ":feature:tasks:test")
 
 include(":feature:cards:api", ":feature:cards:impl", ":feature:cards:test")
+
+include(":core:media")

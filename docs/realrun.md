@@ -1,0 +1,53 @@
+# Real run against the local node
+
+An opt-in run of the beta flows with the real SDK against the local node (`ops/local-node`), the
+peers alice and bob driven through the `rf` CLI on the Mac. No CI task runs it.
+
+```sh
+scripts/realrun.sh                                  # phone on the SSH host, node over the LAN (defaults)
+scripts/realrun.sh --path tunnel                    # node on loopback, reached through adb reverse + ssh -R
+scripts/realrun.sh --target emulator --path tunnel  # a local emulator (AVD rf-realrun)
+```
+
+## Pieces
+
+- **Build type `realrun`** (`AndroidAppPlugin`): debug under `org.ramflux.android.realrun` with the
+  label "Ramflux Real Run", so it installs beside any other build on a shared phone. The script installs
+  and uninstalls only this package. Nothing in the app hard-codes the package name (the file provider uses
+  `${applicationId}`; Keystore keys and notification channels are per application).
+- **Suite** `app/src/androidTest/.../realrun/RealRunFlowTest` (UiAutomator), skipped unless the
+  instrumentation argument `rf_realrun=1` is given; the native smoke run selects its own classes only.
+  Debuggable builds expose the Compose test tags as view ids.
+- **Secrets.** The six-digit account code is generated in the instrumentation process per run. The recovery
+  words reach the suite only through `RealRunProbe`, which exists in every build but is enabled only in the
+  realrun build type: the Kit's secret-word canvas hands each drawn word to it, it keeps erasable copies in
+  the app process (the instrumentation shares that process) and the suite erases them after the word check.
+  Neither goes to the control server, an argument, a file or a log. Words and the code are typed with
+  `input text` on the device.
+- **Peer control** `scripts/realrun/peer_control.py` on a loopback port of the Mac: allow-listed `rf`
+  commands for alice and bob, results, screenshots. `scripts/realrun/flow_table.py` writes
+  `flow-table.md` (PASS / FAIL / BLOCKED / NOT RUN).
+
+## Reaching the node
+
+The origin, operator key, fingerprint and node id are read from `ops/local-node/node-facts.json` at run time.
+`--path lan` (default) lets the device talk to the advertised origin directly (TCP and QUIC); only the
+peer-control port is forwarded. Debug builds accept a private-range `http://` origin such as
+`http://192.168.31.161:8482` as typed (`DiscoveryOriginParser`, `OnboardingDataTest`). `--path tunnel` is for a
+node that advertises and binds the loopback:
+
+The node advertises `127.0.0.1` and binds the loopback: discovery HTTP 8482/TCP, gateway 8443 over TCP
+and QUIC (UDP), relay 8447 QUIC only, TURN 8478. The SDK uses the signed record's addresses as they are,
+so on the device `127.0.0.1:<port>` must reach the Mac's `127.0.0.1:<port>`:
+
+- emulator: `adb reverse tcp:<port> tcp:<port>`;
+- phone on another Mac: `adb reverse tcp:<port> tcp:<rport>` there, and `ssh -N -R 127.0.0.1:<rport>:127.0.0.1:<port>`
+  from this Mac (binding only that Mac's loopback).
+
+Both carry TCP only. Verified on the emulator: discovery, the operator key and fingerprint review and saving
+the node work over the tunnel; the QUIC-only relay is not carried, so media is expected BLOCKED there.
+
+An emulator cannot create an account: the SDK refuses with `CustodyVaultUnavailable`
+(`vault_primary_unavailable`) because the emulator has no hardware-backed keystore and the app has no software
+vault by design. Flows from account creation on need a real phone. The script forwards discovery, the gateway and the control port, and
+removes every rule it added at the end, also on failure.

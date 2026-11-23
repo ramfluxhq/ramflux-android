@@ -1,5 +1,5 @@
 {
-  "note": "Kit icons drawn from Lucide 0.544.0. 'mirror' lists the icons whose meaning follows reading order; they get android:autoMirrored and flip in right-to-left layouts. 'neverMirror' lists directional-looking icons that must not flip. scripts/sync-lucide-drawables.py writes the drawables and KitIcons.kt from this file, and KitIconMirrorTest pins the drawables to it.",
+  "note": "Kit icons drawn from Lucide 0.544.0. 'mirror' lists the icons whose meaning follows reading order; they get android:autoMirrored and flip in right-to-left layouts. 'neverMirror' lists directional-looking icons that must not flip. 'lucide' maps a Kit name to the Lucide file it is drawn from when the two differ (Lucide renamed the icon). scripts/sync-lucide-drawables.py writes the drawables and KitIcons.kt from this file, and KitIconMirrorTest pins the drawables to it.",
   "icons": [
     "activity",
     "app-window",
@@ -42,15 +42,21 @@
     "file-check",
     "file-code",
     "file-text",
+    "film",
     "forward",
     "gem",
     "globe",
+    "hard-drive",
     "hash",
+    "help-circle",
     "history",
     "image-down",
     "images",
     "info",
+    "key",
     "languages",
+    "layout-grid",
+    "life-buoy",
     "link",
     "list-checks",
     "loader-circle",
@@ -72,6 +78,7 @@
     "pencil",
     "pencil-line",
     "phone",
+    "phone-call",
     "phone-incoming",
     "phone-off",
     "pin",
@@ -89,16 +96,19 @@
     "server",
     "settings",
     "settings-2",
+    "share-2",
     "shield",
     "shield-alert",
     "shield-check",
     "signal",
     "sliders-horizontal",
     "smartphone",
+    "smile-plus",
     "square",
     "square-check",
     "square-pen",
     "star",
+    "switch-camera",
     "table",
     "timer",
     "timer-off",
@@ -117,7 +127,9 @@
     "users",
     "users-round",
     "video",
+    "video-off",
     "volume-2",
+    "volume-x",
     "waves",
     "wifi",
     "wifi-off",
@@ -130,7 +142,8 @@
     "reply",
     "forward",
     "list-checks",
-    "clipboard-list"
+    "clipboard-list",
+    "help-circle"
   ],
   "neverMirror": [
     "play",
@@ -152,6 +165,16 @@
     "loader-circle",
     "refresh-cw",
     "phone",
-    "search"
-  ]
+    "search",
+    "share-2",
+    "volume-x",
+    "video-off",
+    "switch-camera",
+    "film",
+    "phone-call",
+    "key"
+  ],
+  "lucide": {
+    "help-circle": "circle-question-mark"
+  }
 }

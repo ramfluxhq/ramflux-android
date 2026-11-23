@@ -163,7 +163,7 @@ fun CallsScreen(state: CallsState, onAction: (CallsAction) -> Unit, modifier: Mo
                                 onClick = { onAction(CallsAction.End(row.id, row.sequence, true)) }
                             )
                             CallControl(stringResource(R.string.calls_answer), Icons.Default.Call, true, !state.busy) {
-                                onAction(CallsAction.Audio)
+                                onAction(CallsAction.Open(row.id))
                             }
                         } else if (row.canHangup) {
                             CallControl(

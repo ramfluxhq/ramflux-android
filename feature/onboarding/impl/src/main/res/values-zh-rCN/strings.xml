@@ -88,11 +88,7 @@
     <string name="ui_write_down_the_recovery_phrase">请按顺序抄写这 24 个词。它们只显示一次，不会保存在本机上。</string>
     <string name="ui_i_have_saved_the_phrase">我已抄写恢复短语</string>
     <string name="ui_recovery_word_position">第 %1$d 个词</string>
-    <string name="ui_data_passphrase">数据口令</string>
-    <string name="ui_data_passphrase_explanation">此口令用于在本机封存账户数据，与恢复短语无关。</string>
     <string name="ui_confirm_account">确认账户</string>
-    <string name="ui_enter_the_recovery_words_and_the_data_passphrase">请输入三个恢复词和数据口令。</string>
-    <string name="ui_enter_the_data_passphrase">请输入数据口令。</string>
     <string name="ui_account_created_detail">账户已在本机解锁。</string>
     <string name="ui_continue_into_the_account">继续</string>
     <string name="ui_n01_header">创建账号</string>
@@ -102,4 +98,140 @@
     <string name="ui_n01_official_node">Ramflux 官方节点</string>
     <string name="ui_n01_selected_node">已选择的节点</string>
     <string name="ui_n01_phrase_note">恢复短语在这部手机上生成，并且只显示一次。请先准备好纸和笔。</string>
+    <!-- Label of the six-digit account code field. -->
+    <string name="ui_account_code">账户码</string>
+    <!-- Explains the account code on the unlock and create screens. -->
+    <string name="ui_account_code_explanation">六位数字。它与本机的安全存储一起在此处打开你的账户数据。它不是恢复短语。</string>
+    <!-- Label of the code field when a new account code is chosen. -->
+    <string name="ui_choose_account_code">设置六位账户码</string>
+    <!-- Refusal: the code is not six digits. -->
+    <string name="ui_code_not_six_digits">账户码必须正好是 6 位数字。</string>
+    <!-- Refusal: the new code is on the trivial list. -->
+    <string name="ui_code_trivial">这个账户码太容易被猜到（重复数字或连续数字），请换一个。</string>
+    <!-- Refusal: a wrong account code was entered. -->
+    <string name="ui_code_wrong">这个账户码无法打开账户。多次输错后需要等待才能再次尝试。</string>
+    <!-- Refusal: no more code attempts are allowed. -->
+    <string name="ui_code_attempts_exhausted">输错次数过多。请用恢复短语恢复账户。</string>
+    <!-- Refusal: the device unlock secret is missing. -->
+    <string name="ui_code_device_unlock_unavailable">本机安全存储中没有此账户的解锁密钥。请用恢复短语恢复账户。</string>
+    <!-- Shown when the phrase check is submitted incomplete. -->
+    <string name="ui_enter_the_recovery_words_and_the_account_code">请输入三个恢复词和六位账户码。</string>
+    <!-- Shown when unlock is submitted without a complete code. -->
+    <string name="ui_enter_the_account_code">请输入六位账户码。</string>
+    <!-- Recovery page introduction. -->
+    <string name="ui_recover_choose_account">选择本机上要用恢复短语恢复的账户。</string>
+    <!-- Recovery page when no account data is on this phone. -->
+    <string name="ui_recover_no_local_account">恢复需要本机上已有该账户的数据。新安装时，请先从其他设备关联本机，或先恢复备份。</string>
+    <!-- Button on an account row that starts recovery. -->
+    <string name="ui_recover">恢复</string>
+    <!-- Label above the account anchor shown during recovery. -->
+    <string name="ui_account_fingerprint">账户指纹</string>
+    <!-- Warning shown before the recovery phrase is entered. -->
+    <string name="ui_recover_warning">请与你保存的指纹比对。恢复会为本机生成新的账户密钥，并让之前的设备退出。</string>
+    <!-- Label of the recovery phrase field. -->
+    <string name="ui_recovery_phrase">恢复短语（24 个词）</string>
+    <!-- Button that submits the recovery phrase. -->
+    <string name="ui_recover_account_action">恢复账户</string>
+    <!-- Shown when recovery is submitted incomplete. -->
+    <string name="ui_enter_the_phrase_and_code">请输入 24 个词的恢复短语和账户码。</string>
+    <!-- Button shown after the code attempts are exhausted. -->
+    <string name="ui_recover_with_phrase">用恢复短语恢复</string>
+    <!-- Refusal with a wait: the SDK reports how many seconds remain before the next code try. -->
+    <plurals name="ui_code_retry_later">
+        <item quantity="other">输错次数过多。请在 %d 秒后重试。</item>
+    </plurals>
+    <!-- Backup and restore page title. -->
+    <string name="backup_title">数据备份与恢复</string>
+    <!-- Title and onboarding button: restore an account from a backup archive. -->
+    <string name="backup_restore_title">从备份恢复</string>
+    <!-- Button that starts a new backup. -->
+    <string name="backup_create">创建备份</string>
+    <!-- Button that picks an archive to restore. -->
+    <string name="backup_restore">从文件恢复</string>
+    <!-- Where archives live while a job runs. -->
+    <string name="backup_storage_help">备份文件在你通过系统文件选择器保存之前，仅保存在本应用的私有存储中。</string>
+    <!-- No backup or restore jobs yet. -->
+    <string name="backup_empty">暂无备份</string>
+    <!-- Label of the archive passphrase field. -->
+    <string name="backup_passphrase">备份密码</string>
+    <!-- Rule for the archive passphrase; it is not the account code. -->
+    <string name="backup_passphrase_help">备份文件有独立的密码：至少 15 个字符，且不能是常见密码。它不是你的六位账户密码。</string>
+    <!-- Button that writes the backup. -->
+    <string name="backup_create_confirm">开始备份</string>
+    <!-- Shown while an archive is copied or checked. -->
+    <string name="backup_working">处理中…</string>
+    <!-- Instruction before checking an archive. -->
+    <string name="backup_verify_help">请输入备份密码，在恢复前先校验备份。</string>
+    <!-- Button that checks the archive. -->
+    <string name="backup_verify">校验备份</string>
+    <!-- Caption under the archive's account name. -->
+    <string name="backup_archive_account">此备份中的账户</string>
+    <!-- When the archive was made; %1$s is a date. -->
+    <string name="backup_archive_created">创建于 %1$s</string>
+    <!-- The archive's account exists here: merge. -->
+    <string name="backup_merge_help">此账户已在本手机上。恢复会将备份合并进来，较新的本地数据会保留。</string>
+    <!-- Button that asks to merge. -->
+    <string name="backup_merge">合并到此账户</string>
+    <!-- Host confirmation title before merging. -->
+    <string name="backup_merge_confirm_title">合并备份？</string>
+    <!-- Host confirmation body before merging. -->
+    <string name="backup_merge_confirm_body">合并期间此账户将暂停使用。</string>
+    <!-- Button that confirms the merge. -->
+    <string name="backup_merge_confirm">合并</string>
+    <!-- The archive's account is new here: set a code. -->
+    <string name="backup_new_account_help">这会在本手机上将其恢复为新账户。请设置在此打开它的六位数字密码。</string>
+    <!-- Label of the new account code. -->
+    <string name="backup_new_code">新账户密码</string>
+    <!-- Button that restores as a new account. -->
+    <string name="backup_install_new">恢复账户</string>
+    <!-- Job row title: a backup. -->
+    <string name="backup_job_backup">备份</string>
+    <!-- Job row title: a restore. -->
+    <string name="backup_job_restore">恢复</string>
+    <!-- Job state: writing the archive. -->
+    <string name="backup_state_writing">写入中</string>
+    <!-- Job state: checking the archive. -->
+    <string name="backup_state_verifying">校验中</string>
+    <!-- Job state: checked, ready to install. -->
+    <string name="backup_state_verified">已校验</string>
+    <!-- Job state: installing. -->
+    <string name="backup_state_installing">恢复中</string>
+    <!-- Job state: finished. -->
+    <string name="backup_state_done">已完成</string>
+    <!-- Job state: failed. -->
+    <string name="backup_state_failed">失败</string>
+    <!-- Job state: cancelled. -->
+    <string name="backup_state_cancelled">已取消</string>
+    <!-- Progress; %1$d is a percentage, %2$s the SDK's current step name. -->
+    <string name="backup_progress">%1$d%% · %2$s</string>
+    <!-- Progress without a total; %1$s is the SDK's current step name. -->
+    <string name="backup_progress_open">进行中 · %1$s</string>
+    <!-- Button that cancels a job. -->
+    <string name="backup_cancel">取消</string>
+    <!-- Button that saves a finished archive with the system file picker. -->
+    <string name="backup_save">保存文件</string>
+    <!-- Shown after the archive was saved and removed from private storage. -->
+    <string name="backup_saved">已保存，应用存储中的副本已删除。</string>
+    <!-- The core cannot run backup jobs here. -->
+    <string name="backup_unavailable">此处无法使用备份。</string>
+    <!-- Backup needs an open account. -->
+    <string name="backup_account_needed">请先打开账户再进行备份。</string>
+    <!-- Refusal: the archive passphrase is too short or common. -->
+    <string name="backup_weak_passphrase">请使用至少 15 个字符且不是常见密码。</string>
+    <!-- Refusal: the archive passphrase is wrong. -->
+    <string name="backup_wrong_passphrase">此密码无法打开该备份。</string>
+    <!-- Refusal: the archive is above the import limit. -->
+    <string name="backup_too_large">此文件超过 256 MiB，无法在手机上恢复。</string>
+    <!-- Refusal: the new account code is too easy. -->
+    <string name="backup_code_refused">请选择不全相同、也不连续的六位数字。</string>
+    <!-- Refusal: the account must be unlocked. -->
+    <string name="backup_account_locked">请先解锁账户。</string>
+    <!-- The outcome is not known. -->
+    <string name="backup_unknown">结果暂不确定，请查看任务列表。</string>
+    <!-- Generic backup failure. -->
+    <string name="backup_failed">备份操作未成功。</string>
+    <!-- Code page heading: %1$s is the display name of the account being unlocked. -->
+    <string name="ui_unlock_account_named">解锁 %1$s</string>
+    <!-- Button after the SDK refused an account offered from this phone's list for a reason other than the code; it removes only the offer, never account data. -->
+    <string name="ui_forget_account_on_device">从本机列表中移除</string>
 </resources>

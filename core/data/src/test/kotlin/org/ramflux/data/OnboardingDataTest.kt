@@ -10,6 +10,7 @@ import kotlinx.coroutines.yield
 import kotlinx.serialization.json.*
 import org.junit.Assert.*
 import org.junit.Test
+import org.ramflux.core.data.BuildConfig
 import org.ramflux.sdk.*
 
 class OnboardingDataTest {
@@ -70,21 +71,26 @@ class OnboardingDataTest {
             assertTrue(repo.select("a") is ClientResult.Unavailable)
             for (action in AccountSetupAction.entries) assertTrue(repo.setup(action) is ClientResult.Unavailable)
             assertEquals(listOf("account.list", "account.list"), abi.submitted.map { it.getValue("method").jsonPrimitive.content })
-            val passphrase = "seal-fixture".toCharArray()
+            val passphrase = "482915".toCharArray()
             assertTrue(repo.unlock("a", passphrase) is ClientResult.Ready)
             yield()
             assertEquals(listOf(1), revisions)
             assertTrue(passphrase.all { it == '\u0000' })
-            assertEquals(listOf("account.unlock", "account.switch"), abi.submitted.drop(2).map { it.getValue("method").jsonPrimitive.content })
+            // After the switch one list read names the account for this device's registry of known accounts.
+            assertEquals(listOf("account.unlock", "account.switch", "account.list"), abi.submitted.drop(2).map { it.getValue("method").jsonPrimitive.content })
             val unlock = abi.submitted[2]
             assertEquals("a", unlock.getValue("account_id").jsonPrimitive.content)
-            assertEquals("seal-fixture", unlock.getValue("body").jsonObject.getValue("passphrase").jsonPrimitive.content)
+            assertEquals("482915", unlock.getValue("body").jsonObject.getValue("passphrase").jsonPrimitive.content)
             assertEquals(0, abi.submitted[3].getValue("body").jsonObject.size)
             val blank = "   ".toCharArray()
             assertTrue(repo.unlock("a", blank) is ClientResult.Failed)
             assertTrue(blank.all { it == '\u0000' })
+            val short = "4829".toCharArray()
+            val refused = repo.unlock("a", short) as ClientResult.Failed
+            assertEquals("an incomplete code is refused before the SDK", AccountCodeRefusal.NOT_SIX_DIGITS, refused.problem.accountCodeRefusal())
+            assertTrue(short.all { it == '\u0000' })
             abi.completionCode = 8
-            val rejected = "other-seal".toCharArray()
+            val rejected = "739164".toCharArray()
             assertTrue(repo.unlock("a", rejected) is ClientResult.Failed)
             assertTrue(rejected.all { it == '\u0000' })
             assertEquals("account.unlock", abi.submitted.last().getValue("method").jsonPrimitive.content)
@@ -107,5 +113,37 @@ class OnboardingDataTest {
             DiscoveryOriginParser.preview("Node.Example/team?source=invite#join"))
         assertNull(DiscoveryOriginParser.preview("https://user:secret@node.example/path"))
         assertNull(DiscoveryOriginParser.preview("http://node.example"))
+    }
+
+    /** The rule of each build type: debug admits plain HTTP to local hosts only, release never does. */
+    @Test fun plainHttpReachesOnlyLocalHostsAndOnlyInDebugBuilds() {
+        val local = listOf(
+            "http://127.0.0.1:8482" to "http://127.0.0.1:8482",
+            "http://10.0.2.2:8482" to "http://10.0.2.2:8482",
+            "http://192.168.1.20:8482/" to "http://192.168.1.20:8482",
+            "http://172.16.0.5:80" to "http://172.16.0.5",
+            "HTTP://LOCALHOST:8482" to "http://localhost:8482",
+            "http://[::1]:8482" to "http://[::1]:8482"
+        )
+        for ((input, origin) in local) {
+            assertEquals(input, origin, DiscoveryOriginParser.preview(input, localHttp = true)?.origin)
+            assertNull("release must refuse $input", DiscoveryOriginParser.preview(input, localHttp = false))
+        }
+        for (remote in listOf("http://node.example", "http://8.8.8.8", "http://172.32.0.1", "http://192.169.0.1",
+            "http://010.0.2.2", "http://10.0.2", "http://user:pw@10.0.2.2", "ftp://10.0.2.2")) {
+            assertNull("debug must refuse $remote", DiscoveryOriginParser.preview(remote, localHttp = true))
+        }
+        // An address without a scheme stays HTTPS in both build types.
+        assertEquals("https://10.0.2.2:8482", DiscoveryOriginParser.preview("10.0.2.2:8482", localHttp = true)?.origin)
+    }
+
+    @Test fun theLocalNodeAllowanceFollowsTheBuildType() {
+        assertEquals("debug builds only", BuildConfig.BUILD_TYPE == "debug", BuildConfig.LOCAL_NODE_HTTP)
+    }
+
+    @Test fun discoveryAcceptsTheOriginThePreviewApproved() = runTest(timeout = 5.seconds) {
+        val transport = PublicTransport().apply { answer = { reply(buildJsonObject {}) } }
+        DefaultNodeSetupRepository(transport).discover("http://10.0.2.2:8482")
+        assertEquals(if (BuildConfig.LOCAL_NODE_HTTP) 1 else 0, transport.calls.size)
     }
 }

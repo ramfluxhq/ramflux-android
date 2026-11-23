@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.DeviceConfigurationOverride
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.ForcedSize
@@ -36,16 +37,20 @@ import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.feature.agents.api.AgentsRoute
 import org.ramflux.feature.appshell.api.MoreRoute
 import org.ramflux.feature.appshell.api.NoticesRoute
+import org.ramflux.feature.calls.api.CallRoute
 import org.ramflux.feature.calls.api.CallsRoute
 import org.ramflux.feature.cards.api.CardsRoute
 import org.ramflux.feature.chat.api.ChatRoute
+import org.ramflux.feature.chat.api.MediaStorageRoute
 import org.ramflux.feature.contacts.api.ContactsRoute
 import org.ramflux.feature.conversations.api.ConversationsRoute
+import org.ramflux.feature.groups.api.GroupDetailRoute
 import org.ramflux.feature.groups.api.GroupsRoute
 import org.ramflux.feature.permissions.api.PermissionsRoute
 import org.ramflux.feature.settings.api.SettingsRoute
 import org.ramflux.feature.tasks.api.TasksRoute
 import org.ramflux.navigation.LocalPaneRole
+import org.ramflux.navigation.LocalShellBottomInset
 import org.ramflux.navigation.PaneRole
 import org.ramflux.navigation.TopLevelNavigator
 import org.ramflux.navigation.pane
@@ -73,7 +78,7 @@ class ShellNavigationTest {
                 TextButton({ shell.openDetail(ChatRoute("a", "c2")) }) { BasicText("open c2") }
             }
         }
-        entry<ChatRoute>(metadata = pane(PaneRole.DETAIL)) { chat(it) }
+        entry<ChatRoute>(metadata = pane(PaneRole.DETAIL, ownsBottomInset = true)) { chat(it) }
         entry<GroupsRoute>(metadata = pane(PaneRole.LIST)) {
             var taps by rememberSaveable { mutableIntStateOf(0) }
             TextButton({ taps++ }) { BasicText("groups taps $taps") }
@@ -96,13 +101,36 @@ class ShellNavigationTest {
     }
 
     @Composable
-    private fun Shell(width: Int, entries: EntryProviderScope<NavKey>.(ShellNavigation) -> Unit) {
+    private fun Shell(
+        width: Int,
+        insets: WindowInsets = WindowInsets(0, 0, 0, 0),
+        entries: EntryProviderScope<NavKey>.(ShellNavigation) -> Unit
+    ) {
         navigator = rememberTopLevelNavigator(SHELL_TAB_ROOTS)
         DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(width.dp, 800.dp))) {
             RamfluxTheme {
-                RamfluxShell(navigator, SHELL_ROUTE_POLICY, {}, insets = WindowInsets(0, 0, 0, 0)) { entries(it) }
+                RamfluxShell(navigator, SHELL_ROUTE_POLICY, {}, insets = insets) { entries(it) }
             }
         }
+    }
+
+    @Test fun theChatOwnsTheBottomInsetInOneAndTwoPanesAndOtherEntriesDoNot() {
+        var width by mutableIntStateOf(393)
+        compose.setContent {
+            Shell(width, WindowInsets(bottom = 34.dp)) { shell ->
+                fakeEntries(shell) {
+                    val inset = LocalShellBottomInset.current.getBottom(LocalDensity.current)
+                    BasicText("chat inset=$inset")
+                }
+                entry<SettingsRoute> { BasicText("settings inset=" + LocalShellBottomInset.current.getBottom(LocalDensity.current)) }
+            }
+        }
+        compose.onNodeWithText("open c1").performClick()
+        compose.onNodeWithText("chat inset=34").assertExists()
+        width = 1000
+        compose.onNodeWithText("chat inset=34").assertExists()
+        compose.runOnIdle { navigator.push(SettingsRoute) }
+        compose.onNodeWithText("settings inset=0").assertExists()
     }
 
     @Test fun compactPushesChatOverTheListAndHidesTheBar() {
@@ -196,6 +224,15 @@ class ShellNavigationTest {
         assertForm(rail = false)
     }
 
+    @Test fun atTwoPaneWidthWithTheRailTheDetailIsNotNarrowerThanTheList() {
+        compose.setContent { Shell(700) }
+        compose.onNodeWithText("open c1").performClick()
+        compose.onNodeWithTag("shell-rail").assertExists()
+        val list = compose.onNodeWithTag("pane-list").fetchSemanticsNode().size.width
+        val detail = compose.onNodeWithTag("pane-detail").fetchSemanticsNode().size.width
+        assertTrue("detail $detail must not be narrower than list $list", detail >= list)
+    }
+
     @Test fun theRailStaysVisibleOverAPushedPageAndSwitchesTabs() {
         compose.setContent { Shell(600) }
         compose.onNodeWithText("open c1").performClick()
@@ -221,6 +258,9 @@ class ShellNavigationTest {
     @Test fun everyAccountRouteDeclaresItselfAccountScoped() {
         val accountRoutes: List<NavKey> = listOf(
             ChatRoute("a", "c"),
+            CallRoute("a", "c"),
+            MediaStorageRoute("a"),
+            GroupDetailRoute("a", "g"),
             ContactsRoute,
             TasksRoute,
             CallsRoute,

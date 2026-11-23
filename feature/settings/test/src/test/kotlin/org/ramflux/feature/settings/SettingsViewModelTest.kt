@@ -39,7 +39,8 @@ class SettingsViewModelTest {
             FakeAccountStatus(),
             FakeSettingsAppearance(),
             FakeSettingsSession(),
-            language
+            language,
+            FakeAccountSecurity()
         )
         observe(vm)
         runCurrent()
@@ -59,7 +60,8 @@ class SettingsViewModelTest {
         val devices = FakeDeviceDirectory()
         val status = FakeAccountStatus()
         val preferences = FakeSettingsAppearance()
-        val vm = SettingsViewModel(accounts, devices, status, preferences, FakeSettingsSession(), FakeSettingsLanguage())
+        val vm =
+            SettingsViewModel(accounts, devices, status, preferences, FakeSettingsSession(), FakeSettingsLanguage(), FakeAccountSecurity())
         observe(vm)
         runCurrent()
         assertTrue(vm.state.value.accountRequired)
@@ -84,7 +86,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 preferences,
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
@@ -107,7 +110,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
@@ -127,7 +131,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
@@ -147,7 +152,16 @@ class SettingsViewModelTest {
                 ClientResult.Ready(listOf(DeviceSummary("private", true, 1u)))
             }
         }
-        val vm = SettingsViewModel(accounts, devices, FakeAccountStatus(), FakeSettingsAppearance(), session, FakeSettingsLanguage())
+        val vm =
+            SettingsViewModel(
+                accounts,
+                devices,
+                FakeAccountStatus(),
+                FakeSettingsAppearance(),
+                session,
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
+            )
         observe(vm)
         runCurrent()
         accounts.result = ClientResult.Ready(AccountCatalog(listOf(AccountSummary("b", "Other", true, "unlocked")), "b"))
@@ -176,7 +190,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
@@ -185,12 +200,40 @@ class SettingsViewModelTest {
         assertEquals(0, devices.revokes)
         vm.onAction(SettingsAction.Revoke("other"))
         runCurrent()
+        assertEquals("nothing is revoked before confirmation", 0, devices.revokes)
+        assertEquals("other", vm.state.value.confirmRevoke)
+        vm.onAction(SettingsAction.CancelRevoke)
+        runCurrent()
+        assertNull(vm.state.value.confirmRevoke)
+        assertEquals(0, devices.revokes)
+        vm.onAction(SettingsAction.Revoke("other"))
+        vm.onAction(SettingsAction.ConfirmRevoke)
+        runCurrent()
         assertEquals(1, devices.revokes)
         assertEquals(2, vm.state.value.devices.size)
         assertNotNull(vm.state.value.unavailable)
-        vm.onAction(SettingsAction.Page(SettingsPage.BACKUP))
+    }
+
+    @Test fun lockClosesTheActiveAccountAndHandsOverToTheAccountScreen() = runTest(timeout = 5.seconds) {
+        val accounts = FakeSettingsAccounts()
+        val vm =
+            SettingsViewModel(
+                accounts,
+                FakeDeviceDirectory(),
+                FakeAccountStatus(),
+                FakeSettingsAppearance(),
+                FakeSettingsSession(),
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
+            )
+        observe(vm)
         runCurrent()
-        assertEquals(uiText(R.string.settings_custody_missing), vm.state.value.unavailable)
+        val events = mutableListOf<SettingsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(SettingsAction.Lock)
+        runCurrent()
+        assertEquals(listOf("a"), accounts.locked)
+        assertEquals(listOf(SettingsEvent.OpenAccount), events)
     }
 
     @Test fun navigationIsOneShotAndBackFromSubpageStaysInModule() = runTest(timeout = 5.seconds) {
@@ -201,7 +244,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
@@ -231,13 +275,43 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
         vm.onAction(SettingsAction.Revoke("other"))
         runCurrent()
+        assertEquals("nothing is revoked before confirmation", 0, devices.revokes)
+        assertEquals("other", vm.state.value.confirmRevoke)
+        vm.onAction(SettingsAction.CancelRevoke)
+        runCurrent()
+        assertNull(vm.state.value.confirmRevoke)
+        assertEquals(0, devices.revokes)
+        vm.onAction(SettingsAction.Revoke("other"))
+        vm.onAction(SettingsAction.ConfirmRevoke)
+        runCurrent()
         assertEquals(1, devices.revokes)
         assertNotNull(vm.state.value.unavailable)
+    }
+
+    @Test fun storageOpensForTheActiveAccount() = runTest(timeout = 5.seconds) {
+        val vm =
+            SettingsViewModel(
+                FakeSettingsAccounts(),
+                FakeDeviceDirectory(),
+                FakeAccountStatus(),
+                FakeSettingsAppearance(),
+                FakeSettingsSession(),
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
+            )
+        observe(vm)
+        runCurrent()
+        val events = mutableListOf<SettingsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(SettingsAction.Storage)
+        runCurrent()
+        assertEquals(listOf(SettingsEvent.Storage("a")), events)
     }
 }

@@ -143,6 +143,38 @@ class MessageHistoryMetadataTest {
         assertTrue(MessageHistoryMetadataReader.read(SecretReply(SecretBytes.take(huge))) is CoreResult.Failure)
     }
 
+    @Test fun pageReturnsTheCursorAndBoundedAttachmentReferences() {
+        val thumb = java.util.Base64.getEncoder().encodeToString(byteArrayOf(1, 2, 3))
+        val media = (0 until 20).joinToString(",") { index ->
+            if (index == 0) {
+                """{"mimeType":"image/png","size":"2048","fileName":"a.png",""" +
+                    """"inlineThumbnail":{"mimeType":"image/png","width":4,"height":3,"encodedImage":"$thumb"},""" +
+                    """"largeManifest":{"expiresAt":"1700000000"}}"""
+            } else {
+                """{"mime_type":"application/pdf","size":7,"file_name":"f$index.pdf"}"""
+            }
+        }
+        val raw = (
+            """{"schema":"ramflux.message.read_model.v1","conversation_id":"c","next_before":{"hlc_ms":"9","id":"x"},""" +
+                """"messages":[${message("one", 10_000, """"content":{"message":{"text":"hi","media":[$media]}}""")},""" +
+                """${tombstone(11_000)}]}"""
+            ).toByteArray()
+        val page = (MessageHistoryMetadataReader.page(SecretReply(SecretBytes.take(raw))) as CoreResult.Success).value
+        assertEquals("""{"hlc_ms":"9","id":"x"}""", page.nextBefore)
+        val first = page.rows[0] as MessageHistoryEntry
+        assertEquals(MessageHistoryMetadataReader.MAX_ATTACHMENTS, first.attachments.size)
+        assertEquals("image/png", first.attachments[0].mimeType)
+        assertEquals(2048L, first.attachments[0].size)
+        assertEquals(1_700_000_000L, first.attachments[0].expiresAt)
+        assertEquals(4, first.attachments[0].thumbnail?.width)
+        assertEquals("f1.pdf", first.attachments[1].fileName)
+        assertEquals(7L, first.attachments[1].size)
+        assertTrue((page.rows[1] as MessageHistoryEntry).attachments.isEmpty())
+        assertTrue(raw.all { it == 0.toByte() })
+        val last = page("""{"id":"z","conversation_id":"c","kind":"message","state":"content","hlc_ms":1,"text":"t"}""")
+        assertNull((MessageHistoryMetadataReader.page(SecretReply(SecretBytes.take(last))) as CoreResult.Success).value.nextBefore)
+    }
+
     private fun read(raw: ByteArray) =
         (MessageHistoryMetadataReader.read(SecretReply(SecretBytes.take(raw))) as CoreResult.Success).value
 

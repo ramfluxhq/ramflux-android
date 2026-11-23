@@ -15,8 +15,8 @@
     <string name="groups_account_help">Groups belong to the active unlocked account.</string>
     <string name="groups_account_action">Set up or select account</string>
     <string name="groups_filter">Filter groups</string>
-    <string name="groups_empty">No matching groups</string>
-    <string name="groups_empty_help">Your joined groups appear here after an account read.</string>
+    <string name="groups_empty">No groups yet</string>
+    <string name="groups_empty_help">Create a group, or wait for an invitation to join one.</string>
     <string name="groups_invitations">Invitations</string>
     <string name="groups_creator_only">The creator starts as the only member.</string>
     <string name="groups_review_create">Review group creation</string>
@@ -26,7 +26,6 @@
     <string name="groups_messages">Open group conversation</string>
     <string name="groups_rename">Rename group</string>
     <string name="groups_permissions">Management needs a current root-qualified owner or administrator record.</string>
-    <string name="groups_other_controls">More group controls</string>
     <string name="groups_inactive">Inactive or excluded device</string>
     <string name="groups_promote">Make administrator</string>
     <string name="groups_demote">Make member</string>
@@ -68,4 +67,42 @@
     <string name="groups_invalid_request">The group request is invalid.</string>
     <string name="groups_confirm">Confirm</string>
     <string name="groups_confirm_accessibility">Confirm: %1$s</string>
+    <!-- Title of one member's page in a group -->
+    <string name="groups_member_title">Member</string>
+    <!-- Button that repeats a failed read -->
+    <string name="groups_retry">Try again</string>
+    <!-- Button that reads more rows of a list -->
+    <string name="groups_load_more">Load more</string>
+    <!-- Empty state when the filter matches no row -->
+    <string name="groups_no_matches">No matches</string>
+    <!-- Your role in the group; %1$s is a role such as Owner -->
+    <string name="groups_own_role">Your role: %1$s</string>
+    <!-- Row for handing group ownership to another member -->
+    <string name="groups_transfer">Transfer ownership</string>
+    <!-- Row for leaving the group -->
+    <string name="groups_leave">Leave group</string>
+    <!-- Short value on a row whose action this phone cannot perform -->
+    <string name="groups_not_on_phone">Not available on this phone</string>
+    <!-- Explains why ownership transfer is not offered -->
+    <string name="groups_transfer_unavailable">Transferring ownership needs a certificate from the device that created the group. A phone cannot produce it, so transfer ownership on that device. Nothing was changed.</string>
+    <!-- Explains why leaving is not offered -->
+    <string name="groups_leave_unavailable">Leaving a group is not available yet: there is no leave operation, and removing yourself would only send a request to the owner. Nothing was changed.</string>
+    <!-- Placeholder of the member filter field -->
+    <string name="groups_member_filter">Filter members</string>
+    <!-- Empty state of the member list -->
+    <string name="groups_no_members">No members to show</string>
+    <!-- Member row value for an inactive device; %1$s is the role -->
+    <string name="groups_role_inactive">%1$s · inactive</string>
+    <!-- Label above a member's device identifier -->
+    <string name="groups_device">Device</string>
+    <!-- Label above a member's identity root identifier -->
+    <string name="groups_identity_root">Identity root</string>
+    <!-- Explains why no role or removal controls are shown for a member -->
+    <string name="groups_member_fixed">You cannot change this member: it needs a current owner or administrator record, and the owner and your own device cannot be changed here.</string>
+    <!-- Placeholder of the contact filter in the add-member picker -->
+    <string name="groups_contact_filter">Filter contacts</string>
+    <!-- Empty state of the add-member picker -->
+    <string name="groups_no_contacts">No accepted contacts to add</string>
+    <!-- Shown in the removal review -->
+    <string name="groups_remove_explanation">The member loses access to new group messages. Messages they already received stay on their devices.</string>
 </resources>

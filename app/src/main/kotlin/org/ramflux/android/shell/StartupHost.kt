@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -31,32 +31,28 @@ fun StartupHost(
     insets: WindowInsets = WindowInsets.safeDrawing
 ) {
     val ui by model.ui.collectAsStateWithLifecycle()
-    var details by rememberSaveable { mutableStateOf(false) }
+    // The unlock pages: 0 the entry (MOB-A01), 1 the account's details (A02), 2 the device unlock info (A07).
+    var depth by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(ui.place) {
-        if (ui.place != StartupPlace.UNLOCK) details = false
+        if (ui.place != StartupPlace.UNLOCK) depth = 0
     }
     if (ui.place == StartupPlace.SHELL) {
         shell()
         return
     }
-    StartupSurface(insets) { StartupPlaceScreen(ui, details, { details = it }, navigate, model) }
+    val grouped = ui.place == StartupPlace.UNLOCK
+    StartupSurface(insets, grouped) { StartupPlaceScreen(ui, depth, { depth = it }, navigate, model) }
 }
 
 /** The startup host's side of the screen contract: background behind the system bars and the insets. */
 @Composable
-internal fun StartupSurface(insets: WindowInsets, content: @Composable () -> Unit) {
+internal fun StartupSurface(insets: WindowInsets, grouped: Boolean = false, content: @Composable () -> Unit) {
     val theme = LocalRFTheme.current
-    Box(Modifier.fillMaxSize().background(theme.bg).windowInsetsPadding(insets)) { content() }
+    Box(Modifier.fillMaxSize().background(if (grouped) theme.nav else theme.bg).windowInsetsPadding(insets)) { content() }
 }
 
 @Composable
-private fun StartupPlaceScreen(
-    ui: StartupUi,
-    details: Boolean,
-    onDetails: (Boolean) -> Unit,
-    navigate: (NavKey) -> Unit,
-    model: StartupModel
-) {
+private fun StartupPlaceScreen(ui: StartupUi, depth: Int, onDepth: (Int) -> Unit, navigate: (NavKey) -> Unit, model: StartupModel) {
     when (ui.place) {
         StartupPlace.SPLASH, StartupPlace.SHELL -> SplashScreen()
         StartupPlace.GATEWAY -> GatewayScreen(
@@ -69,16 +65,16 @@ private fun StartupPlaceScreen(
             onLink = { navigate(OnboardingRoute()) },
             onRecover = { navigate(OnboardingRoute()) }
         )
-        StartupPlace.UNLOCK -> if (details) {
-            UnlockDetails(ui.accountLabel, { onDetails(false) }, { navigate(OnboardingRoute(unlockId = ui.accountId)) })
-        } else {
-            UnlockEntry(
+        StartupPlace.UNLOCK -> when (depth) {
+            0 -> UnlockEntry(
                 ui.accountLabel,
                 ui.nodeUrl,
-                { onDetails(true) },
+                { onDepth(1) },
                 { navigate(OnboardingRoute()) },
                 { navigate(OnboardingRoute()) }
             )
+            1 -> UnlockDetails(ui.accountLabel, { onDepth(0) }, { onDepth(2) })
+            else -> UnlockInfo({ onDepth(1) }, { navigate(OnboardingRoute(unlockId = ui.accountId)) })
         }
     }
 }

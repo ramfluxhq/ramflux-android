@@ -36,9 +36,11 @@ import org.junit.runner.RunWith
 import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.uiText
+import org.ramflux.feature.agents.AgentRow
 import org.ramflux.feature.agents.AgentsScreen
 import org.ramflux.feature.agents.AgentsState
 import org.ramflux.feature.agents.api.AgentsRoute
+import org.ramflux.feature.agents.impl.R as AgentsR
 import org.ramflux.feature.appshell.ShellPage
 import org.ramflux.feature.appshell.api.MoreRoute
 import org.ramflux.feature.appshell.api.NavigationEditorRoute
@@ -80,6 +82,7 @@ import org.ramflux.feature.tasks.TasksScreen
 import org.ramflux.feature.tasks.TasksState
 import org.ramflux.feature.tasks.api.TasksRoute
 import org.ramflux.navigation.LocalPaneRole
+import org.ramflux.navigation.LocalShellBottomInset
 import org.ramflux.navigation.PaneRole
 import org.ramflux.navigation.TopLevelNavigator
 import org.ramflux.navigation.pane
@@ -194,6 +197,9 @@ private val BOARD_INSETS = WindowInsets(top = 59.dp, bottom = 34.dp)
 
 private const val ACCOUNT = ConversationBoards.ACCOUNT
 
+/** The display name typed on MOB-N01. */
+private const val BOARD_NAME = "林澈"
+
 /** Shell fixture: which tab and stack is shown, and the state of every tab screen. */
 private data class ShellFixture(
     val tab: Int = 0,
@@ -207,8 +213,17 @@ private data class ShellFixture(
 
 private fun EntryProviderScope<NavKey>.fixtureEntries(fixture: ShellFixture) {
     entry<ConversationsRoute>(metadata = pane(PaneRole.LIST)) { ConversationsScreen(fixture.conversations, {}, rooted = true) }
-    entry<ChatRoute>(metadata = pane(PaneRole.DETAIL)) {
-        ChatScreen(fixture.chat, {}, rooted = LocalPaneRole.current == PaneRole.DETAIL, clock = ChatBoards.clock)
+    // As production: the chat owns the bottom inset, and the header shows the call and more actions.
+    entry<ChatRoute>(metadata = pane(PaneRole.DETAIL, ownsBottomInset = true)) {
+        ChatScreen(
+            fixture.chat,
+            {},
+            rooted = LocalPaneRole.current == PaneRole.DETAIL,
+            showDetails = true,
+            showCall = true,
+            bottomInset = LocalShellBottomInset.current,
+            clock = ChatBoards.clock
+        )
     }
     entry<GroupsRoute>(metadata = pane(PaneRole.LIST)) { GroupsScreen(fixture.groups, {}, rooted = true) }
     entry<AgentsRoute> { AgentsScreen(fixture.agents, {}, rooted = true) }
@@ -240,6 +255,14 @@ private val GROUPS_C01 = persistentListOf(
     GroupRow("design", "设计协作", UiText.Data("频道与帖子"))
 )
 
+/** MOB-D01: three agents; the status line is the record's lifecycle (the board's collaboration state has no SDK field). */
+private val AGENTS_D01 = persistentListOf(
+    AgentRow("nova", "Nova", "研究搭档", "orbit", uiText(AgentsR.string.agents_status_active), true),
+    AgentRow("atlas", "Atlas", "规划助手", "gem", uiText(AgentsR.string.agents_status_active), true),
+    AgentRow("mira", "Mira", "写作伙伴", "user-round", uiText(AgentsR.string.agents_status_active), true)
+)
+private val AGENTS_LIST = AgentsState(loaded = true, rows = AGENTS_D01, loadedCount = AGENTS_D01.size)
+
 /** One renderer per board key. Boards whose content the state model cannot express render what it can. */
 private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
     "MOB-B01" to { FixtureShell(ShellFixture()) },
@@ -253,15 +276,15 @@ private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
         FixtureShell(ShellFixture(tab = 1, groups = groups))
     },
     "MOB-C15" to { FixtureShell(ShellFixture(tab = 1)) },
-    "MOB-D01" to { FixtureShell(ShellFixture(tab = 2)) },
-    "MOB-D01E" to { FixtureShell(ShellFixture(tab = 2)) },
-    "MOB-D20" to { FixtureShell(ShellFixture(tab = 2)) },
+    "MOB-D01" to { FixtureShell(ShellFixture(tab = 2, agents = AGENTS_LIST)) },
+    "MOB-D01E" to { FixtureShell(ShellFixture(tab = 2, agents = AGENTS_LIST.copy(rows = persistentListOf(), query = "Orion"))) },
+    "MOB-D20" to { FixtureShell(ShellFixture(tab = 2, agents = AgentsState(loaded = true))) },
     "MOB-G01" to { FixtureShell(ShellFixture(tab = 3)) },
     "MOB-G02" to { FixtureShell(ShellFixture(tab = 3, pushed = SettingsRoute)) },
     "MOB-G03" to { FixtureShell(ShellFixture(tab = 3, pushed = NavigationEditorRoute)) },
     "MOB-N01" to {
         OnboardingScreen(
-            OnboardingState(page = OnboardingPage.CREATE, sessionReady = true),
+            OnboardingState(page = OnboardingPage.CREATE, sessionReady = true, displayName = BOARD_NAME),
             {},
             modifier = Modifier.windowInsetsPadding(BOARD_INSETS)
         )
@@ -269,8 +292,9 @@ private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
     "MOB-S01" to { StartupSurface(BOARD_INSETS) { SplashScreen() } },
     "MOB-S02" to { StartupSurface(BOARD_INSETS) { GatewayScreen({}, {}) } },
     "MOB-S18" to { StartupSurface(BOARD_INSETS) { WelcomeScreen({}, {}, {}, {}) } },
-    "MOB-A01" to { StartupSurface(BOARD_INSETS) { UnlockEntry(ACCOUNT, "https://work.example", {}, {}, {}) } },
-    "MOB-A02" to { StartupSurface(BOARD_INSETS) { UnlockDetails(ACCOUNT, {}, {}) } }
+    "MOB-A01" to { StartupSurface(BOARD_INSETS, grouped = true) { UnlockEntry(ACCOUNT, "https://work.example", {}, {}, {}) } },
+    "MOB-A02" to { StartupSurface(BOARD_INSETS, grouped = true) { UnlockDetails(ACCOUNT, {}, {}) } },
+    "MOB-A07" to { StartupSurface(BOARD_INSETS, grouped = true) { UnlockInfo({}, {}) } }
 )
 
 private val NO_INSETS = WindowInsets(0, 0, 0, 0)
@@ -286,7 +310,13 @@ private val SAFETY_CONTACT = run {
         rows = persistentListOf(person),
         selected = person,
         page = ContactsPage.SAFETY,
-        safety = SafetyItem("052417733908182640516279388104529976631840271956", "9f3a0c7d51e2b84f")
+        safety = SafetyItem(
+            "052417733908182640516279388104529976631840271956",
+            "9f3a0c7d51e2b84f",
+            uiText(ContactsR.string.contacts_safety_state_unverified),
+            verified = false,
+            verifiable = true
+        )
     )
 }
 
@@ -305,7 +335,7 @@ private val MATRIX_STATES: Map<String, @Composable () -> Unit> = mapOf(
         val groups = GroupsState(page = GroupsPage.LIST, account = ACCOUNT, loaded = true, groups = GROUPS_C01)
         FixtureShell(ShellFixture(tab = 1, groups = groups), NO_INSETS)
     },
-    "agents" to { FixtureShell(ShellFixture(tab = 2), NO_INSETS) },
+    "agents" to { FixtureShell(ShellFixture(tab = 2, agents = AGENTS_LIST), NO_INSETS) },
     "settings" to { FixtureShell(ShellFixture(tab = 3, pushed = SettingsRoute), NO_INSETS) },
     "contacts-safety" to { FixtureShell(ShellFixture(tab = 3, pushed = ContactsRoute, contacts = SAFETY_CONTACT), NO_INSETS) },
     "tasks" to { FixtureShell(ShellFixture(tab = 3, pushed = TasksRoute), NO_INSETS) },
@@ -322,8 +352,9 @@ private val MATRIX_STATES: Map<String, @Composable () -> Unit> = mapOf(
             )
         }
     },
-    "unlock-entry" to { StartupSurface(NO_INSETS) { UnlockEntry(ACCOUNT, "https://work.example", {}, {}, {}) } },
-    "unlock-details" to { StartupSurface(NO_INSETS) { UnlockDetails(ACCOUNT, {}, {}) } }
+    "unlock-entry" to { StartupSurface(NO_INSETS, grouped = true) { UnlockEntry(ACCOUNT, "https://work.example", {}, {}, {}) } },
+    "unlock-details" to { StartupSurface(NO_INSETS, grouped = true) { UnlockDetails(ACCOUNT, {}, {}) } },
+    "unlock-info" to { StartupSurface(NO_INSETS, grouped = true) { UnlockInfo({}, {}) } }
 )
 
-private val SECURITY_STATES = setOf("unlock-entry", "unlock-details", "contacts-safety", "onboarding-phrase")
+private val SECURITY_STATES = setOf("unlock-entry", "unlock-details", "unlock-info", "contacts-safety", "onboarding-phrase")

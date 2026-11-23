@@ -97,7 +97,12 @@ class PermissionsNavigationTest {
                 owner = LocalLifecycleOwner.current
                 AppLanguageProvider("en") {
                     RamfluxTheme {
-                        PermissionsNavigation(PermissionsRoute(PermissionEntry.CAMERA_SCAN), {}, onReady = { ready++ }, vm = vm)
+                        PermissionsNavigation(
+                            PermissionsRoute(PermissionEntry.CAMERA_SCAN),
+                            {},
+                            onReady = { ready++ },
+                            vm = vm
+                        )
                     }
                 }
             }

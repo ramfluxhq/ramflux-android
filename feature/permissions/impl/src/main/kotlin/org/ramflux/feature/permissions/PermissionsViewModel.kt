@@ -68,12 +68,15 @@ class PermissionsViewModel @Inject constructor(private val repository: OsPermiss
                 if (local.value.waiting || action?.isActive == true || local.value.loading) return
                 if (intent.permission == OsPermission.BATTERY && local.value.entry == PermissionEntry.SETTINGS) {
                     local.update { it.copy(explanation = OsPermission.BATTERY, failed = false, problem = null) }
+                } else if (intent.permission in RUNTIME && status(intent.permission) == OsPermissionStatus.NOT_ASKED) {
+                    // Never asked: explain first, then let Android ask; a denial later goes to app settings.
+                    local.update { it.copy(explanation = intent.permission, failed = false, problem = null) }
                 } else {
                     onAction(PermissionsAction.Settings)
                 }
             }
             PermissionsAction.Continue -> confirm()
-            PermissionsAction.Cancel -> local.update { it.copy(explanation = null, needed = entryNeedsCamera()) }
+            PermissionsAction.Cancel -> local.update { it.copy(explanation = null, needed = entryPermission() != null) }
             PermissionsAction.Back -> {
                 active = false
                 generation++
@@ -114,7 +117,7 @@ class PermissionsViewModel @Inject constructor(private val repository: OsPermiss
                         started = true
                         val entry = local.value.entry
                         when (entry) {
-                            PermissionEntry.CAMERA_SCAN, PermissionEntry.CAMERA_PHOTO -> camera()
+                            PermissionEntry.CAMERA_SCAN, PermissionEntry.CAMERA_PHOTO, PermissionEntry.MICROPHONE -> runtime()
                             PermissionEntry.AFTER_ACCOUNT_CREATION -> if (createdAccountId != null) {
                                 val claimed = repository.claimCreatedAccountExplanation(createdAccountId.orEmpty())
                                 if (!active || !visible || ticket != generation) return@launch
@@ -127,11 +130,12 @@ class PermissionsViewModel @Inject constructor(private val repository: OsPermiss
                                     local.update { it.copy(failed = true) }
                                 }
                             }
-                            PermissionEntry.MICROPHONE, PermissionEntry.INCOMING_CALL -> local.update { it.copy(unavailable = true) }
+                            PermissionEntry.INCOMING_CALL -> local.update { it.copy(unavailable = true) }
                             else -> Unit
                         }
-                    } else if (entryNeedsCamera() && !local.value.waiting) {
-                        local.update { it.copy(needed = status(OsPermission.CAMERA) != OsPermissionStatus.ALLOWED) }
+                    } else if (!local.value.waiting) {
+                        val needed = entryPermission() ?: return@launch
+                        local.update { it.copy(needed = status(needed) != OsPermissionStatus.ALLOWED) }
                         if (!local.value.needed) ready()
                     }
                 }
@@ -139,11 +143,18 @@ class PermissionsViewModel @Inject constructor(private val repository: OsPermiss
             }
         }
     }
-    private fun entryNeedsCamera() = local.value.entry in setOf(PermissionEntry.CAMERA_SCAN, PermissionEntry.CAMERA_PHOTO)
+
+    /** The runtime permission the opening entry needs before it reports ready. */
+    private fun entryPermission(): OsPermission? = when (local.value.entry) {
+        PermissionEntry.CAMERA_SCAN, PermissionEntry.CAMERA_PHOTO -> OsPermission.CAMERA
+        PermissionEntry.MICROPHONE -> OsPermission.MICROPHONE
+        else -> null
+    }
     private fun status(permission: OsPermission) = local.value.rows.find { it.permission == permission }?.status
-    private fun camera() {
-        when (status(OsPermission.CAMERA)) {
-            OsPermissionStatus.NOT_ASKED -> local.update { it.copy(explanation = OsPermission.CAMERA) }
+    private fun runtime() {
+        val permission = entryPermission() ?: return
+        when (status(permission)) {
+            OsPermissionStatus.NOT_ASKED -> local.update { it.copy(explanation = permission) }
             OsPermissionStatus.ALLOWED -> ready()
             else -> local.update { it.copy(needed = true) }
         }
@@ -183,3 +194,5 @@ class PermissionsViewModel @Inject constructor(private val repository: OsPermiss
         viewModelScope.launch { channel.send(event) }
     }
 }
+
+private val RUNTIME = setOf(OsPermission.CAMERA, OsPermission.MICROPHONE)

@@ -8,6 +8,15 @@ internal class DisplayFields(raw: ByteArray) {
     private val parser = ByteJson(raw)
     val root = parser.parse()
     fun field(row: ByteJson.Node, key: String) = parser.field(row, key)
+
+    /** The raw UTF-8 of a node as owned bytes, for a secret the caller wraps in [SecretBytes] at once. */
+    fun copy(node: ByteJson.Node): ByteArray = parser.copy(node)
+
+    /** The raw UTF-8 of a non-secret structural node, such as an opaque paging cursor object. */
+    fun raw(node: ByteJson.Node): String {
+        val bytes = parser.copy(node)
+        return try { String(bytes, Charsets.UTF_8) } finally { bytes.fill(0) }
+    }
     fun text(row: ByteJson.Node, key: String, required: Boolean = false): String? {
         val value = field(row, key)
         if (value == null || value.kind == 110) { require(!required); return null }
@@ -59,6 +68,25 @@ internal class DisplayFields(raw: ByteArray) {
             val chars = parser.chars(node)
             try { require(chars.size in 1..maximum); chars.concatToString() } finally { chars.fill('\u0000') }
         }
+    }
+    /** A flat object of text values read once into a map (no per-key rescans); duplicate keys are rejected. */
+    fun textMap(node: ByteJson.Node, bound: Int, maximum: Int = 4096): Map<String, String> {
+        require(node.kind == 123 && node.children.size / 2 <= bound)
+        val out = HashMap<String, String>(node.children.size)
+        for (index in node.children.indices step 2) {
+            val key = parser.chars(node.children[index])
+            val value = node.children[index + 1]
+            require(value.kind == 34)
+            val text = parser.chars(value)
+            try {
+                require(key.size in 1..maximum && text.size in 1..maximum)
+                require(out.put(key.concatToString(), text.concatToString()) == null) { "duplicate field" }
+            } finally {
+                key.fill('\u0000')
+                text.fill('\u0000')
+            }
+        }
+        return out
     }
     fun boolean(row: ByteJson.Node, key: String): Boolean {
         val value = field(row, key) ?: throw IllegalArgumentException("missing flag")

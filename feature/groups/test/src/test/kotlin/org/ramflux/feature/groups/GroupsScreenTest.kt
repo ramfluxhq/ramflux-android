@@ -52,7 +52,7 @@ class GroupsScreenTest {
             }
         }
         compose.onNodeWithText("无法继续").assertExists()
-        compose.onNodeWithText("没有匹配的群组").assertDoesNotExist()
+        compose.onNodeWithText("还没有群组").assertDoesNotExist()
     }
 
     @Test fun actualViewModelLocaleChangeDoesNotRefetchAndPeerNamesAreNeverKeys() {

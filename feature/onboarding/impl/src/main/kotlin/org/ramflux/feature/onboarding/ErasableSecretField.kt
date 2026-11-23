@@ -159,6 +159,7 @@ fun ErasableSecretField(
 class ErasableSecretView(context: Context) : View(context) {
     private var secret: ErasableBuffer? = null
     private var mask = true
+    private var digits = false
     private var limit = 0
     private var onEdited: (() -> Unit)? = null
     private var selStart = 0
@@ -194,7 +195,14 @@ class ErasableSecretView(context: Context) : View(context) {
 
     fun isSecretEmpty(): Boolean = secretLength() == 0
 
-    fun bind(next: ErasableBuffer, maskInput: Boolean, maxChars: Int, description: String, edited: () -> Unit) {
+    fun bind(
+        next: ErasableBuffer,
+        maskInput: Boolean,
+        maxChars: Int,
+        description: String,
+        digitsOnly: Boolean = false,
+        edited: () -> Unit
+    ) {
         if (secret !== next) {
             secret = next
             selStart = 0
@@ -204,6 +212,7 @@ class ErasableSecretView(context: Context) : View(context) {
             pendingAccent = 0
         }
         mask = maskInput
+        digits = digitsOnly
         limit = maxChars.coerceAtLeast(0)
         prepareMaskGlyphs()
         contentDescription = description
@@ -241,7 +250,7 @@ class ErasableSecretView(context: Context) : View(context) {
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
         if (!isEnabled) return null
-        outAttrs.inputType = SECRET_INPUT_TYPE
+        outAttrs.inputType = if (digits) DIGITS_INPUT_TYPE else SECRET_INPUT_TYPE
         // Recovery words are Latin: ask for an ASCII-capable keyboard. A masked passphrase may use any
         // script, so it only keeps the privacy flags.
         outAttrs.imeOptions = if (mask) SECRET_IME_OPTIONS else SECRET_IME_OPTIONS or EditorInfo.IME_FLAG_FORCE_ASCII
@@ -263,6 +272,8 @@ class ErasableSecretView(context: Context) : View(context) {
     }
 
     override fun onDraw(canvas: Canvas) {
+        // In digit mode the host draws the code slots; the view only takes the input.
+        if (digits) return
         val owned = secret?.owned() ?: return
         val baseline = textBaseline()
         if (owned.isNotEmpty()) {
@@ -345,7 +356,7 @@ class ErasableSecretView(context: Context) : View(context) {
         val size = buffer.owned().size
         val from = start.coerceIn(0, size)
         val to = end.coerceIn(from, size)
-        val incoming = copyChars(text)
+        val incoming = admit(copyChars(text))
         val taken = buffer.splice(from, to - from, incoming, limit)
         val newSize = buffer.owned().size
         val insertedEnd = from + taken
@@ -491,7 +502,8 @@ class ErasableSecretView(context: Context) : View(context) {
         return incoming
     }
 
-    private fun insertOwned(incoming: CharArray) {
+    private fun insertOwned(offered: CharArray) {
+        val incoming = admit(offered)
         val buffer = secret
         if (buffer == null) {
             incoming.fill('\u0000')
@@ -554,6 +566,16 @@ class ErasableSecretView(context: Context) : View(context) {
         if (count == 0) return origin
         if (mask) return origin + textPaint.measureText(maskStep, 0, 1) * count
         return origin + textPaint.measureText(owned, 0, count)
+    }
+
+    /** In digit mode only ASCII digits are kept; the offered array is wiped either way. */
+    private fun admit(offered: CharArray): CharArray {
+        if (!digits) return offered
+        val kept = CharArray(offered.count { it in '0'..'9' })
+        var at = 0
+        for (char in offered) if (char in '0'..'9') kept[at++] = char
+        offered.fill('\u0000')
+        return kept
     }
 
     private fun copyChars(text: CharSequence): CharArray {
@@ -672,6 +694,7 @@ class ErasableSecretView(context: Context) : View(context) {
         const val MASK_GLYPH = '\u2022'
         const val SECRET_INPUT_TYPE =
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        const val DIGITS_INPUT_TYPE = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
         const val SECRET_IME_OPTIONS = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING or EditorInfo.IME_FLAG_NO_EXTRACT_UI
     }
 }

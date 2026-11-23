@@ -26,6 +26,19 @@ class FakeCalls : CallDirectoryRepository {
         signals.add(attempt)
         return signaling(attempt)
     }
+    val invites = mutableListOf<String>()
+    var inviting: suspend (String) -> ClientResult<CallRecord> = {
+        ClientResult.Ready(callRecord(phase = CallPhase.OUTGOING_RINGING).copy(direction = CallDirection.OUTGOING, conversation = it))
+    }
+    override suspend fun invite(account: String, conversation: String, operationId: String): ClientResult<CallRecord> {
+        invites.add(conversation)
+        return inviting(conversation)
+    }
+    val answers = mutableListOf<CallRecord>()
+    override suspend fun answer(account: String, call: CallRecord, operationId: String): ClientResult<CallRecord> {
+        answers.add(call)
+        return ClientResult.Ready(call.copy(phase = CallPhase.CONNECTING, sequence = call.sequence + 1u))
+    }
     override fun pending(account: String): CallSignal? = null
     override fun updates(account: String) = invalidations
     override suspend fun audioAvailability(): ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CALLS)

@@ -17,6 +17,16 @@ object ContactCompletionMetadataReader {
         require(principal == null || actual == principal)
         require(fields.text(contact, "request_state", true) in setOf("pending", "accepted"))
     }
+    /** `contact.remove`, `contact.block` and `contact.unblock` by link answer with the changed link record. */
+    fun link(reply: SecretReply, link: String, blocked: Boolean?): CoreResult<Unit> = consume(reply) { fields ->
+        require(fields.text(fields.root, "link_id", true) == link)
+        if (blocked != null) require(fields.boolean(fields.root, "blocked") == blocked)
+    }
+
+    /** `contact.verify` answers with the recorded state; only `verified` confirms the mark. */
+    fun verified(reply: SecretReply): CoreResult<Unit> = consume(reply) { fields ->
+        require(fields.text(fields.root, "verification_state", true) == "verified")
+    }
     private fun consume(reply: SecretReply, block: (DisplayFields) -> Unit): CoreResult<Unit> = try {
         reply.useOnce { block(DisplayFields(it)); CoreResult.Success(Unit) }
     } catch (_: Exception) { CoreResult.Failure(CoreError.InvalidResponse()) }

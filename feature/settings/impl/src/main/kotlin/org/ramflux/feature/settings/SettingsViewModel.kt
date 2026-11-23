@@ -21,7 +21,8 @@ class SettingsViewModel @Inject constructor(
     private val accountStatus: AccountStatusRepository,
     private val preferences: AppearanceRepository,
     private val session: ClientSessionRepository,
-    private val language: LanguageRepository
+    private val language: LanguageRepository,
+    private val security: AccountSecurityRepository
 ) : ViewModel() {
     private val local = MutableStateFlow(SettingsState())
     private val channel = Channel<SettingsEvent>(Channel.BUFFERED)
@@ -109,19 +110,26 @@ class SettingsViewModel @Inject constructor(
                 request?.cancel()
                 capability?.cancel()
                 ticket++
-                if (local.value.page == SettingsPage.GENERAL) {
+                val page = local.value.page
+                if (page == SettingsPage.GENERAL) {
+                    endPairing()
                     event(SettingsEvent.Back)
                 } else {
-                    local.update { it.copy(page = SettingsPage.GENERAL, loading = false, problem = null, unavailable = null) }
+                    if (page == SettingsPage.PAIRING) endPairing()
+                    if (page == SettingsPage.ACCOUNT) closeCodeChange()
+                    local.update { it.copy(page = parent(page), loading = false, problem = null, unavailable = null) }
                 }
             }
             SettingsAction.OpenAccount -> event(SettingsEvent.OpenAccount)
             SettingsAction.Permissions -> event(SettingsEvent.Permissions)
+            SettingsAction.MyCard -> event(SettingsEvent.MyCard)
             SettingsAction.Connections -> event(SettingsEvent.Connections)
+            SettingsAction.Backup -> event(SettingsEvent.Backup)
+            SettingsAction.Storage -> activeAccount?.let { event(SettingsEvent.Storage(it)) }
             is SettingsAction.Page -> {
                 capability?.cancel()
                 local.update { it.copy(page = action.page, problem = null, unavailable = null) }
-                if (action.page == SettingsPage.BACKUP) capability { accountStatus.backupAvailability() }
+                if (action.page == SettingsPage.PRIVACY) readPolicy()
             }
             is SettingsAction.Theme -> if (preferenceJob?.isActive != true && (action.id == null || ThemeCatalog.find(action.id) != null)) {
                 capability?.cancel()
@@ -146,10 +154,340 @@ class SettingsViewModel @Inject constructor(
                 }
             }
             is SettingsAction.Revoke -> if (local.value.devices.any { it.id == action.id && !it.local }) {
+                local.update { it.copy(confirmRevoke = action.id) }
+            }
+            SettingsAction.CancelRevoke -> local.update { it.copy(confirmRevoke = null) }
+            SettingsAction.ConfirmRevoke -> {
+                val device = local.value.confirmRevoke ?: return
+                local.update { it.copy(confirmRevoke = null) }
+                if (local.value.devices.none { it.id == device && !it.local }) return
                 val account = activeAccount ?: return
-                capability { devices.revoke(account, action.id) }
+                capability {
+                    devices.revoke(account, device).also { if (it is ClientResult.Ready) read() }
+                }
+            }
+            SettingsAction.Lock -> {
+                val account = activeAccount ?: return
+                capability {
+                    accounts.lock(account).also { if (it is ClientResult.Ready) event(SettingsEvent.OpenAccount) }
+                }
+            }
+            SettingsAction.StartPairing -> startPairing()
+            is SettingsAction.InvitationAsText -> pairing { it.copy(invitationAsText = action.text) }
+            is SettingsAction.ComparePairing -> pairingStep(
+                PairingStep.COMPARE
+            ) { account, state -> security.confirmPairing(account, state, action.match) }
+            SettingsAction.ApprovePairing -> if (local.value.pairing.step == PairingStep.REVIEW) pairing { it.copy(confirmApprove = true) }
+            SettingsAction.ConfirmApprovePairing -> if (local.value.pairing.confirmApprove) {
+                pairingStep(PairingStep.REVIEW) { account, state -> security.approvePairing(account, state, true) }
+            }
+            SettingsAction.DeclinePairing -> pairingStep(
+                PairingStep.REVIEW
+            ) { account, state -> security.approvePairing(account, state, false) }
+            SettingsAction.CancelPairing -> cancelPairing()
+            is SettingsAction.RequestPolicy -> writePolicy(action.policy)
+            SettingsAction.OpenCodeChange -> if (activeAccount != null) {
+                closeCodeChange()
+                local.update { it.copy(codeChange = SettingsCodeChange(open = true)) }
+            }
+            is SettingsAction.CodeDigit -> codeDigit(action.next, action.digit)
+            SettingsAction.SubmitCodeChange -> submitCodeChange()
+            SettingsAction.CloseCodeChange -> closeCodeChange()
+        }
+    }
+
+    private fun parent(page: SettingsPage) = when (page) {
+        SettingsPage.PRIVACY -> SettingsPage.ACCOUNT
+        SettingsPage.PAIRING -> SettingsPage.DEVICES
+        SettingsPage.LANGUAGE -> SettingsPage.APPEARANCE
+        else -> SettingsPage.GENERAL
+    }
+
+    // Linking a new device. The invitation token lives only in [invitation], erased when the ceremony leaves INVITED.
+    private var invitation: CharArray? = null
+    private var invitationQr: InvitationQr? = null
+    private var pairingState: PairingState? = null
+    private var pairingJob: Job? = null
+    private var pairingAccount: String? = null
+
+    /** The begun operation (id, generation), known before the first status read. */
+    private var pairingOperation: Pair<String, ULong>? = null
+
+    /** Lends invitation chunk [index] to [block] while a frame is drawn; nothing is copied. */
+    fun drawInvitation(index: Int, block: (CharArray) -> Unit) {
+        val token = invitation ?: return
+        val start = index * INVITATION_CHUNK
+        if (index < 0 || start >= token.size) return
+        val chunk = token.copyOfRange(start, minOf(token.size, start + INVITATION_CHUNK))
+        try {
+            block(chunk)
+        } finally {
+            chunk.fill('\u0000')
+        }
+    }
+
+    /** Lends the invitation's QR modules to [block] while a frame is drawn; nothing is copied. */
+    fun drawInvitationQr(block: ((Int, Int) -> Boolean) -> Unit) {
+        invitationQr?.lend(block)
+    }
+
+    private fun pairing(update: (SettingsPairing) -> SettingsPairing) = local.update { it.copy(pairing = update(it.pairing)) }
+
+    private fun failedPairing(problem: ClientProblem) =
+        SettingsPairing(step = PairingStep.ENDED, ended = PairingEnd.FAILED, result = problem.statusName, problem = problem.message())
+
+    private fun eraseInvitation() {
+        invitation?.fill('\u0000')
+        invitation = null
+        invitationQr?.close()
+        invitationQr = null
+        pairing { it.copy(invitationChunks = 0, invitationModules = 0, invitationAsText = false) }
+    }
+
+    private fun startPairing() {
+        val account = activeAccount ?: return
+        if (pairingJob?.isActive == true || local.value.pairing.step !in setOf(PairingStep.IDLE, PairingStep.ENDED)) return
+        eraseInvitation()
+        pairingState = null
+        pairingOperation = null
+        pairingAccount = account
+        local.update { it.copy(pairing = SettingsPairing(step = PairingStep.STARTING)) }
+        pairingJob = viewModelScope.launch {
+            when (val begun = security.beginPairing(account, DEVICE_NAME)) {
+                is ClientResult.Ready -> begun.value.use { started ->
+                    val chars = started.token.useOnce { bytes -> Charsets.UTF_8.decode(java.nio.ByteBuffer.wrap(bytes)) }
+                    val token = CharArray(chars.remaining()).also { chars.get(it) }
+                    if (chars.hasArray()) chars.array().fill('\u0000')
+                    invitation = token
+                    invitationQr = InvitationQr.encode(token)
+                    pairingOperation = started.operationId to started.generation
+                    pairing {
+                        it.copy(
+                            step = PairingStep.INVITED,
+                            expiresAt = started.expiresAt,
+                            invitationChunks = (token.size + INVITATION_CHUNK - 1) / INVITATION_CHUNK,
+                            invitationModules = invitationQr?.modules ?: 0
+                        )
+                    }
+                    follow(account, started.operationId, started.generation)
+                }
+                is ClientResult.Failed -> pairing {
+                    failedPairing(begun.problem)
+                }
+                is ClientResult.Unavailable -> pairing {
+                    SettingsPairing(step = PairingStep.ENDED, ended = PairingEnd.FAILED, problem = begun.reason.message())
+                }
             }
         }
+    }
+
+    /** Follows the SDK's pairing state until the ceremony needs this phone or ends. */
+    private suspend fun follow(account: String, operationId: String, generation: ULong) {
+        while (true) {
+            when (val read = security.pairingStatus(account, operationId, generation)) {
+                is ClientResult.Ready -> if (apply(read.value)) return
+                is ClientResult.Failed -> {
+                    pairing { it.copy(problem = read.problem.message()) }
+                    if (read.problem.outcome == ClientOutcome.REFUSED) {
+                        eraseInvitation()
+                        pairing { it.copy(step = PairingStep.ENDED, ended = PairingEnd.FAILED, result = read.problem.statusName) }
+                        return
+                    }
+                }
+                is ClientResult.Unavailable -> {
+                    eraseInvitation()
+                    pairing { it.copy(step = PairingStep.ENDED, ended = PairingEnd.FAILED, problem = read.reason.message()) }
+                    return
+                }
+            }
+            delay(PAIRING_POLL_MILLIS)
+        }
+    }
+
+    /** Shows [state]; true when following stops (this phone must act, or the ceremony ended). */
+    private fun apply(state: PairingState): Boolean {
+        pairingState = state
+        if (state.phase != PairingPhase.INVITED) eraseInvitation()
+        val step = when {
+            state.phase.terminal -> PairingStep.ENDED
+            state.phase == PairingPhase.SAS_PENDING && state.emojiIndices != null -> PairingStep.COMPARE
+            state.phase == PairingPhase.PROPOSAL_PENDING && state.proposalHash != null -> PairingStep.REVIEW
+            state.phase == PairingPhase.INVITED -> PairingStep.INVITED
+            else -> PairingStep.WORKING
+        }
+        val ended = when (state.phase) {
+            PairingPhase.COMPLETED -> PairingEnd.COMPLETED
+            PairingPhase.CANCELLED -> PairingEnd.CANCELLED
+            PairingPhase.EXPIRED -> PairingEnd.EXPIRED
+            PairingPhase.REJECTED -> PairingEnd.REJECTED
+            else -> null
+        }
+        pairing {
+            it.copy(
+                step = step, expiresAt = state.expiresAt, emoji = (state.emojiIndices ?: emptyList()).toPersistentList(),
+                peerName = state.peerName, peerDevice = state.peerDevice, capabilities = state.capabilities.toPersistentList(),
+                leaseExpiresAt = state.leaseExpiresAt, ended = ended, result = state.result, problem = null, confirmApprove = false
+            )
+        }
+        if (ended == PairingEnd.COMPLETED) read()
+        return step == PairingStep.ENDED || step == PairingStep.COMPARE || step == PairingStep.REVIEW
+    }
+
+    private fun pairingStep(expected: PairingStep, call: suspend (String, PairingState) -> ClientResult<PairingState>) {
+        val account = pairingAccount ?: return
+        val state = pairingState ?: return
+        if (local.value.pairing.step != expected || pairingJob?.isActive == true) return
+        pairing { it.copy(step = PairingStep.WORKING, confirmApprove = false, problem = null) }
+        pairingJob = viewModelScope.launch {
+            when (val result = call(account, state)) {
+                is ClientResult.Ready -> if (!apply(result.value)) follow(account, state.operationId, state.generation)
+                is ClientResult.Failed -> {
+                    pairing { it.copy(step = expected, problem = result.problem.message()) }
+                    if (result.problem.outcome == ClientOutcome.REFUSED) follow(account, state.operationId, state.generation)
+                }
+                is ClientResult.Unavailable -> pairing { it.copy(step = expected, problem = result.reason.message()) }
+            }
+        }
+    }
+
+    private fun cancelPairing() {
+        val account = pairingAccount ?: return
+        val step = local.value.pairing.step
+        if (step == PairingStep.IDLE || step == PairingStep.ENDED) return
+        pairingJob?.cancel()
+        eraseInvitation()
+        val (operation, generation) = pairingOperation ?: run {
+            pairing { SettingsPairing(step = PairingStep.ENDED, ended = PairingEnd.CANCELLED) }
+            return
+        }
+        pairing { it.copy(step = PairingStep.WORKING) }
+        pairingJob = viewModelScope.launch {
+            when (val result = security.cancelPairing(account, operation, generation)) {
+                is ClientResult.Ready -> apply(result.value)
+                is ClientResult.Failed -> pairing {
+                    failedPairing(result.problem)
+                }
+                is ClientResult.Unavailable -> pairing {
+                    it.copy(step = PairingStep.ENDED, ended = PairingEnd.FAILED, problem = result.reason.message())
+                }
+            }
+        }
+    }
+
+    /** Leaving the pairing page: an unfinished ceremony is cancelled at the SDK, the invitation erased. */
+    private fun endPairing() {
+        val step = local.value.pairing.step
+        if (step != PairingStep.IDLE && step != PairingStep.ENDED) {
+            val account = pairingAccount
+            val operation = pairingOperation
+            pairingJob?.cancel()
+            if (account != null && operation != null) {
+                viewModelScope.launch {
+                    security.cancelPairing(
+                        account,
+                        operation.first,
+                        operation.second
+                    )
+                }
+            }
+        }
+        eraseInvitation()
+        pairingState = null
+        pairingOperation = null
+        local.update { it.copy(pairing = SettingsPairing()) }
+    }
+
+    private var policyJob: Job? = null
+    private fun readPolicy() {
+        val account = activeAccount ?: return
+        policyJob?.cancel()
+        local.update { it.copy(privacy = it.privacy.copy(loading = true, problem = null)) }
+        policyJob = viewModelScope.launch { showPolicy(security.requestPolicy(account)) }
+    }
+    private fun writePolicy(policy: ContactRequestPolicy) {
+        val account = activeAccount ?: return
+        if (policyJob?.isActive == true || local.value.privacy.policy == policy) return
+        local.update { it.copy(privacy = it.privacy.copy(loading = true, problem = null)) }
+        policyJob = viewModelScope.launch { showPolicy(security.setRequestPolicy(account, policy)) }
+    }
+    private fun showPolicy(result: ClientResult<ContactRequestPolicy>) = local.update {
+        it.copy(
+            privacy = when (result) {
+                is ClientResult.Ready -> SettingsPrivacy(result.value)
+                is ClientResult.Failed -> it.privacy.copy(loading = false, problem = result.problem.message())
+                is ClientResult.Unavailable -> it.privacy.copy(loading = false, problem = result.reason.message())
+            }
+        )
+    }
+
+    // The account-code change: digits live only in these arrays and are wiped on every exit.
+    private val currentCode = CharArray(AccountCode.DIGITS)
+    private val nextCode = CharArray(AccountCode.DIGITS)
+    private var currentCount = 0
+    private var nextCount = 0
+    private var codeJob: Job? = null
+
+    private fun codeDigit(next: Boolean, digit: Char?) {
+        val form = local.value.codeChange
+        if (!form.open || form.working) return
+        if (next) nextCount = typed(nextCode, nextCount, digit) else currentCount = typed(currentCode, currentCount, digit)
+        local.update { it.copy(codeChange = form.copy(currentDigits = currentCount, nextDigits = nextCount, problem = null, done = false)) }
+    }
+    private fun typed(buffer: CharArray, count: Int, digit: Char?): Int = when {
+        digit == null -> if (count > 0) {
+            buffer[count - 1] = '\u0000'
+            count - 1
+        } else {
+            0
+        }
+        digit in '0'..'9' && count < buffer.size -> {
+            buffer[count] = digit
+            count + 1
+        }
+        else -> count
+    }
+    private fun submitCodeChange() {
+        val account = activeAccount ?: return
+        val form = local.value.codeChange
+        if (!form.open || form.working || currentCount != AccountCode.DIGITS || nextCount != AccountCode.DIGITS) return
+        // The repository wipes these copies; the form's own arrays are wiped right after.
+        val current = currentCode.copyOf()
+        val next = nextCode.copyOf()
+        wipeCodes()
+        local.update { it.copy(codeChange = form.copy(currentDigits = 0, nextDigits = 0, working = true, problem = null)) }
+        codeJob = viewModelScope.launch {
+            val result = security.changeAccountCode(account, current, next)
+            local.update {
+                it.copy(
+                    codeChange = when (result) {
+                        is ClientResult.Ready -> SettingsCodeChange(open = false, done = true)
+                        is ClientResult.Failed -> it.codeChange.copy(working = false, problem = result.problem.codeMessage())
+                        is ClientResult.Unavailable -> it.codeChange.copy(working = false, problem = result.reason.message())
+                    }
+                )
+            }
+        }
+    }
+    private fun wipeCodes() {
+        currentCode.fill('\u0000')
+        nextCode.fill('\u0000')
+        currentCount = 0
+        nextCount = 0
+    }
+    private fun closeCodeChange() {
+        if (codeJob?.isActive == true) return
+        wipeCodes()
+        local.update { it.copy(codeChange = SettingsCodeChange()) }
+    }
+
+    override fun onCleared() {
+        pairingJob?.cancel()
+        invitation?.fill('\u0000')
+        invitation = null
+        invitationQr?.close()
+        invitationQr = null
+        wipeCodes()
+        super.onCleared()
     }
     private fun event(event: SettingsEvent) {
         request?.cancel()
@@ -257,6 +595,19 @@ class SettingsViewModel @Inject constructor(
         }
     }
 }
+private fun ClientProblem.codeMessage(): UiText = when (statusName) {
+    "not_six_digits" -> uiText(R.string.settings_code_not_six)
+    "trivial_code" -> uiText(R.string.settings_code_trivial)
+    SAME_CODE -> uiText(R.string.settings_code_same)
+    else -> if (outcome == ClientOutcome.REFUSED) uiText(R.string.settings_code_refused) else message()
+}
+
+/** Invitation characters drawn per chunk; chunks are numbered so they can be checked in order. */
+private const val INVITATION_CHUNK = 32
+private const val PAIRING_POLL_MILLIS = 2_000L
+
+/** The name this phone gives itself in the invitation (`display_name`); the SDK bounds it to 128 bytes. */
+private val DEVICE_NAME = android.os.Build.MODEL?.takeIf { it.isNotBlank() }?.take(64) ?: "android"
 private fun ClientProblem.message(): UiText = if (outcome == ClientOutcome.UNKNOWN) {
     uiText(R.string.settings_unknown_outcome)
 } else {

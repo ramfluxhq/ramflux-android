@@ -4,6 +4,7 @@
 package org.ramflux.navigation
 
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -141,5 +142,12 @@ class TopLevelNavigatorTest {
         assertEquals(NavigationForm.BOTTOM_BAR, AdaptiveSpec(599, 800).navigationForm)
         assertEquals(NavigationForm.RAIL, AdaptiveSpec(600, 800).navigationForm)
         assertEquals(NavigationForm.RAIL, AdaptiveSpec(1000, 760).navigationForm)
+    }
+
+    @Test fun theListPaneNeverOutgrowsTheDetail() {
+        // 700 dp window minus an 80 dp rail: the panes share 620 dp.
+        assertEquals(279f, listPaneWidth(620.dp, 393.dp).value, 0.01f)
+        assertEquals(393f, listPaneWidth(1000.dp, 393.dp).value, 0.01f)
+        assertTrue(listPaneWidth(620.dp, 393.dp) < 620.dp - listPaneWidth(620.dp, 393.dp))
     }
 }

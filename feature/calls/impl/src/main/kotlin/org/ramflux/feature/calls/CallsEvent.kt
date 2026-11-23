@@ -5,4 +5,5 @@ package org.ramflux.feature.calls
 sealed interface CallsEvent {
     data object Back : CallsEvent
     data object SetupAccount : CallsEvent
+    data class OpenCall(val accountId: String, val callId: String) : CallsEvent
 }

@@ -12,6 +12,7 @@ import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.ramflux.data.*
+import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -43,6 +44,20 @@ class ChatViewModelTest {
         assertFalse(vm.state.value.loaded)
         assertNull(vm.state.value.groupId)
         assertNotNull(vm.state.value.problem)
+    }
+
+    @Test fun theRouteTitleShowsUntilTheHeaderNamesTheConversation() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(ChatAction.Load("a", "c", title = "Row title"))
+        runCurrent()
+        assertEquals(UiText.Data("Row title"), vm.state.value.title)
+        history.heading = ClientResult.Ready(ConversationHeader("Actual title"))
+        vm.onAction(ChatAction.Refresh)
+        runCurrent()
+        assertEquals(UiText.Data("Actual title"), vm.state.value.title)
     }
 
     @Test fun mixedRowsKeepAdjacentMessagesAndActualTitleTimeInState() = runTest(timeout = 5.seconds) {
@@ -265,8 +280,9 @@ class ChatViewModelTest {
         assertFalse(vm.state.value.toString().contains("Private draft"))
     }
 
-    @Test fun failedSendKeepsDraft() = runTest(timeout = 5.seconds) {
+    @Test fun failedSendBecomesAFailedBubbleThatCanBeRetriedOrDiscarded() = runTest(timeout = 5.seconds) {
         val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
             sendResult = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.NONE))
         }
         val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
@@ -276,9 +292,43 @@ class ChatViewModelTest {
         vm.onAction(ChatAction.Draft("Private draft"))
         vm.onAction(ChatAction.Send)
         runCurrent()
-        assertEquals("Private draft", vm.state.value.draft)
+        val failed = vm.state.value.rows.single() as MessageItem
+        assertEquals(LocalDelivery.FAILED, failed.delivery)
+        assertEquals("", vm.state.value.draft)
         assertNotNull(vm.state.value.problem)
         assertEquals(1, history.sends)
+        // A definite failure is retried as a new operation.
+        vm.onAction(ChatAction.Retry(failed.id))
+        runCurrent()
+        assertEquals(2, history.sends)
+        assertNotEquals(history.sentOperations[0], history.sentOperations[1])
+        vm.onAction(ChatAction.Discard(failed.id))
+        runCurrent()
+        assertTrue(vm.state.value.rows.isEmpty())
+        assertFalse(vm.state.value.toString().contains("Private draft"))
+    }
+
+    @Test fun offlineSendsWaitInTheQueueAndGoOutAfterTheNextRead() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            sendResult = ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE))
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Draft("later"))
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        assertTrue(vm.state.value.queued)
+        assertEquals(LocalDelivery.QUEUED, (vm.state.value.rows.single() as MessageItem).delivery)
+        assertNull(vm.state.value.problem)
+        history.sendResult = ClientResult.Ready(SendReceipt("sent"))
+        vm.onAction(ChatAction.Refresh)
+        runCurrent()
+        assertEquals(2, history.sends)
+        assertFalse(vm.state.value.queued)
+        assertTrue(vm.state.value.rows.none { (it as MessageItem).delivery != null })
     }
 
     @Test fun unknownSendRetriesTheSameOperationAndALaterEqualTextIsNew() = runTest(timeout = 5.seconds) {
@@ -295,20 +345,455 @@ class ChatViewModelTest {
         vm.onAction(ChatAction.Send)
         runCurrent()
         val first = history.sentOperations.single()
-        vm.onAction(ChatAction.Send)
+        val local = vm.state.value.rows.single().id
+        vm.onAction(ChatAction.Retry(local))
         runCurrent()
         assertEquals(listOf(first, first), history.sentOperations)
-        assertEquals("same", vm.state.value.draft)
         history.sendResult = ClientResult.Ready(SendReceipt("sent"))
-        vm.onAction(ChatAction.Send)
+        vm.onAction(ChatAction.Retry(local))
         runCurrent()
         assertEquals(listOf(first, first, first), history.sentOperations)
-        assertEquals("", vm.state.value.draft)
+        assertTrue(vm.state.value.rows.isEmpty())
         vm.onAction(ChatAction.Draft("same"))
         vm.onAction(ChatAction.Send)
         runCurrent()
         assertEquals(4, history.sentOperations.size)
         assertNotEquals(first, history.sentOperations.last())
+    }
+
+    @Test fun olderPagesPrependWithoutDuplicatesAndTheWindowStaysBounded() = runTest(timeout = 20.seconds) {
+        val total = 50_000
+        val history = FakeChatHistory().apply { paging = syntheticPages(total) }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertEquals(100, vm.state.value.rows.size)
+        assertEquals("m${total - 1}", vm.state.value.rows.last().id)
+        assertTrue(vm.state.value.hasOlder)
+        val started = System.nanoTime()
+        repeat(30) {
+            vm.onAction(ChatAction.LoadOlder)
+            runCurrent()
+        }
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+        val ids = vm.state.value.rows.map { it.id }
+        assertEquals(ids.size, ids.toSet().size)
+        assertTrue("window ${ids.size}", ids.size <= 1_000)
+        assertTrue(vm.state.value.hasOlder)
+        // Thirty pages over a 50,000-row source stay well inside the test budget on the JVM.
+        assertTrue("paging took $elapsedMs ms", elapsedMs < 10_000)
+        println("CHAT_SCALE: 30 older pages over $total rows in $elapsedMs ms, window ${ids.size}")
+    }
+
+    @Test fun shownIncomingMessagesAreMarkedReadOnceAndTheDividerFollowsTheUnreadCount() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            heading = ClientResult.Ready(ConversationHeader("Peer", unread = 2))
+            reading = {
+                ClientResult.Ready(
+                    listOf(
+                        MessageSummary("a", "peer", false, false, "one", 10),
+                        MessageSummary("b", "peer", false, false, "two", 11),
+                        MessageSummary("c", "me", true, false, "mine", 12),
+                        MessageSummary("d", "peer", false, false, "three", 13)
+                    )
+                )
+            }
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertEquals("b", vm.state.value.firstUnreadId)
+        vm.onAction(ChatAction.Shown("c"))
+        runCurrent()
+        assertEquals(listOf("b"), history.marked)
+        vm.onAction(ChatAction.Shown("b"))
+        runCurrent()
+        assertEquals(listOf("b"), history.marked)
+        vm.onAction(ChatAction.Shown("d"))
+        runCurrent()
+        assertEquals(listOf("b", "d"), history.marked)
+    }
+
+    @Test fun draftsAreSealedOnPauseRestoredOnLoadAndErasedOnSend() = runTest(timeout = 5.seconds) {
+        val drafts = FakeChatDrafts()
+        val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), drafts)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Draft("half written"))
+        vm.onAction(ChatAction.Pause)
+        runCurrent()
+        assertEquals("half written", drafts.stored["a/c"])
+        val restored = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), drafts)
+        observe(restored)
+        runCurrent()
+        load(restored)
+        assertEquals("half written", restored.state.value.draft)
+        restored.onAction(ChatAction.Send)
+        runCurrent()
+        assertNull(drafts.stored["a/c"])
+    }
+
+    @Test fun reactionsSendTheChosenGraphemeAndRefuseOthers() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(MessageSummary("m", "peer", false, false, "hi", 10))) }
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Select("m"))
+        vm.onAction(ChatAction.React("ab"))
+        runCurrent()
+        assertTrue(history.reactions.isEmpty())
+        vm.onAction(ChatAction.Select("m"))
+        vm.onAction(ChatAction.React("\u2764\uFE0F"))
+        runCurrent()
+        assertEquals(listOf("\u2764\uFE0F"), history.reactions)
+    }
+
+    @Test fun attachmentsDownloadOnTapOpenTheViewerAndErasureRevokesAndPurges() = runTest(timeout = 5.seconds) {
+        val image = MediaAttachment("p", 0, MediaKind.IMAGE, "image/jpeg", "photo.jpg", 2048)
+        val file = MediaAttachment("p", 1, MediaKind.FILE, "application/pdf", "report.pdf", 10)
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(MessageSummary("p", "me", true, false, "", 10, attachments = listOf(image, file)))) }
+        }
+        val media = FakeChatMedia()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, FakeChatStager())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        val items = (vm.state.value.rows.single() as MessageItem).attachments
+        assertEquals(listOf(AttachmentStatus.AVAILABLE, AttachmentStatus.AVAILABLE), items.map { it.status })
+        assertTrue(media.downloads.isEmpty())
+        vm.onAction(ChatAction.OpenAttachment("p/0"))
+        runCurrent()
+        assertEquals(listOf("p"), media.downloads)
+        assertEquals(AttachmentStatus.READY, (vm.state.value.rows.single() as MessageItem).attachments[0].status)
+        vm.onAction(ChatAction.OpenAttachment("p/0"))
+        runCurrent()
+        assertEquals("p/0", vm.state.value.viewer?.key)
+        vm.onAction(ChatAction.CloseViewer)
+        media.downloadResult = { TransferState.Expired }
+        vm.onAction(ChatAction.OpenAttachment("p/1"))
+        runCurrent()
+        assertEquals(AttachmentStatus.EXPIRED, (vm.state.value.rows.single() as MessageItem).attachments[1].status)
+        vm.onAction(ChatAction.Select("p"))
+        vm.onAction(ChatAction.DeleteForEveryone)
+        runCurrent()
+        assertEquals(listOf("p"), media.revoked)
+        assertTrue(media.purged.contains("p"))
+    }
+
+    @Test fun pickedImagesAreStagedAndSentThroughTheMediaRepository() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+        val media = FakeChatMedia().apply {
+            sendResult = ClientResult.Failed(
+                ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.REFUSED, statusName = "recipient_limit")
+            )
+        }
+        val stager = FakeChatStager()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, stager)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Picked(listOf("content://picked"), PickSource.CAMERA))
+        runCurrent()
+        assertEquals(1, media.sent.size)
+        assertEquals(listOf("content://picked"), stager.captures)
+        val row = vm.state.value.rows.single() as MessageItem
+        assertEquals(LocalDelivery.FAILED, row.delivery)
+        assertEquals(AttachmentStatus.FAILED, row.attachments.single().status)
+        media.sendResult = ClientResult.Ready(SendReceipt("media"))
+        vm.onAction(ChatAction.Retry(row.id))
+        runCurrent()
+        assertEquals(2, media.sent.size)
+        assertTrue(vm.state.value.rows.isEmpty())
+    }
+
+    @Test fun cameraCapturesGoThroughTheCameraStagingPath() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+        val media = FakeChatMedia()
+        val stager = FakeChatStager()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, stager)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Picked(listOf("content://capture"), PickSource.CAMERA))
+        runCurrent()
+        assertEquals(listOf("content://capture"), stager.captures)
+        assertEquals(1, media.sent.size)
+    }
+
+    @Test fun forwardingReEncryptsEveryItemForTheChosenConversation() = runTest(timeout = 5.seconds) {
+        val image = MediaAttachment("p", 0, MediaKind.IMAGE, "image/jpeg", "photo.jpg", 2048)
+        val file = MediaAttachment("p", 1, MediaKind.FILE, "application/pdf", "report.pdf", 10)
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = {
+                ClientResult.Ready(listOf(MessageSummary("p", "peer", false, false, "caption", 10, attachments = listOf(image, file))))
+            }
+            targets = { cursor ->
+                if (cursor == null) {
+                    ClientResult.Ready(ForwardTargetPage(listOf(ForwardTarget("c", "Self"), ForwardTarget("d1", "Dana")), "next"))
+                } else {
+                    ClientResult.Ready(ForwardTargetPage(listOf(ForwardTarget("d2", "Eve")), null))
+                }
+            }
+        }
+        val media = FakeChatMedia().apply { held["p/0"] = java.io.File("/tmp/held-image") }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, FakeChatStager())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Select("p"))
+        vm.onAction(ChatAction.Forward())
+        runCurrent()
+        val sheet = vm.state.value.forward!!
+        assertNull(vm.state.value.selectedId)
+        // The open conversation is never offered; the next directory page follows the cursor.
+        assertEquals(listOf("d1"), sheet.rows.map { it.conversation })
+        assertTrue(sheet.hasMore)
+        vm.onAction(ChatAction.ForwardMore)
+        runCurrent()
+        assertEquals(listOf(null, "next"), history.targetCursors)
+        assertEquals(listOf("d1", "d2"), vm.state.value.forward!!.rows.map { it.conversation })
+        vm.onAction(ChatAction.ForwardTo("d2"))
+        runCurrent()
+        // The held item is copied, the missing one is imported first; both go out under a new operation.
+        assertEquals(listOf("p"), media.downloads)
+        assertEquals(listOf("/tmp/held-image", "/tmp/p"), media.copied)
+        assertEquals("d2", media.destinations.single().conversation)
+        assertEquals("caption", media.captions.single())
+        assertEquals(2, media.sent.single().size)
+        assertNull(vm.state.value.forward)
+        assertEquals(uiText(R.string.chat_forward_sent), vm.state.value.deliveryNotice)
+    }
+
+    @Test fun aFailedForwardKeepsTheChooserOpenWithTheReason() = runTest(timeout = 5.seconds) {
+        val image = MediaAttachment("p", 0, MediaKind.IMAGE, "image/jpeg", "photo.jpg", 2048)
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(MessageSummary("p", "peer", false, false, "", 10, attachments = listOf(image)))) }
+            targets = { ClientResult.Ready(ForwardTargetPage(listOf(ForwardTarget("d1", "Dana")), null)) }
+        }
+        val media = FakeChatMedia().apply { downloadResult = { TransferState.Expired } }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, FakeChatStager())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Forward("p", 0))
+        runCurrent()
+        vm.onAction(ChatAction.ForwardTo("d1"))
+        runCurrent()
+        assertTrue(media.sent.isEmpty())
+        assertNotNull(vm.state.value.forward?.problem)
+        assertFalse(vm.state.value.forward!!.sending)
+        vm.onAction(ChatAction.CloseForward)
+        runCurrent()
+        assertNull(vm.state.value.forward)
+    }
+
+    @Test fun pickedPhotosAndVideosOpenAPreviewThatReordersRemovesAndSendsOneAlbum() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+        val media = FakeChatMedia()
+        val stager = FakeChatStager()
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, stager)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Picked(listOf("content://a", "content://video-b", "content://c"), PickSource.PHOTO))
+        runCurrent()
+        val preview = vm.state.value.preview!!
+        assertFalse(preview.preparing)
+        assertEquals(listOf(AttachmentKind.IMAGE, AttachmentKind.VIDEO, AttachmentKind.IMAGE), preview.items.map { it.kind })
+        assertTrue(media.sent.isEmpty())
+        vm.onAction(ChatAction.PreviewMove(2))
+        vm.onAction(ChatAction.PreviewRemove(0))
+        vm.onAction(ChatAction.PreviewCaption("trip"))
+        runCurrent()
+        assertEquals(listOf(AttachmentKind.IMAGE, AttachmentKind.VIDEO), vm.state.value.preview!!.items.map { it.kind })
+        vm.onAction(ChatAction.PreviewSend)
+        runCurrent()
+        assertNull(vm.state.value.preview)
+        assertEquals(listOf("c", "video-b"), media.sent.single().map { it.fileName })
+        assertEquals("trip", media.captions.single())
+    }
+
+    @Test fun refusedVideosExplainTheCapAndGroupLimitsHaveTheirOwnWords() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+        val media = FakeChatMedia().apply {
+            sendResult = ClientResult.Failed(
+                ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.REFUSED, statusName = "recipient_limit")
+            )
+        }
+        val stager = FakeChatStager().apply { visualResult = { StageResult.Refused(StageRefusal.VIDEO_TOO_LONG) } }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, stager)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Picked(listOf("content://video-long"), PickSource.PHOTO))
+        runCurrent()
+        assertNull(vm.state.value.preview)
+        assertEquals(uiText(R.string.chat_media_video_too_long), vm.state.value.problem)
+        vm.onAction(ChatAction.Picked(listOf("content://capture"), PickSource.CAMERA))
+        runCurrent()
+        assertEquals(uiText(R.string.chat_media_recipient_limit), vm.state.value.problem)
+    }
+
+    @Test fun theViewerStepsThroughTheReadyItemsOfAnAlbum() = runTest(timeout = 5.seconds) {
+        val items = (0 until 3).map { MediaAttachment("p", it, MediaKind.IMAGE, "image/jpeg", "p$it.jpg", 10) }
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(MessageSummary("p", "peer", false, false, "", 10, attachments = items))) }
+        }
+        val media = FakeChatMedia().apply { items.forEach { held["p/" + it.index] = java.io.File("/tmp/p" + it.index) } }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), media, FakeChatStager())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.OpenAttachment("p/1"))
+        runCurrent()
+        assertEquals(ViewerPosition(2, 3), vm.state.value.viewerPosition)
+        vm.onAction(ChatAction.ViewerStep(1))
+        runCurrent()
+        assertEquals("p/2", vm.state.value.viewer?.key)
+        vm.onAction(ChatAction.ViewerStep(1))
+        runCurrent()
+        assertEquals("p/2", vm.state.value.viewer?.key)
+        vm.onAction(ChatAction.CloseViewer)
+        runCurrent()
+        assertNull(vm.state.value.viewerPosition)
+    }
+
+    @Test fun mediaTimeUsesWesternDigitsLeftToRight() {
+        assertEquals("0:07", mediaClock(7_400))
+        assertEquals("10:00", mediaClock(600_000))
+        assertEquals("1:02:03", mediaClock(3_723_000))
+    }
+
+    @Test fun theGalleryFiltersPagesClientSideFollowsTheCursorAndStaysBounded() = runTest(timeout = 60.seconds) {
+        // 50,000 synthetic rows, every third with an image and every seventh with a file.
+        val total = 50_000
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            paging = { before ->
+                val end = before?.toInt() ?: total
+                val start = (end - 100).coerceAtLeast(0)
+                val rows = (start until end).map { index ->
+                    val media = buildList {
+                        if (index % 3 == 0) add(MediaAttachment("m$index", 0, MediaKind.IMAGE, "image/jpeg", "i.jpg", 10))
+                        if (index % 7 == 0) add(MediaAttachment("m$index", size, MediaKind.FILE, "application/pdf", "f.pdf", 10))
+                    }
+                    MessageSummary("m$index", "peer", false, false, "row $index", index.toLong(), attachments = media)
+                }
+                ClientResult.Ready(TimelinePage(rows, if (start > 0) start.toString() else null))
+            }
+        }
+        val vm = ChatViewModel(history, FakeChatAccounts(), FakeChatSession(), FakeChatDrafts(), FakeChatMedia(), FakeChatStager())
+        observe(vm)
+        runCurrent()
+        load(vm)
+        val reads = history.reads
+        vm.onAction(ChatAction.OpenGallery)
+        runCurrent()
+        val first = vm.state.value.gallery!!
+        assertFalse(first.loading)
+        assertTrue(first.hasMore)
+        assertEquals("m49998/0", first.items.first().key)
+        assertTrue(first.items.all { it.kind == AttachmentKind.IMAGE })
+        vm.onAction(ChatAction.GalleryTab(GalleryTab.FILES))
+        runCurrent()
+        assertTrue(vm.state.value.gallery!!.items.all { it.kind == AttachmentKind.FILE })
+        val started = System.nanoTime()
+        repeat(200) {
+            vm.onAction(ChatAction.GalleryMore)
+            runCurrent()
+        }
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+        val gallery = vm.state.value.gallery!!
+        val shown = gallery.items.size
+        vm.onAction(ChatAction.GalleryTab(GalleryTab.MEDIA))
+        runCurrent()
+        // The window stops at 2,000 attachments; nothing beyond it is held in memory.
+        assertEquals(2_000, shown + vm.state.value.gallery!!.items.size)
+        assertFalse(vm.state.value.gallery!!.hasMore)
+        assertTrue(history.reads - reads < 100)
+        println("gallery over 50,000 rows: 2,000-item window filled in ${elapsedMs}ms, ${history.reads - reads} page reads")
+        vm.onAction(ChatAction.CloseGallery)
+        runCurrent()
+        assertNull(vm.state.value.gallery)
+    }
+
+    @Test fun agentCardsJoinTheTimelineByTimeAndActionsCarryTheShownInputs() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = {
+                ClientResult.Ready(
+                    listOf(
+                        MessageSummary("m1", "agent", false, false, "first", 10),
+                        MessageSummary("m2", "agent", false, false, "later", 30)
+                    )
+                )
+            }
+        }
+        val cards = FakeChatCards().apply {
+            card("r1", at = 20)
+            card("r2", at = 40, outOfSync = true)
+        }
+        val media = FakeChatMedia()
+        val session = FakeChatSession()
+        val vm = ChatViewModel(
+            history,
+            FakeChatAccounts(),
+            session,
+            FakeChatDrafts(),
+            media,
+            FakeChatStager(),
+            MediaTransfers(media, session, backgroundScope),
+            cards
+        )
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertEquals(listOf("m1", "card:r1", "m2", "card:r2"), vm.state.value.rows.map { it.id })
+        val stale = vm.state.value.rows.last() as CardItem
+        assertFalse(stale.actionable)
+        vm.onAction(ChatAction.CardPress("r2", "go"))
+        vm.onAction(ChatAction.CardInput("r1", "/note", CardValue.Text("hi")))
+        vm.onAction(ChatAction.CardPress("r1", "go"))
+        runCurrent()
+        // Only the current card acted, with the typed value and the version it showed.
+        val press = cards.presses.single()
+        assertEquals("r1", press.surface.ref)
+        assertEquals(kotlinx.serialization.json.JsonPrimitive("hi"), press.values["/note"])
+        assertTrue((vm.state.value.rows[1] as CardItem).sent)
+        // A refresh fetches only surfaces whose version or hash changed.
+        val gets = cards.gets.size
+        cards.card("r1", at = 20, version = 2)
+        vm.onAction(ChatAction.Refresh)
+        runCurrent()
+        assertEquals(gets + 1, cards.gets.size)
+        cards.actResult = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.UNKNOWN))
+        vm.onAction(ChatAction.CardPress("r1", "go"))
+        runCurrent()
+        vm.onAction(ChatAction.CardPress("r1", "go"))
+        runCurrent()
+        // An uncertain press is retried with the same message id.
+        assertEquals(cards.presses[1].messageId, cards.presses[2].messageId)
+        assertEquals(uiText(R.string.card_outcome_unknown), (vm.state.value.rows[1] as CardItem).problem)
+    }
+
+    private fun syntheticPages(total: Int): suspend (String?) -> ClientResult<TimelinePage> = { before ->
+        val end = before?.toInt() ?: total
+        val start = (end - 100).coerceAtLeast(0)
+        val rows = (start until end).map { MessageSummary("m$it", "peer", it % 3 == 0, false, "row $it", it.toLong()) }
+        ClientResult.Ready(TimelinePage(rows, if (start > 0) start.toString() else null))
     }
 
     @Test fun editPassesTheObservedRevision() = runTest(timeout = 5.seconds) {

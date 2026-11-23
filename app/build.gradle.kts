@@ -21,6 +21,8 @@ dependencies {
     implementation(project(":feature:groups:impl"))
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
+    // The opt-in real-run suite (org.ramflux.android.realrun, scripts/realrun.sh); no CI task runs it.
+    androidTestImplementation(libs.androidx.test.uiautomator)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)

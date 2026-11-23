@@ -27,7 +27,20 @@ import org.ramflux.designsystem.UiText
     override fun toString() = "TaskRow(<redacted>)"
 }
 
-@Immutable data class TaskPermissionRow(val id: String, val title: String?, val kind: UiText, val facts: ImmutableList<UiText>)
+/**
+ * A grant, approval or receipt. A pending approval ([decidable]) is shown as an approval card; [approvable] is false
+ * for a `remote_app` approval, which the phone can only deny.
+ */
+@Immutable data class TaskPermissionRow(
+    val id: String,
+    val title: String?,
+    val kind: UiText,
+    val facts: ImmutableList<UiText>,
+    val requester: String? = null,
+    val scope: String? = null,
+    val decidable: Boolean = false,
+    val approvable: Boolean = false
+)
 
 @Immutable data class TaskConfirmation(val id: String, val operation: UiText, val facts: ImmutableList<UiText>)
 
@@ -44,7 +57,11 @@ import org.ramflux.designsystem.UiText
     val busy: Boolean = false,
     val fresh: Boolean = false,
     val accountRequired: Boolean = false,
+    /** More rows after the loaded window. */
     val canMore: Boolean = false,
+    /** Rows before the loaded window (dropped from the bounded window or not yet read). */
+    val hasBefore: Boolean = false,
+    val loadingMore: Boolean = false,
     val problem: UiText? = null,
     val unavailable: Boolean = false,
     val notice: UiText? = null,

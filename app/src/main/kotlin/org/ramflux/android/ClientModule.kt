@@ -10,9 +10,17 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.Multibinds
 import javax.inject.Singleton
 import org.ramflux.data.*
 import org.ramflux.feature.onboarding.ConfirmTrace
+
+/** Declares the store set so the app builds even when no feature contributes a store. */
+@Module
+@InstallIn(SingletonComponent::class)
+interface AccountStoreBindings {
+    @Multibinds fun accountStores(): Set<AccountScopedStore>
+}
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -46,6 +54,14 @@ object ClientModule {
     @Provides fun contacts(data: AndroidClientData): ContactDirectoryRepository = data.contacts
 
     @Provides fun devices(data: AndroidClientData): DeviceDirectoryRepository = data.devices
+
+    @Provides fun security(data: AndroidClientData): AccountSecurityRepository = data.security
+
+    @Provides fun backups(data: AndroidClientData): BackupRepository = data.backups
+
+    /** Every host store a feature contributes (drafts, media) is registered before the hook is used. */
+    @Provides fun accountStores(data: AndroidClientData, stores: Set<@JvmSuppressWildcards AccountScopedStore>): AccountScopedStores =
+        data.accountStores.also { hook -> stores.forEach(hook::register) }
 
     @Provides fun accountStatus(data: AndroidClientData): AccountStatusRepository = data.accountStatus
 

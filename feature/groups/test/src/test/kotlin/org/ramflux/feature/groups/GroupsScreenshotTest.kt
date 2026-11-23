@@ -57,6 +57,7 @@ class GroupsScreenshotTest(
 
     @Test fun screen() {
         val invite = InviteRow("g", "Actual invitation", "creator", "inviter", UiText.DateTime(1800000000))
+        val peer = MemberRow("peer", "Peer", "root", "device", uiText(R.string.groups_member), true, true)
         val base =
             GroupsState(
                 page = page, loaded = true, account = "Work",
@@ -65,12 +66,22 @@ class GroupsScreenshotTest(
                 ),
                 selected = "g", title = "Actual group", epoch = UiText.Unsigned(7u), authorityFresh = true, canManage = true,
                 invitations = persistentListOf(invite), selectedInvitation = invite, name = "New group",
-                members = persistentListOf(MemberRow("peer", "Peer", "root", "device", uiText(R.string.groups_member), true, true)),
+                members = persistentListOf(
+                    MemberRow("self", "Own name", "own-root", "own-device", uiText(R.string.groups_owner), true, false),
+                    peer
+                ),
+                selectedMember = peer,
+                memberCount = UiText.Quantity(
+                    R.plurals.groups_member_count,
+                    2u
+                ),
+                ownRole = uiText(R.string.groups_owner),
+                paging = persistentMapOf(GroupList.MEMBERS to ListPaging(more = true)),
                 contacts = persistentListOf(GroupRow("contact", "Accepted contact", UiText.Empty)),
                 requests = persistentListOf(RequestRow("request", uiText(R.string.groups_waiting), UiText.DateTime(1800000000)))
             )
         val state = when (kind) {
-            "loading" -> GroupsState(loading = true)
+            "loading" -> GroupsState(loading = true, account = "Work")
             "error" -> GroupsState(problem = uiText(R.string.groups_error_code, UiText.Number(8)))
             "account" -> GroupsState(accountRequired = true)
             "waiting" -> base.copy(notice = uiText(R.string.groups_waiting))

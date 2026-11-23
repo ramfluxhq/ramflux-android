@@ -6,6 +6,7 @@ import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
 import org.ramflux.data.ClientFailureKind
 import org.ramflux.data.UnavailableReason
+import org.ramflux.designsystem.Bidi
 import org.ramflux.designsystem.UiText
 
 @Immutable data class ConversationItem(
@@ -14,8 +15,16 @@ import org.ramflux.designsystem.UiText
     val summary: UiText,
     val unread: String,
     val hasUnread: Boolean,
-    val timestamp: UiText = UiText.Empty
-)
+    val timestamp: UiText = UiText.Empty,
+    val muted: Boolean = false,
+    val group: Boolean = false,
+    val groupId: String? = null,
+    /** [title] is a short identifier (no contact name is known); shown left-to-right isolated. */
+    val identifier: Boolean = false
+) {
+    /** The title as drawn: identifiers through the left-to-right identifier primitive. */
+    val shownTitle: String get() = if (identifier) Bidi.ltr(title) else title
+}
 
 @Immutable data class ConversationsState(
     val accountId: String? = null,
@@ -24,6 +33,10 @@ import org.ramflux.designsystem.UiText
     val loading: Boolean = false,
     val loaded: Boolean = false,
     val hasMore: Boolean = false,
+    /** False after a page that added no row to the bounded window: further pages load on request only. */
+    val autoLoad: Boolean = true,
+    /** Pending inbound contact requests (the message-requests row); null when they could not be read. */
+    val requests: Int? = null,
     val accountRequired: Boolean = false,
     val problem: UiText? = null,
     val problemKind: ClientFailureKind? = null,

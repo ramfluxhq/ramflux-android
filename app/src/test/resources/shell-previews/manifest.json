@@ -139,8 +139,6 @@
       "node": "LiZdX",
       "source": "shell/LiZdX.png",
       "file": "MOB-A07.light--zh-CN.png",
-      "capture": false,
-      "reason": "No client screen shows device unlock info; the board also describes the data passphrase that the six-digit account code replaces.",
       "sha256": "ff60bf5dbdd8dd9c9f2325dbcf9dc59f4da792bc699f4e7f72f84c0e98a3ad2c"
     },
     {
@@ -150,8 +148,6 @@
       "node": "nwyUr",
       "source": "shell/nwyUr.png",
       "file": "MOB-A07.light--en.png",
-      "capture": false,
-      "reason": "No client screen shows device unlock info; the board also describes the data passphrase that the six-digit account code replaces.",
       "sha256": "789790bec8f36c854084e00c1b59373051ad13a63567f35919662cfde2f9baf2"
     },
     {

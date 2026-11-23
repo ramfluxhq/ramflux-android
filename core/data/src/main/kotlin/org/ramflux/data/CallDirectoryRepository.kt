@@ -20,4 +20,12 @@ interface CallDirectoryRepository {
     fun pending(account: String): CallSignal?
     fun updates(account: String): Flow<ClientResult<Unit>>
     suspend fun audioAvailability(): ClientResult<Unit>
+
+    /** `call.invite` for a direct conversation; the SDK refuses while another call is live. */
+    suspend fun invite(account: String, conversation: String, operationId: String): ClientResult<CallRecord> =
+        ClientResult.Unavailable(ClientFeature.CALLS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
+    /** `call.answer` for a ringing incoming call; the record must still be the one shown. */
+    suspend fun answer(account: String, call: CallRecord, operationId: String): ClientResult<CallRecord> =
+        ClientResult.Unavailable(ClientFeature.CALLS, UnavailableReason.UNSUPPORTED_BY_CORE)
 }

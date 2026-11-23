@@ -12,6 +12,10 @@
     <string name="shell_more_permissions_detail">This device, group roles, and this operation</string>
     <string name="shell_more_settings">Settings</string>
     <string name="shell_more_settings_detail">Account, services, and device preferences</string>
+    <!-- More hub row: the call history, where an incoming call can be answered. -->
+    <string name="shell_more_calls">Calls</string>
+    <!-- Value under the calls row of the More hub. -->
+    <string name="shell_more_calls_detail">Call history and incoming calls</string>
     <string name="shell_more_tasks">Tasks</string>
     <string name="shell_more_tasks_detail">View tasks and pending items</string>
     <string name="shell_nav_add">Add shortcut</string>
@@ -62,4 +66,32 @@
     <string name="shell_detail_empty_title">Nothing selected</string>
     <!-- Body of the empty detail pane. -->
     <string name="shell_detail_empty_body">Choose an item in the list to open it here.</string>
+    <!-- Title of the local notification for a message that arrived while the app was not in front. It must stay generic: never a sender, conversation or message text. -->
+    <string name="notification_new_message">New message</string>
+    <!-- Accessibility label of the info button next to a section title on the unlock pages. -->
+    <string name="startup_info">More information</string>
+    <!-- Accessibility label of the info button that opens the unlock details of an account; %1$s is the account name. -->
+    <string name="startup_account_details">Details of %1$s</string>
+    <!-- Value of the Identity row on the unlock details page. -->
+    <string name="startup_identity_human">Existing human identity</string>
+    <!-- Title of the page that explains how unlocking works on this phone. -->
+    <string name="startup_view_unlock_title">Device unlock info</string>
+    <!-- Introduction of the device unlock info page. -->
+    <string name="startup_unlock_info_body">Unlocking happens on this phone only. Your account code is never sent to the node or to your other devices.</string>
+    <!-- Row title and button that open the six-digit account code entry. -->
+    <string name="startup_unlock_with_code">Unlock with account code</string>
+    <!-- Detail of the row that explains unlocking with the account code. -->
+    <string name="startup_unlock_with_code_detail">Enter the six-digit account code you set when you created the account</string>
+    <!-- Row title: this version cannot unlock with a fingerprint or face. -->
+    <string name="startup_no_biometric">No biometric unlock yet</string>
+    <!-- Detail of the row about biometric unlock. -->
+    <string name="startup_no_biometric_detail">This version unlocks with the six-digit account code only</string>
+    <!-- Row title: the app has no PIN apart from the account code. -->
+    <string name="startup_no_app_pin">No separate app PIN</string>
+    <!-- Detail of the row about an app PIN. -->
+    <string name="startup_no_app_pin_detail">The six-digit account code is the only code the app asks for</string>
+    <!-- Row title about a forgotten account code. -->
+    <string name="startup_forgot_code">Forgot your account code</string>
+    <!-- Detail of the row about a forgotten account code. -->
+    <string name="startup_forgot_code_detail">Restore the account on this phone with your recovery phrase</string>
 </resources>

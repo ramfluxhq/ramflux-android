@@ -40,7 +40,9 @@ class OsPermissionsPlatformTest {
         assertEquals(OsPermissionStatus.ALLOWED, (repo.read() as OsPermissionResult.Ready).value.status(OsPermission.CAMERA))
         shadowOf(app).denyPermissions(Manifest.permission.CAMERA)
         assertEquals(OsPermissionStatus.DENIED, (repo.read() as OsPermissionResult.Ready).value.status(OsPermission.CAMERA))
-        assertTrue(repo.claimPrompt(OsPermission.MICROPHONE) is OsPermissionResult.Failed)
+        // Calls and camera capture ask for the microphone after its explanation; call integration is never prompted.
+        assertEquals(true, (repo.claimPrompt(OsPermission.MICROPHONE) as OsPermissionResult.Ready).value)
+        assertTrue(repo.claimPrompt(OsPermission.INCOMING_CALL) is OsPermissionResult.Failed)
     }
 
     @Test fun postCreationExplanationIsDurablePerAccountAndChannelsUpdateNamesWithoutRequestingPermission() = runTest(timeout = 5.seconds) {
@@ -75,7 +77,7 @@ class OsPermissionsPlatformTest {
         assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, settings.action)
         assertEquals("package:${app.packageName}", settings.data.toString())
         assertEquals(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS, PermissionsPlatform.batterySettings().action)
-        assertNull(PermissionsPlatform.permissionName(OsPermission.MICROPHONE))
+        assertEquals(android.Manifest.permission.RECORD_AUDIO, PermissionsPlatform.permissionName(OsPermission.MICROPHONE))
         assertNull(PermissionsPlatform.permissionName(OsPermission.INCOMING_CALL))
         assertEquals(
             if (Build.VERSION.SDK_INT >= 33) Manifest.permission.POST_NOTIFICATIONS else null,

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.data
+import java.util.UUID
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.sdk.*
 
@@ -17,7 +18,21 @@ internal class DefaultDeviceDirectoryRepository(transport: RepositoryTransport) 
             }
         }
     }
-    /** The native approval/custody interaction is not installed; this never invokes a revoke optimistically. */
-    override suspend fun revoke(account: String, device: String): ClientResult<Unit> =
-        ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.FEATURE_NOT_INSTALLED)
+    /**
+     * `device.revoke {"device_id"}` for another device of the account. Success is reported only after
+     * the SDK accepted the revocation; the caller rereads the list instead of removing a row itself.
+     */
+    override suspend fun revoke(account: String, device: String): ClientResult<Unit> {
+        if (account.isBlank() || account.length > 4096 || device.isBlank() || device.length > 4096) {
+            return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
+        }
+        val body = SecretBody.fields { publicText("device_id", device) }
+        return when (val result = source.revoke(RepositoryContext(account, UUID.randomUUID().toString()), body)) {
+            is CoreResult.Failure -> ClientResult.Failed(result.appProblem())
+            is CoreResult.Success -> {
+                result.value.close()
+                ClientResult.Ready(Unit)
+            }
+        }
+    }
 }

@@ -20,12 +20,54 @@ import org.robolectric.annotation.Config
 class SettingsScreenTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun invitationShowsTheQrCodeWithATextAlternative() {
+        var state by mutableStateOf(
+            SettingsState(
+                page = SettingsPage.PAIRING,
+                accountLabel = "Alice",
+                pairing = SettingsPairing(step = PairingStep.INVITED, invitationChunks = 2, invitationModules = 21)
+            )
+        )
+        val actions = mutableListOf<SettingsAction>()
+        compose.setContent {
+            RamfluxTheme {
+                SettingsScreen(
+                    state,
+                    actions::add,
+                    drawInvitation = { _, block -> block("chunk".toCharArray()) },
+                    drawInvitationQr = { block -> block { x, y -> (x + y) % 2 == 0 } }
+                )
+            }
+        }
+        compose.onNodeWithTag("invitation-qr").assertExists()
+        compose.onNodeWithContentDescription("QR code of the one-time invitation").assertExists()
+        compose.onNodeWithTag("invitation-chunk-0").assertDoesNotExist()
+        compose.onNodeWithText("Show as text").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(listOf<SettingsAction>(SettingsAction.InvitationAsText(true)), actions)
+            state = state.copy(pairing = state.pairing.copy(invitationAsText = true))
+        }
+        compose.onNodeWithTag("invitation-qr").assertDoesNotExist()
+        compose.onNodeWithTag("invitation-chunk-0").assertExists()
+        compose.onNodeWithText("Show as QR code").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(SettingsAction.InvitationAsText(false), actions.last()) }
+    }
+
     @Test fun noAccountDevicesExplainsBothLocalesAndEmitsAccountActionWithoutPrivateReads() {
         var locale by mutableStateOf("en")
         val accounts = FakeSettingsAccounts().apply { result = ClientResult.Ready(AccountCatalog(emptyList(), null)) }
         val devices = FakeDeviceDirectory()
         val status = FakeAccountStatus()
-        val vm = SettingsViewModel(accounts, devices, status, FakeSettingsAppearance(), FakeSettingsSession(), FakeSettingsLanguage())
+        val vm =
+            SettingsViewModel(
+                accounts,
+                devices,
+                status,
+                FakeSettingsAppearance(),
+                FakeSettingsSession(),
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
+            )
         vm.onAction(SettingsAction.Page(SettingsPage.DEVICES))
         val actions = mutableListOf<SettingsAction>()
         compose.setContent {
@@ -83,9 +125,10 @@ class SettingsScreenTest {
                 RamfluxTheme { SettingsScreen(SettingsState(page = SettingsPage.APPEARANCE), { actions++ }) }
             }
         }
-        compose.onNodeWithText("Follow system").assertExists()
+        // "Follow system" is both the language row's value and the first theme choice; check the theme choice.
+        compose.onNodeWithTag("theme:system").assertTextContains("Follow system")
         compose.runOnIdle { locale = "zh-CN" }
-        compose.onNodeWithText("跟随系统").assertExists()
+        compose.onNodeWithTag("theme:system").assertTextContains("跟随系统")
         compose.onNodeWithText("深色").assertExists()
         compose.runOnIdle { assertEquals(0, actions) }
     }

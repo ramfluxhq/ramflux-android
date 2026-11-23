@@ -12,6 +12,10 @@
     <string name="shell_more_permissions_detail">本设备、群组角色和本次操作</string>
     <string name="shell_more_settings">设置</string>
     <string name="shell_more_settings_detail">账号、服务和本机偏好</string>
+    <!-- More hub row: the call history, where an incoming call can be answered. -->
+    <string name="shell_more_calls">通话</string>
+    <!-- Value under the calls row of the More hub. -->
+    <string name="shell_more_calls_detail">通话记录和来电</string>
     <string name="shell_more_tasks">任务</string>
     <string name="shell_more_tasks_detail">查看任务与待处理事项</string>
     <string name="shell_nav_add">添加快捷入口</string>
@@ -29,22 +33,22 @@
     <string name="shell_tab_groups">群组</string>
     <string name="shell_tab_messages">消息</string>
     <string name="shell_tab_more">更多</string>
-    <string name="startup_account_on_device">已有本机账号</string>
+    <string name="startup_account_on_device">已有本机账户</string>
     <string name="startup_change_node">更改节点</string>
     <string name="startup_change_node_detail">也可以使用自己的节点</string>
-    <string name="startup_change_node_note">不会改变账号所属节点或授权</string>
+    <string name="startup_change_node_note">不会改变账户所属节点或授权</string>
     <string name="startup_continue">继续</string>
-    <string name="startup_create">创建账号</string>
+    <string name="startup_create">创建账户</string>
     <string name="startup_device_unauthorized">设备尚未获授权</string>
     <string name="startup_device_unauthorized_detail">查看当前可用的接入方式</string>
-    <string name="startup_gateway_purpose">创建账号，或继续使用已有账号。</string>
+    <string name="startup_gateway_purpose">创建账户，或继续使用已有账户。</string>
     <string name="startup_headline">让会话与协作\n保持连接</string>
     <string name="startup_identity">身份</string>
-    <string name="startup_identity_body">连接与账号分别确认</string>
+    <string name="startup_identity_body">连接与账户分别确认</string>
     <string name="startup_identity_title">继续使用已有身份</string>
-    <string name="startup_link">关联已有账号</string>
+    <string name="startup_link">关联已有账户</string>
     <string name="startup_mark">R</string>
-    <string name="startup_no_account_note">没有账号？可以在这部手机上创建，或从恢复短语恢复。</string>
+    <string name="startup_no_account_note">没有账户？可以在这部手机上创建，或从恢复短语恢复。</string>
     <string name="startup_official_detail">默认连接方式</string>
     <string name="startup_official_node">官方节点</string>
     <string name="startup_primary_device">主设备</string>
@@ -52,7 +56,7 @@
     <string name="startup_selected_node">已选择的节点</string>
     <string name="startup_starting">正在启动</string>
     <string name="startup_this_device">此设备</string>
-    <string name="startup_unlock">解锁现有账号</string>
+    <string name="startup_unlock">解锁现有账户</string>
     <string name="startup_unlock_local_body">当前不提供远程口令表单</string>
     <string name="startup_unlock_local_note">仅在本机解锁，不会扩大权限，也不会向远程目标发送口令。</string>
     <string name="startup_unlock_local_title">需要在本机完成解锁</string>
@@ -60,4 +64,32 @@
     <string name="startup_welcome_purpose">这部手机可以作为你的主设备。</string>
     <string name="shell_detail_empty_title">未选择内容</string>
     <string name="shell_detail_empty_body">在列表中选择一项即可在此打开。</string>
+    <!-- Title of the local notification for a message that arrived while the app was not in front. It must stay generic: never a sender, conversation or message text. -->
+    <string name="notification_new_message">新消息</string>
+    <!-- Accessibility label of the info button next to a section title on the unlock pages. -->
+    <string name="startup_info">详细信息</string>
+    <!-- Accessibility label of the info button that opens the unlock details of an account; %1$s is the account name. -->
+    <string name="startup_account_details">%1$s 的详细信息</string>
+    <!-- Value of the Identity row on the unlock details page. -->
+    <string name="startup_identity_human">已有的人类身份</string>
+    <!-- Title of the page that explains how unlocking works on this phone. -->
+    <string name="startup_view_unlock_title">设备解锁说明</string>
+    <!-- Introduction of the device unlock info page. -->
+    <string name="startup_unlock_info_body">解锁只在这部手机上进行。账户码不会发送给节点，也不会发送给其他设备。</string>
+    <!-- Row title and button that open the six-digit account code entry. -->
+    <string name="startup_unlock_with_code">用账户码解锁</string>
+    <!-- Detail of the row that explains unlocking with the account code. -->
+    <string name="startup_unlock_with_code_detail">输入创建账户时设置的六位账户码</string>
+    <!-- Row title: this version cannot unlock with a fingerprint or face. -->
+    <string name="startup_no_biometric">暂不支持生物识别解锁</string>
+    <!-- Detail of the row about biometric unlock. -->
+    <string name="startup_no_biometric_detail">此版本只能用六位账户码解锁</string>
+    <!-- Row title: the app has no PIN apart from the account code. -->
+    <string name="startup_no_app_pin">没有单独的应用 PIN</string>
+    <!-- Detail of the row about an app PIN. -->
+    <string name="startup_no_app_pin_detail">六位账户码就是应用唯一的代码</string>
+    <!-- Row title about a forgotten account code. -->
+    <string name="startup_forgot_code">忘记账户码</string>
+    <!-- Detail of the row about a forgotten account code. -->
+    <string name="startup_forgot_code_detail">用恢复短语在这部手机上恢复账户</string>
 </resources>

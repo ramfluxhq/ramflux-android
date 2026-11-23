@@ -15,6 +15,12 @@ import org.ramflux.data.*
 import org.ramflux.designsystem.*
 import org.ramflux.feature.groups.impl.R
 
+/**
+ * Groups, invitations, the roster, the invite picker and group requests, each read through the repository's
+ * window pages into its own bounded [PageWindow]; filtering runs in the data layer off the main thread. The
+ * group header (name, epoch, own role) is read separately and keeps only the own roster row. While visible
+ * the screen follows the group journal topics through the shared event hub and reloads the visible windows.
+ */
 @HiltViewModel
 class GroupsViewModel @Inject constructor(
     private val groups: GroupDirectoryRepository,
@@ -26,28 +32,73 @@ class GroupsViewModel @Inject constructor(
     private val channel = Channel<GroupsEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
     val state = combine(local, session.status) { value, status ->
-        if (status.phase == ClientPhase.OPEN) {
-            value.copy(
-                groups = value.groups.filter {
-                    value.query.isBlank() || it.title.contains(value.query, true) || it.id.contains(value.query, true)
-                }.toPersistentList()
-            )
-        } else {
-            GroupsState(problem = uiText(R.string.groups_closed))
-        }
+        if (status.phase == ClientPhase.OPEN) value else GroupsState(problem = uiText(R.string.groups_closed))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), GroupsState())
+
+    /** One windowed list: its bounded window, its page source and the job reading its next or previous page. */
+    private class Feed<T>(
+        id: (T) -> String,
+        private val source: suspend (String, String?, String, String?) -> ClientResult<WindowedPage<T>>
+    ) {
+        val window = PageWindow(WINDOW_PAGES, id)
+        var job: Job? = null
+
+        /**
+         * Reads one page for (account, group, query, cursor). The returned action places it once the read is known
+         * to be current: a new window ([forward] null), after the window or before it. A failure is returned too.
+         */
+        suspend fun stage(
+            account: String,
+            group: String?,
+            query: String,
+            cursor: String?,
+            forward: Boolean?
+        ): Pair<ClientResult<*>?, () -> Unit> = when (val result = source(account, group, query, cursor)) {
+            is ClientResult.Ready -> null to {
+                when (forward) {
+                    null -> window.reset(result.value)
+                    true -> window.append(result.value)
+                    false -> window.prepend(result.value)
+                }
+            }
+            else -> result to { if (forward == null) clear() }
+        }
+
+        fun clear() = window.reset(WindowedPage(emptyList(), null, null))
+    }
+    private val groupFeed = Feed<GroupSummary>({ it.id }) { account, _, query, cursor -> groups.groupPage(account, query, cursor) }
+    private val inviteFeed = Feed<GroupInvitation>({ it.id }) { account, _, _, cursor -> groups.invitationPage(account, cursor) }
+    private val memberFeed = Feed<GroupMember>({ it.id }) { account, group, query, cursor ->
+        groups.memberPage(account, requireNotNull(group), query, cursor)
+    }
+    private val contactFeed = Feed<ContactSummary>({ it.id }) { account, _, query, cursor ->
+        contacts.contactPage(account, ContactListScope.ACCEPTED, query, cursor)
+    }
+    private val requestFeed =
+        Feed<GroupRequest>({ it.id }) { account, group, _, cursor -> groups.requestPage(account, requireNotNull(group), cursor) }
+    private val feeds = mapOf(
+        GroupList.GROUPS to groupFeed,
+        GroupList.INVITATIONS to inviteFeed,
+        GroupList.MEMBERS to memberFeed,
+        GroupList.CONTACTS to contactFeed,
+        GroupList.REQUESTS to requestFeed
+    )
+
     private var active = false
     private var request: Job? = null
+    private var queryJob: Job? = null
     private var watch: Job? = null
     private var watchedAccount: String? = null
     private var ticket = 0L
-    private var revision = 0L
     private var needsRefresh = false
     private var owner: String? = null
-    private var detail: GroupDetail? = null
-    private var inviteCache: List<GroupInvitation> = emptyList()
-    private var contactCache: List<ContactSummary> = emptyList()
+
+    /** The selected group with only the own roster row kept, plus the roster size at that read. */
+    private var header: Pair<GroupDetail, Int>? = null
     private var prepared: Pair<String, GroupChange>? = null
+
+    /** The page the screen was entered at ([GroupsAction.Enter]); back from it leaves the screen. */
+    private var entry: GroupsPage? = null
     private val lifecycle = viewModelScope.launch {
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect {
             stop()
@@ -57,7 +108,7 @@ class GroupsViewModel @Inject constructor(
     }
     fun onAction(action: GroupsAction) {
         if (local.value.confirmation != null && action != GroupsAction.Confirm && action !is GroupsAction.Visible &&
-            action !in setOf(GroupsAction.Deny)
+            action != GroupsAction.Deny
         ) {
             return
         }
@@ -72,27 +123,48 @@ class GroupsViewModel @Inject constructor(
                 }
             }
             GroupsAction.Refresh -> if (request?.isActive != true) read()
-            GroupsAction.Back -> if (local.value.page == GroupsPage.LIST) event(GroupsEvent.Back) else page(GroupsPage.LIST, null)
-            GroupsAction.SetupAccount -> event(GroupsEvent.SetupAccount)
-            is GroupsAction.Page -> page(action.page, action.id)
-            is GroupsAction.Query -> local.update { it.copy(query = action.value.take(256)) }
-            is GroupsAction.Name -> if (!local.value.busy && action.value.toByteArray().size <= 512) {
-                local.update {
-                    it.copy(
-                        name = action.value
+            GroupsAction.Back -> {
+                val parent = local.value.page.parent()
+                if (parent == null || local.value.page == entry) {
+                    event(GroupsEvent.Back)
+                } else {
+                    page(
+                        parent,
+                        local.value.selected.takeIf {
+                            parent != GroupsPage.LIST
+                        }
                     )
                 }
             }
-            GroupsAction.Create -> if (!local.value.loading && local.value.name.isNotBlank()) {
-                prepare(
-                    GroupChange(GroupOperation.CREATE, UUID.randomUUID().toString(), name = local.value.name)
-                )
+            GroupsAction.SetupAccount -> event(GroupsEvent.SetupAccount)
+            is GroupsAction.Page -> page(action.page, action.id)
+            is GroupsAction.Enter -> if (!local.value.busy) {
+                entry = GroupsPage.DETAIL
+                local.update { it.copy(selected = action.id) }
+                page(GroupsPage.DETAIL, action.id)
             }
-            GroupsAction.Rename -> detail?.takeIf { local.value.authorityFresh && it.canManage }?.let {
+            is GroupsAction.More -> more(action.list, action.forward)
+            is GroupsAction.Query -> {
+                val text = action.value.take(MAX_QUERY)
+                if (text == local.value.query) return
+                local.update { it.copy(query = text) }
+                queryJob?.cancel()
+                queryJob = viewModelScope.launch {
+                    delay(QUERY_DEBOUNCE_MS)
+                    read(listsOnly = true)
+                }
+            }
+            is GroupsAction.Name -> if (!local.value.busy && action.value.toByteArray().size <= 512) {
+                local.update { it.copy(name = action.value) }
+            }
+            GroupsAction.Create -> if (!local.value.loading && local.value.name.isNotBlank()) {
+                prepare(GroupChange(GroupOperation.CREATE, UUID.randomUUID().toString(), name = local.value.name))
+            }
+            GroupsAction.Rename -> manageable()?.let {
                 prepare(GroupChange(GroupOperation.RENAME, it.group.id, it.group.epoch, name = local.value.name))
             }
-            is GroupsAction.Add -> detail?.takeIf { local.value.authorityFresh && it.canManage }?.let { current ->
-                contactCache.find { it.id == action.id && it.root != null }?.let {
+            is GroupsAction.Add -> manageable()?.let { current ->
+                contactFeed.window.rows().find { it.id == action.id && it.root != null }?.let {
                     prepare(
                         GroupChange(
                             GroupOperation.ADD,
@@ -118,13 +190,22 @@ class GroupsViewModel @Inject constructor(
             is GroupsAction.Remove -> member(action.id)?.let { (current, selected) ->
                 prepare(GroupChange(GroupOperation.REMOVE, current.group.id, current.group.epoch, member = selected))
             }
-            is GroupsAction.Invitation -> inviteCache.find {
+            is GroupsAction.Invitation -> inviteFeed.window.rows().find {
                 it.id == local.value.selected && it.expiresAt > System.currentTimeMillis() / 1000
             }?.let {
                 prepare(GroupChange(if (action.accept) GroupOperation.ACCEPT else GroupOperation.DECLINE, it.id, invitation = it))
             }
             GroupsAction.OpenChat -> navigateChat()
-            GroupsAction.Unavailable -> local.update { it.copy(problem = uiText(R.string.groups_unavailable)) }
+            is GroupsAction.Unavailable -> local.update {
+                it.copy(
+                    notice = uiText(
+                        when (action.control) {
+                            GroupControl.TRANSFER -> R.string.groups_transfer_unavailable
+                            GroupControl.LEAVE -> R.string.groups_leave_unavailable
+                        }
+                    )
+                )
+            }
             GroupsAction.Deny -> {
                 prepared = null
                 local.update { it.copy(confirmation = null) }
@@ -132,43 +213,65 @@ class GroupsViewModel @Inject constructor(
             GroupsAction.Confirm -> if (local.value.confirmation != null && request?.isActive != true) mutate()
         }
     }
+    private fun manageable(): GroupDetail? = header?.first?.takeIf { local.value.authorityFresh && it.canManage }
     private fun member(id: String): Pair<GroupDetail, GroupMember>? {
-        val current = detail ?: return null
-        if (!local.value.authorityFresh) return null
-        return current.roster.find { it.id == id && current.canChange(it) }?.let { current to it }
+        val current = manageable() ?: return null
+        return memberFeed.window.rows().find { it.id == id && current.canChange(it) }?.let { current to it }
     }
     private fun page(page: GroupsPage, id: String?) {
         if (local.value.busy) return
-        if (page in setOf(GroupsPage.DETAIL, GroupsPage.MEMBERS, GroupsPage.REQUESTS) &&
-            !local.value.groups.any { it.id == id }
-        ) {
-            return
+        val screen = local.value
+        val allowed = when (page) {
+            GroupsPage.LIST, GroupsPage.CREATE -> true
+            GroupsPage.DETAIL, GroupsPage.MEMBERS, GroupsPage.REQUESTS, GroupsPage.INVITE ->
+                id != null && (id == screen.selected || screen.groups.any { it.id == id })
+            GroupsPage.MEMBER -> id != null && screen.members.any { it.id == id }
+            GroupsPage.INVITATION -> id != null && screen.invitations.any { it.id == id }
         }
-        if (page == GroupsPage.INVITATION && inviteCache.none { it.id == id }) return
-        request?.cancel()
-        ticket++
-        detail = null
+        if (!allowed) return
+        val group = when (page) {
+            GroupsPage.LIST, GroupsPage.CREATE -> null
+            GroupsPage.MEMBER -> screen.selected
+            else -> id
+        }
+        retire()
         prepared = null
-
+        val sameGroup = group == screen.selected
+        if (!sameGroup) header = null
+        val keepRows = page == GroupsPage.MEMBER || (page == GroupsPage.MEMBERS && screen.page == GroupsPage.MEMBER)
+        if (!keepRows) memberFeed.clear()
         local.update {
             it.copy(
-                page = page, selected = id, title = null, confirmation = null, name = "", problem = null, notice = null,
-                members = persistentListOf(), requests = persistentListOf(), canManage = false, authorityFresh = false
+                page = page, selected = group, confirmation = null, name = "", query = "", problem = null, notice = null,
+                selectedMember = if (page == GroupsPage.MEMBER) it.members.find { row -> row.id == id } else null,
+                selectedInvitation = if (page == GroupsPage.INVITATION) it.invitations.find { row -> row.id == id } else null,
+                members = if (keepRows) it.members else persistentListOf(),
+                contacts = persistentListOf(), requests = persistentListOf(),
+                canManage = false, authorityFresh = false, loaded = false,
+                title = if (sameGroup) it.title else it.groups.find { row -> row.id == group }?.title,
+                epoch = if (sameGroup) it.epoch else UiText.Empty,
+                memberCount = if (sameGroup) it.memberCount else UiText.Empty,
+                ownRole = if (sameGroup) it.ownRole else null
             )
         }
-        read()
+        if (page != GroupsPage.CREATE) read() else local.update { it.copy(loaded = true) }
+    }
+
+    /** Cancels every read and mutation in flight; results that arrive afterwards are discarded. */
+    private fun retire() {
+        request?.cancel()
+        queryJob?.cancel()
+        feeds.values.forEach { it.job?.cancel() }
+        ticket++
     }
     private fun stop() {
-        request?.cancel()
+        retire()
         watch?.cancel()
-
         watchedAccount = null
         owner = null
         prepared = null
-        detail = null
-        contactCache = emptyList()
-        inviteCache = emptyList()
-        ticket++
+        header = null
+        feeds.values.forEach { it.clear() }
     }
     private fun event(event: GroupsEvent) {
         stop()
@@ -203,9 +306,9 @@ class GroupsViewModel @Inject constructor(
     }
     private fun conceal(problem: UiText? = null, required: Boolean = false) {
         owner = null
-        detail = null
+        header = null
         prepared = null
-
+        feeds.values.forEach { it.clear() }
         watch?.cancel()
         watchedAccount = null
         local.value = GroupsState(problem = problem, accountRequired = required)
@@ -215,101 +318,97 @@ class GroupsViewModel @Inject constructor(
         watch?.cancel()
         watchedAccount = account
         watch = viewModelScope.launch {
-            groups.updates(account).collect { update ->
+            groups.updates(account).conflate().collect { update ->
                 if (!active || owner != account) return@collect
-                revision++
+                // Authority is stale until the header is read again: revoke the controls and any open review.
                 prepared = null
-
                 local.update {
                     it.copy(
                         authorityFresh = false, canManage = false, confirmation = null,
-                        members = it.members.map { member -> member.copy(manageable = false) }.toPersistentList()
+                        members = it.members.map { member -> member.copy(manageable = false) }.toPersistentList(),
+                        selectedMember = it.selectedMember?.copy(manageable = false)
                     )
                 }
                 when (update) {
-                    is ClientResult.Ready -> if (request?.isActive == true) needsRefresh = true else read()
+                    is ClientResult.Ready -> if (local.value.busy) needsRefresh = true else read()
                     is ClientResult.Failed -> local.update { it.copy(problem = update.problem.message()) }
                     is ClientResult.Unavailable -> local.update { it.copy(problem = uiText(R.string.groups_unavailable)) }
                 }
             }
         }
     }
-    private fun read() {
+
+    /** The windowed lists the current page shows. */
+    private fun GroupsPage.lists(): List<GroupList> = when (this) {
+        GroupsPage.LIST -> listOf(GroupList.GROUPS, GroupList.INVITATIONS)
+        GroupsPage.MEMBERS, GroupsPage.MEMBER -> listOf(GroupList.MEMBERS)
+        GroupsPage.INVITE -> listOf(GroupList.CONTACTS)
+        GroupsPage.REQUESTS -> listOf(GroupList.REQUESTS)
+        GroupsPage.INVITATION -> listOf(GroupList.INVITATIONS)
+        GroupsPage.CREATE, GroupsPage.DETAIL -> emptyList()
+    }
+
+    /**
+     * Reads the header of the selected group (where the page needs it) and the first page of every list the
+     * page shows. With [listsOnly], only the lists are read again (a new filter).
+     */
+    private fun read(listsOnly: Boolean = false) {
         if (!active || session.status.value.phase != ClientPhase.OPEN || local.value.busy) return
-        val expected = ++ticket
+        retire()
+        val expected = ticket
         val generation = session.status.value.generation
-        val observed = revision
-        local.update { it.copy(loading = true, loaded = false, problem = null, authorityFresh = false, canManage = false) }
+        val page = local.value.page
+        val group = local.value.selected
+        val query = local.value.query
+        local.update {
+            it.copy(
+                loading = true,
+                problem = null,
+                authorityFresh = if (listsOnly) it.authorityFresh else false,
+                canManage = if (listsOnly) it.canManage else false
+            )
+        }
         request = viewModelScope.launch {
             try {
                 val selected = account(expected, generation, owner) ?: return@launch
                 owner = selected.id
                 observe(selected.id)
-                val list = groups.list(selected.id)
+                val needsHeader = !listsOnly && group != null && page in HEADER_PAGES
+                val detail = if (needsHeader) groups.detail(selected.id, requireNotNull(group)) else null
                 current(expected, generation)
-                val invites = groups.invitations(selected.id)
-                current(expected, generation)
-                val group = local.value.selected
-                val detailResult = if (group != null && local.value.page != GroupsPage.INVITATION) {
-                    groups.detail(selected.id, group)
-                } else {
-                    null
+                val staged = page.lists().map { list ->
+                    requireNotNull(feeds[list]).stage(selected.id, group, query, null, null).also { current(expected, generation) }
                 }
-                current(expected, generation)
-                val requests = if (group != null && local.value.page == GroupsPage.REQUESTS) groups.requests(selected.id, group) else null
-                current(expected, generation)
-                val people = if (local.value.page == GroupsPage.MEMBERS) contacts.contacts(selected.id) else null
                 if (account(expected, generation, selected.id) == null) return@launch
-                if (observed != revision) {
-                    needsRefresh = true
-                    return@launch
-                }
-                val rows = when (list) {
-                    is ClientResult.Ready -> list.value
+                var failure: ClientResult<*>? = null
+                when (detail) {
+                    null -> Unit
+                    is ClientResult.Ready -> {
+                        val value = detail.value
+                        val own = value.roster.filter { it.active && it.root == value.own.root && it.device == value.own.device }
+                        header = value.copy(group = value.group.copy(members = emptyList()), roster = own) to value.roster.size
+                    }
                     else -> {
-                        failure(list)
-                        return@launch
+                        header = null
+                        failure = detail
                     }
                 }
-                if (rows.size > 512 || rows.map { it.id }.distinct().size != rows.size) {
-                    local.update { it.copy(problem = uiText(R.string.groups_invalid)) }
-                    return@launch
+                for ((problem, place) in staged) {
+                    place()
+                    if (failure == null) failure = problem
                 }
-                inviteCache = when (invites) {
-                    is ClientResult.Ready -> invites.value
-                    else -> {
-                        failure(invites)
-                        emptyList()
-                    }
-                }
-                detail = (detailResult as? ClientResult.Ready)?.value
-                detailResult?.takeUnless { it is ClientResult.Ready }?.let { failure(it) }
-                contactCache = (people as? ClientResult.Ready)?.value ?: emptyList()
-                people?.takeUnless { it is ClientResult.Ready }?.let { failure(it) }
                 local.update {
                     it.copy(
-                        account = selected.label ?: selected.id, loaded = true,
-                        groups = rows.map { row ->
-                            GroupRow(row.id, row.name ?: row.id, UiText.Quantity(R.plurals.groups_member_count, row.members.size.toULong()))
-                        }.toPersistentList(),
-                        invitations = inviteCache.map { row ->
-                            InviteRow(row.id, row.name ?: row.id, row.creator, row.inviter, UiText.DateTime(row.expiresAt))
-                        }.toPersistentList(),
-                        contacts = contactCache.filter { row -> row.root != null }.map { row ->
-                            GroupRow(row.id, row.name ?: row.principal, UiText.Data(row.principal))
-                        }.toPersistentList(),
-                        requests = (requests as? ClientResult.Ready)?.value.orEmpty().map { row ->
-                            RequestRow(row.id, row.status.requestLabel(row.waiting), UiText.DateTime(row.expiresAt))
-                        }.toPersistentList(),
+                        account = selected.label ?: selected.id,
+                        loaded = failure == null || it.loaded,
                         pending = groups.pending(selected.id)?.operationId
                     )
                 }
-                requests?.takeUnless { it is ClientResult.Ready }?.let { failure(it) }
-                if (local.value.page == GroupsPage.INVITATION && inviteCache.none { it.id == local.value.selected }) {
+                publish()
+                failure?.let(::failure)
+                if (page == GroupsPage.INVITATION && local.value.selectedInvitation == null) {
                     local.update { it.copy(problem = uiText(R.string.groups_expired)) }
                 }
-                projectDetail()
-                local.update { screen -> screen.copy(selectedInvitation = screen.invitations.find { it.id == screen.selected }) }
             } finally {
                 if (expected == ticket) {
                     local.update { it.copy(loading = false) }
@@ -321,25 +420,74 @@ class GroupsViewModel @Inject constructor(
             }
         }
     }
-    private fun projectDetail() {
-        val current = detail
-        local.update {
-            it.copy(
-                title = current?.group?.name ?: current?.group?.id,
-                epoch = current?.group?.epoch?.let { value -> UiText.Unsigned(value) } ?: UiText.Empty,
-                canManage = current?.canManage == true,
-                authorityFresh = current != null,
-                members = current?.roster.orEmpty().map { row ->
-                    MemberRow(
-                        row.id,
-                        row.principal,
-                        row.root,
-                        row.device,
-                        row.role.label(),
-                        row.active,
-                        current?.canChange(row) == true
-                    )
-                }.toPersistentList()
+
+    /** Loads the next or previous window page of one list; the other lists and the header are untouched. */
+    private fun more(list: GroupList, forward: Boolean) {
+        val feed = requireNotNull(feeds[list])
+        val account = owner ?: return
+        if (list !in local.value.page.lists() || request?.isActive == true || feed.job?.isActive == true) return
+        val cursor = (if (forward) feed.window.next else feed.window.previous) ?: return
+        val expected = ticket
+        val generation = session.status.value.generation
+        val group = local.value.selected
+        val query = local.value.query
+        local.update { it.copy(loadingMore = true) }
+        feed.job = viewModelScope.launch {
+            try {
+                val (problem, place) = feed.stage(account, group, query, cursor, forward)
+                current(expected, generation)
+                place()
+                if (problem == null) publish() else failure(problem)
+            } finally {
+                if (expected == ticket) local.update { it.copy(loadingMore = false) }
+            }
+        }
+    }
+
+    /** Projects the bounded windows and the header into screen rows (at most a few hundred rows per list). */
+    private fun publish() {
+        val current = header
+        val detail = current?.first
+        val paging = feeds.mapValues { (_, feed) -> ListPaging(feed.window.next != null, feed.window.previous != null) }
+        val members = memberFeed.window.rows().map { row ->
+            MemberRow(
+                row.id,
+                row.principal,
+                row.root,
+                row.device,
+                row.role.label(),
+                row.active,
+                detail?.canChange(row) == true,
+                row.role == GroupRole.ADMIN
+            )
+        }.toPersistentList()
+        val invitations = inviteFeed.window.rows().map { row ->
+            InviteRow(row.id, row.name ?: row.id, row.creator, row.inviter, UiText.DateTime(row.expiresAt))
+        }.toPersistentList()
+        local.update { screen ->
+            screen.copy(
+                groups = groupFeed.window.rows().map { row ->
+                    GroupRow(row.id, row.name ?: row.id, UiText.Quantity(R.plurals.groups_member_count, row.members.size.toULong()))
+                }.toPersistentList(),
+                invitations = invitations,
+                members = members,
+                contacts = contactFeed.window.rows().filter { it.root != null }.map { row ->
+                    GroupRow(row.id, row.name ?: row.principal, UiText.Data(row.principal))
+                }.toPersistentList(),
+                requests = requestFeed.window.rows().map { row ->
+                    RequestRow(row.id, row.status.requestLabel(row.waiting), UiText.DateTime(row.expiresAt))
+                }.toPersistentList(),
+                paging = paging.toPersistentMap(),
+                title = detail?.let { it.group.name ?: it.group.id } ?: screen.title,
+                epoch = detail?.group?.epoch?.let { value -> UiText.Unsigned(value) } ?: screen.epoch,
+                memberCount = current?.let { UiText.Quantity(R.plurals.groups_member_count, it.second.toULong()) } ?: screen.memberCount,
+                ownRole = detail?.ownRole?.label() ?: screen.ownRole,
+                canManage = detail?.canManage == true,
+                authorityFresh = detail != null,
+                selectedMember = screen.selectedMember?.let { selected ->
+                    members.find { it.id == selected.id } ?: selected.copy(manageable = false)
+                },
+                selectedInvitation = invitations.find { it.id == screen.selected }.takeIf { screen.page == GroupsPage.INVITATION }
             )
         }
     }
@@ -362,6 +510,7 @@ class GroupsViewModel @Inject constructor(
                 add(UiText.Data(change.root))
             }
             if (change.operation == GroupOperation.ROLE) add(change.role.label())
+            if (change.operation == GroupOperation.REMOVE) add(uiText(R.string.groups_remove_explanation))
             change.invitation?.let {
                 add(UiText.Data(it.creator))
                 add(UiText.Data(it.inviter))
@@ -373,7 +522,8 @@ class GroupsViewModel @Inject constructor(
     private fun mutate() {
         val attempt = prepared ?: return
         val accountId = owner ?: return
-        val expected = ++ticket
+        retire()
+        val expected = ticket
         val generation = session.status.value.generation
         local.update { it.copy(busy = true, confirmation = null, problem = null) }
         request = viewModelScope.launch {
@@ -420,6 +570,10 @@ class GroupsViewModel @Inject constructor(
                                 else -> failure(destination)
                             }
                         } else {
+                            if (attempt.second.operation == GroupOperation.REMOVE && !result.value.waiting) {
+                                attempt.second.member?.let { memberFeed.window.remove(it.id) }
+                                local.update { it.copy(page = GroupsPage.MEMBERS, selectedMember = null) }
+                            }
                             needsRefresh = true
                         }
                     }
@@ -441,7 +595,8 @@ class GroupsViewModel @Inject constructor(
         val group = local.value.selected ?: return
         val owner = owner ?: return
         if (request?.isActive == true) return
-        val expected = ++ticket
+        retire()
+        val expected = ticket
         val generation = session.status.value.generation
         request = viewModelScope.launch {
             if (account(expected, generation, owner) == null) return@launch
@@ -475,6 +630,22 @@ class GroupsViewModel @Inject constructor(
             )
         }
     }
+
+    private companion object {
+        /** Six repository pages of 100 rows: at most 600 rows held per list. */
+        const val WINDOW_PAGES = 6
+        const val MAX_QUERY = 256
+        const val QUERY_DEBOUNCE_MS = 250L
+        val HEADER_PAGES = setOf(GroupsPage.DETAIL, GroupsPage.MEMBERS, GroupsPage.MEMBER, GroupsPage.INVITE, GroupsPage.REQUESTS)
+    }
+}
+
+/** Where Back leads; null leaves the groups screen. */
+private fun GroupsPage.parent(): GroupsPage? = when (this) {
+    GroupsPage.LIST -> null
+    GroupsPage.CREATE, GroupsPage.DETAIL, GroupsPage.INVITATION -> GroupsPage.LIST
+    GroupsPage.MEMBERS, GroupsPage.REQUESTS -> GroupsPage.DETAIL
+    GroupsPage.MEMBER, GroupsPage.INVITE -> GroupsPage.MEMBERS
 }
 private fun ClientProblem.message() = when (reason) {
     ClientFailureReason.GROUP_CAPACITY -> uiText(R.string.groups_capacity)

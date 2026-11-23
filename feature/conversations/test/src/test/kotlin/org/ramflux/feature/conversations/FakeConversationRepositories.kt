@@ -2,7 +2,11 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.conversations
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
 import org.ramflux.data.*
 class FakeConversationAccounts : AccountAccessRepository {
     var catalog: ClientResult<AccountCatalog> = ClientResult.Ready(
@@ -29,6 +33,17 @@ class FakeConversationDirectory : ConversationDirectoryRepository {
     var search: ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CONVERSATIONS, UnavailableReason.UNSUPPORTED_BY_CORE)
     override suspend fun searchAvailability() = search
     override suspend fun openAvailability(account: String, conversation: String) = canOpen
+    var pending: ClientResult<Int> = ClientResult.Ready(0)
+    var pendingReads = 0
+    override suspend fun pendingRequests(account: String): ClientResult<Int> {
+        pendingReads++
+        return pending
+    }
+    val live = MutableSharedFlow<ClientResult<ConversationChange>>()
+    var watchers = 0
+    override fun changes(account: String): Flow<ClientResult<ConversationChange>> = live
+        .onStart { watchers++ }
+        .onCompletion { watchers-- }
 }
 class FakeConversationSession : ClientSessionRepository {
     override val status = MutableStateFlow(ClientSnapshot(ClientPhase.OPEN, 1))

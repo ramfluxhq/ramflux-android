@@ -4,7 +4,6 @@
     <string name="settings_settings">Settings</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_devices">Devices</string>
-    <string name="settings_backup">Backup</string>
     <string name="settings_back">Back</string>
     <string name="settings_refresh">Refresh</string>
     <string name="settings_system">Follow system</string>
@@ -28,7 +27,6 @@
     <string name="settings_current_device">This device</string>
     <string name="settings_other_device">Other device</string>
     <string name="settings_revoke">Revoke</string>
-    <string name="settings_backup_help">Backup actions require secure account access. No backup has been created or exported.</string>
     <string name="settings_sessions">Secure sessions</string>
     <string name="settings_session_ready">Ready</string>
     <string name="settings_session_reestablishing">Reestablishing</string>
@@ -50,4 +48,174 @@
     <string name="settings_permissions_help">Live system status and permission settings</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version %1$s (build %2$d)</string>
+    <!-- Settings row that locks the account on this phone. -->
+    <string name="settings_lock_account">Lock account</string>
+    <!-- Explains what locking does; the account code is six digits. -->
+    <string name="settings_lock_account_help">Closes your account data on this phone. Your six-digit account code opens it again.</string>
+    <!-- Title of the confirmation before another device is revoked. -->
+    <string name="settings_revoke_confirm_title">Revoke this device?</string>
+    <!-- Explains the consequence of revoking a device. -->
+    <string name="settings_revoke_confirm_body">The device loses access to this account at once. Messages it already holds stay on it. This cannot be undone; link it again to use it.</string>
+    <!-- Destructive button that revokes the device. -->
+    <string name="settings_revoke_confirm">Revoke device</string>
+    <!-- Button that closes the revoke confirmation without revoking. -->
+    <string name="settings_cancel">Cancel</string>
+    <!-- Section title on the settings page: account and device rows. -->
+    <string name="settings_group_account">Account and devices</string>
+    <!-- Settings row and page title: account and security. -->
+    <string name="settings_account_security">Account and security</string>
+    <!-- Account row value when no account is open. -->
+    <string name="settings_account_needed_short">No account open</string>
+    <!-- Settings row: this account's devices and sync. -->
+    <string name="settings_devices_sync">Devices and sync</string>
+    <!-- Value under the devices row. -->
+    <string name="settings_devices_sync_help">This device\'s authorization and sync status</string>
+    <!-- Section title on the settings page: connections and data rows. -->
+    <string name="settings_group_data">Connections and data</string>
+    <!-- Settings row: the nodes this phone connects to. -->
+    <string name="settings_nodes">Nodes</string>
+    <!-- Settings row and page title: backup and restore. -->
+    <string name="settings_backup_restore">Backup and restore</string>
+    <!-- Value under the backup row. -->
+    <string name="settings_backup_restore_help">Create, list and restore account backups</string>
+    <!-- Settings row: the media files this phone holds for the account. -->
+    <string name="settings_storage">Storage</string>
+    <!-- Value under the storage row. -->
+    <string name="settings_storage_help">Media and files kept on this device</string>
+    <!-- Section title on the settings page: application rows. -->
+    <string name="settings_group_app">App</string>
+    <!-- Settings row and page title: appearance and language. -->
+    <string name="settings_appearance_language">Appearance and language</string>
+    <!-- Value under the appearance row. -->
+    <string name="settings_appearance_language_help">Theme and app language</string>
+    <!-- Settings row and page title: diagnostics and about. -->
+    <string name="settings_diagnostics_about">Diagnostics and about</string>
+    <!-- Value under the diagnostics row. -->
+    <string name="settings_diagnostics_about_help">Run status and version</string>
+    <!-- Section title on the account page. -->
+    <string name="settings_security">Security</string>
+    <!-- Row that changes the six-digit account code. -->
+    <string name="settings_change_code">Change account code</string>
+    <!-- Value under the change-code row. -->
+    <string name="settings_change_code_help">The six-digit code that opens your account on this phone</string>
+    <!-- Row and page title: privacy settings. -->
+    <string name="settings_privacy">Privacy</string>
+    <!-- Value under the privacy row. -->
+    <string name="settings_privacy_help">Contact requests and open account</string>
+    <!-- Shown after the account code was changed. -->
+    <string name="settings_code_changed">Your account code was changed.</string>
+    <!-- Label of the current account code slots. -->
+    <string name="settings_code_current">Current account code</string>
+    <!-- Label of the new account code slots. -->
+    <string name="settings_code_new">New account code</string>
+    <!-- Help under the new code: the SDK refuses easy codes. -->
+    <string name="settings_code_new_help">Six digits, not all the same and not a straight run.</string>
+    <!-- Keypad key that deletes the last digit. -->
+    <string name="settings_code_delete">Delete</string>
+    <!-- Button that changes the account code. -->
+    <string name="settings_code_submit">Change code</string>
+    <!-- Refusal: the code must have six digits. -->
+    <string name="settings_code_not_six">Enter all six digits.</string>
+    <!-- Refusal: the new code is too easy. -->
+    <string name="settings_code_trivial">Choose a code that is not all the same digit or a straight run.</string>
+    <!-- Refusal: the new code equals the current one. -->
+    <string name="settings_code_same">The new code must differ from the current one.</string>
+    <!-- The current code was wrong or the change was refused. -->
+    <string name="settings_code_refused">The account code was not changed. Check the current code.</string>
+    <!-- Section title: who can send contact requests. -->
+    <string name="settings_contact_requests">Contact requests</string>
+    <!-- Contact request policy: review each request. -->
+    <string name="settings_requests_manual">Review each request</string>
+    <!-- Help for the manual policy. -->
+    <string name="settings_requests_manual_help">New contacts wait for your answer.</string>
+    <!-- Contact request policy: accept automatically. -->
+    <string name="settings_requests_auto">Accept automatically</string>
+    <!-- Help for the auto-accept policy. -->
+    <string name="settings_requests_auto_help">Requests that pass your safety rules are accepted.</string>
+    <!-- Section and row: open account (reachable by anyone). -->
+    <string name="settings_open_account_mode">Open account</string>
+    <!-- Row: the account's @username. -->
+    <string name="settings_username">@username</string>
+    <!-- Value of a row whose feature the core does not offer yet. -->
+    <string name="settings_blocked_by_sdk">Not available yet: the core does not offer it</string>
+    <!-- Row and page title: link a new device to this account. -->
+    <string name="settings_pairing_title">Link a new device</string>
+    <!-- Value under the link-device row. -->
+    <string name="settings_pairing_row_help">This phone invites and approves it</string>
+    <!-- Explains the inviting side and that joining from a phone is not available. -->
+    <string name="settings_pairing_help">This phone creates a one-time invitation for your other device, compares a code with it and approves it. Joining an account from a phone is not available yet.</string>
+    <!-- Button that creates a pairing invitation. -->
+    <string name="settings_pairing_start">Create invitation</string>
+    <!-- Shown while the pairing step runs. -->
+    <string name="settings_pairing_working">Working…</string>
+    <!-- Instruction to compare the emoji on both devices. -->
+    <string name="settings_pairing_compare">Check that the other device shows the same symbols in the same order.</string>
+    <!-- Button: the symbols match. -->
+    <string name="settings_pairing_match">They match</string>
+    <!-- Button: the symbols differ; stops pairing. -->
+    <string name="settings_pairing_mismatch">They differ</string>
+    <!-- Requester name when the joining device has no name. -->
+    <string name="settings_pairing_unnamed">Unnamed device</string>
+    <!-- Status chip on the approval card. -->
+    <string name="settings_pairing_waiting">Waiting for you</string>
+    <!-- Approval card title. -->
+    <string name="settings_pairing_review">Approve this device?</string>
+    <!-- Approval card scope label. -->
+    <string name="settings_pairing_rights">It may</string>
+    <!-- Button: decline the joining device. -->
+    <string name="settings_pairing_decline">Decline</string>
+    <!-- Button: approve the joining device. -->
+    <string name="settings_pairing_approve">Approve</string>
+    <!-- Host confirmation title before approval. -->
+    <string name="settings_pairing_confirm_title">Only approve a device you hold</string>
+    <!-- Host confirmation body before approval. -->
+    <string name="settings_pairing_confirm_body">The device gets access to your messages and contacts until you revoke it.</string>
+    <!-- Button that cancels the pairing. -->
+    <string name="settings_pairing_cancel">Cancel pairing</string>
+    <!-- Instruction above the one-time invitation. -->
+    <string name="settings_pairing_invitation">Enter this one-time invitation on your other device. It is shown once and hidden when you leave the app.</string>
+    <!-- Instruction above the one-time invitation when it is shown as a QR code. -->
+    <string name="settings_pairing_invitation_qr">Scan this one-time invitation with your other device. It is shown once and hidden when you leave the app.</string>
+    <!-- Accessibility description of the invitation QR code; never reads the invitation itself. -->
+    <string name="settings_pairing_qr_description">QR code of the one-time invitation</string>
+    <!-- Button that replaces the invitation QR code with numbered text chunks. -->
+    <string name="settings_pairing_show_text">Show as text</string>
+    <!-- Button that replaces the numbered invitation text chunks with the QR code. -->
+    <string name="settings_pairing_show_qr">Show as QR code</string>
+    <!-- Placeholder when the invitation is hidden. -->
+    <string name="settings_pairing_covered">Hidden while Ramflux is not in front</string>
+    <!-- Expiry of the invitation; %1$s is a date and time. -->
+    <string name="settings_pairing_expires">Expires %1$s</string>
+    <!-- Pairing finished. -->
+    <string name="settings_pairing_completed">The device was linked.</string>
+    <!-- Pairing was cancelled. -->
+    <string name="settings_pairing_cancelled">Pairing was cancelled.</string>
+    <!-- Pairing expired. -->
+    <string name="settings_pairing_expired">The invitation expired.</string>
+    <!-- Pairing was rejected. -->
+    <string name="settings_pairing_rejected">Pairing was declined.</string>
+    <!-- Pairing failed; the SDK code follows. -->
+    <string name="settings_pairing_failed">Pairing stopped.</string>
+    <!-- Language row value: the language is planned, not translated. -->
+    <string name="settings_language_untranslated">Translation in progress</string>
+    <!-- Separator between items of a short inline list, such as device rights. -->
+    <string name="settings_list_separator">", "</string>
+    <!-- Row and page title: this account's own contact card for peers. -->
+    <string name="settings_my_card">My contact card</string>
+    <!-- Value under the my-contact-card row. -->
+    <string name="settings_my_card_help">Let a contact add you and reach your node</string>
+    <!-- Explanation on the my-contact-card page. -->
+    <string name="settings_my_card_explanation">A contact who adds you with this card also learns your node, so messages and media they send reach you. It expires in seven days; open it again for a fresh one.</string>
+    <!-- Shown while the SDK signs the contact card. -->
+    <string name="settings_my_card_loading">Preparing your contact card…</string>
+    <!-- Shown when the SDK refused to export the contact card. -->
+    <string name="settings_my_card_failed">Your contact card could not be prepared. The account may still be connecting to its node.</string>
+    <!-- Button that asks for the contact card again. -->
+    <string name="settings_my_card_retry">Try again</string>
+    <!-- Accessibility description of the contact card QR code. -->
+    <string name="settings_my_card_qr">QR code of your contact card</string>
+    <!-- Shown instead of the QR code when the card does not fit. -->
+    <string name="settings_my_card_too_long">This card is too long for a QR code. Share it as text.</string>
+    <!-- Button that shares the card text with another app. -->
+    <string name="settings_my_card_share">Share contact card</string>
 </resources>

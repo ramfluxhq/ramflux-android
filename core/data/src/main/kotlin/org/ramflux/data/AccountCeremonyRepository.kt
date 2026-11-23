@@ -3,6 +3,8 @@
 
 package org.ramflux.data
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -23,12 +25,32 @@ class RecoveryPhrase(private val words: Array<CharArray>) : AutoCloseable {
 
 data class CeremonyPending(val id: String, val expiresInMs: Long)
 
+/** A started phrase recovery: the account anchor (fingerprint) the user confirms before phrase entry. */
+data class RecoveryPending(val accountId: String, val anchor: String)
+
 interface AccountCeremonyRepository {
     suspend fun beginCreate(displayName: String, nodeId: String?): ClientResult<CeremonyPending>
     suspend fun showPhrase(): ClientResult<RecoveryPhrase>
     suspend fun challenge(): ClientResult<IntArray>
     suspend fun confirm(words: Array<CharArray>, passphrase: CharArray): ClientResult<String>
     suspend fun cancel(): ClientResult<Unit>
+
+    /**
+     * Phrase recovery of an account whose data is on this installation (`account.recover.begin`).
+     * The SDK refuses an account that has no local data; a new installation needs a data restore
+     * or device pairing first.
+     */
+    suspend fun beginRecover(accountId: String): ClientResult<RecoveryPending> =
+        ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
+
+    /** `account.recover.confirm`. Both arrays are wiped before return; one attempt per ceremony. */
+    suspend fun confirmRecover(phrase: CharArray, code: CharArray, anchor: String): ClientResult<String> {
+        phrase.fill('\u0000')
+        code.fill('\u0000')
+        return ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
+    }
+
+    suspend fun cancelRecover(): ClientResult<Unit> = ClientResult.Ready(Unit)
 }
 
 class UnavailableAccountCeremonyRepository : AccountCeremonyRepository {
@@ -46,15 +68,24 @@ class UnavailableAccountCeremonyRepository : AccountCeremonyRepository {
 }
 
 /** SDK creation ceremony. The host custody provider, installed at open, stores the vault seed. */
-class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : AccountCeremonyRepository {
+class DefaultAccountCeremonyRepository(
+    transport: RepositoryTransport,
+    private val known: KnownAccountRegistry = MemoryKnownAccountRegistry(),
+    private val nodes: NodeSetupRepository? = null
+) : AccountCeremonyRepository {
     private val accounts = DefaultAccountsRepository(transport)
+    private var ceremonyNode: String? = null
     private val gate = Any()
     private var ceremony: String? = null
+    private var recovery: String? = null
 
     override suspend fun beginCreate(displayName: String, nodeId: String?): ClientResult<CeremonyPending> {
         val name = displayName.trim()
         if (name.isEmpty() || name.length > 64) return failed()
-        synchronized(gate) { if (ceremony != null) return busy() }
+        synchronized(gate) {
+            if (ceremony != null) return busy()
+            ceremonyNode = nodeId?.takeIf { it.isNotBlank() }
+        }
         val reply = accounts.accountCreateBegin(context(), SecretBody.fields {
             publicText("display_name", name)
             publicText("principal_kind", "human")
@@ -107,6 +138,11 @@ class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : Account
     override suspend fun confirm(words: Array<CharArray>, passphrase: CharArray): ClientResult<String> {
         try {
             synchronized(gate) { if (ceremony == null || words.size != 3) return failed() }
+            // The SDK refuses these too; refusing first keeps the one word-check attempt unspent.
+            AccountCode.newCodeRefusal(passphrase)?.let { refusal ->
+                val name = if (refusal == AccountCodeRefusal.TRIVIAL_CODE) "trivial_code" else "not_six_digits"
+                return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE, statusName = name))
+            }
             val reply = accounts.accountCreateConfirm(context(), SecretBody.fields {
                 charArrays("words", words)
                 chars("passphrase", passphrase)
@@ -115,7 +151,11 @@ class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : Account
                 is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
                 is CoreResult.Success -> try {
                     val created = reply.value.twoTexts("account_id", "display_name")
-                    synchronized(gate) { ceremony = null }
+                    val nodeId = synchronized(gate) {
+                        ceremony = null
+                        ceremonyNode.also { ceremonyNode = null }
+                    }
+                    remember(created.first, created.second, nodeId)
                     ClientResult.Ready(created.first)
                 } catch (_: IllegalArgumentException) {
                     failed()
@@ -144,6 +184,68 @@ class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : Account
         }
     }
 
+    override suspend fun beginRecover(accountId: String): ClientResult<RecoveryPending> {
+        if (accountId.isBlank() || accountId.length > 128) return failed()
+        synchronized(gate) { if (recovery != null) recovery = null }
+        val reply = accounts.accountRecoverBegin(context(), SecretBody.fields { publicText("account_id", accountId) })
+        return when (reply) {
+            is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
+            is CoreResult.Success -> try {
+                val (id, anchor) = reply.value.twoTexts("ceremony_id", "account_anchor")
+                if (id.isEmpty() || id.length > 128 || anchor.isEmpty() || anchor.length > 256) failed()
+                else {
+                    synchronized(gate) { recovery = id }
+                    ClientResult.Ready(RecoveryPending(accountId, anchor))
+                }
+            } catch (_: IllegalArgumentException) {
+                failed()
+            } finally {
+                reply.value.close()
+            }
+        }
+    }
+
+    override suspend fun confirmRecover(phrase: CharArray, code: CharArray, anchor: String): ClientResult<String> {
+        try {
+            synchronized(gate) { if (recovery == null) return failed() }
+            if (!AccountCode.complete(code)) {
+                return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE, statusName = "not_six_digits"))
+            }
+            // Every confirmation consumes the ceremony, whatever its outcome.
+            synchronized(gate) { recovery = null }
+            val reply = accounts.accountRecoverConfirm(context(), SecretBody.fields {
+                chars("phrase", phrase)
+                chars("passphrase", code)
+                publicText("confirmed_anchor", anchor)
+            })
+            return when (reply) {
+                is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
+                is CoreResult.Success -> try {
+                    val recovered = reply.value.twoTexts("account_id", "display_name")
+                    remember(recovered.first, recovered.second, null)
+                    ClientResult.Ready(recovered.first)
+                } catch (_: IllegalArgumentException) {
+                    failed()
+                } finally {
+                    reply.value.close()
+                }
+            }
+        } finally {
+            phrase.fill('\u0000')
+            code.fill('\u0000')
+        }
+    }
+
+    override suspend fun cancelRecover(): ClientResult<Unit> {
+        synchronized(gate) { recovery ?: return ClientResult.Ready(Unit) }
+        val reply = accounts.accountRecoverCancel(context(), JsonObject(emptyMap()))
+        synchronized(gate) { recovery = null }
+        return when (reply) {
+            is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
+            is CoreResult.Success -> ClientResult.Ready(Unit)
+        }
+    }
+
     private fun readPending(reply: org.ramflux.sdk.SecretReply): ClientResult<CeremonyPending> = try {
         val (id, expires) = reply.textAndLong("ceremony_id", "expires_in_ms")
         if (!id.startsWith("ceremony-") || id.length > 128 || expires <= 0) failed()
@@ -156,6 +258,14 @@ class DefaultAccountCeremonyRepository(transport: RepositoryTransport) : Account
     }
 
     // custody_setup rejects a frame operation_id. The in-memory ceremony id is the guard.
+    /** Records a created or recovered account in this device's registry (public facts only). */
+    private suspend fun remember(id: String, displayName: String, nodeId: String?) {
+        val origin = nodeId?.let { wanted ->
+            (nodes?.list() as? ClientResult.Ready)?.value?.firstOrNull { it.id == wanted }?.url
+        }
+        withContext(Dispatchers.IO) { known.record(KnownAccount(id, displayName, origin)) }
+    }
+
     private fun context() = RepositoryContext(null)
     private fun <T> failed(): ClientResult<T> = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
     private fun <T> busy(): ClientResult<T> = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 5, ClientOutcome.NONE))

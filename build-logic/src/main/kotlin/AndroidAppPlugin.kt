@@ -28,6 +28,14 @@ class AndroidAppPlugin : Plugin<Project> {
             compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
             buildTypes.getByName("release") { isMinifyEnabled = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt")) }
             buildTypes.getByName("debug").isPseudoLocalesEnabled = true
+            // Opt-in real runs (scripts/realrun.sh): the debug build under its own application id and
+            // launcher label, so it installs beside another build of the app on a shared device.
+            buildTypes.create("realrun") {
+                initWith(buildTypes.getByName("debug"))
+                applicationIdSuffix = ".realrun"
+                matchingFallbacks += "debug"
+            }
+            if (providers.gradleProperty("ramflux.realrun").orNull == "true") testBuildType = "realrun"
             packaging.jniLibs.useLegacyPackaging = false
             lint { warningsAsErrors = true; informational += setOf("AndroidGradlePluginVersion", "NewerVersionAvailable", "GradleDependency") }
         }

@@ -6,24 +6,31 @@ package org.ramflux.sdk
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 
-/** Bounded byte parser. Nodes hold offsets, never decoded secret Strings or JSON trees. */
+/**
+ * Bounded byte parser. Nodes hold offsets, never decoded secret Strings or JSON trees.
+ *
+ * Work and memory are bounded by the reply itself: at most [MAX_BYTES] (the SDK frame size), at most
+ * [MAX_DEPTH] levels of nesting (the recursion bound), and at most [MAX_VALUES] values, the most a
+ * frame of [MAX_BYTES] can hold (every value after the first needs its own byte plus a separator).
+ * Scalars share one empty child list, so a frame costs one small offset node per value.
+ */
 internal class ByteJson(private val bytes: ByteArray) {
     data class Node(val start: Int, val end: Int, val kind: Int, val children: List<Node>)
     private var position = 0
     private var values = 0
     fun parse(): Node {
-        require(bytes.size <= 1 shl 20)
+        require(bytes.size <= MAX_BYTES)
         val node = value(0)
         space(); require(position == bytes.size)
         return node
     }
     private fun space() { while (position < bytes.size && bytes[position].toInt() in listOf(9, 10, 13, 32)) position++ }
     private fun value(depth: Int): Node {
-        require(depth <= 32 && ++values <= 4096)
+        require(depth <= MAX_DEPTH && ++values <= MAX_VALUES)
         space(); require(position < bytes.size)
         val start = position
         val kind = bytes[position++].toInt()
-        val children = mutableListOf<Node>()
+        var children: MutableList<Node>? = null
         when (kind) {
             34 -> {
                 var closed = false
@@ -43,14 +50,16 @@ internal class ByteJson(private val bytes: ByteArray) {
             }
             123, 91 -> {
                 val end = if (kind == 123) 125 else 93
+                val members = ArrayList<Node>()
+                children = members
                 space()
                 if (position < bytes.size && bytes[position].toInt() == end) position++ else {
                     while (true) {
                         if (kind == 123) {
-                            val key = value(depth + 1); require(key.kind == 34); children.add(key)
+                            val key = value(depth + 1); require(key.kind == 34); members.add(key)
                             space(); require(position < bytes.size && bytes[position++].toInt() == 58)
                         }
-                        children.add(value(depth + 1)); space(); require(position < bytes.size)
+                        members.add(value(depth + 1)); space(); require(position < bytes.size)
                         val next = bytes[position++].toInt()
                         if (next == end) break
                         require(next == 44)
@@ -70,7 +79,7 @@ internal class ByteJson(private val bytes: ByteArray) {
                 }
             }
         }
-        return Node(start, position, kind, children)
+        return Node(start, position, kind, children ?: emptyList())
     }
     private fun literal(start: Int, end: Int, expected: String) = end - start == expected.length && expected.indices.all { bytes[start + it].toInt() == expected[it].code }
     fun field(node: Node, name: String): Node? {
@@ -139,4 +148,12 @@ internal class ByteJson(private val bytes: ByteArray) {
         } finally { output.fill('\u0000') }
     }
     private fun hex(byte: Int): Int = when (byte) { in 48..57 -> byte - 48; in 65..70 -> byte - 55; in 97..102 -> byte - 87; else -> -1 }
+
+    companion object {
+        /** The SDK's frame ceiling (`c_abi/v2/state.rs` `MAX_FRAME_BYTES`). */
+        const val MAX_BYTES = 1 shl 20
+        const val MAX_DEPTH = 32
+        /** Derived from [MAX_BYTES], never a separate row budget: `[0,0,...]` is the densest frame. */
+        const val MAX_VALUES = (MAX_BYTES + 1) / 2
+    }
 }

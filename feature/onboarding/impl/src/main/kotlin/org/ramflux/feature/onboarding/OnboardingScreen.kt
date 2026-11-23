@@ -31,7 +31,8 @@ fun OnboardingScreen(
 ) {
     val theme = LocalRFTheme.current
     val challenge = remember { ChallengeEntry() }
-    val unlockPassphrase = remember { ErasableBuffer() }
+    val unlockCode = remember { ErasableBuffer() }
+    val recovery = remember { RecoveryEntry() }
     Scaffold(modifier = modifier.testTag("onboarding-window"), contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
         val frame = Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)
         if (state.page == OnboardingPage.CREATE) {
@@ -40,228 +41,258 @@ fun OnboardingScreen(
         }
         Box(frame, contentAlignment = Alignment.TopCenter) {
             Column(Modifier.fillMaxSize()) {
+                val subtitle = stringResource(R.string.ui_your_identity_your_connections)
                 Box(Modifier.testTag("onboarding-header")) {
-                    val subtitle = stringResource(R.string.ui_your_identity_your_connections)
-                    Column {
-                        KitPageHeader(
-                            state.page.title.render(),
-                            subtitle = subtitle,
-                            onBack = { onAction(OnboardingAction.Back) },
-                            actionLabel = stringResource(R.string.ui_refresh),
-                            onAction = { if (!state.busy && state.sessionReady) onAction(OnboardingAction.Refresh) }
-                        )
-                        Text(subtitle, color = theme.secondary)
-                    }
+                    KitPageHeader(
+                        state.page.title.render(),
+                        subtitle = subtitle,
+                        onBack = { onAction(OnboardingAction.Back) },
+                        actionLabel = stringResource(R.string.ui_refresh),
+                        onAction = { if (!state.busy && state.sessionReady) onAction(OnboardingAction.Refresh) }
+                    )
                 }
-                Column(
-                    Modifier.weight(1f).fillMaxWidth().testTag("onboarding-body")
-                        .verticalScroll(rememberScrollState()).padding(theme.gap.dp),
-                    verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
-                ) {
-                    if (state.busy) {
-                        KitEmpty(
-                            "loader",
-                            stringResource(R.string.ui_please_wait),
-                            stringResource(R.string.ui_checking_the_current_state)
-                        )
-                    }
-                    state.notice?.let { notice ->
-                        KitEmpty(
-                            if (notice.kind == OnboardingNoticeKind.UNAVAILABLE) "inbox" else "circle-alert",
-                            if (notice.kind == OnboardingNoticeKind.UNAVAILABLE) {
-                                stringResource(R.string.ui_not_available_yet)
-                            } else {
-                                stringResource(R.string.ui_unable_to_continue)
-                            },
-                            notice.message.render()
-                        )
-                    }
-                    if (state.sessionReady) {
-                        when (state.page) {
-                            OnboardingPage.START, OnboardingPage.CONTINUE, OnboardingPage.WELCOME, OnboardingPage.RESUME -> {
-                                Text(
-                                    stringResource(R.string.ui_private_conversations_an_identity_you_control),
-                                    style = MaterialTheme.typography.headlineMedium
-                                )
-                                Text(stringResource(R.string.ui_connect_to_a_node_then_create_or_open))
-                                KitButton(
-                                    stringResource(R.string.ui_set_up_a_connection),
-                                    { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) },
-                                    enabled = !state.busy,
-                                    tag = "connect"
-                                )
-                                if (state.accountsLoaded && state.accounts.isEmpty()) {
+                // The subtitle scrolls with the body, so at large font scales in short windows the fixed header and
+                // the actions keep their full height.
+                Column(Modifier.weight(1f).fillMaxWidth().testTag("onboarding-body").verticalScroll(rememberScrollState())) {
+                    Text(subtitle, color = theme.secondary)
+                    Column(Modifier.fillMaxWidth().padding(theme.gap.dp), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                        if (state.busy) {
+                            KitEmpty(
+                                "loader",
+                                stringResource(R.string.ui_please_wait),
+                                stringResource(R.string.ui_checking_the_current_state)
+                            )
+                        }
+                        state.notice?.let { notice ->
+                            KitEmpty(
+                                if (notice.kind == OnboardingNoticeKind.UNAVAILABLE) "inbox" else "circle-alert",
+                                if (notice.kind == OnboardingNoticeKind.UNAVAILABLE) {
+                                    stringResource(R.string.ui_not_available_yet)
+                                } else {
+                                    stringResource(R.string.ui_unable_to_continue)
+                                },
+                                notice.message.render()
+                            )
+                        }
+                        if (state.sessionReady) {
+                            when (state.page) {
+                                OnboardingPage.START, OnboardingPage.CONTINUE, OnboardingPage.WELCOME, OnboardingPage.RESUME -> {
                                     Text(
-                                        stringResource(R.string.ui_no_accounts_are_saved_on_this_device)
+                                        stringResource(R.string.ui_private_conversations_an_identity_you_control),
+                                        style = MaterialTheme.typography.headlineMedium
                                     )
-                                }
-                                for (account in state.accounts) {
-                                    KitRow(
-                                        account.label,
-                                        {},
-                                        value = account.subtitle.render(),
-                                        leading = { KitAvatar(account.label.take(1), 36f, KitAvatarKind.Person) },
-                                        trailingContent = {
-                                            TextButton(
-                                                enabled = !state.busy,
-                                                onClick = { onAction(OnboardingAction.SelectAccount(account.id)) }
-                                            ) {
-                                                Text(
-                                                    if (account.unlocked) {
-                                                        stringResource(R.string.ui_open)
-                                                    } else {
-                                                        stringResource(R.string.ui_unlock)
-                                                    }
-                                                )
-                                            }
-                                        },
-                                        testTag = account.id
-                                    )
-                                }
-                                for ((target, label) in listOf(
-                                    OnboardingPage.CREATE to stringResource(R.string.ui_create_account),
-                                    OnboardingPage.PAIR to stringResource(R.string.ui_link_device),
-                                    OnboardingPage.RECOVER to stringResource(R.string.ui_recover_account)
-                                )) {
+                                    Text(stringResource(R.string.ui_connect_to_a_node_then_create_or_open))
                                     KitButton(
-                                        label,
-                                        { onAction(OnboardingAction.Page(target)) },
+                                        stringResource(R.string.ui_set_up_a_connection),
+                                        { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) },
+                                        enabled = !state.busy,
+                                        tag = "connect"
+                                    )
+                                    if (state.accountsLoaded && state.accounts.isEmpty()) {
+                                        Text(
+                                            stringResource(R.string.ui_no_accounts_are_saved_on_this_device)
+                                        )
+                                    }
+                                    for (account in state.accounts) {
+                                        KitRow(
+                                            account.label,
+                                            {},
+                                            value = account.subtitle.render(),
+                                            leading = { KitAvatar(account.label.take(1), 36f, KitAvatarKind.Person) },
+                                            trailingContent = {
+                                                TextButton(
+                                                    enabled = !state.busy,
+                                                    onClick = { onAction(OnboardingAction.SelectAccount(account.id)) }
+                                                ) {
+                                                    Text(
+                                                        if (account.unlocked) {
+                                                            stringResource(R.string.ui_open)
+                                                        } else {
+                                                            stringResource(R.string.ui_unlock)
+                                                        }
+                                                    )
+                                                }
+                                            },
+                                            testTag = account.id
+                                        )
+                                    }
+                                    for ((target, label) in listOf(
+                                        OnboardingPage.CREATE to stringResource(R.string.ui_create_account),
+                                        OnboardingPage.PAIR to stringResource(R.string.ui_link_device),
+                                        OnboardingPage.RECOVER to stringResource(R.string.ui_recover_account)
+                                    )) {
+                                        KitButton(
+                                            label,
+                                            { onAction(OnboardingAction.Page(target)) },
+                                            kind = KitButtonKind.Secondary,
+                                            enabled = !state.busy,
+                                            tag = target.name
+                                        )
+                                    }
+                                    KitButton(
+                                        stringResource(R.string.backup_restore_title),
+                                        { onAction(OnboardingAction.RestoreBackup) },
                                         kind = KitButtonKind.Secondary,
                                         enabled = !state.busy,
-                                        tag = target.name
+                                        tag = "restore-backup"
                                     )
                                 }
-                            }
-                            OnboardingPage.CONNECTION, OnboardingPage.REPAIR -> {
-                                Text(stringResource(R.string.ui_saved_nodes))
-                                if (state.nodesLoaded && state.nodes.isEmpty()) Text(stringResource(R.string.ui_no_saved_nodes))
-                                for (node in state.nodes) {
-                                    KitRow(
-                                        node.id,
-                                        { onAction(OnboardingAction.ChooseNode(node.id)) },
-                                        value = node.url,
-                                        enabled = !state.busy,
-                                        trailingContent = { if (node.isDefault) Text(stringResource(R.string.ui_default)) },
-                                        testTag = node.id
-                                    )
-                                }
-                                KitButton(
-                                    stringResource(R.string.ui_add_a_node),
-                                    { onAction(OnboardingAction.Page(OnboardingPage.ADDRESS)) },
-                                    enabled = !state.busy,
-                                    tag = "add-node"
-                                )
-                            }
-                            OnboardingPage.DEFAULT_NODE -> state.selectedNode?.let { node ->
-                                Text(node.id)
-                                Text(node.url)
-                                if (node.keyChanged || !node.enabled) {
-                                    Text(
-                                        stringResource(R.string.ui_this_node_cannot_be_selected_review_its_identity)
-                                    )
-                                }
-                                KitButton(
-                                    stringResource(R.string.ui_use_this_node),
-                                    { onAction(OnboardingAction.UseNode) },
-                                    enabled = !state.busy && !node.keyChanged && node.enabled,
-                                    tag = "use-node"
-                                )
-                            }
-                            OnboardingPage.ADDRESS, OnboardingPage.CONNECTION_FAILED, OnboardingPage.OFFLINE, OnboardingPage.REFUSED -> {
-                                Text(stringResource(R.string.ui_add_your_node), style = MaterialTheme.typography.titleLarge)
-                                Text(stringResource(R.string.ui_enter_its_https_address_you_will_review_the))
-                                state.operatorKeyIssue?.let { issue ->
-                                    Text(
-                                        stringResource(
-                                            if (issue == OperatorKeyIssue.REQUIRED) {
-                                                R.string.ui_operator_key_required
-                                            } else {
-                                                R.string.ui_operator_key_mismatch
-                                            }
+                                OnboardingPage.CONNECTION, OnboardingPage.REPAIR -> {
+                                    Text(stringResource(R.string.ui_saved_nodes))
+                                    if (state.nodesLoaded && state.nodes.isEmpty()) Text(stringResource(R.string.ui_no_saved_nodes))
+                                    for (node in state.nodes) {
+                                        KitRow(
+                                            node.id,
+                                            { onAction(OnboardingAction.ChooseNode(node.id)) },
+                                            value = node.url,
+                                            enabled = !state.busy,
+                                            trailingContent = { if (node.isDefault) Text(stringResource(R.string.ui_default)) },
+                                            testTag = node.id
                                         )
+                                    }
+                                    KitButton(
+                                        stringResource(R.string.ui_add_a_node),
+                                        { onAction(OnboardingAction.Page(OnboardingPage.ADDRESS)) },
+                                        enabled = !state.busy,
+                                        tag = "add-node"
                                     )
                                 }
-                                Text(stringResource(R.string.ui_operator_key_explanation))
-                                KitTextField(
-                                    state.operatorKey,
-                                    { onAction(OnboardingAction.OperatorKey(it)) },
-                                    stringResource(R.string.ui_operator_key),
-                                    enabled = !state.busy,
-                                    tag = "operator-key"
-                                )
-                                KitTextField(
-                                    state.address,
-                                    { onAction(OnboardingAction.Address(it)) },
-                                    stringResource(R.string.ui_node_address),
-                                    enabled = !state.busy,
-                                    tag = "node-address"
-                                )
-                            }
-                            OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED ->
-                                state.identity?.let { identity ->
-                                    KitSecurityWarning(
-                                        stringResource(R.string.ui_compare_the_node_fingerprint),
-                                        stringResource(R.string.ui_compare_this_fingerprint_with_your_node_operator_a),
-                                        if (identity.keyChanged) KitWarningTone.Danger else KitWarningTone.Warning
+                                OnboardingPage.DEFAULT_NODE -> state.selectedNode?.let { node ->
+                                    Text(node.id)
+                                    Text(node.url)
+                                    if (node.keyChanged || !node.enabled) {
+                                        Text(
+                                            stringResource(R.string.ui_this_node_cannot_be_selected_review_its_identity)
+                                        )
+                                    }
+                                    KitButton(
+                                        stringResource(R.string.ui_use_this_node),
+                                        { onAction(OnboardingAction.UseNode) },
+                                        enabled = !state.busy && !node.keyChanged && node.enabled,
+                                        tag = "use-node"
                                     )
-                                    Text(identity.id)
-                                    Text(identity.url)
-                                    Text(identity.fingerprint, style = MaterialTheme.typography.bodySmall)
                                 }
-                            OnboardingPage.CONFIRM -> {
-                                Text(stringResource(R.string.ui_entered_address), style = MaterialTheme.typography.labelLarge)
-                                Text(state.address)
-                                Text(stringResource(R.string.ui_address_to_verify), style = MaterialTheme.typography.labelLarge)
-                                Text(state.normalizedOrigin ?: stringResource(R.string.ui_return_to_edit_the_address))
-                                Text(stringResource(R.string.ui_only_the_https_origin_is_sent_paths_query))
-                            }
-                            OnboardingPage.SAVED -> {
-                                Text(stringResource(R.string.ui_node_saved_choose_it_from_your_saved_nodes))
-                                KitButton(
-                                    stringResource(R.string.ui_choose_a_saved_node),
+                                OnboardingPage.ADDRESS,
+                                OnboardingPage.CONNECTION_FAILED,
+                                OnboardingPage.OFFLINE,
+                                OnboardingPage.REFUSED -> {
+                                    Text(stringResource(R.string.ui_add_your_node), style = MaterialTheme.typography.titleLarge)
+                                    Text(stringResource(R.string.ui_enter_its_https_address_you_will_review_the))
+                                    state.operatorKeyIssue?.let { issue ->
+                                        Text(
+                                            stringResource(
+                                                if (issue == OperatorKeyIssue.REQUIRED) {
+                                                    R.string.ui_operator_key_required
+                                                } else {
+                                                    R.string.ui_operator_key_mismatch
+                                                }
+                                            )
+                                        )
+                                    }
+                                    Text(stringResource(R.string.ui_operator_key_explanation))
+                                    KitTextField(
+                                        state.operatorKey,
+                                        { onAction(OnboardingAction.OperatorKey(it)) },
+                                        stringResource(R.string.ui_operator_key),
+                                        enabled = !state.busy,
+                                        tag = "operator-key"
+                                    )
+                                    KitTextField(
+                                        state.address,
+                                        { onAction(OnboardingAction.Address(it)) },
+                                        stringResource(R.string.ui_node_address),
+                                        enabled = !state.busy,
+                                        tag = "node-address"
+                                    )
+                                }
+                                OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED ->
+                                    state.identity?.let { identity ->
+                                        KitSecurityWarning(
+                                            stringResource(R.string.ui_compare_the_node_fingerprint),
+                                            stringResource(R.string.ui_compare_this_fingerprint_with_your_node_operator_a),
+                                            if (identity.keyChanged) KitWarningTone.Danger else KitWarningTone.Warning
+                                        )
+                                        Text(identity.id)
+                                        Text(identity.url)
+                                        Text(identity.fingerprint, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                OnboardingPage.CONFIRM -> {
+                                    Text(stringResource(R.string.ui_entered_address), style = MaterialTheme.typography.labelLarge)
+                                    Text(state.address)
+                                    Text(stringResource(R.string.ui_address_to_verify), style = MaterialTheme.typography.labelLarge)
+                                    Text(state.normalizedOrigin ?: stringResource(R.string.ui_return_to_edit_the_address))
+                                    Text(stringResource(R.string.ui_only_the_https_origin_is_sent_paths_query))
+                                }
+                                OnboardingPage.SAVED -> {
+                                    Text(stringResource(R.string.ui_node_saved_choose_it_from_your_saved_nodes))
+                                    KitButton(
+                                        stringResource(R.string.ui_choose_a_saved_node),
+                                        { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) },
+                                        tag = "choose-saved"
+                                    )
+                                }
+                                OnboardingPage.SAVE_FAILED -> KitButton(
+                                    stringResource(R.string.ui_review_saved_nodes),
                                     { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) },
-                                    tag = "choose-saved"
-                                )
-                            }
-                            OnboardingPage.SAVE_FAILED -> KitButton(
-                                stringResource(R.string.ui_review_saved_nodes),
-                                { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) },
-                                kind = KitButtonKind.Secondary,
-                                enabled = !state.busy,
-                                tag = "review-nodes"
-                            )
-                            OnboardingPage.CHECKING, OnboardingPage.SAVING, OnboardingPage.CREATE -> Unit
-                            OnboardingPage.PHRASE -> PhrasePage(state, drawPhrase)
-                            OnboardingPage.CHALLENGE -> ChallengePage(state, challenge)
-                            OnboardingPage.CREATED -> CreatedAccountPage(state)
-                            OnboardingPage.LOCAL_UNLOCK -> {
-                                Text(stringResource(R.string.ui_data_passphrase_explanation))
-                                ErasableSecretField(
-                                    unlockPassphrase,
-                                    stringResource(R.string.ui_data_passphrase),
-                                    "unlock-passphrase",
-                                    enabled = !state.busy,
-                                    password = true,
-                                    limit = 128,
-                                    onEdited = {}
-                                )
-                            }
-                            OnboardingPage.PAIR, OnboardingPage.RECOVER -> {
-                                Text(
-                                    stringResource(R.string.ui_secure_setup_is_unavailable_no_account_phrase_or)
-                                )
-                                KitButton(
-                                    stringResource(R.string.ui_return_to_start),
-                                    { onAction(OnboardingAction.Page(OnboardingPage.START)) },
                                     kind = KitButtonKind.Secondary,
                                     enabled = !state.busy,
-                                    tag = "return-start"
+                                    tag = "review-nodes"
                                 )
+                                OnboardingPage.CHECKING, OnboardingPage.SAVING, OnboardingPage.CREATE -> Unit
+                                OnboardingPage.PHRASE -> PhrasePage(state, drawPhrase)
+                                OnboardingPage.CHALLENGE -> ChallengePage(state, challenge)
+                                OnboardingPage.CREATED -> CreatedAccountPage(state)
+                                OnboardingPage.LOCAL_UNLOCK -> {
+                                    state.accounts.firstOrNull { it.id == state.unlockAccountId }?.let { account ->
+                                        Text(
+                                            stringResource(R.string.ui_unlock_account_named, account.label),
+                                            Modifier.testTag("unlock-account-name")
+                                        )
+                                    }
+                                    AccountCodeField(
+                                        unlockCode,
+                                        stringResource(R.string.ui_account_code),
+                                        "unlock-code",
+                                        enabled = !state.busy,
+                                        helper = stringResource(R.string.ui_account_code_explanation)
+                                    )
+                                    state.recoverAccountId?.let { id ->
+                                        KitButton(
+                                            stringResource(R.string.ui_recover_with_phrase),
+                                            { onAction(OnboardingAction.BeginRecover(id)) },
+                                            kind = KitButtonKind.Secondary,
+                                            enabled = !state.busy,
+                                            tag = "recover-locked"
+                                        )
+                                    }
+                                    state.forgetAccountId?.let { id ->
+                                        KitButton(
+                                            stringResource(R.string.ui_forget_account_on_device),
+                                            { onAction(OnboardingAction.ForgetAccount(id)) },
+                                            kind = KitButtonKind.Secondary,
+                                            enabled = !state.busy,
+                                            tag = "forget-account"
+                                        )
+                                    }
+                                }
+                                OnboardingPage.RECOVER -> RecoverPage(state, recovery, onAction)
+                                OnboardingPage.PAIR -> {
+                                    Text(
+                                        stringResource(R.string.ui_secure_setup_is_unavailable_no_account_phrase_or)
+                                    )
+                                    KitButton(
+                                        stringResource(R.string.ui_return_to_start),
+                                        { onAction(OnboardingAction.Page(OnboardingPage.START)) },
+                                        kind = KitButtonKind.Secondary,
+                                        enabled = !state.busy,
+                                        tag = "return-start"
+                                    )
+                                }
                             }
                         }
                     }
                 }
-                OnboardingFooter(state, challenge, unlockPassphrase, onAction)
+                OnboardingFooter(state, challenge, unlockCode, recovery, onAction)
             }
         }
     }
@@ -271,7 +302,8 @@ fun OnboardingScreen(
 private fun OnboardingFooter(
     state: OnboardingState,
     challenge: ChallengeEntry,
-    unlockPassphrase: ErasableBuffer,
+    unlockCode: ErasableBuffer,
+    recovery: RecoveryEntry,
     onAction: (OnboardingAction) -> Unit
 ) {
     val theme = LocalRFTheme.current
@@ -311,16 +343,24 @@ private fun OnboardingFooter(
             )
             OnboardingPage.CHALLENGE -> KitButton(
                 stringResource(R.string.ui_confirm_account),
-                { onAction(OnboardingAction.ConfirmChallenge(challenge.words, challenge.passphrase)) },
+                { onAction(OnboardingAction.ConfirmChallenge(challenge.words, challenge.code)) },
                 enabled = !state.busy && challenge.ready(state.challengePositions.size),
                 tag = "confirm-account"
             )
             OnboardingPage.LOCAL_UNLOCK -> KitButton(
                 stringResource(R.string.ui_unlock),
-                { onAction(OnboardingAction.SubmitUnlock(unlockPassphrase)) },
+                { onAction(OnboardingAction.SubmitUnlock(unlockCode)) },
                 enabled = !state.busy,
                 tag = "unlock-account"
             )
+            OnboardingPage.RECOVER -> if (state.recovery != null) {
+                KitButton(
+                    stringResource(R.string.ui_recover_account_action),
+                    { onAction(OnboardingAction.ConfirmRecover(recovery.phrase, recovery.code)) },
+                    enabled = !state.busy && recovery.ready(),
+                    tag = "confirm-recovery"
+                )
+            }
             OnboardingPage.CREATED -> KitButton(
                 stringResource(R.string.ui_continue_into_the_account),
                 { onAction(OnboardingAction.ContinueCreated) },

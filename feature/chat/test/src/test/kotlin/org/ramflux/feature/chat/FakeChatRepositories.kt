@@ -13,6 +13,43 @@ class FakeChatHistory : MessageHistoryRepository {
         reads++
         return reading(conversation)
     }
+    var paging: (suspend (String?) -> ClientResult<TimelinePage>)? = null
+    val pageCursors = mutableListOf<String?>()
+    override suspend fun page(account: String, conversation: String, before: String?): ClientResult<TimelinePage> {
+        val source = paging ?: return super.page(account, conversation, before)
+        reads++
+        pageCursors.add(before)
+        return source(before)
+    }
+    val marked = mutableListOf<String>()
+    var markResult: ClientResult<Unit> = ClientResult.Ready(Unit)
+    override suspend fun markRead(account: String, conversation: String, message: String): ClientResult<Unit> {
+        marked.add(message)
+        return markResult
+    }
+    val reactions = mutableListOf<String>()
+    override suspend fun react(
+        account: String,
+        conversation: String,
+        message: String,
+        token: String,
+        remove: Boolean,
+        operationId: String
+    ): ClientResult<Unit> {
+        reactions.add(token)
+        return ClientResult.Ready(Unit)
+    }
+    val deleted = mutableListOf<Pair<String, MessageDeleteScope>>()
+    override suspend fun delete(
+        account: String,
+        conversation: String,
+        message: String,
+        scope: MessageDeleteScope,
+        operationId: String
+    ): ClientResult<Unit> {
+        deleted.add(message to scope)
+        return ClientResult.Ready(Unit)
+    }
     var heading: ClientResult<ConversationHeader> = ClientResult.Ready(ConversationHeader(null))
     override suspend fun header(account: String, conversation: String) = heading
     var capability: ClientResult<Unit> = ClientResult.Unavailable(
@@ -52,6 +89,14 @@ class FakeChatHistory : MessageHistoryRepository {
         signals.tryEmit(ClientResult.Ready(value))
     }
     fun peer(conversation: String, active: Boolean, expiresAtMs: Long) = PeerTyping(conversation, active, expiresAtMs)
+    var targets: suspend (String?) -> ClientResult<ForwardTargetPage> = {
+        ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)
+    }
+    val targetCursors = mutableListOf<String?>()
+    override suspend fun forwardTargets(account: String, cursor: String?): ClientResult<ForwardTargetPage> {
+        targetCursors.add(cursor)
+        return targets(cursor)
+    }
     var typingCalls = 0
     var typingResult: ClientResult<Unit> = ClientResult.Unavailable(ClientFeature.CHAT, UnavailableReason.UNSUPPORTED_BY_CORE)
     override suspend fun setTyping(account: String, conversation: String, active: Boolean): ClientResult<Unit> {
@@ -84,4 +129,124 @@ class FakeChatSession : ClientSessionRepository {
         status.value = status.value.copy(phase = ClientPhase.CLOSED)
     }
     override suspend fun availability(feature: ClientFeature): ClientResult<Unit> = ClientResult.Ready(Unit)
+}
+
+class FakeChatDrafts : ChatDraftRepository {
+    val stored = mutableMapOf<String, String>()
+    override suspend fun load(account: String, conversation: String): String? = stored["$account/$conversation"]
+    override suspend fun save(account: String, conversation: String, text: String): ClientResult<Unit> {
+        if (text.isBlank()) stored.remove("$account/$conversation") else stored["$account/$conversation"] = text
+        return ClientResult.Ready(Unit)
+    }
+    override suspend fun clear(account: String, conversation: String) {
+        stored.remove("$account/$conversation")
+    }
+    override suspend fun clearAccount(account: String) {
+        stored.keys.removeAll { it.startsWith("$account/") }
+    }
+}
+
+class FakeChatMedia : MediaRepository {
+    val held = mutableMapOf<String, java.io.File>()
+    var downloadResult: (MediaAttachment) -> TransferState = { TransferState.Ready(java.io.File("/tmp/" + it.messageId)) }
+    val downloads = mutableListOf<String>()
+    val revoked = mutableListOf<String>()
+    val purged = mutableListOf<String>()
+    val sent = mutableListOf<List<StagedMedia>>()
+    val destinations = mutableListOf<MediaDestination>()
+    val captions = mutableListOf<String>()
+    val copied = mutableListOf<String>()
+    var sendResult: ClientResult<SendReceipt> = ClientResult.Ready(SendReceipt("media"))
+    override fun localFile(account: String, attachment: MediaAttachment) = held[attachment.messageId + "/" + attachment.index]
+    override suspend fun download(account: String, attachment: MediaAttachment, progress: (TransferState) -> Unit): TransferState {
+        downloads.add(attachment.messageId)
+        return downloadResult(attachment)
+    }
+    override suspend fun send(
+        account: String,
+        destination: MediaDestination,
+        caption: String,
+        items: List<StagedMedia>,
+        operationId: String,
+        progress: (TransferState) -> Unit
+    ): ClientResult<SendReceipt> {
+        sent.add(items)
+        destinations.add(destination)
+        captions.add(caption)
+        return sendResult
+    }
+    override suspend fun revoke(account: String, message: String): ClientResult<Unit> {
+        revoked.add(message)
+        return ClientResult.Ready(Unit)
+    }
+    override suspend fun purge(account: String, message: String) {
+        purged.add(message)
+    }
+    val purgedAccounts = mutableListOf<String>()
+    override suspend fun purgeAccount(account: String) {
+        purgedAccounts.add(account)
+    }
+    override suspend fun usage(account: String): Long = 0
+    override fun outbox(account: String): java.io.File? = null
+    override suspend fun copyToOutbox(account: String, source: java.io.File, fileName: String, mime: String): StagedMedia {
+        copied.add(source.path)
+        return StagedMedia(java.io.File("/tmp/outbox-" + copied.size), fileName, mime)
+    }
+}
+
+class FakeChatStager : MediaStager {
+    var dropped = 0
+    val captures = mutableListOf<String>()
+    val visuals = mutableListOf<String>()
+    var visualResult: (String) -> StageResult = { uri ->
+        val mime = if (uri.contains("video")) "video/mp4" else "image/jpeg"
+        StageResult.Staged(StagedMedia(java.io.File("/tmp/visual-" + uri.hashCode()), uri.substringAfterLast('/'), mime))
+    }
+    override suspend fun visual(account: String, uri: String, progress: (Float) -> Unit): StageResult {
+        visuals.add(uri)
+        progress(.5f)
+        return visualResult(uri)
+    }
+    override suspend fun camera(account: String, uri: String): StagedMedia? {
+        captures.add(uri)
+        return image(account, uri)
+    }
+    override suspend fun image(account: String, uri: String) =
+        StagedMedia(java.io.File("/tmp/staged-" + uri.hashCode()), "IMG_1.jpg", "image/jpeg")
+    override suspend fun file(account: String, uri: String): StagedMedia? = null
+    override fun dropMemory() {
+        dropped++
+    }
+}
+
+class FakeChatCards : CardSurfaceRepository {
+    val surfaces = LinkedHashMap<String, CardSurface>()
+    val gets = mutableListOf<String>()
+    val presses = mutableListOf<CardPress>()
+    var actResult: ClientResult<Unit> = ClientResult.Ready(Unit)
+    private var ids = 0
+    override suspend fun page(account: String, conversation: String, cursor: String?) = ClientResult.Ready(
+        CardSurfacePage(surfaces.values.map { CardSurfaceRef(it.ref, it.version, it.hash, it.closed, it.outOfSync) }, null)
+    )
+    override suspend fun get(account: String, ref: String): ClientResult<CardSurface?> {
+        gets.add(ref)
+        return ClientResult.Ready(surfaces[ref])
+    }
+    override suspend fun act(account: String, press: CardPress): ClientResult<Unit> {
+        presses.add(press)
+        return actResult
+    }
+    override fun newMessageId() = "id" + ++ids
+
+    fun card(ref: String, at: Long, version: Long = 1, outOfSync: Boolean = false) = CardSurface(
+        ref, "s-$ref", "c", "agent", version, "h$version", false, outOfSync, true, "fallback", at,
+        CardGroup(
+            "root",
+            false,
+            false,
+            listOf(CardTextInput("note", "Note", "", "/note", "", false, false), CardButton("go", "Go", true, false))
+        ),
+        mapOf("go" to CardButtonSpec("submit", null, emptyMap(), mapOf("note" to "/note"))),
+        mapOf("/note" to kotlinx.serialization.json.JsonPrimitive(""))
+    ).also { surfaces[ref] = it }
 }

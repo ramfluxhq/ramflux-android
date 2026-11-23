@@ -32,6 +32,13 @@ class CoreClient internal constructor(
     /** A bounded cleanup failure stays visible, and its handle stays owned until retry or close. */
     val cleanupFailure: StateFlow<CoreError?> = cleanupState.asStateFlow()
 
+    /**
+     * The only public event entry point: every collector shares one native subscription, with
+     * per-collector back-pressure and automatic resync. The hub's pump holds no job while idle and
+     * ends with the native stream when the client closes.
+     */
+    val events: EventHub = EventHub(::updates, ::resetEventsAfterSnapshot, CoroutineScope(SupervisorJob() + io))
+
     suspend fun execute(request: CoreRequest): CoreResult<JsonObject> {
         val policy = SdkMethodPolicy.methods[request.method]
         if (request.method in SUBSCRIPTION_METHODS || policy?.confidential == true) {
@@ -146,8 +153,11 @@ class CoreClient internal constructor(
         return null
     }
 
-    /** The producer joins cancellation cleanup before yielding ownership to another collector. */
-    fun updates(filter: SubscriptionFilter): Flow<CoreUpdate> = callbackFlow {
+    /**
+     * The raw native subscription: one collector at a time; the producer joins cancellation cleanup
+     * before yielding ownership to another collector. Only [events] uses it.
+     */
+    internal fun updates(filter: SubscriptionFilter): Flow<CoreUpdate> = callbackFlow {
         eventLane.lock()
         var pump: Job? = null
         try {
@@ -245,7 +255,7 @@ class CoreClient internal constructor(
         }
     }.buffer(0)
 
-    suspend fun resetEventsAfterSnapshot(expectedGeneration: ULong): CoreResult<JsonObject> = withContext(io) {
+    internal suspend fun resetEventsAfterSnapshot(expectedGeneration: ULong): CoreResult<JsonObject> = withContext(io) {
         eventLane.withLock {
             reapCleanup()?.let { return@withLock CoreResult.Failure(it) }
             guard.withLock {

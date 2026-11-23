@@ -23,7 +23,7 @@ class CardsScreenshotTest(private val kind: String, private val dark: Boolean, p
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}-{1}-{2}-{3}")
         fun cases(): List<Array<Any>> = buildList {
-            for (kind in listOf("unavailable", "checking", "error", "unverified", "closed"))
+            for (kind in listOf("unavailable", "checking", "error", "conversations", "closed"))
                 for (dark in listOf(
                     false,
                     true
@@ -35,7 +35,7 @@ class CardsScreenshotTest(private val kind: String, private val dark: Boolean, p
         val state = when (kind) {
             "checking" -> CardsState(checking = true, canCheck = true, unavailable = null)
             "error" -> CardsState(canCheck = true, unavailable = null, problem = uiText(R.string.cards_error_code, UiText.Number(8)))
-            "unverified" -> CardsState(canCheck = true, unavailable = null, problem = uiText(R.string.cards_unverified))
+            "conversations" -> CardsState(canCheck = true, unavailable = null, inConversations = true)
             "closed" -> CardsState(closed = true, unavailable = null)
             else -> CardsState(canCheck = true)
         }

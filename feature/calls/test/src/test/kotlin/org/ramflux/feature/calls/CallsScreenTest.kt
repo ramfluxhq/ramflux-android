@@ -30,7 +30,7 @@ fun callItem() = CallItem(
 class CallsScreenTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun fixedIncomingActionsCarryExactSequenceAndAnswerOnlyEmitsUnavailableIntent() {
+    @Test fun fixedIncomingActionsCarryExactSequenceAndAnswerOpensTheCallScreen() {
         val row = callItem()
         val actions = mutableListOf<CallsAction>()
         compose.setContent {
@@ -44,7 +44,7 @@ class CallsScreenTest {
         compose.onNodeWithText("Actual peer").assertExists()
         compose.onNodeWithText("Decline call").assertIsDisplayed().performClick()
         compose.onNodeWithText("Answer").assertIsDisplayed().performClick()
-        compose.runOnIdle { assertEquals(listOf(CallsAction.End("call", ULong.MAX_VALUE, true), CallsAction.Audio), actions) }
+        compose.runOnIdle { assertEquals(listOf(CallsAction.End("call", ULong.MAX_VALUE, true), CallsAction.Open("call")), actions) }
     }
 
     @Test fun actualReducerHistoryAndSignalReasonsRenderInBothLocalesWithoutRefetch() = runTest {

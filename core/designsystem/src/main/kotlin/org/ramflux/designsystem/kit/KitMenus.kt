@@ -201,12 +201,18 @@ private fun ReactionMore(onMore: () -> Unit, label: String, tag: String?) {
 
 /** A secondary caption line: call records, typing, reactions and delivery notes in a timeline. */
 @Composable
-fun KitMeta(text: String, modifier: Modifier = Modifier, centered: Boolean = false, tag: String? = null) {
+fun KitMeta(
+    text: String,
+    modifier: Modifier = Modifier,
+    centered: Boolean = false,
+    tag: String? = null,
+    tone: androidx.compose.ui.graphics.Color? = null
+) {
     val theme = LocalRFTheme.current
     KitText(
         text,
         modifier.kitTag(tag),
-        style = kitStyle(theme.size_meta, FontWeight.Normal, theme.secondary, RfMetrics.lineTitle),
+        style = kitStyle(theme.size_meta, FontWeight.Normal, tone ?: theme.secondary, RfMetrics.lineTitle),
         textAlign = if (centered) TextAlign.Center else TextAlign.Start
     )
 }
