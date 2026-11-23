@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 name: Android client
+# Runs on the promotion to main and on main only; next is gated by real verification.
 on:
   push:
-    branches: [main, 'feat/**']
+    branches: [main]
   pull_request:
+    branches: [main]
 permissions:
   contents: read
 concurrency:
