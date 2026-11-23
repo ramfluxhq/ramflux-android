@@ -10,7 +10,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
-fun CardsNavigation(onBack: () -> Unit, vm: CardsViewModel = hiltViewModel(), modifier: Modifier = Modifier) {
+fun CardsNavigation(onBack: () -> Unit, modifier: Modifier = Modifier, vm: CardsViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     BackHandler { vm.onAction(CardsAction.Back) }

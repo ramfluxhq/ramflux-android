@@ -10,7 +10,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
-fun TasksNavigation(onBack: () -> Unit, onSetupAccount: () -> Unit, vm: TasksViewModel = hiltViewModel(), modifier: Modifier = Modifier) {
+fun TasksNavigation(onBack: () -> Unit, onSetupAccount: () -> Unit, modifier: Modifier = Modifier, vm: TasksViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val setup by rememberUpdatedState(onSetupAccount)

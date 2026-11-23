@@ -10,7 +10,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
-fun CallsNavigation(onBack: () -> Unit, onSetupAccount: () -> Unit, vm: CallsViewModel = hiltViewModel(), modifier: Modifier = Modifier) {
+fun CallsNavigation(onBack: () -> Unit, onSetupAccount: () -> Unit, modifier: Modifier = Modifier, vm: CallsViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val setup by rememberUpdatedState(onSetupAccount)
