@@ -109,6 +109,9 @@ fun ChatScreen(
     // Bubble bounds relative to this box, captured on long press so the actions attach to the pressed bubble.
     val anchors = remember { BubbleAnchors() }
     var attachMenu by remember { mutableStateOf(false) }
+    // The attach menu opens at the bottom edge: the keyboard is closed first, or it would cover the menu.
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
     var chatMenu by remember { mutableStateOf(false) }
     // Animated images share two playing slots per chat (media design 4.2).
     val slots = remember { AnimationSlots() }
@@ -134,7 +137,11 @@ fun ChatScreen(
                     }
                 }
                 Notices(state)
-                Composer(state, onAction, bottomInset) { attachMenu = true }
+                Composer(state, onAction, bottomInset) {
+                    keyboard?.hide()
+                    focus.clearFocus()
+                    attachMenu = true
+                }
             }
             if (selected != null && actionsFor(selected).isNotEmpty()) {
                 MessageActions(selected, state, stamps, anchors.pressed, onAction)
