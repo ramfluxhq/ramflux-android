@@ -663,6 +663,7 @@ class RealRunFlowTest {
         if (ui.text(current, Ui.LONG) == null) fail("My devices does not list this device: ${ui.screen()}")
         notes += "My devices lists this device"
         ui.device.pressBack()
+        ui.tap("appearance")
         ui.tap("language")
         val languages = ui.eventually(10_000) { ui.ids().contains("language:") }
         notes += if (languages) "language screen lists languages" else "language screen shows no language rows"
