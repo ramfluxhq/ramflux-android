@@ -632,7 +632,12 @@ class ChatViewModel @Inject constructor(
     /** Publishes the window plus the outbox as the timeline, and places the unread divider once. */
     private fun publish() {
         val pending = outbox.map { (id, outgoing) ->
-            val status = if (outgoing.delivery == LocalDelivery.SENDING) AttachmentStatus.SENDING else AttachmentStatus.FAILED
+            // A local send is never a failed download: it is uploading, waiting for the connection or refused.
+            val status = when (outgoing.delivery) {
+                LocalDelivery.SENDING -> AttachmentStatus.SENDING
+                LocalDelivery.QUEUED -> AttachmentStatus.QUEUED
+                LocalDelivery.FAILED -> AttachmentStatus.UNSENT
+            }
             val attachments = outgoing.staged.mapIndexed { index, staged ->
                 AttachmentItem(
                     id, index, kindOf(staged.mime), staged.fileName, staged.size, MediaAttachment.DEFAULT_RATIO,

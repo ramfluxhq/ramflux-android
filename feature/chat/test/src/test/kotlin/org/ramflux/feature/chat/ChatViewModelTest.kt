@@ -546,7 +546,7 @@ class ChatViewModelTest {
         assertEquals(listOf("content://picked"), stager.captures)
         val row = vm.state.value.rows.single() as MessageItem
         assertEquals(LocalDelivery.FAILED, row.delivery)
-        assertEquals(AttachmentStatus.FAILED, row.attachments.single().status)
+        assertEquals(AttachmentStatus.UNSENT, row.attachments.single().status)
         media.sendResult = ClientResult.Ready(SendReceipt("media"))
         vm.onAction(ChatAction.Retry(row.id))
         runCurrent()

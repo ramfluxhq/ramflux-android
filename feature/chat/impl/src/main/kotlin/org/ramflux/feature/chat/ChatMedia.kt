@@ -100,6 +100,8 @@ private fun statusText(item: AttachmentItem): String? = when (item.status) {
     AttachmentStatus.REVOKED -> stringResource(R.string.chat_media_revoked)
     AttachmentStatus.NOT_ON_DEVICE -> stringResource(R.string.chat_media_not_on_device)
     AttachmentStatus.SENDING -> stringResource(R.string.chat_media_sending)
+    AttachmentStatus.QUEUED -> stringResource(R.string.chat_media_queued)
+    AttachmentStatus.UNSENT -> stringResource(R.string.chat_media_unsent)
 }
 
 private fun statusIcon(item: AttachmentItem): String? = when (item.status) {
@@ -107,6 +109,8 @@ private fun statusIcon(item: AttachmentItem): String? = when (item.status) {
     AttachmentStatus.AVAILABLE, AttachmentStatus.FAILED -> if (item.kind == AttachmentKind.FILE) "download" else "image-down"
     // The SDK reports no byte progress (R4, R5): an indeterminate mark, never a percentage.
     AttachmentStatus.LOADING, AttachmentStatus.SENDING -> "loader-circle"
+    AttachmentStatus.QUEUED -> "clock-3"
+    AttachmentStatus.UNSENT -> "circle-alert"
     AttachmentStatus.EXPIRED -> "timer-off"
     AttachmentStatus.REVOKED, AttachmentStatus.NOT_ON_DEVICE -> "ban"
     AttachmentStatus.READY -> null
@@ -114,7 +118,9 @@ private fun statusIcon(item: AttachmentItem): String? = when (item.status) {
 
 /** The decrypted or staged file may be decoded only when it is this device's own copy. */
 private val AttachmentItem.decodable: String?
-    get() = localPath?.takeIf { status == AttachmentStatus.READY || status == AttachmentStatus.SENDING }
+    get() = localPath?.takeIf {
+        status == AttachmentStatus.READY || status == AttachmentStatus.SENDING || status == AttachmentStatus.QUEUED || status == AttachmentStatus.UNSENT
+    }
 
 private val AttachmentItem.animated: Boolean
     get() = kind == AttachmentKind.ANIMATED || mime == "image/webp"

@@ -200,7 +200,13 @@ enum class AttachmentStatus {
     NOT_ON_DEVICE,
 
     /** A local send that is staged or uploading. */
-    SENDING
+    SENDING,
+
+    /** A local send waiting for the connection; it goes out on its own. */
+    QUEUED,
+
+    /** A local send the SDK refused; the message offers retry and discard. */
+    UNSENT
 }
 
 @Immutable data class AttachmentItem(

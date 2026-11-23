@@ -298,4 +298,8 @@
     <string name="direct_details_safety_no_peer">This conversation does not name a person whose safety number can be shown.</string>
     <!-- Row with the size of this conversation's decrypted media on this phone. -->
     <string name="direct_details_storage">Storage for this conversation</string>
+    <!-- Status on an attachment this phone is sending: it waits for the connection and goes out on its own. -->
+    <string name="chat_media_queued">Waiting to send</string>
+    <!-- Status on an attachment this phone tried to send and the service refused. -->
+    <string name="chat_media_unsent">Not sent</string>
 </resources>

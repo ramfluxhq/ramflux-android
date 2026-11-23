@@ -297,4 +297,8 @@
     <string name="direct_details_safety_no_peer">此会话没有可显示安全码的对方。</string>
     <!-- Row with the size of this conversation's decrypted media on this phone. -->
     <string name="direct_details_storage">此会话占用的存储</string>
+    <!-- Status on an attachment this phone is sending: it waits for the connection and goes out on its own. -->
+    <string name="chat_media_queued">等待发送</string>
+    <!-- Status on an attachment this phone tried to send and the service refused. -->
+    <string name="chat_media_unsent">未发送</string>
 </resources>
