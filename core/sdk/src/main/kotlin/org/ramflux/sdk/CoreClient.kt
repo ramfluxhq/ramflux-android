@@ -93,7 +93,11 @@ class CoreClient internal constructor(
                             }
                         }
                     }
-                    if (admission != null) return@withContext admission
+                    if (admission != null) {
+                        // Debug builds only (no trace is installed otherwise): refusals before the SDK answered.
+                        ReplyCodec.debugTrace?.event("sdk.refused.${admission.error.code}.${admission.error.javaClass.simpleName} method=$method")
+                        return@withContext admission
+                    }
                     var pause = 10L
                     var terminal: CoreResult<T>? = null
                     while (terminal == null) {
@@ -107,7 +111,10 @@ class CoreClient internal constructor(
                             continue
                         }
                         reply.body.fill(0)
-                        if (System.currentTimeMillis() >= deadline) return@withContext CoreResult.Failure(CoreError.Native(10, Effect.UNKNOWN), operationId)
+                        if (System.currentTimeMillis() >= deadline) {
+                            ReplyCodec.debugTrace?.event("sdk.deadline method=$method")
+                            return@withContext CoreResult.Failure(CoreError.Native(10, Effect.UNKNOWN), operationId)
+                        }
                         delay(pause); pause = (pause * 2).coerceAtMost(100)
                     }
                     terminal

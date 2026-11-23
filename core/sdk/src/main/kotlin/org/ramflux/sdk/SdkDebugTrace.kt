@@ -12,3 +12,8 @@ fun interface SdkDebugTrace {
 fun installSdkDebugTrace(trace: SdkDebugTrace?) {
     ReplyCodec.debugTrace = trace
 }
+
+/** Forwards one diagnostic line to the installed sink; nothing happens without one (release). */
+fun sdkDebugEvent(message: String) {
+    ReplyCodec.debugTrace?.event(message)
+}

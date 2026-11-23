@@ -37,13 +37,17 @@ class SdkRepositoryTransport internal constructor(private val currentClient: () 
     constructor(host: AndroidCoreHost) : this({ (host.state.value as? HostState.Running)?.client })
     override suspend fun execute(request: CoreRequest): CoreResult<JsonObject> {
         val client = currentClient()
-            ?: return CoreResult.Failure(CoreError.Closed(), request.operationId)
+        if (client == null) {
+            org.ramflux.sdk.sdkDebugEvent("sdk.no_client method=${request.method}")
+            return CoreResult.Failure(CoreError.Closed(), request.operationId)
+        }
         return client.execute(request)
     }
     override suspend fun executeSecret(request: SecretRequest): CoreResult<SecretReply> {
         val client = currentClient()
         if (client == null) {
             request.body.close()
+            org.ramflux.sdk.sdkDebugEvent("sdk.no_client method=${request.method}")
             return CoreResult.Failure(CoreError.Closed(), request.operationId)
         }
         return client.executeSecret(request)
