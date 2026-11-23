@@ -23,6 +23,9 @@ class TaskDirectoryDataTest {
         var receiptMode = false
         var loseAck = false
         var transitions = 0
+        var approvalStatus = "pending"
+        var approvalMode = "attended_local"
+        fun approval() = """{"approval_id":"approval_srv_tool_1","server_id":"srv","tool_name":"tool","capability":"file.read","risk_level":"low","tool_scope":"read","confirmation_mode":"$approvalMode","expires_at":1900000000,"status":"$approvalStatus","details":{"arguments_hash":"h"}}"""
         val receipts = mutableMapOf<String, JsonObject>()
         fun row() = Json.parseToJsonElement("""{"task_id":"task","conversation_id":"$conversation","version":$version,"title":"Actual task","state":"$state","requester":"human","assignee":"agent","steps":[{"id":"step","title":"Actual step","state":"running","needs_me":null}],"result_summary":null,"pending_resolution":${if(pendingResolution) "{}" else "null"},"stalled_by_assignee":false}""").jsonObject
         override fun submit(core: Long, request: ByteArray, ownership: LongArray): NativeReply {
@@ -32,7 +35,12 @@ class TaskDirectoryDataTest {
             abi.completionBody = when(method) {
                 "task.list" -> buildJsonObject { put("tasks", buildJsonArray { add(row()) }); put("next_cursor", "opaque") }
                 "task.get" -> if (malformedDetail) buildJsonObject { put("task_id", "task") } else row()
-                "grant.list" -> Json.parseToJsonElement("""{"grants":[],"approvals":[]}""").jsonObject
+                "grant.list" -> Json.parseToJsonElement("""{"grants":[],"approvals":[${approval()}]}""").jsonObject
+                "grant.approve", "grant.deny" -> { approvalStatus = if (method == "grant.approve") "approved" else "denied"; buildJsonObject { put("status", approvalStatus) } }
+                "conversation.directory" -> Json.parseToJsonElement(
+                    """{"conversations":[{"id":"c","kind":"direct","unread_count":0,"archived":false,"hidden":false,"is_unread":false},""" +
+                        """{"id":"hidden","kind":"direct","unread_count":0,"archived":false,"hidden":true,"is_unread":false}],"next_cursor":"after-c"}"""
+                ).jsonObject
                 else -> if (receiptMode) {
                     val id = frame.getValue("body").jsonObject.getValue("message_id").jsonPrimitive.content
                     val receipt = receipts.getOrPut(id) {
@@ -51,12 +59,16 @@ class TaskDirectoryDataTest {
         val client = (CoreClient.open(native, "/test/task-pages", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
         try {
             val repo = DefaultTaskDirectoryRepository(SdkRepositoryTransport { client })
-            val page = (repo.page("account", "c", "original-cursor") as ClientResult.Ready).value
-            assertEquals(ULong.MAX_VALUE, page.rows.single().version); assertEquals("opaque", page.cursor)
+            val first = (repo.taskPage("account", "c", null) as ClientResult.Ready).value
+            assertEquals(ULong.MAX_VALUE, first.rows.single().version); assertNull(first.previous)
+            assertEquals("", native.abi.submitted.last()["body"]?.jsonObject?.get("cursor")?.jsonPrimitive?.content)
+            val second = (repo.taskPage("account", "c", first.next) as ClientResult.Ready).value
             val request = native.abi.submitted.last(); assertEquals("account", request["account_id"]?.jsonPrimitive?.content)
-            assertEquals("original-cursor", request["body"]?.jsonObject?.get("cursor")?.jsonPrimitive?.content)
+            assertEquals("opaque", request["body"]?.jsonObject?.get("cursor")?.jsonPrimitive?.content)
+            assertNotNull("a forward-only listing still serves the cursor back to the first page", second.previous)
+            assertTrue("an unknown cursor is refused", repo.taskPage("account", "c", "forged") is ClientResult.Failed)
             native.conversation = "wrong"
-            assertTrue(repo.page("account", "c", null) is ClientResult.Failed)
+            assertTrue(repo.taskPage("account", "c", null) is ClientResult.Failed)
             assertTrue(repo.detail("account", "c", "task") is ClientResult.Failed)
         } finally { client.close() }
     }
@@ -166,8 +178,67 @@ class TaskDirectoryDataTest {
             assertTrue(repo.contextualAvailability() is ClientResult.Unavailable)
             assertEquals(count, native.abi.submitted.size)
             native.holdMutation = false
-            assertTrue(repo.permissions("account") is ClientResult.Ready)
+            assertTrue(repo.permissionPage("account", null) is ClientResult.Ready)
             assertFalse(native.abi.submitted.any { it["method"]?.jsonPrimitive?.content in setOf("task.start", "task.resolve", "grant.approve", "grant.deny") })
         } finally { client.close() }
+    }
+    @Test fun contextsAreWindowedWithoutHiddenRowsAndPermissionsServeOneSnapshot() = runTest(timeout = 5.seconds) {
+        val native = Oracle()
+        val client = (CoreClient.open(native, "/test/task-contexts", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
+        try {
+            val repo = DefaultTaskDirectoryRepository(SdkRepositoryTransport { client })
+            val contexts = (repo.contextPage("account", null) as ClientResult.Ready).value
+            assertEquals(listOf("c"), contexts.rows.map { it.id }); assertNull(contexts.previous); assertNotNull(contexts.next)
+            val permissions = (repo.permissionPage("account", null) as ClientResult.Ready).value
+            val approval = permissions.rows.single()
+            assertEquals(TaskPermissionKind.APPROVAL, approval.kind); assertEquals("attended_local", approval.confirmation)
+            assertTrue(approval.decidable && approval.approvable)
+            assertNull(permissions.next); assertNull(permissions.previous)
+        } finally { client.close() }
+    }
+    @Test fun approvalsAreReReadThenApprovedOrDeniedAndRemoteAppOnlyDenied() = runTest(timeout = 5.seconds) {
+        val native = Oracle()
+        val client = (CoreClient.open(native, "/test/task-approvals", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
+        fun decisions() = native.abi.submitted.filter { it["method"]?.jsonPrimitive?.content in setOf("grant.approve", "grant.deny") }
+        try {
+            val repo = DefaultTaskDirectoryRepository(SdkRepositoryTransport { client })
+            val expected = (repo.permission("account", TaskPermissionKind.APPROVAL, "approval_srv_tool_1") as ClientResult.Ready).value
+            native.approvalMode = "remote_app"
+            assertTrue("a changed approval is refused before submission", repo.decideApproval("account", expected, true) is ClientResult.Failed)
+            assertTrue(decisions().isEmpty())
+            val remote = (repo.permission("account", TaskPermissionKind.APPROVAL, "approval_srv_tool_1") as ClientResult.Ready).value
+            assertFalse(remote.approvable)
+            assertTrue("a remote_app approval cannot be approved from the phone", repo.decideApproval("account", remote, true) is ClientResult.Failed)
+            assertTrue(decisions().isEmpty())
+            assertTrue(repo.decideApproval("account", remote, false) is ClientResult.Ready)
+            val deny = decisions().single()
+            assertEquals("grant.deny", deny["method"]?.jsonPrimitive?.content)
+            assertEquals("approval_srv_tool_1", deny.getValue("body").jsonObject["approval_id"]?.jsonPrimitive?.content)
+            assertEquals("account", deny["account_id"]?.jsonPrimitive?.content)
+            assertTrue("a decided approval is no longer decidable", repo.decideApproval("account", remote, false) is ClientResult.Failed)
+            native.approvalStatus = "pending"; native.approvalMode = "attended_local"
+            assertTrue(repo.decideApproval("account", expected, true) is ClientResult.Ready)
+            assertEquals("grant.approve", decisions().last()["method"]?.jsonPrimitive?.content)
+        } finally { client.close() }
+    }
+    @Test fun updatesSubscribeToTheGivenTopicsOnly() = runTest(timeout = 5.seconds) {
+        val transport = object : RepositoryTransport {
+            val filters = mutableListOf<SubscriptionFilter>()
+            override suspend fun execute(request: CoreRequest): CoreResult<JsonObject> = CoreResult.Failure(CoreError.Closed())
+            override suspend fun executeSecret(request: SecretRequest): CoreResult<SecretReply> = CoreResult.Failure(CoreError.Closed())
+            override fun updates(filter: SubscriptionFilter): kotlinx.coroutines.flow.Flow<CoreUpdate> { filters += filter; return kotlinx.coroutines.flow.emptyFlow() }
+        }
+        val repo = DefaultTaskDirectoryRepository(transport)
+        repo.updates("account", setOf(TaskTopic.TASKS, TaskTopic.APPROVAL_REQUESTED, TaskTopic.APPROVAL_DENIED, TaskTopic.APPROVAL_GRANTED)).collect {}
+        repo.updates("account", setOf(TaskTopic.CONVERSATIONS)).collect {}
+        repo.updates("account", emptySet()).collect {}
+        val topics = transport.filters.map { filter -> filter.body.getValue("topics").jsonArray.map { it.jsonPrimitive.content } }
+        assertEquals(
+            listOf(
+                listOf("task.changed", "mcp.approval.request", "mcp.approval.granted", "mcp.approval.denied"),
+                listOf("conversation.changed")
+            ),
+            topics
+        )
     }
 }

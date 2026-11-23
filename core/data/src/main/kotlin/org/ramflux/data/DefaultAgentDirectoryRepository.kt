@@ -20,31 +20,20 @@ import org.ramflux.sdk.CoreResult
  * The agent methods of the pinned SDK (`bus/agent_methods.rs`). They are connection-level calls without an
  * operation id; the reply body is the `AgentConfigResult` oneof (`page`, `record` or `custody`) in ProtoJSON.
  *
- * `agent.list` pages forward only. To let a bounded window reload pages it dropped at its start, this class
- * remembers the start cursor of every page read in the current listing (an id-only index, one short string per
- * page) and serves it as the page's `previous` cursor.
+ * `agent.list` pages forward only; [ForwardCursorIndex] serves the start cursor of each page read in the current
+ * listing as the page's `previous` cursor, so a bounded window can reload pages it dropped at its start.
  */
 internal class DefaultAgentDirectoryRepository(transport: RepositoryTransport) : AgentDirectoryRepository {
     private val source = DefaultAgentsRepository(transport)
     private val conversations = DefaultConversationsRepository(transport)
-    private val lock = Any()
-
-    /** Per account: the start cursor of each page of the current listing; index 0 is the first page ([FIRST]). */
-    private val starts = HashMap<String, ArrayList<String>>()
+    private val starts = ForwardCursorIndex()
 
     override suspend fun agentPage(account: String, cursor: String?): ClientResult<AgentPage> {
         if (!valid(account) || (cursor?.length ?: 0) > MAX_CURSOR) return invalid()
-        val index = synchronized(lock) {
-            if (cursor == null) {
-                starts[account] = arrayListOf(FIRST)
-                0
-            } else {
-                starts[account]?.indexOf(cursor)?.takeIf { it >= 0 }
-            }
-        } ?: return invalid()
+        val index = starts.begin(account, cursor) ?: return invalid()
         val body = buildJsonObject {
             put("limit", PAGE)
-            if (cursor != null && cursor != FIRST) put("cursor", cursor)
+            starts.sdkCursor(cursor)?.let { put("cursor", it) }
         }
         return when (val reply = result(source.agentList(RepositoryContext(account), body), "page")) {
             is ClientResult.Ready -> try {
@@ -52,12 +41,8 @@ internal class DefaultAgentDirectoryRepository(transport: RepositoryTransport) :
                 val rows = (page["records"] as? JsonArray).orEmpty().map { record(it as JsonObject) }
                 require(rows.map { it.anchor }.distinct().size == rows.size)
                 val next = text(page, "next")?.takeIf { it.isNotEmpty() && it.length <= MAX_CURSOR && rows.isNotEmpty() }
-                val previous = synchronized(lock) {
-                    val chain = starts[account] ?: return invalid()
-                    if (next != null && chain.size == index + 1) chain.add(next)
-                    if (index > 0) chain[index - 1] else null
-                }
-                ClientResult.Ready(AgentPage(WindowedPage(rows, next, previous), requireNotNull(text(page, "journalCursor"))))
+                val windowed = starts.page(account, index, rows, next) ?: return invalid()
+                ClientResult.Ready(AgentPage(windowed, requireNotNull(text(page, "journalCursor"))))
             } catch (_: Exception) {
                 malformed()
             }
@@ -232,7 +217,6 @@ internal class DefaultAgentDirectoryRepository(transport: RepositoryTransport) :
         /** One SDK reply is serialized into at most 8 KiB (`custody_response::success`); eight typical records fit. */
         const val PAGE = 8
         const val DIRECTORY_PAGE = 100
-        const val FIRST = ""
         const val MAX_CURSOR = 512
         const val MAX_ID = 4096
         const val MAX_PLAN_BYTES = 16 * 1024

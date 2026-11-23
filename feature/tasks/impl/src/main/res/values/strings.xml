@@ -89,4 +89,30 @@
     <string name="tasks_invalid_decision">Invalid decision</string>
     <string name="tasks_submit_conflict">Submission conflict</string>
     <string name="tasks_confirm_accessibility">Confirm: %1$s</string>
+    <!-- Button and confirmation title that approves a pending tool or task approval request. -->
+    <string name="tasks_approve">Approve</string>
+    <!-- First line of the host confirmation before approving an approval request. -->
+    <string name="tasks_approval_approve">You are approving this request.</string>
+    <!-- First line of the host confirmation before denying an approval request. -->
+    <string name="tasks_approval_deny">You are denying this request.</string>
+    <!-- Shown when the re-read approval request differs from the one the user tapped. -->
+    <string name="tasks_approval_changed">This request changed or was already answered, so nothing was sent. The list was read again.</string>
+    <!-- Notice after an approval request was approved. -->
+    <string name="tasks_approval_approved">Approved. The list shows the recorded result.</string>
+    <!-- Notice after an approval request was denied. -->
+    <string name="tasks_approval_denied">Denied. The list shows the recorded result.</string>
+    <!-- Explains on the approval card why a remote-app approval request has no approve button. -->
+    <string name="tasks_approval_remote_only">Only the app that asked can approve this request; this phone can only deny it.</string>
+    <!-- Label above the requested capability or scope on an approval card. -->
+    <string name="tasks_approval_scope">Access requested</string>
+    <!-- Who asked on an approval card; %1$s is a tool server or account name from the request. -->
+    <string name="tasks_approval_requester">Requested through %1$s</string>
+    <!-- Section header above pending approval requests. -->
+    <string name="tasks_pending_approvals">Waiting for your approval</string>
+    <!-- Section header above recorded grants, approvals and decision receipts. -->
+    <string name="tasks_records">Recorded grants and receipts</string>
+    <!-- Button that loads the rows before the loaded part of a long list. -->
+    <string name="tasks_more_before">Load earlier</string>
+    <!-- Section header above the steps of a task. -->
+    <string name="tasks_steps">Steps</string>
 </resources>

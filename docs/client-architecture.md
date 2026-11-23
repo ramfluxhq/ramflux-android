@@ -180,3 +180,17 @@ desktop. A creation waiting for this device (`agent.operation.get` with an empty
 `agent.access.set` needs a base identity the read result does not carry. "Message" opens the existing direct
 conversation whose route names the agent's anchor as the recipient commitment; the client does not derive
 the SDK's direct conversation id itself.
+
+Tasks read task conversations (`conversation.directory`), the tasks of one conversation (`task.list`) and the
+permission list (`grant.list`: grants, approvals and decision receipts) through windowed sources
+(`TaskDirectoryRepository.contextPage` / `taskPage` / `permissionPage`), each into a bounded `PageWindow` of six
+pages; rows are projected once per page as it arrives. The two forward-only SDK cursors get their `previous`
+cursor from `ForwardCursorIndex` (shared with agents); `grant.list` is unpaged and served through `SnapshotPager`.
+While visible each page follows only its own topics through the shared event hub (never `*`): conversations on
+the conversation list, `task.changed` on the task pages, and `task.changed` plus `mcp.approval.request`,
+`mcp.approval.granted` and `mcp.approval.denied` on the permission pages. The task detail shows the steps; accept,
+decline and cancel keep the original operation identity and the host confirmation. A pending approval is shown
+with `KitApprovalCard`: approve or deny first re-reads the approval (`permission`), only an unchanged pending
+approval reaches the host confirmation, and the data layer re-reads it again before `grant.approve` or
+`grant.deny`. A `remote_app` approval needs a grant signed by the requesting app (`RemoteAppApprovalRequired`
+otherwise) and the C ABI exposes no app signing, so its card says so and offers deny only.

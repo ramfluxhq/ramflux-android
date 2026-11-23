@@ -25,7 +25,7 @@ class TasksScreenshotTest(private val kind: String, private val dark: Boolean, p
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}-{1}-{2}-{3}")
         fun cases(): List<Array<Any>> = buildList {
             for (kind in listOf(
-                "contexts", "list", "detail", "detail-large", "permissions", "permission", "receipt",
+                "contexts", "list", "detail", "detail-large", "permissions", "approvals", "permission", "receipt",
                 "empty", "loading", "error", "account", "pending", "confirmation", "unavailable", "running", "needs_me", "done",
                 "failed", "cancelled", "resolution", "stalled"
             ))
@@ -51,6 +51,17 @@ class TasksScreenshotTest(private val kind: String, private val dark: Boolean, p
                 uiText(R.string.tasks_receipt),
                 persistentListOf(uiText(R.string.tasks_version, UiText.Unsigned(ULong.MAX_VALUE)))
             )
+        val approval = TaskPermissionRow(
+            "approval:a1",
+            "read_file",
+            uiText(R.string.tasks_approval),
+            persistentListOf(uiText(R.string.tasks_expiry, UiText.DateTime(2_000_000_000))),
+            requester = "files",
+            scope = "file.read",
+            decidable = true,
+            approvable = true
+        )
+        val remote = approval.copy(id = "approval:a2", title = "send_mail", requester = "mail", scope = "mail.send", approvable = false)
         val status = when (kind) {
             "running" -> R.string.tasks_running
             "needs_me" -> R.string.tasks_needs_me
@@ -77,6 +88,13 @@ class TasksScreenshotTest(private val kind: String, private val dark: Boolean, p
                 permissions = persistentListOf(permission, receipt),
                 loaded = true,
                 fresh = true
+            )
+            "approvals" -> TasksState(
+                page = TasksPage.PERMISSIONS,
+                permissions = persistentListOf(approval, remote, permission),
+                loaded = true,
+                fresh = true,
+                canMore = true
             )
             "permission", "receipt" -> TasksState(
                 page = TasksPage.PERMISSION,

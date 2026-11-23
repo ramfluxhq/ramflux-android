@@ -37,6 +37,12 @@ internal fun TaskRecord.row() = TaskRow(
     steps.map { TaskStepRow(it.id, it.title, it.state.taskStatus(), it.intervention != null) }.toPersistentList(),
     result, decidable, cancellable, pendingResolution, stalled
 )
+internal fun TaskPermission.approvalFacts(account: String, approve: Boolean) = (
+    listOf(
+        uiText(R.string.tasks_account, UiText.Data(account)),
+        uiText(if (approve) R.string.tasks_approval_approve else R.string.tasks_approval_deny)
+    ) + row().facts
+    ).toPersistentList()
 internal fun TaskAttempt.facts(account: String) = (
     listOf(uiText(R.string.tasks_account, UiText.Data(account)), UiText.Data(expected.title)) +
         expected.row().facts + uiText(R.string.tasks_operation, UiText.Data(operationId))
@@ -78,7 +84,16 @@ internal fun TaskPermission.row(): TaskPermissionRow {
         reason?.let { add(uiText(R.string.tasks_reason, it.permissionReason())) }
         add(uiText(R.string.tasks_expiry, UiText.DateTime(expires)))
     }
-    return TaskPermissionRow(id, tool ?: task, kind, facts.toPersistentList())
+    return TaskPermissionRow(
+        id,
+        tool ?: task,
+        kind,
+        facts.toPersistentList(),
+        server ?: requester,
+        scope ?: capabilities.firstOrNull(),
+        decidable,
+        approvable
+    )
 }
 
 private fun String.permissionStatus() = uiText(

@@ -52,6 +52,45 @@ class TasksScreenTest {
         }
     }
 
+    @Test fun pendingApprovalsUseTheApprovalCardAndRemoteAppOffersDenyOnly() {
+        val actions = mutableListOf<TasksAction>()
+        val approval = TaskPermissionRow(
+            "approval:a1",
+            "read_file",
+            org.ramflux.designsystem.uiText(org.ramflux.feature.tasks.impl.R.string.tasks_approval),
+            kotlinx.collections.immutable.persistentListOf(),
+            requester = "files",
+            scope = "file.read",
+            decidable = true,
+            approvable = true
+        )
+        val remote = approval.copy(id = "approval:a2", title = "send_mail", approvable = false)
+        compose.setContent {
+            RamfluxTheme {
+                TasksScreen(
+                    TasksState(
+                        page = TasksPage.PERMISSIONS,
+                        permissions = kotlinx.collections.immutable.persistentListOf(approval, remote),
+                        fresh = true,
+                        loaded = true
+                    ),
+                    actions::add
+                )
+            }
+        }
+        compose.onNodeWithText("Waiting for your approval").assertExists()
+        compose.onNodeWithText("Approve").performClick()
+        compose.onNodeWithText("Only the app that asked can approve this request; this phone can only deny it.").assertExists()
+        compose.onAllNodesWithText("Approve").assertCountEquals(1)
+        compose.onNodeWithTag("approval-deny:approval:a2").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(
+                listOf<TasksAction>(TasksAction.ReviewApproval("approval:a1", true), TasksAction.ReviewApproval("approval:a2", false)),
+                actions
+            )
+        }
+    }
+
     @Test fun hostFactsAndSingleTapConfirmationBindExactOperationWhileDenyOnlyDismisses() {
         val actions = mutableListOf<TasksAction>()
         val facts =
@@ -72,7 +111,7 @@ class TasksScreenTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repo = FakeTasks()
         val session = FakeTaskSession()
-        val vm = TasksViewModel(repo, FakeTaskContexts(), FakeTaskAccounts(), session)
+        val vm = TasksViewModel(repo, FakeTaskAccounts(), session)
         var rendered by mutableStateOf(TasksState())
         try {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect { rendered = it } }
@@ -162,12 +201,12 @@ class TasksScreenTest {
         val repo = FakeTasks().apply {
             paging = {
                 org.ramflux.data.ClientResult.Ready(
-                    org.ramflux.data.TaskPage(listOf(taskRecord().copy(title = "tasks_title")), null)
+                    org.ramflux.data.WindowedPage(listOf(taskRecord().copy(title = "tasks_title")), null, null)
                 )
             }
         }
         val session = FakeTaskSession()
-        val vm = TasksViewModel(repo, FakeTaskContexts(), FakeTaskAccounts(), session)
+        val vm = TasksViewModel(repo, FakeTaskAccounts(), session)
         var rendered by mutableStateOf(TasksState())
         try {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect { rendered = it } }
