@@ -17,7 +17,8 @@ class RamfluxApplication : Application() {
 
     @Inject lateinit var notifications: MessageNotificationService
     override fun onCreate() {
-        if (BuildConfig.DEBUG) installProcessDebugTrace { message -> Log.d("ramflux.abi", message) }
+        // Debug builds only. Warning level: some vendor builds suppress debug-level logs of apps by default.
+        if (BuildConfig.DEBUG) installProcessDebugTrace { message -> Log.w("ramflux.abi", message) }
         super.onCreate()
         ProcessLifecycleOwner.get().lifecycle.addObserver(sessionLifecycle)
         notifications.start()
