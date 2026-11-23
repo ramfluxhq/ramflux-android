@@ -186,10 +186,11 @@ class RealRunFlowTest {
         ui.shot("02-locked")
         val named = ui.hasText(RunState["name"].orEmpty())
         unlock()
-        ui.need("shell-tabs", Ui.LONG, "shell after unlock")
+        val reopened = ui.find("account-security", 3_000) != null || ui.find("lock-account", 1_000) != null
         ui.shot("02-unlocked")
+        ensureShell()
         "lock from Account and security showed '$locked'" + (if (named) " naming the account" else "") +
-            "; unlocked with the six-digit code"
+            "; unlocked with the six-digit code" + (if (reopened) "; the settings screen open before the lock came back" else "")
     }
 
     // Flow 1 (continued): every invocation restarts the app process, so this first flow of invocation 2 is a cold start.
@@ -698,7 +699,7 @@ class RealRunFlowTest {
         ui.tap("lock-account")
         confirmIfAsked()
         unlock()
-        ui.need("shell-tabs", Ui.LONG, "shell after unlocking with the new code")
+        ensureShell()
         notes += "lock and unlock with the new code work"
         notes.joinToString("; ")
     }
@@ -867,8 +868,23 @@ class RealRunFlowTest {
                         code.fill('\u0000')
                     }
                     ui.tap("unlock-account")
-                    // The shell, or the screen that was open before the lock (it comes back after the unlock).
-                    if (ui.first("shell-tabs", "composer", timeout = Ui.LONG) != null) return
+                    // The shell, or the screen that was open before the lock (it comes back after the unlock): done once
+                    // no locked screen is left.
+                    val locked =
+                        listOf(
+                            "unlock-account-name",
+                            "onboarding-header",
+                            "startup-unlock-header",
+                            "startup-details-header",
+                            "startup-info-header"
+                        )
+                    if (ui.eventually(
+                            Ui.LONG
+                        ) { ui.foreground() && locked.none { tag -> ui.find(tag, 300) != null } && ui.ids().isNotEmpty() }
+                    ) {
+                        ui.shot("unlocked")
+                        return
+                    }
                     fail("unlock with the run's code did not open the shell: ${ui.screen()}")
                 }
                 null -> fail("no unlock step on screen: ${ui.screen()}")
