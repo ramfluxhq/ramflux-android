@@ -318,12 +318,16 @@ class ChatViewModel @Inject constructor(
                     problem = uiText(
                         R.string.ui_account_state_could_not_be_read_code_value,
                         UiText.Number(catalog.problem.code.toLong())
-                    )
+                    ),
+                    draft = local.value.draft
                 )
                 return false
             }
             is ClientResult.Unavailable -> {
-                local.value = ChatState(unavailable = uiText(R.string.ui_account_access_is_unavailable_value, catalog.reason.description()))
+                local.value = ChatState(
+                    unavailable = uiText(R.string.ui_account_access_is_unavailable_value, catalog.reason.description()),
+                    draft = local.value.draft
+                )
                 return false
             }
         }
@@ -336,7 +340,10 @@ class ChatViewModel @Inject constructor(
             } else {
                 R.string.ui_the_active_account_changed_return_to_conversations
             }
-            local.value = ChatState(problem = uiText(notice))
+            // Right after an unlock the same account can read as not yet open for a moment; its draft is kept so the next
+            // successful read restores the timeline around the same composer text. Another active account drops it.
+            val sameAccount = selected != null && (value.activeId == null || value.activeId == expectedTarget.account)
+            local.value = ChatState(problem = uiText(notice), draft = if (sameAccount) local.value.draft else "")
         }
         return valid
     }
@@ -358,7 +365,7 @@ class ChatViewModel @Inject constructor(
                 if (currentTarget.group != null &&
                     (groupHeader !is ClientResult.Ready || groupHeader.value.groupId != currentTarget.group)
                 ) {
-                    local.value = ChatState(problem = uiText(R.string.ui_conversation_details_unavailable))
+                    local.value = ChatState(problem = uiText(R.string.ui_conversation_details_unavailable), draft = local.value.draft)
                     return@launch
                 }
                 val result = history.page(currentTarget.account, currentTarget.conversation, null)
@@ -790,16 +797,27 @@ class ChatViewModel @Inject constructor(
         val currentTarget = target ?: return
         draftJob?.cancel()
         val state = local.value
-        if (state.composer == ComposerMode.EDIT || state.conversationId != currentTarget.conversation) return
-        if (draftKnown != currentTarget) return
+        if (state.composer == ComposerMode.EDIT || state.conversationId != currentTarget.conversation) {
+            clientDebugEvent("chat.draft.seal.skipped")
+            return
+        }
+        if (draftKnown != currentTarget) {
+            clientDebugEvent("chat.draft.seal.unknown")
+            return
+        }
         val text = state.draft
-        viewModelScope.launch(NonCancellable) { drafts.save(currentTarget.account, currentTarget.conversation, text) }
+        viewModelScope.launch(NonCancellable) {
+            val saved = drafts.save(currentTarget.account, currentTarget.conversation, text)
+            clientDebugEvent("chat.draft.seal.empty:" + text.isEmpty() + ".saved:" + (saved is ClientResult.Ready))
+        }
     }
 
     private fun restoreDraft(next: Target) {
         viewModelScope.launch {
             val text = drafts.load(next.account, next.conversation)
-            if (target != next || session.status.value.phase != ClientPhase.OPEN) return@launch
+            val current = target == next && session.status.value.phase == ClientPhase.OPEN
+            clientDebugEvent("chat.draft.restore.found:" + (text != null) + ".current:" + current)
+            if (!current) return@launch
             if (text != null && local.value.draft.isEmpty()) local.update { it.copy(draft = text) }
             if (local.value.composer != ComposerMode.EDIT) draftKnown = next
         }
