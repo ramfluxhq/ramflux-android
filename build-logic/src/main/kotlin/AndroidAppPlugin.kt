@@ -47,6 +47,10 @@ class AndroidAppPlugin : Plugin<Project> {
         offlineRobolectric()
         tasks.withType(Test::class.java).configureEach {
             if (System.getenv("CI") != "true") exclude("**/*ScreenshotTest*")
+            // ShellBoardScreenshotTest writes the board captures here; declared so that a build-cache hit
+            // restores them instead of skipping the capture (the board comparison fails without them).
+            outputs.dir(layout.buildDirectory.dir("outputs/shell-roborazzi"))
+            outputs.dir(layout.buildDirectory.dir("outputs/shell-matrix"))
         }
         Unit
     }
