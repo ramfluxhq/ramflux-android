@@ -7,6 +7,12 @@
 # local node in ops/local-node, with the alice and bob peers driven through the rf CLI on this Mac.
 #
 #   scripts/realrun.sh [--out DIR] [--target phone|emulator] [--path lan|tunnel] [--keep-app] [--skip-build]
+#                      [--no-install | --test-apk-only] [--tests "f01 f02 ..."]
+#
+# One invocation must finish inside a ten-minute command budget on a shared Mac, so the flows can be run in
+# several invocations against the same --out directory: the first with a fresh install (the default), later
+# ones with --skip-build --no-install and --tests naming the flow methods by prefix (f03, f04, ...). Results
+# accumulate in DIR/results.json and the flow table is rewritten after each invocation.
 #
 # Node paths (the origin, operator key and fingerprint are read from node-facts.json at run time):
 #   lan       (default) the device talks to the origin in node-facts.json directly, TCP and QUIC; only the
@@ -42,6 +48,9 @@ TARGET=phone
 NODE_PATH=lan
 KEEP_APP=0
 SKIP_BUILD=0
+NO_INSTALL=0
+TEST_APK_ONLY=0
+TESTS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --out) OUT=$2; shift 2 ;;
@@ -49,7 +58,10 @@ while [ $# -gt 0 ]; do
     --path) NODE_PATH=$2; shift 2 ;;
     --keep-app) KEEP_APP=1; shift ;;
     --skip-build) SKIP_BUILD=1; shift ;;
-    *) echo "usage: scripts/realrun.sh [--out DIR] [--target phone|emulator] [--keep-app] [--skip-build]" >&2; exit 2 ;;
+    --no-install) NO_INSTALL=1; shift ;;
+    --test-apk-only) TEST_APK_ONLY=1; shift ;;
+    --tests) TESTS=$2; shift 2 ;;
+    *) echo "usage: scripts/realrun.sh [--out DIR] [--target phone|emulator] [--path lan|tunnel] [--keep-app] [--skip-build] [--no-install | --test-apk-only] [--tests \"f01 f02\"]" >&2; exit 2 ;;
   esac
 done
 case "$TARGET" in phone|emulator) ;; *) echo "realrun: --target is phone or emulator" >&2; exit 2 ;; esac
@@ -76,6 +88,45 @@ dev() {
   else
     adb ${ANDROID_SERIAL:+-s "$ANDROID_SERIAL"} "$@"
   fi
+}
+
+# Installs one APK already copied to $REMOTE_DIR on the phone. MIUI answers `adb install` with a "USB install"
+# confirmation that has a countdown; its confirm button only takes a tap a little after the dialog appears.
+# The install runs in the background of this function while the screen is dumped until the button shows,
+# then the button is tapped about INSTALL_TAP_DELAY seconds after it was first seen. One retry on refusal.
+INSTALL_TAP_DELAY=${RAMFLUX_REALRUN_TAP_DELAY:-2.5}
+install_on_phone() {
+  local apk=$1 log=$2 attempt status pid seen bounds now
+  for attempt in 1 2 3; do
+    remote "$REMOTE_ADB -s $SERIAL install -r -t $REMOTE_DIR/$apk" >> "$log" 2>&1 &
+    pid=$!
+    seen=""
+    while kill -0 "$pid" 2> /dev/null; do
+      bounds=$(dev exec-out uiautomator dump /dev/tty 2> /dev/null | "$PYTHON" -I -c '
+import re, sys
+xml = sys.stdin.read()
+for node in re.finditer(r"<node [^>]*>", xml):
+    n = node.group(0)
+    if "com.miui.securitycenter" in n and re.search(r"text=\"(继续安装|Continue installation|Install)\"", n):
+        m = re.search(r"bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"", n)
+        if m:
+            a, b, c, d = map(int, m.groups()); print((a + c) // 2, (b + d) // 2); break
+' || true)
+      if [ -n "$bounds" ] && [ -z "$seen" ]; then
+        sleep "$INSTALL_TAP_DELAY"
+        # shellcheck disable=SC2086
+        dev shell input tap $bounds > /dev/null 2>&1 || true
+        echo "realrun: tapped the install confirmation at $bounds" >> "$log"
+        seen=tapped
+        break
+      fi
+      sleep 0.3
+    done
+    status=0; wait "$pid" || status=$?
+    if [ "$status" = 0 ] && ! grep -q 'Failure \[' <(tail -3 "$log"); then return 0; fi
+    echo "realrun: install attempt $attempt of $apk failed (exit $status)" >> "$log"
+  done
+  return 1
 }
 
 facts() { "$PYTHON" -I -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$LOCAL_NODE/node-facts.json" "$1"; }
@@ -135,15 +186,32 @@ if [ "$SKIP_BUILD" = 0 ]; then
   ./gradlew -Pramflux.realrun=true :app:assembleRealrun :app:assembleRealrunAndroidTest --console=plain > "$OUT/build.log" 2>&1 \
     || { grep -E '^e:|What went wrong' -A3 "$OUT/build.log" | head -20 >&2; die "build failed (see $OUT/build.log)"; }
 fi
-[ -f "$APK" ] && [ -f "$TEST_APK" ] || die "realrun APKs are missing"
-
 # 4. Install only our package (never the other org.ramflux.android install on a shared phone).
-if [ "$KEEP_APP" = 0 ]; then dev uninstall "$APP_ID" > /dev/null 2>&1 || true; fi
-if [ "$TARGET" = phone ]; then
+if [ "$NO_INSTALL" = 1 ] || [ "$TEST_APK_ONLY" = 1 ]; then
+  dev shell pm list packages "$APP_ID" | tr -d '\r' | grep -qx "package:$APP_ID" || die "$APP_ID is not installed"
+  if [ "$TEST_APK_ONLY" = 1 ]; then
+    # A new suite against the installed app and its data (the app package is not touched).
+    [ -f "$TEST_APK" ] || die "the realrun suite APK is missing"
+    if [ "$TARGET" = phone ]; then
+      scp -q -o BatchMode=yes "$TEST_APK" "$HOST:$REMOTE_DIR/"
+      install_on_phone app-realrun-androidTest.apk "$OUT/install.log" || die "test install failed (see $OUT/install.log)"
+    else
+      adb install -r -t "$TEST_APK" >> "$OUT/install.log" 2>&1 || die "test install failed (see $OUT/install.log)"
+    fi
+  fi
+elif [ "$TARGET" = phone ]; then
+  [ -f "$APK" ] && [ -f "$TEST_APK" ] || die "realrun APKs are missing"
+  if [ "$KEEP_APP" = 0 ]; then
+    dev uninstall "$TEST_ID" > /dev/null 2>&1 || true
+    dev uninstall "$APP_ID" > /dev/null 2>&1 || true
+  fi
   scp -q -o BatchMode=yes "$APK" "$TEST_APK" "$HOST:$REMOTE_DIR/"
-  dev install -r -t "$REMOTE_DIR/app-realrun.apk" > "$OUT/install.log" 2>&1 || die "install failed (see $OUT/install.log)"
-  dev install -r -t "$REMOTE_DIR/app-realrun-androidTest.apk" >> "$OUT/install.log" 2>&1 || die "test install failed (see $OUT/install.log)"
+  : > "$OUT/install.log"
+  install_on_phone app-realrun.apk "$OUT/install.log" || die "install failed (see $OUT/install.log)"
+  install_on_phone app-realrun-androidTest.apk "$OUT/install.log" || die "test install failed (see $OUT/install.log)"
 else
+  [ -f "$APK" ] && [ -f "$TEST_APK" ] || die "realrun APKs are missing"
+  if [ "$KEEP_APP" = 0 ]; then adb uninstall "$APP_ID" > /dev/null 2>&1 || true; fi
   adb install -r -t "$APK" > "$OUT/install.log" 2>&1 && adb install -r -t "$TEST_APK" >> "$OUT/install.log" 2>&1 \
     || die "install failed (see $OUT/install.log)"
 fi
@@ -192,11 +260,29 @@ ARGS=(-e rf_realrun 1 -e rf_control "http://127.0.0.1:$CONTROL_PORT" -e rf_node_
 for name in alice bob; do
   ARGS+=(-e "rf_${name}_principal" "$(peer $name principal_id)" -e "rf_${name}_commitment" "$(peer $name principal_commitment)")
 done
-say "running the suite (log: $OUT/instrument.log)"
+# --tests names flow methods by prefix; they are resolved against the suite source so typos fail early.
+CLASS_ARG=$SUITE
+if [ -n "$TESTS" ]; then
+  SOURCE=app/src/androidTest/kotlin/org/ramflux/android/realrun/RealRunFlowTest.kt
+  CLASS_ARG=""
+  for prefix in $TESTS; do
+    method=$(grep -o "fun ${prefix}[A-Za-z0-9_]*()" "$SOURCE" | head -1 | sed 's/^fun //; s/()$//')
+    [ -n "$method" ] || die "no flow method starts with $prefix"
+    CLASS_ARG="${CLASS_ARG:+$CLASS_ARG,}$SUITE#$method"
+  done
+fi
+say "running ${TESTS:-the whole suite} (log: $OUT/instrument.log)"
+# The phone's log is shared with other apps: it is never cleared; only lines since this start are read.
+LOG_SINCE=$(dev shell date "+%m-%d\ %H:%M:%S.000" 2> /dev/null | tr -d '\r' || true)
 set +e
-dev shell am instrument -w -r "${ARGS[@]}" -e class "$SUITE" "$RUNNER" > "$OUT/instrument.log" 2>&1
+{ echo "== $(date -u '+%H:%M:%S') ${TESTS:-all}"; dev shell am instrument -w -r "${ARGS[@]}" -e class "$CLASS_ARG" "$RUNNER"; } >> "$OUT/instrument.log" 2>&1
 set -e
-dev logcat -d -t 2000 --pid="$(dev shell pidof "$APP_ID" | tr -d '\r')" > "$OUT/app-logcat.txt" 2>/dev/null || true
+# Only the app's own lines (its uid; the process has ended when the suite returns), appended per invocation.
+APP_UID=$(dev shell cmd package list packages -U "$APP_ID" 2> /dev/null | tr -d '\r' | grep -x "package:$APP_ID uid:[0-9]*" | sed 's/.*uid://' || true)
+if [ -n "$APP_UID" ]; then
+  { echo "== $(date -u '+%H:%M:%S') ${TESTS:-all} (uid $APP_UID)"; dev logcat -d ${LOG_SINCE:+-T "$LOG_SINCE"} --uid="$APP_UID"; } \
+    | grep -v -E 'InsetsSource|UiAutomation|AccessibilityNodeInfo|QueryController|InteractionController' >> "$OUT/app-logcat.txt" 2> /dev/null || true
+fi
 
 # 8. Flow table.
 "$PYTHON" -I "$ROOT/scripts/realrun/flow_table.py" "$OUT" "$(( $(date +%s) - START ))" > "$OUT/flow-table.md"

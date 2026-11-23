@@ -11,14 +11,18 @@ from pathlib import Path
 
 # Run order of the brief; ids match RealRunFlowTest.
 FLOWS = [
-    ("01-connect-create", "1 Connect to the node and create an account (phrase, word check, code)"),
-    ("02-lock-unlock", "2 Lock by backgrounding and unlock the known account by name with the code"),
-    ("03-contacts-alice", "3 Contacts with alice (add, peer accepts, safety number)"),
-    ("04-direct-chat", "4 Direct chat with alice both ways: send, receive, reply, edit, erase"),
-    ("05-media-m1", "5 Media M1: receive and send an image and a file"),
-    ("06-groups", "6 Groups with alice and bob"),
-    ("07-settings-code-backup", "7 Settings, change code, backup"),
-    ("08-agents-tasks-calls-privacy", "8 Agents, tasks, calls and privacy honest states"),
+    ("01-connect-create", "1 Connect to the node, create an account (phrase, word check, code), completion follows networking"),
+    ("02-lock-unlock", "1 Lock from settings; the locked state offers the account; unlock with the code"),
+    ("03-cold-start", "1 Cold start (new app process) offers the account; unlock"),
+    ("04-contacts-alice", "6 Contacts: add alice, she accepts, safety number equals hers, verify"),
+    ("05-conversations", "3 Conversation list shows the direct conversation with alice"),
+    ("06-direct-chat", "4 Direct chat with alice: send, live receive, receipts, typing, reply, edit, erase for everyone"),
+    ("07-background", "4 Background and return keeps the session, the open chat and the draft"),
+    ("08-media", "7 Media M1: receive an image and a file from alice, download; send an image to alice"),
+    ("09-groups", "5 Groups: create, add alice and bob, send and receive group messages"),
+    ("10-settings-code", "10 Settings: devices, language, change the account code, lock and unlock with it"),
+    ("11-backup", "14 Backup: create a backup job and let it finish"),
+    ("12-honest-states", "8, 9, 12, 15, 2 Agents, tasks, calls, privacy and link-device screens in their honest states"),
 ]
 
 

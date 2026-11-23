@@ -52,7 +52,9 @@ class Harness:
         self.facts = json.loads((local_node / "node-facts.json").read_text())
         self.peers = {p["name"]: p for p in json.loads((local_node / "peers.json").read_text())["peers"]}
         self.lock = threading.Lock()
-        self.results = {}
+        # Results accumulate across invocations of scripts/realrun.sh that share one output folder.
+        previous = out / "results.json"
+        self.results = json.loads(previous.read_text()) if previous.exists() else {}
         (out / "screenshots").mkdir(parents=True, exist_ok=True)
         (out / "files").mkdir(parents=True, exist_ok=True)
         self.log_path = out / "peer-commands.log"
