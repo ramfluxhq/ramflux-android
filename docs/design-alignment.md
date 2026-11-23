@@ -115,3 +115,26 @@ Screenshot tests run only when `CI=true`: `AndroidTestingPlugin` and
 `AndroidAppPlugin` exclude `*ScreenshotTest*` otherwise. This is deliberate, the
 matrix renders hundreds of frames; run them locally with `CI=true ./gradlew
 <module>:recordRoborazziDebug`.
+
+## Local verification matches CI
+
+A fresh CI checkout has no `build` directories, and in a plain unit-test task
+Roborazzi records nothing, so a test that writes next to its captures must create
+the folder itself. Verify from a clean state with the commands CI runs.
+`scripts/run-ci-steps.py` reads the `run:` steps of a job from
+`.github/workflows/ci.yml`, sets `CI=true` and runs them in order; `--clean` deletes
+every build directory first:
+
+```sh
+python3 scripts/run-ci-steps.py kotlin --list
+python3 scripts/run-ci-steps.py kotlin --clean            # guards, ktlint and unit tests, records, comparisons
+python3 scripts/run-ci-steps.py kotlin --clean --step 11  # one step, e.g. the unit-test line
+python3 scripts/run-ci-steps.py native-packaging --step 6 # assemble tasks and Android lint
+```
+
+Android lint is part of the `native-packaging` job (`./gradlew ... lint`) and
+treats warnings as errors; it lints test sources too and needs the native library,
+so run it locally (`./gradlew lint`) with the native build environment set up as
+for `scripts/build-native.sh`. The native-packaging steps that need the hosted
+runner (swap, SDK checkout) and the `native-runtime` emulator job are not run by
+the script.
