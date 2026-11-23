@@ -207,8 +207,11 @@ class Ui(private val control: PeerControl) {
         val end = System.currentTimeMillis() + timeout
         while (System.currentTimeMillis() < end) {
             val scope = tag?.let { device.findObject(By.res(it)) }
-            val found = if (tag == null) device.findObject(By.pkg(packageName).clazz(EDIT_TEXT))
-            else scope?.let { if (it.className == EDIT_TEXT) it else it.findObject(By.clazz(EDIT_TEXT)) }
+            val found = if (tag == null) {
+                device.findObject(By.pkg(packageName).clazz(EDIT_TEXT))
+            } else {
+                scope?.let { if (it.className == EDIT_TEXT) it else it.findObject(By.clazz(EDIT_TEXT)) }
+            }
             if (found != null) return found
             Thread.sleep(POLL)
         }
@@ -301,10 +304,20 @@ class Ui(private val control: PeerControl) {
         while (true) {
             // Compose may replace the node while it recomposes: look it up again on every pass.
             val clicked = try {
-                device.findObject(By.res(tag))?.takeIf { it.isEnabled }?.let { it.click(); true } ?: false
-            } catch (_: androidx.test.uiautomator.StaleObjectException) { false }
+                device.findObject(By.res(tag))?.takeIf { it.isEnabled }?.let {
+                    it.click()
+                    true
+                } ?: false
+            } catch (_: androidx.test.uiautomator.StaleObjectException) {
+                false
+            }
             if (clicked) break
-            if (System.currentTimeMillis() >= end) throw FlowStop("FAIL", "step '$tag': not shown enabled within ${timeout / 1000} s; ${screen()}")
+            if (System.currentTimeMillis() >= end) {
+                throw FlowStop(
+                    "FAIL",
+                    "step '$tag': not shown enabled within ${timeout / 1000} s; ${screen()}"
+                )
+            }
             Thread.sleep(POLL)
         }
         device.waitForIdle()
@@ -428,7 +441,11 @@ object RunCode {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val plain = ByteArray(digits.size) { digits[it].code.toByte() }
-        val sealed = try { cipher.doFinal(plain) } finally { plain.fill(0) }
+        val sealed = try {
+            cipher.doFinal(plain)
+        } finally {
+            plain.fill(0)
+        }
         file.writeBytes(byteArrayOf(cipher.iv.size.toByte()) + cipher.iv + sealed)
     }
 
@@ -440,7 +457,11 @@ object RunCode {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes, 1, ivSize))
         val plain = cipher.doFinal(bytes, 1 + ivSize, bytes.size - 1 - ivSize)
-        return try { CharArray(plain.size) { plain[it].toInt().toChar() } } finally { plain.fill(0) }
+        return try {
+            CharArray(plain.size) { plain[it].toInt().toChar() }
+        } finally {
+            plain.fill(0)
+        }
     }
 
     private fun key(): SecretKey {

@@ -129,6 +129,7 @@ private class HostActionButton(context: Context) : Button(context) {
         repeated = false
         pressTime = 0
     }
+
     // Debuggable builds name the node by its tag, as Compose test tags are named there (UI automation).
     override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
         super.onInitializeAccessibilityNodeInfo(info)

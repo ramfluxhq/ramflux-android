@@ -60,7 +60,11 @@ class RealRunFlowTest {
             control.result(id, stop.status, stop.message.orEmpty())
         } catch (error: Throwable) {
             if (!secretScreen) ui.shot("$id-error")
-            control.result(id, "FAIL", "${error.javaClass.simpleName}: ${error.message.orEmpty().take(600)}; ${runCatching { ui.screen() }.getOrDefault("")}")
+            control.result(
+                id,
+                "FAIL",
+                "${error.javaClass.simpleName}: ${error.message.orEmpty().take(600)}; ${runCatching { ui.screen() }.getOrDefault("")}"
+            )
         }
     }
 
@@ -129,7 +133,11 @@ class RealRunFlowTest {
             if (!drawn) fail("recovery word $position was not drawn (realrun probe)")
         }
         val code = RunCode.create()
-        try { ui.keys("account-code", code) } finally { code.fill('\u0000') }
+        try {
+            ui.keys("account-code", code)
+        } finally {
+            code.fill('\u0000')
+        }
         ui.tap("confirm-account")
         ui.need("continue-created", Ui.LONG, "account created")
         secretScreen = false
@@ -139,8 +147,11 @@ class RealRunFlowTest {
         val firstShown = ui.find("created-networking")?.text ?: "nothing"
         val live = ui.eventually(90_000) { ui.find("created-networking", 1_000)?.text == connected }
         ui.shot("01-created")
-        val networking = if (live) "completion showed '$firstShown', then '$connected'" else
+        val networking = if (live) {
+            "completion showed '$firstShown', then '$connected'"
+        } else {
             "completion showed '$firstShown' and never '$connected' within 90 s (now '${ui.find("created-networking")?.text}')"
+        }
         ui.tap("continue-created")
         leavePermissionFlow()
         ui.need("shell-tabs", Ui.LONG, "shell after creation")
@@ -148,7 +159,8 @@ class RealRunFlowTest {
         ui.shot("01-shell")
         if (!live) fail("account created, but $networking")
         "node ${args.nodeOrigin} accepted as typed; full fingerprint matched node-facts.json; 24 words shown, three checked; " +
-            "code set; $networking; shell reached" + (if (header) "; Messages names the account '$name'" else "; the display name is not shown on Messages")
+            "code set; $networking; shell reached" +
+            (if (header) "; Messages names the account '$name'" else "; the display name is not shown on Messages")
     }
 
     // Flow 1 (continued): lock from settings, the locked state offers the account by name, unlock with the code.
@@ -159,7 +171,14 @@ class RealRunFlowTest {
         ui.tap("account-security")
         ui.tap("lock-account", Ui.SHORT)
         confirmIfAsked()
-        val locked = ui.first("startup-unlock-header", "startup-details-header", "startup-info-header", "unlock-account-name", "shell-locked", timeout = Ui.LONG)
+        val locked = ui.first(
+            "startup-unlock-header",
+            "startup-details-header",
+            "startup-info-header",
+            "unlock-account-name",
+            "shell-locked",
+            timeout = Ui.LONG
+        )
             ?: fail("no locked state after lock: ${ui.screen()}")
         ui.shot("02-locked")
         val named = ui.hasText(RunState["name"].orEmpty())
@@ -173,9 +192,22 @@ class RealRunFlowTest {
     // Flow 1 (continued): every invocation restarts the app process, so this first flow of invocation 2 is a cold start.
 
     @Test fun f03_coldStartUnlock() = flow("03-cold-start") {
-        if (!coldProcess) throw FlowStop("NOT RUN", "not the first flow of its invocation, so not a cold start; run it first (scripts/realrun.sh --tests \"f03 ...\")")
+        if (!coldProcess) {
+            throw FlowStop(
+                "NOT RUN",
+                "not the first flow of its invocation, so not a cold start; run it first (scripts/realrun.sh --tests \"f03 ...\")"
+            )
+        }
         ui.launch()
-        val first = ui.first("startup-unlock-header", "startup-details-header", "startup-info-header", "unlock-account-name", "shell-tabs", "startup-welcome", timeout = Ui.LONG)
+        val first = ui.first(
+            "startup-unlock-header",
+            "startup-details-header",
+            "startup-info-header",
+            "unlock-account-name",
+            "shell-tabs",
+            "startup-welcome",
+            timeout = Ui.LONG
+        )
             ?: fail("no screen after a cold start: ${ui.screen()}")
         if (first == "startup-welcome") fail("after a cold start the app offers account creation instead of the existing account")
         ui.shot("03-cold-start")
@@ -206,7 +238,13 @@ class RealRunFlowTest {
         confirmIfAsked()
         val verified = ui.str("contacts_safety_state_verified")
         if (!ui.eventually(30_000) { ui.hasText(verified) }) fail("not shown as verified after confirming: ${ui.screen()}")
-        if (!matches) fail("safety number on the phone does not match alice's (exit ${peer.optInt("exit")}): phone $phoneDigits peer ${peerDigits.take(80)}")
+        if (!matches) {
+            fail(
+                "safety number on the phone does not match alice's (exit ${peer.optInt(
+                    "exit"
+                )}): phone $phoneDigits peer ${peerDigits.take(80)}"
+            )
+        }
         "request by principal id reached alice; alice accepted with rf; alice listed; safety number equals alice's; marked verified"
     }
 
@@ -241,18 +279,30 @@ class RealRunFlowTest {
         val first = "rr-phone-" + token()
         send(first)
         ui.text(first, 30_000) ?: fail("own message bubble did not appear")
-        if (!ui.eventually(90_000, 3_000) { aliceMessage(conversation, first) != null }) fail("alice did not receive the phone's message in $conversation")
+        if (!ui.eventually(90_000, 3_000) {
+                aliceMessage(conversation, first) != null
+            }
+        ) {
+            fail("alice did not receive the phone's message in $conversation")
+        }
         ui.shot("06-sent")
         // Live receive from alice without a manual refresh.
         val incoming = "rr-alice-" + token()
         val sent = control.rf("alice", "conversation", "send", "--conversation", conversation, "--text", incoming)
-        if (sent.optInt("exit") != 0) blocked("alice: rf conversation send failed (exit ${sent.optInt("exit")}): ${sent.optString("stderr").takeLast(300)}")
+        if (sent.optInt("exit") != 0) {
+            blocked(
+                "alice: rf conversation send failed (exit ${sent.optInt("exit")}): ${sent.optString("stderr").takeLast(300)}"
+            )
+        }
         var liveFailure: String? = null
         if (ui.text(incoming, 60_000) == null) {
             ui.device.pressBack()
             openConversation(conversation)
-            liveFailure = if (ui.text(incoming, 20_000) != null) "alice's message was not shown live in the open chat within 60 s; it is there after reopening"
-            else "alice's message never appeared on the phone, even after reopening"
+            liveFailure = if (ui.text(incoming, 20_000) != null) {
+                "alice's message was not shown live in the open chat within 60 s; it is there after reopening"
+            } else {
+                "alice's message never appeared on the phone, even after reopening"
+            }
             if (!ui.hasText(incoming)) fail(liveFailure)
         }
         ui.shot("06-received")
@@ -266,8 +316,9 @@ class RealRunFlowTest {
         notes += "receipts alice sees on her message after the phone displayed it: $aliceReceipts"
         // Typing from alice.
         val typing = control.rf("alice", "conversation", "typing", "start", "--conversation", conversation)
-        notes += if (typing.optInt("exit") != 0) "typing start refused on alice (exit ${typing.optInt("exit")})"
-        else if (ui.text(ui.str("ui_peer_typing"), 15_000) != null) "typing shown" else "typing not shown within 15 s"
+        notes += if (typing.optInt("exit") != 0) {
+            "typing start refused on alice (exit ${typing.optInt("exit")})"
+        } else if (ui.text(ui.str("ui_peer_typing"), 15_000) != null) "typing shown" else "typing not shown within 15 s"
         // Reply to alice's message.
         val reply = "rr-reply-" + token()
         openActions(incoming)
@@ -275,7 +326,11 @@ class RealRunFlowTest {
         send(reply)
         if (!ui.eventually(90_000, 3_000) { aliceMessage(conversation, reply) != null }) fail("alice did not receive the reply")
         val replyRow = aliceMessage(conversation, reply)
-        notes += if (replyRow.toString().contains("reply", ignoreCase = true)) "reply reference present on alice" else "reply arrived without a reply reference on alice"
+        notes += if (replyRow.toString().contains("reply", ignoreCase = true)) {
+            "reply reference present on alice"
+        } else {
+            "reply arrived without a reply reference on alice"
+        }
         val ownSide = ownSide(reply)
         notes += "own reply drawn on the ${if (ownSide) "own" else "incoming"} side"
         // Edit the first message.
@@ -297,9 +352,13 @@ class RealRunFlowTest {
                 val row = aliceMessage(conversation, reply)
                 row == null || (row.has("erasure") && !row.isNull("erasure"))
             }
-        ) fail("alice still shows the reply after delete for everyone; ${notes.joinToString("; ")}")
+        ) {
+            fail("alice still shows the reply after delete for everyone; ${notes.joinToString("; ")}")
+        }
         ui.shot("06-erased")
-        aliceMessage(conversation, edited)?.let { notes += "receipts on alice for the phone's message: ${receipts(it).ifEmpty { listOf("none") }.joinToString(",")}" }
+        aliceMessage(conversation, edited)?.let {
+            notes += "receipts on alice for the phone's message: ${receipts(it).ifEmpty { listOf("none") }.joinToString(",")}"
+        }
         val own = ui.desc(ui.str("ui_receipt_delivered"), 2_000) != null || ui.desc(ui.str("ui_receipt_read"), 1_000) != null ||
             ui.desc(ui.str("ui_receipt_sent"), 1_000) != null
         notes += if (own) "own bubbles state their receipt" else "no receipt label found on own bubbles"
@@ -321,18 +380,36 @@ class RealRunFlowTest {
         val incoming = "rr-alice-bg-" + token()
         control.rf("alice", "conversation", "send", "--conversation", conversation, "--text", incoming)
         ui.launch()
-        val back = ui.first("composer", "shell-tabs", "startup-unlock-header", "startup-details-header", "startup-info-header", "unlock-account-name", timeout = Ui.LONG)
+        val back = ui.first(
+            "composer",
+            "shell-tabs",
+            "startup-unlock-header",
+            "startup-details-header",
+            "startup-info-header",
+            "unlock-account-name",
+            timeout = Ui.LONG
+        )
             ?: fail("nothing shown after returning: ${ui.screen()}")
         val unlocked = back != "composer" && back != "shell-tabs"
         if (unlocked) unlock()
         val inChat = ui.find("composer", 20_000) != null
         if (!inChat) fail("after returning${if (unlocked) " and unlocking" else ""} the app did not reopen the chat: ${ui.screen()}")
-        if (ui.text(incoming, 60_000) == null) fail("alice's message sent while the app was in the background did not appear after returning")
+        if (ui.text(incoming, 60_000) == null) {
+            fail(
+                "alice's message sent while the app was in the background did not appear after returning"
+            )
+        }
         val draft = ui.eventually(10_000) { ui.hasText(marker) }
         ui.shot("07-returned")
         if (draft) {
             ui.tap("composer-send")
-            if (!ui.eventually(60_000, 3_000) { aliceMessage(conversation, marker) != null }) fail("the kept draft was not delivered after sending")
+            if (!ui.eventually(
+                    60_000,
+                    3_000
+                ) { aliceMessage(conversation, marker) != null }
+            ) {
+                fail("the kept draft was not delivered after sending")
+            }
         }
         "after ${BACKGROUND_WAIT / 1000} s in the background the app returned to the open chat" +
             (if (unlocked) " after the unlock step" else " without an unlock") +
@@ -358,8 +435,11 @@ class RealRunFlowTest {
         val card = Regex("ramflux-card:v[0-9]+:[A-Za-z0-9_=.-]+").find(shared.orEmpty())?.value
             ?: fail("Share on My contact card handed over no card text: ${ui.screen()}")
         val added = control.rf("alice", "contact", "add", "--card", card)
-        notes += if (added.optInt("exit") == 0) "alice added the phone's contact card" else
+        notes += if (added.optInt("exit") == 0) {
+            "alice added the phone's contact card"
+        } else {
             "alice: rf contact add --card exit ${added.optInt("exit")}: ${added.optString("stderr").takeLast(200)}"
+        }
         // This device's id from My devices; alice's attachment send addresses it directly.
         ensureShell()
         openSettings()
@@ -372,7 +452,8 @@ class RealRunFlowTest {
             device != null
         }
         val phoneDevice = device ?: fail("My devices lists no current device: ${ui.screen()}")
-        val target = "root~" + Base64.getUrlEncoder().withoutPadding().encodeToString(JSONArray(listOf(commitment, phoneDevice)).toString().toByteArray())
+        val targetJson = JSONArray(listOf(commitment, phoneDevice)).toString().toByteArray()
+        val target = "root~" + Base64.getUrlEncoder().withoutPadding().encodeToString(targetJson)
         val peers = control.config().getJSONObject("peers")
         val alice = peers.getJSONObject("alice")
         val captions = mutableListOf<String>()
@@ -388,7 +469,8 @@ class RealRunFlowTest {
                 "--body", caption, "--attach", made.getString("path"), timeoutSecs = 120
             )
             if (result.optInt("exit") != 0) {
-                receiveBlocked = "alice: rf dm send --attach $file failed (exit ${result.optInt("exit")}): ${result.optString("stderr").takeLast(300)}"
+                val stderr = result.optString("stderr").takeLast(300)
+                receiveBlocked = "alice: rf dm send --attach $file failed (exit ${result.optInt("exit")}): $stderr"
                 break
             }
             notes += "alice sent $file"
@@ -397,7 +479,9 @@ class RealRunFlowTest {
         ensureShell()
         openConversation(conversation)
         if (receiveBlocked == null) {
-            for (caption in captions) ui.text(caption, 90_000) ?: fail("message $caption from alice did not appear; ${notes.joinToString("; ")}")
+            for (caption in captions) {
+                ui.text(caption, 90_000) ?: fail("message $caption from alice did not appear; ${notes.joinToString("; ")}")
+            }
             // rf dm send --attach declares application/octet-stream for every file, so both arrive as file cards.
             val pending = listOf(ui.str("chat_media_download"), ui.str("chat_media_loading"))
             for (file in listOf("rr-image.png", "rr-file.txt")) {
@@ -412,7 +496,11 @@ class RealRunFlowTest {
                         card()?.let { label -> pending.none { rowText(label).contains(it) } } == true
                 }
                 val state = card()?.let { rowText(it) } ?: "opened"
-                notes += if (downloaded) "phone downloaded $file ($state)" else "phone did not finish downloading $file within 90 s ($state)"
+                notes += if (downloaded) {
+                    "phone downloaded $file ($state)"
+                } else {
+                    "phone did not finish downloading $file within 90 s ($state)"
+                }
                 if (!downloaded) fail(notes.joinToString("; "))
                 returnToChat(conversation)
             }
@@ -440,7 +528,13 @@ class RealRunFlowTest {
                 !row.optBoolean("is_own", true) && messageText(row) !in captions && row.toString().contains("media")
             } ?: return@eventually false
             val out = control.freshPath("alice-import.bin")
-            val result = control.rf("alice", "attachment", "import", "--message", row.optString("id"), "--index", "0", "--output", out, timeoutSecs = 120)
+            val result = control.rf(
+                "alice", "attachment", "import", "--message",
+                row.optString(
+                    "id"
+                ),
+                "--index", "0", "--output", out, timeoutSecs = 120
+            )
             if (result.optInt("exit") != 0) return@eventually false
             imported = control.fileInfo(out)
             true
@@ -450,7 +544,11 @@ class RealRunFlowTest {
             fail("alice never received an importable image from the phone; ${ui.screen()}; $detail")
         }
         val same = imported?.optString("sha256") == expected
-        notes += if (same) "alice imported identical bytes of the phone's image" else "alice imported ${imported?.optLong("size")} bytes with a different sha256"
+        notes += if (same) {
+            "alice imported identical bytes of the phone's image"
+        } else {
+            "alice imported ${imported?.optLong("size")} bytes with a different sha256"
+        }
         if (!same) fail(notes.joinToString("; "))
         receiveBlocked?.let { blocked("receive: $it; send: ${notes.joinToString("; ")}") }
         notes.joinToString("; ")
@@ -490,7 +588,10 @@ class RealRunFlowTest {
             ui.text(peerName(peer), 30_000)?.click() ?: fail("$peer is not offered in the invite picker: ${ui.screen()}")
             ui.tap("host-confirmation-confirm", Ui.SHORT)
             val principal = peerArg(peer, "principal")
-            if (!ui.eventually(90_000, 2_000) { ui.hasText(principal) || ui.hasText(principal.removePrefix("principal-")) || ui.hasText(peerName(peer)) }) {
+            if (!ui.eventually(90_000, 2_000) {
+                    ui.hasText(principal) || ui.hasText(principal.removePrefix("principal-")) || ui.hasText(peerName(peer))
+                }
+            ) {
                 fail("$peer is not listed as a member after the add: ${ui.screen()}; ${notes.joinToString("; ")}")
             }
         }
@@ -498,10 +599,14 @@ class RealRunFlowTest {
         notes += "members list shows alice and bob"
         var group: JSONObject? = null
         if (!ui.eventually(120_000, 4_000) {
-                group = jsonRows(control.rf("alice", "group", "list"), "groups").firstOrNull { it.optString("name") == name || it.optString("title") == name }
+                group = jsonRows(control.rf("alice", "group", "list"), "groups").firstOrNull {
+                    it.optString("name") == name || it.optString("title") == name
+                }
                 group != null
             }
-        ) fail("alice never listed the group $name; ${notes.joinToString("; ")}")
+        ) {
+            fail("alice never listed the group $name; ${notes.joinToString("; ")}")
+        }
         val groupId = group!!.optString("group_id")
         val groupConversation = group!!.optString("conversation_id").ifEmpty { groupId }
         notes += "alice lists the group"
@@ -522,7 +627,13 @@ class RealRunFlowTest {
             "bob", "group", "send", "--group", groupId, "--conversation", groupConversation, "--message", "rr-gmsg-" + token(),
             "--sender", bob.getString("device_id"), "--body", fromBob, timeoutSecs = 120
         )
-        if (sent.optInt("exit") != 0) blocked("bob: rf group send failed (exit ${sent.optInt("exit")}): ${sent.optString("stderr").takeLast(300)}; ${notes.joinToString("; ")}")
+        if (sent.optInt("exit") != 0) {
+            blocked(
+                "bob: rf group send failed (exit ${sent.optInt(
+                    "exit"
+                )}): ${sent.optString("stderr").takeLast(300)}; ${notes.joinToString("; ")}"
+            )
+        }
         ui.text(fromBob, 90_000) ?: fail("bob's group message did not appear on the phone; ${notes.joinToString("; ")}")
         ui.shot("09-group-chat")
         notes += "bob's group message appeared on the phone"
@@ -626,7 +737,11 @@ class RealRunFlowTest {
         Thread.sleep(3_000)
         ui.shot("12-privacy")
         val policy = ui.ids().contains("policy:")
-        notes += if (policy) "privacy shows the request policy from the SDK" else "privacy shows no request policy rows: ${ui.texts().take(120)}"
+        notes += if (policy) {
+            "privacy shows the request policy from the SDK"
+        } else {
+            "privacy shows no request policy rows: ${ui.texts().take(120)}"
+        }
         if (ui.find("open-account", 3_000) != null) {
             ui.tap("open-account")
             Thread.sleep(2_000)
@@ -670,7 +785,16 @@ class RealRunFlowTest {
     private fun ensureShell() {
         if (!ui.foreground()) ui.launch() else ui.portrait()
         repeat(6) {
-            when (ui.first("shell-tabs", "startup-unlock-header", "startup-details-header", "startup-info-header", "unlock-account-name", timeout = 3_000)) {
+            when (
+                ui.first(
+                    "shell-tabs",
+                    "startup-unlock-header",
+                    "startup-details-header",
+                    "startup-info-header",
+                    "unlock-account-name",
+                    timeout = 3_000
+                )
+            ) {
                 "shell-tabs" -> return
                 null -> {
                     if (ui.find("host-confirmation-deny", 500) != null) ui.tap("host-confirmation-deny") else ui.device.pressBack()
@@ -687,7 +811,18 @@ class RealRunFlowTest {
         val end = System.currentTimeMillis() + Ui.LONG
         while (System.currentTimeMillis() < end) {
             // The locked screens by their headers: A01 (account offered), its details, the unlock information.
-            when (ui.first("shell-tabs", "composer", "unlock-account-name", "startup-info-header", "startup-details-header", "startup-unlock-header", "shell-locked", timeout = Ui.SHORT)) {
+            when (
+                ui.first(
+                    "shell-tabs",
+                    "composer",
+                    "unlock-account-name",
+                    "startup-info-header",
+                    "startup-details-header",
+                    "startup-unlock-header",
+                    "shell-locked",
+                    timeout = Ui.SHORT
+                )
+            ) {
                 "shell-tabs", "composer" -> return
                 "startup-unlock-header" -> ui.tap("startup-unlock-continue")
                 "shell-locked" -> ui.tap("shell-locked-unlock")
@@ -695,7 +830,11 @@ class RealRunFlowTest {
                 "startup-info-header" -> ui.tap("startup-unlock-code")
                 "unlock-account-name" -> {
                     val code = RunCode.load() ?: blocked("no saved run code on this install")
-                    try { ui.keys("unlock-code", code) } finally { code.fill('\u0000') }
+                    try {
+                        ui.keys("unlock-code", code)
+                    } finally {
+                        code.fill('\u0000')
+                    }
                     ui.tap("unlock-account")
                     // The shell, or the screen that was open before the lock (it comes back after the unlock).
                     if (ui.first("shell-tabs", "composer", timeout = Ui.LONG) != null) return
@@ -736,23 +875,33 @@ class RealRunFlowTest {
                 request = jsonRows(control.rf(peer, "contact", "list"), "contacts").firstOrNull { it.optString("display_name") == name }
                 request != null
             }
-        ) fail("$peer never saw a contact request from $name; phone: ${ui.screen()}")
+        ) {
+            fail("$peer never saw a contact request from $name; phone: ${ui.screen()}")
+        }
         val row = request!!
         RunState["principal"] = row.optString("principal_id")
         RunState["commitment"] = row.optString("root_commitment")
         if (row.optString("state") != "accepted") {
             val accepted = control.rf(peer, "contact", "accept", "--principal", row.optString("principal_id"))
-            if (accepted.optInt("exit") != 0) blocked("$peer: rf contact accept failed (exit ${accepted.optInt("exit")}): ${accepted.optString("stderr").takeLast(300)}")
+            if (accepted.optInt("exit") != 0) {
+                blocked(
+                    "$peer: rf contact accept failed (exit ${accepted.optInt("exit")}): ${accepted.optString("stderr").takeLast(300)}"
+                )
+            }
         }
         // The add page stays open after the request; the list is one back away.
         if (ui.find("contacts-send", 1_000) != null) ui.device.pressBack()
         if (!ui.eventually(90_000, 3_000) {
-                if (ui.hasText(peerName(peer))) true else {
+                if (ui.hasText(peerName(peer))) {
+                    true
+                } else {
                     ui.device.findObject(By.pkg(ui.packageName).text(ui.str("contacts_refresh")))?.click()
                     false
                 }
             }
-        ) fail("$peer did not appear in the phone's contacts after accepting: ${ui.screen()}")
+        ) {
+            fail("$peer did not appear in the phone's contacts after accepting: ${ui.screen()}")
+        }
         return row
     }
 
@@ -809,8 +958,11 @@ class RealRunFlowTest {
         return bounds.right > width * 3 / 4 && bounds.left > width / 8
     }
 
-    private fun rowText(row: UiObject2): String =
-        (listOf(row) + row.children + row.children.flatMap { it.children }).flatMap { listOfNotNull(it.text, it.contentDescription) }.joinToString(" ")
+    private fun rowText(row: UiObject2): String = (
+        listOf(row) + row.children + row.children.flatMap {
+            it.children
+        }
+        ).flatMap { listOfNotNull(it.text, it.contentDescription) }.joinToString(" ")
 
     private fun peerName(peer: String): String = control.config().getJSONObject("peers").getJSONObject(peer).getString("display_name")
 
@@ -827,7 +979,9 @@ class RealRunFlowTest {
     private fun messageText(row: JSONObject): String =
         row.optJSONObject("content")?.optJSONObject("message")?.optString("text")?.takeIf { it.isNotEmpty() } ?: row.optString("text")
 
-    private fun aliceMessage(conversation: String, fragment: String): JSONObject? = aliceMessages(conversation).firstOrNull { messageText(it).contains(fragment) }
+    private fun aliceMessage(conversation: String, fragment: String): JSONObject? = aliceMessages(conversation).firstOrNull {
+        messageText(it).contains(fragment)
+    }
 
     private fun receipts(row: JSONObject?): List<String> {
         val list = row?.optJSONArray("receipts") ?: return emptyList()
