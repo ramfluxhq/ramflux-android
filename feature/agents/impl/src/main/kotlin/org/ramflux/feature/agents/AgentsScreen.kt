@@ -17,7 +17,7 @@ import org.ramflux.designsystem.kit.KitEmpty
 import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.feature.agents.impl.R
 @Composable
-fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, rooted: Boolean = false, modifier: Modifier = Modifier) {
+fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, modifier: Modifier = Modifier, rooted: Boolean = false) {
     val theme = LocalRFTheme.current
     val bars = if (rooted) WindowInsets.statusBars else WindowInsets.safeDrawing
     Scaffold(modifier = modifier, contentWindowInsets = bars) { insets ->
