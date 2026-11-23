@@ -36,5 +36,5 @@ fun SettingsNavigation(
             }
         }
     }
-    SettingsScreen(state, vm::onAction, modifier = modifier)
+    SettingsScreen(state, vm::onAction, modifier = modifier, drawInvitation = vm::drawInvitation)
 }

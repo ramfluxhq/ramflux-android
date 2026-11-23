@@ -62,4 +62,130 @@
     <string name="settings_revoke_confirm">撤销设备</string>
     <!-- Button that closes the revoke confirmation without revoking. -->
     <string name="settings_cancel">取消</string>
+    <!-- Section title on the settings page: account and device rows. -->
+    <string name="settings_group_account">账户与设备</string>
+    <!-- Settings row and page title: account and security. -->
+    <string name="settings_account_security">账户与安全</string>
+    <!-- Account row value when no account is open. -->
+    <string name="settings_account_needed_short">未打开账户</string>
+    <!-- Settings row: this account's devices and sync. -->
+    <string name="settings_devices_sync">设备与同步</string>
+    <!-- Value under the devices row. -->
+    <string name="settings_devices_sync_help">此设备授权、同步状态</string>
+    <!-- Section title on the settings page: connections and data rows. -->
+    <string name="settings_group_data">连接与数据</string>
+    <!-- Settings row: the nodes this phone connects to. -->
+    <string name="settings_nodes">节点</string>
+    <!-- Settings row and page title: backup and restore. -->
+    <string name="settings_backup_restore">数据备份与恢复</string>
+    <!-- Value under the backup row. -->
+    <string name="settings_backup_restore_help">创建、查看和恢复账户备份</string>
+    <!-- Section title on the settings page: application rows. -->
+    <string name="settings_group_app">应用</string>
+    <!-- Settings row and page title: appearance and language. -->
+    <string name="settings_appearance_language">外观与语言</string>
+    <!-- Value under the appearance row. -->
+    <string name="settings_appearance_language_help">主题与应用语言</string>
+    <!-- Settings row and page title: diagnostics and about. -->
+    <string name="settings_diagnostics_about">诊断与关于</string>
+    <!-- Value under the diagnostics row. -->
+    <string name="settings_diagnostics_about_help">运行状态与版本</string>
+    <!-- Section title on the account page. -->
+    <string name="settings_security">安全</string>
+    <!-- Row that changes the six-digit account code. -->
+    <string name="settings_change_code">修改账户密码</string>
+    <!-- Value under the change-code row. -->
+    <string name="settings_change_code_help">在此手机上打开账户的六位数字密码</string>
+    <!-- Row and page title: privacy settings. -->
+    <string name="settings_privacy">隐私</string>
+    <!-- Value under the privacy row. -->
+    <string name="settings_privacy_help">联系人请求与开放账户</string>
+    <!-- Shown after the account code was changed. -->
+    <string name="settings_code_changed">账户密码已修改。</string>
+    <!-- Label of the current account code slots. -->
+    <string name="settings_code_current">当前账户密码</string>
+    <!-- Label of the new account code slots. -->
+    <string name="settings_code_new">新账户密码</string>
+    <!-- Help under the new code: the SDK refuses easy codes. -->
+    <string name="settings_code_new_help">六位数字，不能全部相同，也不能是连续数字。</string>
+    <!-- Keypad key that deletes the last digit. -->
+    <string name="settings_code_delete">删除</string>
+    <!-- Button that changes the account code. -->
+    <string name="settings_code_submit">修改密码</string>
+    <!-- Refusal: the code must have six digits. -->
+    <string name="settings_code_not_six">请输入完整的六位数字。</string>
+    <!-- Refusal: the new code is too easy. -->
+    <string name="settings_code_trivial">请选择不全相同、也不连续的数字。</string>
+    <!-- Refusal: the new code equals the current one. -->
+    <string name="settings_code_same">新密码必须与当前密码不同。</string>
+    <!-- The current code was wrong or the change was refused. -->
+    <string name="settings_code_refused">账户密码未修改，请检查当前密码。</string>
+    <!-- Section title: who can send contact requests. -->
+    <string name="settings_contact_requests">联系人请求</string>
+    <!-- Contact request policy: review each request. -->
+    <string name="settings_requests_manual">逐个审核请求</string>
+    <!-- Help for the manual policy. -->
+    <string name="settings_requests_manual_help">新联系人需等待你的确认。</string>
+    <!-- Contact request policy: accept automatically. -->
+    <string name="settings_requests_auto">自动接受</string>
+    <!-- Help for the auto-accept policy. -->
+    <string name="settings_requests_auto_help">符合安全规则的请求会被自动接受。</string>
+    <!-- Section and row: open account (reachable by anyone). -->
+    <string name="settings_open_account_mode">开放账户</string>
+    <!-- Row: the account's @username. -->
+    <string name="settings_username">@用户名</string>
+    <!-- Value of a row whose feature the core does not offer yet. -->
+    <string name="settings_blocked_by_sdk">暂不可用：核心尚未提供</string>
+    <!-- Row and page title: link a new device to this account. -->
+    <string name="settings_pairing_title">关联新设备</string>
+    <!-- Value under the link-device row. -->
+    <string name="settings_pairing_row_help">由此手机邀请并批准</string>
+    <!-- Explains the inviting side and that joining from a phone is not available. -->
+    <string name="settings_pairing_help">此手机为你的另一台设备生成一次性邀请，与其核对代码后批准。暂不支持从手机加入账户。</string>
+    <!-- Button that creates a pairing invitation. -->
+    <string name="settings_pairing_start">生成邀请</string>
+    <!-- Shown while the pairing step runs. -->
+    <string name="settings_pairing_working">处理中…</string>
+    <!-- Instruction to compare the emoji on both devices. -->
+    <string name="settings_pairing_compare">请确认另一台设备按相同顺序显示相同的符号。</string>
+    <!-- Button: the symbols match. -->
+    <string name="settings_pairing_match">一致</string>
+    <!-- Button: the symbols differ; stops pairing. -->
+    <string name="settings_pairing_mismatch">不一致</string>
+    <!-- Requester name when the joining device has no name. -->
+    <string name="settings_pairing_unnamed">未命名设备</string>
+    <!-- Status chip on the approval card. -->
+    <string name="settings_pairing_waiting">等待你的批准</string>
+    <!-- Approval card title. -->
+    <string name="settings_pairing_review">批准此设备？</string>
+    <!-- Approval card scope label. -->
+    <string name="settings_pairing_rights">它将可以</string>
+    <!-- Button: decline the joining device. -->
+    <string name="settings_pairing_decline">拒绝</string>
+    <!-- Button: approve the joining device. -->
+    <string name="settings_pairing_approve">批准</string>
+    <!-- Host confirmation title before approval. -->
+    <string name="settings_pairing_confirm_title">只批准你本人持有的设备</string>
+    <!-- Host confirmation body before approval. -->
+    <string name="settings_pairing_confirm_body">在你撤销之前，该设备将可以访问你的消息和联系人。</string>
+    <!-- Button that cancels the pairing. -->
+    <string name="settings_pairing_cancel">取消关联</string>
+    <!-- Instruction above the one-time invitation. -->
+    <string name="settings_pairing_invitation">在另一台设备上输入此一次性邀请。它只显示一次，离开应用时会被隐藏。</string>
+    <!-- Placeholder when the invitation is hidden. -->
+    <string name="settings_pairing_covered">Ramflux 不在前台时已隐藏</string>
+    <!-- Expiry of the invitation; %1$s is a date and time. -->
+    <string name="settings_pairing_expires">%1$s 过期</string>
+    <!-- Pairing finished. -->
+    <string name="settings_pairing_completed">设备已关联。</string>
+    <!-- Pairing was cancelled. -->
+    <string name="settings_pairing_cancelled">关联已取消。</string>
+    <!-- Pairing expired. -->
+    <string name="settings_pairing_expired">邀请已过期。</string>
+    <!-- Pairing was rejected. -->
+    <string name="settings_pairing_rejected">关联已被拒绝。</string>
+    <!-- Pairing failed; the SDK code follows. -->
+    <string name="settings_pairing_failed">关联已中止。</string>
+    <!-- Language row value: the language is planned, not translated. -->
+    <string name="settings_language_untranslated">翻译进行中</string>
 </resources>

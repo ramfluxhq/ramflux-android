@@ -9,6 +9,9 @@ internal class DisplayFields(raw: ByteArray) {
     val root = parser.parse()
     fun field(row: ByteJson.Node, key: String) = parser.field(row, key)
 
+    /** The raw UTF-8 of a node as owned bytes, for a secret the caller wraps in [SecretBytes] at once. */
+    fun copy(node: ByteJson.Node): ByteArray = parser.copy(node)
+
     /** The raw UTF-8 of a non-secret structural node, such as an opaque paging cursor object. */
     fun raw(node: ByteJson.Node): String {
         val bytes = parser.copy(node)

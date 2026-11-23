@@ -87,3 +87,43 @@ class FakeSettingsLanguage : LanguageRepository {
         return result
     }
 }
+class FakeAccountSecurity : AccountSecurityRepository {
+    val calls = mutableListOf<String>()
+    var begin: ClientResult<PairingInvitation>? = null
+    val statuses = ArrayDeque<ClientResult<PairingState>>()
+    var step: ClientResult<PairingState>? = null
+    var policy: ClientResult<ContactRequestPolicy> = ClientResult.Ready(ContactRequestPolicy.MANUAL)
+    var code: ClientResult<Unit> = ClientResult.Ready(Unit)
+    val codes = mutableListOf<Pair<String, String>>()
+    override suspend fun beginPairing(account: String, displayName: String, leaseSeconds: Long): ClientResult<PairingInvitation> {
+        calls += "begin"
+        return begin ?: ClientResult.Unavailable(ClientFeature.SETTINGS)
+    }
+    override suspend fun pairingStatus(account: String, operationId: String, generation: ULong): ClientResult<PairingState> {
+        calls += "status"
+        return statuses.removeFirstOrNull() ?: kotlinx.coroutines.awaitCancellation()
+    }
+    override suspend fun confirmPairing(account: String, state: PairingState, match: Boolean): ClientResult<PairingState> {
+        calls += "confirm:$match"
+        return step ?: ClientResult.Unavailable(ClientFeature.SETTINGS)
+    }
+    override suspend fun approvePairing(account: String, state: PairingState, approved: Boolean): ClientResult<PairingState> {
+        calls += "approve:$approved"
+        return step ?: ClientResult.Unavailable(ClientFeature.SETTINGS)
+    }
+    override suspend fun cancelPairing(account: String, operationId: String, generation: ULong): ClientResult<PairingState> {
+        calls += "cancel:$operationId"
+        return step ?: ClientResult.Unavailable(ClientFeature.SETTINGS)
+    }
+    override suspend fun requestPolicy(account: String) = policy.also { calls += "policy" }
+    override suspend fun setRequestPolicy(account: String, policy: ContactRequestPolicy): ClientResult<ContactRequestPolicy> {
+        calls += "policy:${policy.wire}"
+        this.policy = ClientResult.Ready(policy)
+        return this.policy
+    }
+    override suspend fun changeAccountCode(account: String, current: CharArray, next: CharArray): ClientResult<Unit> {
+        codes += String(current) to String(next)
+        current.fill('\u0000'); next.fill('\u0000')
+        return code
+    }
+}

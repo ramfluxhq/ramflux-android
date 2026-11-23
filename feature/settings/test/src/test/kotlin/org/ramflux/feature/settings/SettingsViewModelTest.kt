@@ -39,7 +39,8 @@ class SettingsViewModelTest {
             FakeAccountStatus(),
             FakeSettingsAppearance(),
             FakeSettingsSession(),
-            language
+            language,
+            FakeAccountSecurity()
         )
         observe(vm)
         runCurrent()
@@ -59,7 +60,7 @@ class SettingsViewModelTest {
         val devices = FakeDeviceDirectory()
         val status = FakeAccountStatus()
         val preferences = FakeSettingsAppearance()
-        val vm = SettingsViewModel(accounts, devices, status, preferences, FakeSettingsSession(), FakeSettingsLanguage())
+        val vm = SettingsViewModel(accounts, devices, status, preferences, FakeSettingsSession(), FakeSettingsLanguage(), FakeAccountSecurity())
         observe(vm)
         runCurrent()
         assertTrue(vm.state.value.accountRequired)
@@ -84,7 +85,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 preferences,
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
@@ -107,7 +109,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
@@ -127,7 +130,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
@@ -147,7 +151,7 @@ class SettingsViewModelTest {
                 ClientResult.Ready(listOf(DeviceSummary("private", true, 1u)))
             }
         }
-        val vm = SettingsViewModel(accounts, devices, FakeAccountStatus(), FakeSettingsAppearance(), session, FakeSettingsLanguage())
+        val vm = SettingsViewModel(accounts, devices, FakeAccountStatus(), FakeSettingsAppearance(), session, FakeSettingsLanguage(), FakeAccountSecurity())
         observe(vm)
         runCurrent()
         accounts.result = ClientResult.Ready(AccountCatalog(listOf(AccountSummary("b", "Other", true, "unlocked")), "b"))
@@ -176,7 +180,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
@@ -211,7 +216,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
@@ -231,7 +237,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()
@@ -261,7 +268,8 @@ class SettingsViewModelTest {
                 FakeAccountStatus(),
                 FakeSettingsAppearance(),
                 FakeSettingsSession(),
-                FakeSettingsLanguage()
+                FakeSettingsLanguage(),
+                FakeAccountSecurity()
             )
         observe(vm)
         runCurrent()

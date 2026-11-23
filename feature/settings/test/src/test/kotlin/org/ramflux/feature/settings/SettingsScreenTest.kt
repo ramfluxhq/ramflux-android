@@ -25,7 +25,7 @@ class SettingsScreenTest {
         val accounts = FakeSettingsAccounts().apply { result = ClientResult.Ready(AccountCatalog(emptyList(), null)) }
         val devices = FakeDeviceDirectory()
         val status = FakeAccountStatus()
-        val vm = SettingsViewModel(accounts, devices, status, FakeSettingsAppearance(), FakeSettingsSession(), FakeSettingsLanguage())
+        val vm = SettingsViewModel(accounts, devices, status, FakeSettingsAppearance(), FakeSettingsSession(), FakeSettingsLanguage(), FakeAccountSecurity())
         vm.onAction(SettingsAction.Page(SettingsPage.DEVICES))
         val actions = mutableListOf<SettingsAction>()
         compose.setContent {
@@ -83,9 +83,10 @@ class SettingsScreenTest {
                 RamfluxTheme { SettingsScreen(SettingsState(page = SettingsPage.APPEARANCE), { actions++ }) }
             }
         }
-        compose.onNodeWithText("Follow system").assertExists()
+        // "Follow system" is both the language row's value and the first theme choice; check the theme choice.
+        compose.onNodeWithTag("theme:system").assertTextContains("Follow system")
         compose.runOnIdle { locale = "zh-CN" }
-        compose.onNodeWithText("跟随系统").assertExists()
+        compose.onNodeWithTag("theme:system").assertTextContains("跟随系统")
         compose.onNodeWithText("深色").assertExists()
         compose.runOnIdle { assertEquals(0, actions) }
     }

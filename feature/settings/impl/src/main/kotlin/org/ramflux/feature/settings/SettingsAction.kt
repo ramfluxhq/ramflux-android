@@ -20,4 +20,20 @@ sealed interface SettingsAction {
 
     /** Explicit lock: only the account code opens the account again on this phone. */
     data object Lock : SettingsAction
+
+    /** Linking a new device: this phone invites, compares, reviews and approves. */
+    data object StartPairing : SettingsAction
+    data class ComparePairing(val match: Boolean) : SettingsAction
+    data object ApprovePairing : SettingsAction
+    data object ConfirmApprovePairing : SettingsAction
+    data object DeclinePairing : SettingsAction
+    data object CancelPairing : SettingsAction
+
+    data class RequestPolicy(val policy: org.ramflux.data.ContactRequestPolicy) : SettingsAction
+
+    data object OpenCodeChange : SettingsAction
+    /** One typed digit (or deletion with null) of the current or the new account code. */
+    data class CodeDigit(val next: Boolean, val digit: Char?) : SettingsAction
+    data object SubmitCodeChange : SettingsAction
+    data object CloseCodeChange : SettingsAction
 }

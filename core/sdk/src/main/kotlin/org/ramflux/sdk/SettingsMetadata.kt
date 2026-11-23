@@ -23,6 +23,10 @@ object SettingsMetadataReader {
         SyncMetadata(requireNotNull(fields.text(fields.root, "secure_sessions", true)), sample("sync_status"), sample("node_health"),
             fields.optionalSigned(fields.root, "last_run"))
     }
+    /** `contact.requests.policy.get` / `.set`: `"manual"` or `"auto_accept"`, nothing else. */
+    fun requestPolicy(reply: SecretReply): CoreResult<String> = consume(reply) { fields ->
+        requireNotNull(fields.text(fields.root, "contact_requests", true)).also { require(it == "manual" || it == "auto_accept") }
+    }
     private fun <T> consume(reply: SecretReply, block: (DisplayFields) -> T): CoreResult<T> = try {
         reply.useOnce { CoreResult.Success(block(DisplayFields(it))) }
     } catch (_: Exception) { CoreResult.Failure(CoreError.InvalidResponse()) }

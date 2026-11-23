@@ -170,6 +170,16 @@ because the client opens with `allow_secret_exports`. Stranger reports and batch
 decisions have no SDK method; their app-side interfaces return typed unavailable
 results, as documented in [client capabilities](client-capabilities.md).
 
+Inviting another device from this phone works in-process: settings, "Link a new device",
+calls `device.pair.begin` (every linked-device capability, a seven-day lease), follows
+`device.pair.status`, sends the short-authentication-string comparison with
+`device.pair.confirm` and, after the host confirmation, `device.pair.approve`; leaving the
+page cancels an unfinished ceremony with `device.pair.cancel`. The invitation token is read
+out of the reply as owned bytes (`PairingMetadataReader`), kept as erasable characters, drawn
+through `LtrSecretWords` only, covered while the window is not focused and erased once the
+joining device has used it. There is no QR encoder in the app yet, so the token is shown as
+numbered text chunks.
+
 Joining an existing account from this phone (`device.pair.join`, request R32) is not
 built. The new device's account code must reach the SDK through its credential
 channel (action `setup`, `crates/ramflux-sdk/src/bus/credentials.rs`), which exists
