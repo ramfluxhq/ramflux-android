@@ -200,6 +200,26 @@ again while copying, and removed when its job ends. Install merges into an exist
 (host confirmation, no code) or restores a new account with a new six-digit code. Restore is
 reachable from onboarding ("Restore from a backup") for a fresh install.
 
+## Notifications
+
+Local message notifications are groundwork only. While the process is alive with an open session and the
+app is not resumed, `MessageNotificationDriver` follows the conversation directory's topics through the
+shared event hub (never `*`), re-reads the first `conversation.directory` page of the active unlocked
+account on each change and compares unread counts: the first read is the baseline, a grown count
+notifies, muted conversations are skipped. The notification says only "New message": no sender, title,
+text or conversation id; the tap carries a random token that an in-memory map (`NotificationRoutes`)
+turns back into the conversation, opened through the shell (a locked session shows the unlock first, a
+different active account drops it). The app never asks for the notification permission here and posts
+only when notifications and the message channel are already allowed; release builds (which set
+`FLAG_SECURE`) hide it on the lock screen (`VISIBILITY_SECRET`), debug builds post it private with an
+equally generic public version. Only conversations on the first directory page (100 rows) are compared.
+
+Known beta limitation: the session closes when the app goes to the background (owner decision,
+2026-11-23), so no event reaches the app after it stopped and nothing is posted then. Real background
+delivery needs the node's push and background-delivery design (request R21: what the node sends, what a
+phone may decrypt or must fetch, and the wake path) and, for incoming calls, the call wake of request R28.
+No Firebase Cloud Messaging or other push dependency is added until that design exists.
+
 Joining an existing account from this phone (`device.pair.join`, request R32) is not
 built. The new device's account code must reach the SDK through its credential
 channel (action `setup`, `crates/ramflux-sdk/src/bus/credentials.rs`), which exists

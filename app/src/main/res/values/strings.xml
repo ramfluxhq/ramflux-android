@@ -62,4 +62,6 @@
     <string name="shell_detail_empty_title">Nothing selected</string>
     <!-- Body of the empty detail pane. -->
     <string name="shell_detail_empty_body">Choose an item in the list to open it here.</string>
+    <!-- Title of the local notification for a message that arrived while the app was not in front. It must stay generic: never a sender, conversation or message text. -->
+    <string name="notification_new_message">New message</string>
 </resources>

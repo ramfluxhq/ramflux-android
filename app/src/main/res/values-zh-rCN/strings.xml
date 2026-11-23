@@ -60,4 +60,6 @@
     <string name="startup_welcome_purpose">这部手机可以作为你的主设备。</string>
     <string name="shell_detail_empty_title">未选择内容</string>
     <string name="shell_detail_empty_body">在列表中选择一项即可在此打开。</string>
+    <!-- Title of the local notification for a message that arrived while the app was not in front. It must stay generic: never a sender, conversation or message text. -->
+    <string name="notification_new_message">新消息</string>
 </resources>

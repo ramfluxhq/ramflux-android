@@ -3,6 +3,7 @@
 
 package org.ramflux.android
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.Window
 import android.view.WindowManager
@@ -14,6 +15,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import org.ramflux.android.notify.AndroidMessageNotifier
+import org.ramflux.android.notify.NotificationOpener
+import org.ramflux.android.notify.NotificationRoutes
 import org.ramflux.android.shell.RamfluxShell
 import org.ramflux.android.shell.SHELL_ROUTE_POLICY
 import org.ramflux.android.shell.SHELL_TAB_ROOTS
@@ -36,10 +40,13 @@ import org.ramflux.navigation.rememberTopLevelNavigator
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var language: LanguageRepository
+
+    @Inject lateinit var notificationRoutes: NotificationRoutes
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         applySecureCapturePolicy(window, BuildConfig.DEBUG)
+        if (savedInstanceState == null) openNotification(intent)
         setContent {
             val locale by language.language.collectAsStateWithLifecycle()
             AppLanguageProvider(locale.value.tag) {
@@ -53,7 +60,11 @@ class MainActivity : ComponentActivity() {
                     policy = SHELL_ROUTE_POLICY,
                     tabs = tabs,
                     home = { navigate ->
-                        StartupHost(navigate, shell = { RamfluxShell(tabs, SHELL_ROUTE_POLICY, navigate) })
+                        StartupHost(navigate, shell = {
+                            // Shown only for an unlocked session: a tapped notification waits here behind the unlock.
+                            NotificationOpener(notificationRoutes, tabs)
+                            RamfluxShell(tabs, SHELL_ROUTE_POLICY, navigate)
+                        })
                     }
                 ) { onBack, navigate ->
                     // Root-stack pages: ShellPage applies the window insets and the width cap the screens no longer own.
@@ -75,6 +86,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        openNotification(intent)
+    }
+
+    /** A tapped message notification: only its token is read; [NotificationRoutes] maps it back in memory. */
+    private fun openNotification(intent: Intent?) {
+        notificationRoutes.open(intent?.getStringExtra(AndroidMessageNotifier.EXTRA_TOKEN))
+        intent?.removeExtra(AndroidMessageNotifier.EXTRA_TOKEN)
     }
 }
 
