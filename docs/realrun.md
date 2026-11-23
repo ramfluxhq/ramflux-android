@@ -102,6 +102,10 @@ appears (with retries); replacing an installed package shows no prompt.
   what the app does with the result is the real path.
 - **Orientation.** The suite asks for portrait on the app's own activity; the phone's rotation settings are
   never changed.
+- **Debug trace.** Debug and realrun builds write their trace (codes and names, never content) to logcat under
+  `ramflux.abi` and to `no_backup/debug-trace.log` in the app's storage. Some phones keep none of an app's own log
+  lines, so after each invocation the script copies that file with `run-as` to `app-trace.txt`; `app-logcat.txt`
+  keeps the app's logcat lines and the suite's flow markers.
 - **Peer control** `scripts/realrun/peer_control.py` on a loopback port of the machine running the script: allow-listed `rf`
   commands for alice and bob, results, screenshots. `scripts/realrun/flow_table.py` writes
   `flow-table.md` (PASS / FAIL / BLOCKED / NOT RUN).

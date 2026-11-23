@@ -18,9 +18,14 @@ class RamfluxApplication : Application() {
 
     @Inject lateinit var notifications: MessageNotificationService
     override fun onCreate() {
-        // Debug builds only. Warning level: some vendor builds suppress debug-level logs of apps by default.
+        // Debug builds only. The log line is kept for an attached logcat; the file is what a phone that drops an app's
+        // own log lines still keeps (see DebugTraceFile).
         if (BuildConfig.DEBUG) {
-            installProcessDebugTrace { message -> Log.w(DEBUG_TAG, message) }
+            val file = DebugTraceFile(java.io.File(noBackupFilesDir, DEBUG_TRACE_FILE))
+            installProcessDebugTrace { message ->
+                Log.w(DEBUG_TAG, message)
+                file.write(message)
+            }
             // One line per process start, so a capture shows whether the sink was installed at all.
             clientDebugEvent("app.start")
         }
@@ -32,3 +37,6 @@ class RamfluxApplication : Application() {
 
 /** The debug trace's log tag (debug and realrun builds only; codes and names, never content). */
 internal const val DEBUG_TAG = "ramflux.abi"
+
+/** The debug trace file in no-backup storage (debug and realrun builds only). */
+internal const val DEBUG_TRACE_FILE = "debug-trace.log"
