@@ -8,7 +8,7 @@ import org.ramflux.data.AppLanguage
 import org.ramflux.data.ContactRequestPolicy
 import org.ramflux.designsystem.*
 
-enum class SettingsPage { GENERAL, ACCOUNT, PRIVACY, DEVICES, PAIRING, APPEARANCE, LANGUAGE, DIAGNOSTICS, BACKUP }
+enum class SettingsPage { GENERAL, ACCOUNT, PRIVACY, DEVICES, PAIRING, APPEARANCE, LANGUAGE, DIAGNOSTICS }
 
 /** Where linking a new device stands on this phone (the inviting side). */
 enum class PairingStep { IDLE, STARTING, INVITED, COMPARE, REVIEW, WORKING, ENDED }

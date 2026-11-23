@@ -47,6 +47,7 @@ object ClientModule {
 
     @Provides fun devices(data: AndroidClientData): DeviceDirectoryRepository = data.devices
     @Provides fun security(data: AndroidClientData): AccountSecurityRepository = data.security
+    @Provides fun backups(data: AndroidClientData): BackupRepository = data.backups
 
     @Provides fun accountStores(data: AndroidClientData): AccountScopedStores = data.accountStores
 

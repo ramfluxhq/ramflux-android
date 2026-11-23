@@ -141,4 +141,94 @@
         <item quantity="one">Too many wrong codes. Try again in %d second.</item>
         <item quantity="other">Too many wrong codes. Try again in %d seconds.</item>
     </plurals>
+    <!-- Backup and restore page title. -->
+    <string name="backup_title">Backup and restore</string>
+    <!-- Title and onboarding button: restore an account from a backup archive. -->
+    <string name="backup_restore_title">Restore from a backup</string>
+    <!-- Button that starts a new backup. -->
+    <string name="backup_create">Create a backup</string>
+    <!-- Button that picks an archive to restore. -->
+    <string name="backup_restore">Restore from a file</string>
+    <!-- Where archives live while a job runs. -->
+    <string name="backup_storage_help">Archives stay in this app\'s private storage until you save them with the system file picker.</string>
+    <!-- No backup or restore jobs yet. -->
+    <string name="backup_empty">No backups yet</string>
+    <!-- Label of the archive passphrase field. -->
+    <string name="backup_passphrase">Archive passphrase</string>
+    <!-- Rule for the archive passphrase; it is not the account code. -->
+    <string name="backup_passphrase_help">The archive has its own passphrase: at least 15 characters and not a common password. It is not your six-digit account code.</string>
+    <!-- Button that writes the backup. -->
+    <string name="backup_create_confirm">Start backup</string>
+    <!-- Shown while an archive is copied or checked. -->
+    <string name="backup_working">Working…</string>
+    <!-- Instruction before checking an archive. -->
+    <string name="backup_verify_help">Enter the archive\'s passphrase to check it before anything is restored.</string>
+    <!-- Button that checks the archive. -->
+    <string name="backup_verify">Check archive</string>
+    <!-- Caption under the archive's account name. -->
+    <string name="backup_archive_account">Account in this archive</string>
+    <!-- When the archive was made; %1$s is a date. -->
+    <string name="backup_archive_created">Created %1$s</string>
+    <!-- The archive's account exists here: merge. -->
+    <string name="backup_merge_help">This account is already on this phone. Restoring merges the archive into it; newer local data is kept.</string>
+    <!-- Button that asks to merge. -->
+    <string name="backup_merge">Merge into this account</string>
+    <!-- Host confirmation title before merging. -->
+    <string name="backup_merge_confirm_title">Merge the archive?</string>
+    <!-- Host confirmation body before merging. -->
+    <string name="backup_merge_confirm_body">The account is paused while the archive is merged.</string>
+    <!-- Button that confirms the merge. -->
+    <string name="backup_merge_confirm">Merge</string>
+    <!-- The archive's account is new here: set a code. -->
+    <string name="backup_new_account_help">This restores the account as a new account on this phone. Set the six-digit code that will open it here.</string>
+    <!-- Label of the new account code. -->
+    <string name="backup_new_code">New account code</string>
+    <!-- Button that restores as a new account. -->
+    <string name="backup_install_new">Restore account</string>
+    <!-- Job row title: a backup. -->
+    <string name="backup_job_backup">Backup</string>
+    <!-- Job row title: a restore. -->
+    <string name="backup_job_restore">Restore</string>
+    <!-- Job state: writing the archive. -->
+    <string name="backup_state_writing">Writing</string>
+    <!-- Job state: checking the archive. -->
+    <string name="backup_state_verifying">Checking</string>
+    <!-- Job state: checked, ready to install. -->
+    <string name="backup_state_verified">Checked</string>
+    <!-- Job state: installing. -->
+    <string name="backup_state_installing">Restoring</string>
+    <!-- Job state: finished. -->
+    <string name="backup_state_done">Finished</string>
+    <!-- Job state: failed. -->
+    <string name="backup_state_failed">Failed</string>
+    <!-- Job state: cancelled. -->
+    <string name="backup_state_cancelled">Cancelled</string>
+    <!-- Progress; %1$d is a percentage, %2$s the SDK's current step name. -->
+    <string name="backup_progress">%1$d%% · %2$s</string>
+    <!-- Progress without a total; %1$s is the SDK's current step name. -->
+    <string name="backup_progress_open">In progress · %1$s</string>
+    <!-- Button that cancels a job. -->
+    <string name="backup_cancel">Cancel</string>
+    <!-- Button that saves a finished archive with the system file picker. -->
+    <string name="backup_save">Save file</string>
+    <!-- Shown after the archive was saved and removed from private storage. -->
+    <string name="backup_saved">Saved. The copy in app storage was removed.</string>
+    <!-- The core cannot run backup jobs here. -->
+    <string name="backup_unavailable">Backup is not available here.</string>
+    <!-- Backup needs an open account. -->
+    <string name="backup_account_needed">Open an account to back it up.</string>
+    <!-- Refusal: the archive passphrase is too short or common. -->
+    <string name="backup_weak_passphrase">Use at least 15 characters that are not a common password.</string>
+    <!-- Refusal: the archive passphrase is wrong. -->
+    <string name="backup_wrong_passphrase">The passphrase does not open this archive.</string>
+    <!-- Refusal: the archive is above the import limit. -->
+    <string name="backup_too_large">This file is larger than 256 MiB and cannot be restored on a phone.</string>
+    <!-- Refusal: the new account code is too easy. -->
+    <string name="backup_code_refused">Choose six digits that are not all the same or a straight run.</string>
+    <!-- Refusal: the account must be unlocked. -->
+    <string name="backup_account_locked">Unlock the account first.</string>
+    <!-- The outcome is not known. -->
+    <string name="backup_unknown">The result is not known yet. Check the job list.</string>
+    <!-- Generic backup failure. -->
+    <string name="backup_failed">The backup step did not succeed.</string>
 </resources>

@@ -54,8 +54,7 @@ class SettingsScreenshotTest(
                 uiText(R.string.settings_not_recorded),
                 uiText(R.string.settings_not_recorded),
                 uiText(R.string.settings_not_recorded)
-            ),
-            unavailable = if (page == SettingsPage.BACKUP) uiText(R.string.settings_custody_missing) else null
+            )
         )
         val state = when (kind) {
             "loading" -> SettingsState(loading = true)

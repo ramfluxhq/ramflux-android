@@ -53,7 +53,7 @@ internal fun LazyListScope.generalPage(state: SettingsState, onAction: (Settings
                 icon = "network", value = stringResource(R.string.settings_manage_connections), testTag = "connections"
             )
             KitRow(
-                stringResource(R.string.settings_backup_restore), { onAction(SettingsAction.Page(SettingsPage.BACKUP)) },
+                stringResource(R.string.settings_backup_restore), { onAction(SettingsAction.Backup) },
                 icon = "database-backup", value = stringResource(R.string.settings_backup_restore_help), divider = false, testTag = "backup"
             )
         }

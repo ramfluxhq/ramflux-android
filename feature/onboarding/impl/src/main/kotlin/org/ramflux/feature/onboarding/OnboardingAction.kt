@@ -31,4 +31,5 @@ sealed interface OnboardingAction {
 
     data object ContinueCreated : OnboardingAction
     data object Back : OnboardingAction
+    data object RestoreBackup : OnboardingAction
 }

@@ -123,10 +123,10 @@ class SettingsViewModel @Inject constructor(
             SettingsAction.OpenAccount -> event(SettingsEvent.OpenAccount)
             SettingsAction.Permissions -> event(SettingsEvent.Permissions)
             SettingsAction.Connections -> event(SettingsEvent.Connections)
+            SettingsAction.Backup -> event(SettingsEvent.Backup)
             is SettingsAction.Page -> {
                 capability?.cancel()
                 local.update { it.copy(page = action.page, problem = null, unavailable = null) }
-                if (action.page == SettingsPage.BACKUP) capability { accountStatus.backupAvailability() }
                 if (action.page == SettingsPage.PRIVACY) readPolicy()
             }
             is SettingsAction.Theme -> if (preferenceJob?.isActive != true && (action.id == null || ThemeCatalog.find(action.id) != null)) {

@@ -118,7 +118,12 @@ class EventHub internal constructor(
     }
 
     private suspend fun CoroutineScope.pumpLoop(account: String?, topics: Set<String>, self: Job) {
-        val body = buildJsonObject { put("topics", JsonArray(topics.sorted().map(::JsonPrimitive))) }
+        // The app is a human frontend that subscribes only while a screen is shown, so its subscription is
+        // attended: the SDK admits backup jobs from an attended connection (`bus/backup_jobs/routing.rs`).
+        val body = buildJsonObject {
+            put("topics", JsonArray(topics.sorted().map(::JsonPrimitive)))
+            put("attended_frontend", JsonPrimitive(true))
+        }
         while (isActive) {
             var resyncToken: ULong? = null
             var reopen = false

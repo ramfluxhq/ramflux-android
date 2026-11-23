@@ -202,9 +202,6 @@ class SettingsViewModelTest {
         assertEquals(1, devices.revokes)
         assertEquals(2, vm.state.value.devices.size)
         assertNotNull(vm.state.value.unavailable)
-        vm.onAction(SettingsAction.Page(SettingsPage.BACKUP))
-        runCurrent()
-        assertEquals(uiText(R.string.settings_custody_missing), vm.state.value.unavailable)
     }
 
     @Test fun lockClosesTheActiveAccountAndHandsOverToTheAccountScreen() = runTest(timeout = 5.seconds) {

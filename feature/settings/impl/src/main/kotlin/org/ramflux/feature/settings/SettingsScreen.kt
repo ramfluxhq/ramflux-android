@@ -40,7 +40,6 @@ fun SettingsScreen(
             SettingsPage.APPEARANCE -> R.string.settings_appearance_language
             SettingsPage.LANGUAGE -> R.string.settings_language
             SettingsPage.DEVICES -> R.string.settings_devices
-            SettingsPage.BACKUP -> R.string.settings_backup
         }
     )
     Scaffold(modifier = modifier, contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
@@ -179,7 +178,6 @@ fun SettingsScreen(
                                 )
                             }
                         }
-                        SettingsPage.BACKUP -> item("backup-info") { Text(stringResource(R.string.settings_backup_help)) }
                     }
                 }
             }

@@ -37,7 +37,6 @@ class SettingsDataTest {
         try {
             val repo = DefaultAccountStatusRepository(SdkRepositoryTransport { client })
             assertEquals(AccountStatus(SecureSessions.READY, SyncPhase.NOT_RECORDED, NodeHealth.NOT_RECORDED, null), (repo.read("account") as ClientResult.Ready).value)
-            assertTrue(repo.backupAvailability() is ClientResult.Unavailable)
             abi.completionBody = buildJsonObject { put("secure_sessions", "ready") }
             assertTrue(repo.read("account") is ClientResult.Failed)
         } finally { client.close() }

@@ -132,6 +132,13 @@ fun OnboardingScreen(
                                         tag = target.name
                                     )
                                 }
+                                KitButton(
+                                    stringResource(R.string.backup_restore_title),
+                                    { onAction(OnboardingAction.RestoreBackup) },
+                                    kind = KitButtonKind.Secondary,
+                                    enabled = !state.busy,
+                                    tag = "restore-backup"
+                                )
                             }
                             OnboardingPage.CONNECTION, OnboardingPage.REPAIR -> {
                                 Text(stringResource(R.string.ui_saved_nodes))

@@ -171,6 +171,7 @@ class OnboardingViewModel @Inject constructor(
             is OnboardingAction.BeginRecover -> beginRecover(action.accountId)
             is OnboardingAction.ConfirmRecover -> confirmRecover(action)
             OnboardingAction.Back -> Unit
+            OnboardingAction.RestoreBackup -> if (!local.value.busy) viewModelScope.launch { channel.send(OnboardingEvent.RestoreBackup) }
         }
     }
     private fun entryPage(): OnboardingPage = when {

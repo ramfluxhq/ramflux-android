@@ -4,7 +4,6 @@
     <string name="settings_settings">设置</string>
     <string name="settings_appearance">外观</string>
     <string name="settings_devices">设备</string>
-    <string name="settings_backup">备份</string>
     <string name="settings_back">返回</string>
     <string name="settings_refresh">刷新</string>
     <string name="settings_system">跟随系统</string>
@@ -28,7 +27,6 @@
     <string name="settings_current_device">此设备</string>
     <string name="settings_other_device">其他设备</string>
     <string name="settings_revoke">撤销</string>
-    <string name="settings_backup_help">备份操作需要安全账户访问支持，尚未创建或导出备份。</string>
     <string name="settings_sessions">安全会话</string>
     <string name="settings_session_ready">就绪</string>
     <string name="settings_session_reestablishing">正在重新建立</string>

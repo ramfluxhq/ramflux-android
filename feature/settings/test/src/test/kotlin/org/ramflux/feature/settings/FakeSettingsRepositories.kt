@@ -43,10 +43,6 @@ class FakeAccountStatus : AccountStatusRepository {
         reads++
         return result
     }
-    override suspend fun backupAvailability(): ClientResult<Unit> = ClientResult.Unavailable(
-        ClientFeature.SETTINGS,
-        UnavailableReason.CUSTODY_PROVIDER_REQUIRED
-    )
 }
 class FakeSettingsAppearance : AppearanceRepository {
     override val appearance = MutableStateFlow(AppearanceSnapshot(loading = false))

@@ -7,4 +7,5 @@ sealed interface SettingsEvent {
     data object OpenAccount : SettingsEvent
     data object Permissions : SettingsEvent
     data object Connections : SettingsEvent
+    data object Backup : SettingsEvent
 }

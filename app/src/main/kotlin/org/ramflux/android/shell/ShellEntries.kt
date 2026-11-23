@@ -22,6 +22,7 @@ import org.ramflux.feature.conversations.ConversationsNavigation
 import org.ramflux.feature.conversations.api.ConversationsRoute
 import org.ramflux.feature.groups.GroupsNavigation
 import org.ramflux.feature.groups.api.GroupsRoute
+import org.ramflux.feature.onboarding.api.BackupRoute
 import org.ramflux.feature.onboarding.api.OnboardingRoute
 import org.ramflux.feature.permissions.NotificationPermissionBannerNavigation
 import org.ramflux.feature.permissions.PermissionsNavigation
@@ -43,7 +44,7 @@ private const val TAB_AGENTS = 2
  * The application's routing policy. [OnboardingRoute] opens over the whole shell. Account-scoped keys
  * declare themselves through [org.ramflux.navigation.AccountScoped] in their API module.
  */
-val SHELL_ROUTE_POLICY = RoutePolicy(isGlobal = { it is OnboardingRoute })
+val SHELL_ROUTE_POLICY = RoutePolicy(isGlobal = { it is OnboardingRoute || it is BackupRoute })
 
 /** Production tab entries. Conversations and groups are lists whose chat opens as their detail. */
 fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
@@ -107,7 +108,11 @@ fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
     entry<CardsRoute> { CardsNavigation(shell::back) }
     entry<PermissionsRoute> { route -> PermissionsNavigation(route, shell::back) }
     entry<SettingsRoute> {
-        SettingsNavigation(shell::back, setup, setup, onPermissions = { shell.navigate(PermissionsRoute()) })
+        SettingsNavigation(
+            shell::back, setup, setup,
+            onPermissions = { shell.navigate(PermissionsRoute()) },
+            onBackup = { shell.navigate(BackupRoute()) }
+        )
     }
 }
 

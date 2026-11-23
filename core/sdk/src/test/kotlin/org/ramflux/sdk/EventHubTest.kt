@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
@@ -73,6 +74,7 @@ class EventHubTest {
         val b = collectInto(hub, filter("A", "*"), chat)
         runCurrent()
         assertEquals("one native subscription for both panes", 1, lane.opened.size)
+        assertEquals("the app subscribes as an attended frontend", true, lane.opened.single().body["attended_frontend"]?.jsonPrimitive?.boolean)
         lane.current.send(event("message.received")); runCurrent()
         assertEquals(listOf("message.received"), list.topics())
         assertEquals(listOf("message.received"), chat.topics())

@@ -24,7 +24,9 @@ import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
 import org.ramflux.feature.appshell.AppShellNavigation
 import org.ramflux.feature.appshell.ShellPage
+import org.ramflux.feature.onboarding.BackupNavigation
 import org.ramflux.feature.onboarding.OnboardingNavigation
+import org.ramflux.feature.onboarding.api.BackupRoute
 import org.ramflux.feature.onboarding.api.OnboardingRoute
 import org.ramflux.feature.permissions.PermissionsNavigation
 import org.ramflux.feature.permissions.api.PermissionEntry
@@ -56,12 +58,14 @@ class MainActivity : ComponentActivity() {
                 ) { onBack, navigate ->
                     // Root-stack pages: ShellPage applies the window insets and the width cap the screens no longer own.
                     entry<PermissionsRoute> { route -> ShellPage { PermissionsNavigation(route, onBack, modifier = it) } }
+                    entry<BackupRoute> { route -> ShellPage { BackupNavigation(route.freshInstall, onBack, modifier = it) } }
                     entry<OnboardingRoute> { route ->
                         ShellPage {
                             OnboardingNavigation(
                                 onBack = onBack,
                                 onAccountSelected = { onBack() },
                                 onAccountCreated = { navigate(PermissionsRoute(PermissionEntry.AFTER_ACCOUNT_CREATION, it)) },
+                                onRestoreBackup = { navigate(BackupRoute(freshInstall = true)) },
                                 openCreate = route.openCreate,
                                 unlockId = route.unlockId,
                                 modifier = it

@@ -15,6 +15,7 @@ fun OnboardingNavigation(
     onBack: () -> Unit,
     onAccountSelected: (String) -> Unit,
     onAccountCreated: (String) -> Unit = {},
+    onRestoreBackup: () -> Unit = {},
     openCreate: Boolean = false,
     unlockId: String = "",
     vm: OnboardingViewModel = hiltViewModel(),
@@ -31,6 +32,7 @@ fun OnboardingNavigation(
                 OnboardingEvent.Back -> onBack()
                 is OnboardingEvent.AccountSelected -> onAccountSelected(event.id)
                 is OnboardingEvent.AccountCreated -> onAccountCreated(event.id)
+                OnboardingEvent.RestoreBackup -> onRestoreBackup()
             }
         }
     }

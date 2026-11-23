@@ -16,6 +16,7 @@ fun SettingsNavigation(
     onAccount: () -> Unit,
     onConnections: () -> Unit,
     onPermissions: () -> Unit = {},
+    onBackup: () -> Unit = {},
     vm: SettingsViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
@@ -24,6 +25,7 @@ fun SettingsNavigation(
     val account by rememberUpdatedState(onAccount)
     val connections by rememberUpdatedState(onConnections)
     val permissions by rememberUpdatedState(onPermissions)
+    val backup by rememberUpdatedState(onBackup)
     BackHandler { vm.onAction(SettingsAction.Back) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(SettingsAction.Refresh) }
     LaunchedEffect(vm) {
@@ -33,6 +35,7 @@ fun SettingsNavigation(
                 SettingsEvent.OpenAccount -> account()
                 SettingsEvent.Connections -> connections()
                 SettingsEvent.Permissions -> permissions()
+                SettingsEvent.Backup -> backup()
             }
         }
     }

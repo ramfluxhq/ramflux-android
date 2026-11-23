@@ -157,8 +157,8 @@ Repository methods forward existing SDK bus request bodies; they do not invent
 another message schema. `sdk-contract/ramflux_sdk_methods.json` is the exact pinned SDK policy;
 `pin.json` records its immutable source revision/hash. `scripts/sync-sdk-policy.py`
 reproduces classifications and repository signatures from that artifact. Account creation
-uses the SDK's actual connection-local creation ceremony; recovery and pairing setup return
-typed custody-provider unavailable until their host flows exist. Successful unknown message content stays successful.
+uses the SDK's actual connection-local creation ceremony; joining an account from this phone
+returns typed custody-provider unavailable (see below). Successful unknown message content stays successful.
 SDK errors are never converted into fabricated rows or optimistic delivery success.
 
 The pinned C ABI v2 refuses every `search.*` method before admission (`bridge_allowed`
@@ -179,6 +179,19 @@ out of the reply as owned bytes (`PairingMetadataReader`), kept as erasable char
 through `LtrSecretWords` only, covered while the window is not focused and erased once the
 joining device has used it. There is no QR encoder in the app yet, so the token is shown as
 numbered text chunks.
+
+Backup and restore run on the phone (`account.backup.create/jobs/cancel`,
+`account.restore.verify/install`). The SDK admits backup jobs only from an attended
+connection (`bus/backup_jobs/routing.rs`): the shared event subscription therefore carries
+`attended_frontend: true` (the app subscribes only while a screen is shown); with no account
+the screen subscribes to the account-less backup-job stream. The archive has its own
+passphrase (at least 15 characters, not a common password, `passphrase/archive.rs`). Archives
+are written to and read from `noBackupFilesDir/backups` only; a finished backup is handed to
+the user with the Storage Access Framework (create document) and the private copy is removed;
+an archive to restore is copied in with the 256 MiB limit checked against the declared size and
+again while copying, and removed when its job ends. Install merges into an existing account
+(host confirmation, no code) or restores a new account with a new six-digit code. Restore is
+reachable from onboarding ("Restore from a backup") for a fresh install.
 
 Joining an existing account from this phone (`device.pair.join`, request R32) is not
 built. The new device's account code must reach the SDK through its credential
