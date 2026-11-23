@@ -88,8 +88,8 @@ class CardsViewModel @Inject constructor(
                         canCheck = true, unavailable = null,
                         problem = uiText(R.string.cards_error_code, UiText.Number(result.problem.code.toLong()))
                     )
-                    // This module has no verified runtime/session contract; an unexpected Ready must not open content.
-                    is ClientResult.Ready -> CardsState(canCheck = true, unavailable = null, problem = uiText(R.string.cards_unverified))
+                    // Cards render in their conversations; this screen opens no content of its own.
+                    is ClientResult.Ready -> CardsState(canCheck = true, unavailable = null, inConversations = true)
                 }
             } finally {
                 if (ticket == expected) local.update { it.copy(checking = false) }

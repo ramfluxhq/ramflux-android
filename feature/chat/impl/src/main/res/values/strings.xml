@@ -63,4 +63,215 @@
     <string name="chat_replying_to">Replying to %1$s</string>
     <!-- Accessibility label of the long-press action that opens the message actions. -->
     <string name="chat_message_actions">Message actions</string>
+    <!-- Message action that copies the message text to the clipboard. -->
+    <string name="chat_action_copy">Copy text</string>
+    <!-- Status line under an own message the SDK refused or failed to send. -->
+    <string name="chat_not_sent">Not sent</string>
+    <!-- Action next to "Not sent" that sends the same message again. -->
+    <string name="chat_retry">Retry</string>
+    <!-- Message action that removes an unsent local message from this device. -->
+    <string name="chat_discard">Discard</string>
+    <!-- Status inside an own bubble that waits for a connection before it is sent. -->
+    <string name="chat_queued">Queued</string>
+    <!-- Status inside an own bubble that is being handed to the SDK. -->
+    <string name="chat_sending">Sending</string>
+    <!-- Notice above the timeline while messages wait for the connection to return. -->
+    <string name="chat_offline_notice">Offline · messages will be sent when the connection returns</string>
+    <!-- Header action that opens the conversation details. -->
+    <string name="chat_conversation_details">Conversation details</string>
+    <!-- Header action that starts a one-to-one call. -->
+    <string name="chat_call">Call</string>
+    <!-- Row at the top of the timeline while an older page loads. -->
+    <string name="chat_loading_older">Loading earlier messages</string>
+    <!-- Accessibility label of one quick reaction; %1$s is the emoji, shown as is. -->
+    <string name="chat_react_with">React with %1$s</string>
+    <!-- One reaction with its count; %1$s is the reaction emoji, %2$d the number of people. -->
+    <string name="chat_reaction_count">%1$s %2$d</string>
+    <!-- Separator between short status words under a message, as in "Not sent · Retry". -->
+    <string name="chat_meta_separator">·</string>
+    <!-- Problem shown when a picked photo or file could not be prepared for sending. -->
+    <string name="chat_media_not_staged">The selected item could not be prepared for sending.</string>
+    <!-- Status inside a media bubble that is not on this device yet; tapping downloads it. -->
+    <string name="chat_media_download">Tap to download</string>
+    <!-- Status inside a media bubble while it downloads; the SDK reports no byte progress. -->
+    <string name="chat_media_loading">Downloading…</string>
+    <!-- Status inside a media bubble whose download failed; tapping retries. -->
+    <string name="chat_media_failed">Download failed · tap to retry</string>
+    <!-- Status of an attachment whose 24-hour access window has passed. -->
+    <string name="chat_media_expired">No longer available</string>
+    <!-- Status of an attachment the sender removed. -->
+    <string name="chat_media_revoked">Removed by sender</string>
+    <!-- Status of an attachment this device holds no key for (paired after it was sent). -->
+    <string name="chat_media_not_on_device">Not available on this device</string>
+    <!-- Status of an attachment from an untrusted sender; nothing is shown until tapped. -->
+    <string name="chat_media_hidden">Tap to show</string>
+    <!-- Status inside an own media bubble while it is prepared and uploaded. -->
+    <string name="chat_media_sending">Sending…</string>
+    <!-- Accessibility label of an image bubble. -->
+    <string name="chat_media_image">Image</string>
+    <!-- Accessibility label of a video bubble. -->
+    <string name="chat_media_video">Video</string>
+    <!-- Attach menu entry that opens the system photo picker. -->
+    <string name="chat_attach_photo">Photo</string>
+    <!-- Attach menu entry that opens the system document picker. -->
+    <string name="chat_attach_file">File</string>
+    <!-- Viewer action that saves the image to the photo library. -->
+    <string name="chat_media_save">Save</string>
+    <!-- Viewer action that opens the system share sheet. -->
+    <string name="chat_media_share">Share</string>
+    <!-- Viewer action that closes the full-screen image. -->
+    <string name="chat_media_close">Close</string>
+    <!-- Title of the confirmation before a file is opened in another app. -->
+    <string name="chat_media_open_title">Open in another app?</string>
+    <!-- Body of the open confirmation; %1$s is the file name, shown isolated. -->
+    <string name="chat_media_open_body">%1$s will be handed to another app on this device. Copies outside Ramflux are not removed later.</string>
+    <!-- Confirm button of the open confirmation. -->
+    <string name="chat_media_open">Open</string>
+    <!-- Notice after an image was saved to the photo library. -->
+    <string name="chat_media_saved">Saved to Photos</string>
+    <!-- Notice when no app can open or save the file. -->
+    <string name="chat_media_no_app">No app on this device can open this file.</string>
+    <!-- File bubble meta line; %1$s is the file size, %2$s the transfer status. -->
+    <string name="chat_file_meta">%1$s · %2$s</string>
+    <!-- Attach menu entry that opens the system camera for one photo. -->
+    <string name="chat_attach_camera">Camera</string>
+    <!-- Message action that sends the message again to another conversation. -->
+    <string name="chat_action_forward">Forward</string>
+    <!-- Title of the chooser that picks the conversation to forward a message to. -->
+    <string name="chat_forward_title">Forward to</string>
+    <!-- Shown in the forward chooser when no direct conversation can receive the message. -->
+    <string name="chat_forward_empty">No conversation to forward to</string>
+    <!-- Shown in the forward chooser while the message is encrypted and sent again; no percentage is known. -->
+    <string name="chat_forward_sending">Forwarding…</string>
+    <!-- Notice after a forwarded message was handed to the network. -->
+    <string name="chat_forward_sent">Forwarded</string>
+    <!-- Shown when forwarding is not available on this device or for this message. -->
+    <string name="chat_forward_unavailable">Forwarding is not available here.</string>
+    <!-- Accessibility label of the button that closes the forward chooser. -->
+    <string name="chat_forward_close">Close</string>
+    <!-- Shown when a picked video is longer than the 10-minute cap for compressed video. -->
+    <string name="chat_media_video_too_long">This video is longer than 10 minutes. Send it as a file instead.</string>
+    <!-- Shown when a compressed video is still larger than the 200 MB cap. -->
+    <string name="chat_media_video_too_large">This video is still larger than 200 MB after compression. Send it as a file instead.</string>
+    <!-- Shown when a media send is refused because the group has more than 64 recipient devices. -->
+    <string name="chat_media_recipient_limit">Media cannot be sent to a group with more than 64 devices yet.</string>
+    <!-- Shown when the recipient's devices are too old to receive encrypted media. -->
+    <string name="chat_media_peer_upgrade">The recipient needs to update Ramflux to receive media.</string>
+    <!-- Shown when the attachment is too large for the relay quota or the device storage. -->
+    <string name="chat_media_too_large">The attachment is too large or storage is full.</string>
+    <!-- Title of the send preview for picked photos and videos. -->
+    <string name="chat_preview_title">Send media</string>
+    <!-- Button that sends the previewed photos and videos as one message. -->
+    <string name="chat_preview_send">Send</string>
+    <!-- Button that closes the send preview and discards the staged items. -->
+    <string name="chat_preview_cancel">Cancel</string>
+    <!-- Accessibility label of the button that removes one item from the send preview. -->
+    <string name="chat_preview_remove">Remove</string>
+    <!-- Accessibility label of the button that moves one item earlier in the album. -->
+    <string name="chat_preview_move">Move earlier</string>
+    <!-- Placeholder of the caption field in the send preview. -->
+    <string name="chat_preview_caption">Add a caption</string>
+    <!-- Status while picked items are compressed on this device; %1$d is the percentage of local work done. -->
+    <string name="chat_preview_preparing">Preparing… %1$d%%</string>
+    <!-- Count on the last album tile; %1$d is how many more items the album holds. -->
+    <string name="chat_media_more">+%1$d</string>
+    <!-- Accessibility label of an animated image bubble. -->
+    <string name="chat_media_animated">Animated image</string>
+    <!-- Accessibility label of an album bubble; %1$d is the number of items. -->
+    <plurals name="chat_media_album">
+        <item quantity="one">Album, %1$d item</item>
+        <item quantity="other">Album, %1$d items</item>
+    </plurals>
+    <!-- Viewer button that starts the video. -->
+    <string name="chat_viewer_play">Play</string>
+    <!-- Viewer button that pauses the video. -->
+    <string name="chat_viewer_pause">Pause</string>
+    <!-- Viewer button that mutes the video. -->
+    <string name="chat_viewer_mute">Mute</string>
+    <!-- Viewer button that turns the video sound back on. -->
+    <string name="chat_viewer_unmute">Unmute</string>
+    <!-- Viewer button that shows the previous item of the same message. -->
+    <string name="chat_viewer_previous">Previous</string>
+    <!-- Viewer button that shows the next item of the same message. -->
+    <string name="chat_viewer_next">Next</string>
+    <!-- Viewer position in a message with several items; %1$d is the item, %2$d the count. -->
+    <string name="chat_viewer_position">%1$d of %2$d</string>
+    <!-- Shown in the viewer when the video cannot be played on this device. -->
+    <string name="chat_viewer_video_failed">This video cannot be played on this device.</string>
+    <!-- Elapsed and total video time; %1$s and %2$s are media times in Western digits, shown left to right. -->
+    <string name="chat_viewer_time">%1$s / %2$s</string>
+    <!-- Title of the conversation media gallery and its menu entry. -->
+    <string name="gallery_title">Media and files</string>
+    <!-- Gallery tab with pictures and videos. -->
+    <string name="gallery_media">Media</string>
+    <!-- Gallery tab with files. -->
+    <string name="gallery_files">Files</string>
+    <!-- Shown while the gallery reads older messages for media. -->
+    <string name="gallery_loading">Looking for media…</string>
+    <!-- Shown when the loaded part of the conversation has no media of the selected kind. -->
+    <string name="gallery_empty">No media in this conversation</string>
+    <!-- Title of the media storage screen and its menu entry. -->
+    <string name="storage_title">Storage</string>
+    <!-- Row with the bytes of decrypted media this account keeps on this device. -->
+    <string name="storage_total">Media on this device</string>
+    <!-- Row with the bytes of outgoing files waiting to be sent. -->
+    <string name="storage_outbox">Waiting to send</string>
+    <!-- Explains the retention policy on the storage screen. -->
+    <string name="storage_policy">Received media stays on this device until you clear it or the sender removes it. Unsent files older than a day are removed automatically.</string>
+    <!-- Shown while the storage screen measures media files. -->
+    <string name="storage_loading">Measuring…</string>
+    <!-- Shown when this account keeps no decrypted media on this device. -->
+    <string name="storage_empty">No media stored on this device</string>
+    <!-- Button that clears the media of every conversation after confirmation. -->
+    <string name="storage_clear_all">Clear all media</string>
+    <!-- Title of the confirmation before clearing one conversation's media. -->
+    <string name="storage_clear_title">Clear media of this conversation?</string>
+    <!-- Title of the confirmation before clearing every conversation's media. -->
+    <string name="storage_clear_all_title">Clear all media?</string>
+    <!-- Body of the clear confirmation; after the relay window the local copy may be the only one. -->
+    <string name="storage_clear_body">Files removed here may no longer be available to download again. Copies saved or shared outside Ramflux are not removed.</string>
+    <!-- Confirm button that clears media. -->
+    <string name="storage_clear">Clear</string>
+    <!-- Ongoing notification while media the person started is still transferring; it names no file or person. -->
+    <string name="transfer_notification_title">Transferring media…</string>
+    <!-- Accessibility label of the chat header button that opens the conversation menu. -->
+    <string name="chat_conversation_menu">More</string>
+    <!-- Shown under an agent card that this device may only show as plain text (not one of this account's own agents). -->
+    <string name="card_plain">Shown as plain text</string>
+    <!-- Shown when part of an agent card cannot be drawn on this phone; the author's fallback text follows. -->
+    <string name="card_partly_unsupported">Part of this card is not supported on this phone. The agent\'s text version:</string>
+    <!-- Placeholder for one card component this phone does not draw. -->
+    <string name="card_component_unsupported">Not supported on this phone</string>
+    <!-- Shown under a link button on a card; links need a confirmation screen that is not available yet. -->
+    <string name="card_link_unsupported">Links from cards cannot be opened on this phone yet.</string>
+    <!-- Status of a card the agent has closed; it has no active controls. -->
+    <string name="card_closed">Closed</string>
+    <!-- Status of a card whose state is behind the agent's; controls stay off until it catches up. -->
+    <string name="card_out_of_sync">Out of date. Waiting for the agent.</string>
+    <!-- Status while a card action is sent to the agent. -->
+    <string name="card_sending">Sending…</string>
+    <!-- Status after a card action was handed to the network. -->
+    <string name="card_sent">Sent</string>
+    <!-- Shown when the card changed after the person saw it, so the action was refused. -->
+    <string name="card_changed">This card changed after you saw it. Review it and try again.</string>
+    <!-- Shown when it is not known whether a card action reached the agent; pressing again retries the same action. -->
+    <string name="card_outcome_unknown">Not sure the agent received this. Press again to retry.</string>
+    <!-- Shown when card actions are not available on this device. -->
+    <string name="card_unavailable">Card actions are not available here.</string>
+    <!-- Requester line of an approval card from one of the person's agents. -->
+    <string name="card_approval_requester">Your agent</string>
+    <!-- Status of an open approval request on a card. -->
+    <string name="card_approval_pending">Waiting for a decision</string>
+    <!-- Label of the scope line of an approval card. -->
+    <string name="card_approval_scope">Decision</string>
+    <!-- Scope detail of an approval card that belongs to a task. -->
+    <string name="card_approval_task">Decide this request in Tasks.</string>
+    <!-- Scope detail of an approval card without a task. -->
+    <string name="card_approval_elsewhere">This request is decided outside the card.</string>
+    <!-- Decline label of an approval card. -->
+    <string name="card_approval_decline">Decline</string>
+    <!-- Approve label of an approval card. -->
+    <string name="card_approval_approve">Approve</string>
+    <!-- Reaction bar button and picker title for choosing any emoji as a reaction. -->
+    <string name="chat_react_more">More reactions</string>
 </resources>

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.chat
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -10,17 +11,33 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -36,6 +53,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import org.ramflux.data.ChatReaction
 import org.ramflux.designsystem.Bidi
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
@@ -49,16 +67,22 @@ import org.ramflux.designsystem.kit.KitComposer
 import org.ramflux.designsystem.kit.KitContextMenu
 import org.ramflux.designsystem.kit.KitDateChip
 import org.ramflux.designsystem.kit.KitEmpty
+import org.ramflux.designsystem.kit.KitFailedMark
 import org.ramflux.designsystem.kit.KitMenuEntry
 import org.ramflux.designsystem.kit.KitMeta
+import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.kit.KitReaction
 import org.ramflux.designsystem.kit.KitReactionBar
+import org.ramflux.designsystem.kit.KitRow
+import org.ramflux.designsystem.kit.KitRowTrailing
 import org.ramflux.designsystem.kit.KitTipBar
 import org.ramflux.designsystem.kit.KitUnreadDivider
 import org.ramflux.designsystem.kit.kitBubbleCap
 import org.ramflux.designsystem.render
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
+import org.ramflux.media.AnimationSlots
+import org.ramflux.media.LocalAnimationSlots
 
 /**
  * The chat screen renders [state] and emits [ChatAction] only. It fills the space the caller gives it: it
@@ -71,36 +95,79 @@ fun ChatScreen(
     onAction: (ChatAction) -> Unit,
     modifier: Modifier = Modifier,
     rooted: Boolean = false,
-    clock: Clock = Clock.systemDefaultZone()
+    clock: Clock = Clock.systemDefaultZone(),
+    showDetails: Boolean = false,
+    showCall: Boolean = false,
+    showCamera: Boolean = false,
+    bottomInset: WindowInsets = WindowInsets(0),
+    showStorage: Boolean = false
 ) {
     val theme = LocalRFTheme.current
     val gap = theme.gap
     val stamps = rememberStamps(clock)
     val selected = state.selectedId?.let { id -> state.rows.firstOrNull { it.id == id } as? MessageItem }
-    Box(modifier.fillMaxSize().background(theme.bg)) {
-        Column(Modifier.fillMaxSize()) {
-            ChatHeader(state, rooted, onAction)
-            state.headerProblem?.let { problem ->
-                KitTipBar(problem.render(), "circle-alert", Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp))
-            }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                if (state.rows.isEmpty()) {
-                    EmptyTimeline(state, onAction, Modifier.align(Alignment.Center))
-                } else {
-                    Timeline(state, stamps, onAction)
+    // Bubble bounds relative to this box, captured on long press so the actions attach to the pressed bubble.
+    val anchors = remember { BubbleAnchors() }
+    var attachMenu by remember { mutableStateOf(false) }
+    var chatMenu by remember { mutableStateOf(false) }
+    // Animated images share two playing slots per chat (media design 4.2).
+    val slots = remember { AnimationSlots() }
+    CompositionLocalProvider(LocalAnimationSlots provides slots) {
+        Box(modifier.fillMaxSize().background(theme.bg).onGloballyPositioned { anchors.root = it }) {
+            Column(Modifier.fillMaxSize()) {
+                ChatHeader(state, rooted, onAction, showCall) { chatMenu = true }
+                state.headerProblem?.let { problem ->
+                    KitTipBar(problem.render(), "circle-alert", Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp))
                 }
+                if (state.queued) {
+                    KitTipBar(
+                        stringResource(R.string.chat_offline_notice),
+                        "wifi-off",
+                        Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp).testTag("chat-offline")
+                    )
+                }
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    if (state.rows.isEmpty()) {
+                        EmptyTimeline(state, onAction, Modifier.align(Alignment.Center))
+                    } else {
+                        Timeline(state, stamps, anchors, onAction)
+                    }
+                }
+                Notices(state)
+                Composer(state, onAction, bottomInset) { attachMenu = true }
             }
-            Notices(state)
-            Composer(state, onAction)
+            if (selected != null && actionsFor(selected).isNotEmpty()) {
+                MessageActions(selected, state, stamps, anchors.pressed, onAction)
+            }
+            if (attachMenu) {
+                AttachMenu(showCamera, onAction) { attachMenu = false }
+            }
+            state.viewer?.let { Viewer(it, state.viewerPosition, onAction) }
+            if (chatMenu) ChatMenu(showDetails, showStorage, onAction) { chatMenu = false }
+            state.gallery?.let { Gallery(it, onAction) }
+            state.preview?.let { SendPreviewSheet(it, onAction) }
+            state.forward?.let { ForwardChooser(it, onAction) }
         }
-        if (selected != null && actionsFor(selected).isNotEmpty()) {
-            MessageActions(selected, state, stamps, onAction)
+    }
+}
+
+/** Layout handles of the screen and the pressed bubble; not state, so writing them never recomposes. */
+private class BubbleAnchors {
+    var root: LayoutCoordinates? = null
+    var pressed: Rect? = null
+
+    fun capture(bubble: LayoutCoordinates?) {
+        val screen = root
+        pressed = if (bubble != null && screen != null && bubble.isAttached && screen.isAttached) {
+            screen.localBoundingBoxOf(bubble)
+        } else {
+            null
         }
     }
 }
 
 @Composable
-private fun ChatHeader(state: ChatState, rooted: Boolean, onAction: (ChatAction) -> Unit) {
+private fun ChatHeader(state: ChatState, rooted: Boolean, onAction: (ChatAction) -> Unit, showCall: Boolean, onMenu: () -> Unit) {
     val peerTitle = state.title?.render()?.let { Bidi.sanitize(it, UntrustedKind.Name) }?.takeIf { it.isNotBlank() }
     val title = peerTitle ?: stringResource(R.string.ui_conversation)
     val locale = LocalConfiguration.current.locales[0]
@@ -121,7 +188,11 @@ private fun ChatHeader(state: ChatState, rooted: Boolean, onAction: (ChatAction)
         } else {
             { onAction(ChatAction.Back) }
         },
+        onCall = if (showCall && !group) ({ onAction(ChatAction.Call) }) else null,
+        onMore = if (state.loaded) onMenu else null,
         backLabel = stringResource(R.string.ui_back),
+        callLabel = stringResource(R.string.chat_call),
+        moreLabel = stringResource(R.string.chat_conversation_menu),
         tag = "chat-header"
     )
 }
@@ -176,6 +247,10 @@ private sealed interface Entry {
     data object Typing : Entry {
         override val key = "typing"
     }
+
+    data object Older : Entry {
+        override val key = "older"
+    }
 }
 
 /** An entry with the space above it, as a fraction of the layout gap: messages sit apart, chips and dividers close. */
@@ -188,7 +263,8 @@ private fun placed(entries: List<Entry>): List<Placed> = entries.mapIndexed { in
 }
 
 private fun entries(state: ChatState, zone: ZoneId): List<Entry> {
-    val result = mutableListOf<Entry>()
+    val result = ArrayList<Entry>(state.rows.size + 8)
+    if (state.loadingOlder) result += Entry.Older
     var day: LocalDate? = null
     state.rows.forEach { row ->
         val date = row.sentAt?.let { Instant.ofEpochSecond(it).atZone(zone).toLocalDate() }
@@ -204,28 +280,56 @@ private fun entries(state: ChatState, zone: ZoneId): List<Entry> {
 }
 
 @Composable
-private fun Timeline(state: ChatState, stamps: Stamps, onAction: (ChatAction) -> Unit) {
-    val list = remember(state.rows, state.firstUnreadId, state.peerTyping, stamps.zone) { placed(entries(state, stamps.zone)).asReversed() }
+private fun Timeline(state: ChatState, stamps: Stamps, anchors: BubbleAnchors, onAction: (ChatAction) -> Unit) {
+    val list = remember(state.rows, state.firstUnreadId, state.peerTyping, state.loadingOlder, stamps.zone) {
+        placed(entries(state, stamps.zone)).asReversed()
+    }
     val actionsLabel = stringResource(R.string.chat_message_actions)
+    val listState = rememberLazyListState()
+    // Reversed layout: index 0 is the newest entry at the bottom; the oldest loaded row has the last index.
+    val newestShown by remember { derivedStateOf { listState.firstVisibleItemIndex } }
+    val nearOldest by remember {
+        derivedStateOf {
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            last >= listState.layoutInfo.totalItemsCount - OLDER_PREFETCH
+        }
+    }
+    val newestKey = list.firstOrNull()?.entry?.key
+    LaunchedEffect(nearOldest, state.hasOlder, state.rows.size) {
+        if (nearOldest && state.hasOlder && !state.loadingOlder) onAction(ChatAction.LoadOlder)
+    }
+    LaunchedEffect(newestShown, list) {
+        val shown = (newestShown until list.size).firstNotNullOfOrNull { index ->
+            ((list[index].entry as? Entry.Row)?.item as? MessageItem)?.takeIf { it.delivery == null }
+        }
+        if (shown != null) onAction(ChatAction.Shown(shown.id))
+    }
+    // A new row at the bottom stays in view while the reader is at the bottom; prepends never move it.
+    LaunchedEffect(newestKey) {
+        if (listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
+    }
     // The bubble cap follows the whole timeline width, as on the board, not the width inside the gutters.
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val cap = kitBubbleCap(maxWidth)
-        TimelineList(list, state, stamps, cap, actionsLabel, onAction)
+        TimelineList(list, listState, state, stamps, cap, actionsLabel, anchors, onAction)
     }
 }
 
 @Composable
 private fun TimelineList(
     list: List<Placed>,
+    listState: LazyListState,
     state: ChatState,
     stamps: Stamps,
     cap: Dp,
     actionsLabel: String,
+    anchors: BubbleAnchors,
     onAction: (ChatAction) -> Unit
 ) {
     val gap = LocalRFTheme.current.gap
     LazyColumn(
         Modifier.fillMaxSize().testTag("chat-timeline"),
+        state = listState,
         reverseLayout = true,
         verticalArrangement = Arrangement.Bottom
     ) {
@@ -239,12 +343,14 @@ private fun TimelineList(
                 )
                 Entry.Unread -> KitUnreadDivider(stringResource(R.string.chat_unread_divider), padded)
                 Entry.Typing -> KitMeta(stringResource(R.string.ui_peer_typing), padded)
+                Entry.Older -> KitMeta(stringResource(R.string.chat_loading_older), padded, centered = true)
                 is Entry.Row -> when (val row = entry.item) {
                     is CallItem -> Column(padded, horizontalAlignment = Alignment.CenterHorizontally) {
                         KitMeta(stringResource(R.string.ui_call_record_unavailable), centered = true)
                         stamps.time(row.sentAt)?.let { KitMeta(it, centered = true) }
                     }
-                    is MessageItem -> Message(row, state, stamps, cap, padded, actionsLabel, onAction)
+                    is MessageItem -> Message(row, state, stamps, cap, padded, actionsLabel, anchors, onAction)
+                    is CardItem -> CardView(row, cap, padded, onAction)
                 }
             }
         }
@@ -259,48 +365,109 @@ private fun Message(
     cap: Dp,
     modifier: Modifier,
     actionsLabel: String,
+    anchors: BubbleAnchors,
     onAction: (ChatAction) -> Unit
 ) {
     val own = row.own
     val open = actionsFor(row).isNotEmpty()
+    val bubble = remember(row.id) { arrayOfNulls<LayoutCoordinates>(1) }
+    val select = {
+        anchors.capture(bubble[0])
+        onAction(ChatAction.Select(row.id))
+    }
     Box(modifier, contentAlignment = if (own) Alignment.CenterEnd else Alignment.CenterStart) {
         Column(horizontalAlignment = if (own) Alignment.End else Alignment.Start) {
-            Bubble(
-                row,
-                own,
-                state.groupId != null,
-                stamps,
-                cap,
-                if (open) {
-                    Modifier
-                        .pointerInput(row.id) { detectTapGestures(onLongPress = { onAction(ChatAction.Select(row.id)) }) }
-                        .semantics {
-                            onLongClick(actionsLabel) {
-                                onAction(ChatAction.Select(row.id))
-                                true
-                            }
-                        }
-                } else {
-                    Modifier
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (row.delivery == LocalDelivery.FAILED) {
+                    KitFailedMark(stringResource(R.string.chat_not_sent))
+                    Spacer(Modifier.width((LocalRFTheme.current.gap * .5f).dp))
                 }
-            )
-            row.reaction?.let { KitMeta(Bidi.sanitize(it.render(), UntrustedKind.Excerpt)) }
+                val press = Modifier.onGloballyPositioned { bubble[0] = it }.then(
+                    if (open) {
+                        Modifier
+                            .pointerInput(row.id) { detectTapGestures(onLongPress = { select() }) }
+                            .semantics {
+                                onLongClick(actionsLabel) {
+                                    select()
+                                    true
+                                }
+                            }
+                    } else {
+                        Modifier
+                    }
+                )
+                Column(
+                    horizontalAlignment = if (own) Alignment.End else Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy((LocalRFTheme.current.gap * .25f).dp)
+                ) {
+                    Attachments(row.attachments, own, stamps.time(row.sentAt), cap, onAction)
+                    val text = (row.content as? UiText.Data)?.value
+                    if (row.attachments.isEmpty() || !text.isNullOrBlank()) {
+                        Bubble(row, own, state.groupId != null, stamps, cap, press)
+                    } else {
+                        Box(press)
+                    }
+                }
+            }
+            if (row.reactions.isNotEmpty()) Reactions(row.reactions)
+            if (row.delivery == LocalDelivery.FAILED) FailedLine(row.id, onAction)
         }
     }
 }
 
 @Composable
+private fun Reactions(reactions: List<ReactionCount>) {
+    val ack = stringResource(R.string.ui_reaction_ack)
+    Row(
+        Modifier.testTag("message-reaction-counts"),
+        horizontalArrangement = Arrangement.spacedBy((LocalRFTheme.current.gap * .5f).dp)
+    ) {
+        reactions.forEach { reaction ->
+            val token = if (reaction.token == ChatReaction.ACK) ack else Bidi.sanitize(reaction.token, UntrustedKind.Excerpt)
+            KitMeta(
+                if (reaction.count > 1) stringResource(R.string.chat_reaction_count, token, reaction.count) else token
+            )
+        }
+    }
+}
+
+@Composable
+private fun FailedLine(id: String, onAction: (ChatAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    Row(
+        Modifier.padding(top = (theme.gap * .25f).dp),
+        horizontalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        KitMeta(stringResource(R.string.chat_not_sent), tone = theme.danger)
+        KitMeta(stringResource(R.string.chat_meta_separator), tone = theme.danger)
+        KitMeta(
+            stringResource(R.string.chat_retry),
+            Modifier.clickable { onAction(ChatAction.Retry(id)) }.testTag("chat-retry"),
+            tone = theme.danger
+        )
+    }
+}
+
+@Composable
 private fun Bubble(row: MessageItem, own: Boolean, group: Boolean, stamps: Stamps, cap: Dp?, modifier: Modifier = Modifier) {
+    val status = when (row.delivery) {
+        LocalDelivery.QUEUED -> stringResource(R.string.chat_queued)
+        LocalDelivery.SENDING -> stringResource(R.string.chat_sending)
+        LocalDelivery.FAILED, null -> stamps.time(row.sentAt)
+    }
     KitBubble(
         row.content.render(),
         modifier,
         kind = if (own) KitBubbleKind.Own else KitBubbleKind.Incoming,
-        time = stamps.time(row.sentAt),
+        time = status,
         edited = if (row.edited) stringResource(R.string.ui_edited) else null,
         sender = if (group && !own) row.sender else null,
+        pending = row.delivery == LocalDelivery.QUEUED || row.delivery == LocalDelivery.SENDING,
         read = row.receipt == Receipt.READ,
+        failed = row.delivery == LocalDelivery.FAILED,
         quote = row.replyPreview?.render(),
-        ticks = row.receipt != null,
+        ticks = row.receipt != null && row.delivery == null,
         receiptLabel = row.receipt?.let { stringResource(receiptLabel(it)) },
         maxWidth = cap,
         tag = row.id
@@ -336,7 +503,7 @@ private fun Notices(state: ChatState) {
 }
 
 @Composable
-private fun Composer(state: ChatState, onAction: (ChatAction) -> Unit) {
+private fun Composer(state: ChatState, onAction: (ChatAction) -> Unit, bottomInset: WindowInsets, onAttach: () -> Unit) {
     val target = state.actionTarget?.let { id -> state.rows.firstOrNull { it.id == id } as? MessageItem }
     val author = when (state.composer) {
         ComposerMode.SEND -> null
@@ -350,9 +517,9 @@ private fun Composer(state: ChatState, onAction: (ChatAction) -> Unit) {
         { onAction(ChatAction.Draft(it)) },
         stringResource(R.string.chat_composer_placeholder),
         { onAction(ChatAction.Send) },
-        { onAction(ChatAction.Attachments) },
+        onAttach,
         sendActive = state.canSend && !state.sending && state.draft.isNotBlank(),
-        attachEnabled = !state.loading && !state.sending,
+        attachEnabled = state.canSend && !state.sending && state.composer == ComposerMode.SEND,
         replyAuthor = author,
         replyExcerpt = if (author == null) null else target?.content?.render(),
         onCloseReply = if (state.composer == ComposerMode.SEND) null else ({ onAction(ChatAction.CancelComposer) }),
@@ -361,27 +528,173 @@ private fun Composer(state: ChatState, onAction: (ChatAction) -> Unit) {
         sendLabel = stringResource(R.string.ui_send),
         attachLabel = stringResource(R.string.ui_attach),
         closeLabel = stringResource(R.string.ui_cancel),
-        tag = "composer"
+        tag = "composer",
+        bottomInset = bottomInset
     )
 }
 
+/**
+ * Photo picker (no storage permission), the system camera (after the permission flow) or the document
+ * picker; each copies the item into the outbox.
+ */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.AttachMenu(
+    showCamera: Boolean,
+    onAction: (ChatAction) -> Unit,
+    onClose: () -> Unit
+) {
+    val theme = LocalRFTheme.current
+    Box(
+        Modifier
+            .matchParentSize()
+            .background(theme.scrim)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
+            .testTag("attach-scrim")
+    )
+    val sources = listOfNotNull(PickSource.PHOTO, PickSource.CAMERA.takeIf { showCamera }, PickSource.FILE)
+    KitContextMenu(
+        sources.map { source ->
+            when (source) {
+                PickSource.PHOTO -> KitMenuEntry(stringResource(R.string.chat_attach_photo), "images")
+                PickSource.CAMERA -> KitMenuEntry(stringResource(R.string.chat_attach_camera), "camera")
+                PickSource.FILE -> KitMenuEntry(stringResource(R.string.chat_attach_file), "paperclip")
+            }
+        },
+        { index ->
+            onClose()
+            onAction(ChatAction.Pick(sources[index]))
+        },
+        Modifier.align(Alignment.BottomStart).padding(theme.gap.dp),
+        tag = "attach-menu"
+    )
+}
+
+/** The conversation menu: media and files, storage, and details when the host has a details screen. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.ChatMenu(
+    showDetails: Boolean,
+    showStorage: Boolean,
+    onAction: (ChatAction) -> Unit,
+    onClose: () -> Unit
+) {
+    val theme = LocalRFTheme.current
+    Box(
+        Modifier
+            .matchParentSize()
+            .background(theme.scrim)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
+            .testTag("chat-menu-scrim")
+    )
+    val actions = listOfNotNull(
+        ChatAction.OpenGallery,
+        ChatAction.Storage.takeIf { showStorage },
+        ChatAction.Details.takeIf { showDetails }
+    )
+    KitContextMenu(
+        actions.map { action ->
+            when (action) {
+                ChatAction.Storage -> KitMenuEntry(stringResource(R.string.storage_title), "hard-drive")
+                ChatAction.Details -> KitMenuEntry(stringResource(R.string.chat_conversation_details), "info")
+                else -> KitMenuEntry(stringResource(R.string.gallery_title), "layout-grid")
+            }
+        },
+        { index ->
+            onClose()
+            onAction(actions[index])
+        },
+        Modifier.align(Alignment.TopEnd).padding(theme.gap.dp),
+        tag = "chat-menu"
+    )
+}
+
+/**
+ * The forward chooser over the timeline: a lazy, keyed list of direct conversations that loads the next
+ * directory page near its end. Titles are peer-controlled names.
+ */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.ForwardChooser(sheet: ForwardSheet, onAction: (ChatAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    BackHandler { onAction(ChatAction.CloseForward) }
+    val listState = rememberLazyListState()
+    val nearEnd by remember {
+        derivedStateOf {
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            last >= listState.layoutInfo.totalItemsCount - OLDER_PREFETCH
+        }
+    }
+    LaunchedEffect(nearEnd, sheet.hasMore, sheet.rows.size) {
+        if (nearEnd && sheet.hasMore && !sheet.loading) onAction(ChatAction.ForwardMore)
+    }
+    Column(Modifier.matchParentSize().background(theme.bg).testTag("forward-chooser")) {
+        KitPageHeader(
+            stringResource(R.string.chat_forward_title),
+            actionLabel = stringResource(R.string.chat_forward_close),
+            onAction = { onAction(ChatAction.CloseForward) },
+            tag = "forward-header"
+        )
+        sheet.problem?.let { KitTipBar(it.render(), "circle-alert", Modifier.padding(theme.gap.dp)) }
+        if (sheet.sending) KitMeta(stringResource(R.string.chat_forward_sending), Modifier.padding(theme.gap.dp), centered = true)
+        when {
+            sheet.rows.isEmpty() && sheet.loading -> KitMeta(
+                stringResource(R.string.ui_loading_messages),
+                Modifier.fillMaxWidth().padding(theme.gap.dp),
+                centered = true
+            )
+            sheet.rows.isEmpty() && sheet.problem == null -> KitEmpty("forward", stringResource(R.string.chat_forward_empty), "")
+            else -> LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
+                items(sheet.rows, key = { it.conversation }, contentType = { "target" }) { row ->
+                    val name = row.title.ifBlank { stringResource(R.string.ui_conversation) }
+                    KitRow(
+                        name,
+                        { onAction(ChatAction.ForwardTo(row.conversation)) },
+                        enabled = !sheet.sending,
+                        trailing = KitRowTrailing.None,
+                        peer = row.title.isNotBlank(),
+                        testTag = "forward-" + row.conversation
+                    )
+                }
+            }
+        }
+    }
+}
+
 /** The actions the read model and the SDK support for a message; nothing else is offered. */
-private enum class MessageAction { REPLY, EDIT, DELETE_FOR_ME, DELETE_FOR_EVERYONE }
+private enum class MessageAction { REPLY, FORWARD, COPY, EDIT, DELETE_FOR_ME, DELETE_FOR_EVERYONE, DISCARD }
 
 private fun actionsFor(row: MessageItem): List<MessageAction> = buildList {
+    if (row.delivery != null) {
+        // A local message the SDK has not accepted: it can be copied or dropped, nothing else.
+        if (row.content is UiText.Data) add(MessageAction.COPY)
+        if (row.delivery != LocalDelivery.SENDING) add(MessageAction.DISCARD)
+        return@buildList
+    }
     if (!row.deleted && !row.placeholder) add(MessageAction.REPLY)
+    if (forwardable(row)) add(MessageAction.FORWARD)
+    if (!row.deleted && !row.placeholder && row.content is UiText.Data) add(MessageAction.COPY)
     if (row.own && !row.deleted && !row.placeholder && !row.service && row.content is UiText.Data) add(MessageAction.EDIT)
     if (!row.deleted) {
         add(MessageAction.DELETE_FOR_ME)
-        add(MessageAction.DELETE_FOR_EVERYONE)
+        // Only the author can erase a message for everyone.
+        if (row.own) add(MessageAction.DELETE_FOR_EVERYONE)
     }
 }
+
+/** Quick reactions shown on board MOB-B03; the SDK accepts any single grapheme. */
+private val QUICK_REACTIONS = listOf(
+    intArrayOf(0x1F44D),
+    intArrayOf(0x2764, 0xFE0F),
+    intArrayOf(0x1F602),
+    intArrayOf(0x1F62E),
+    intArrayOf(0x1F622),
+    intArrayOf(0x1F64F)
+).map { String(it, 0, it.size) }
 
 @Composable
 private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
     row: MessageItem,
     state: ChatState,
     stamps: Stamps,
+    anchor: Rect?,
     onAction: (ChatAction) -> Unit
 ) {
     val theme = LocalRFTheme.current
@@ -391,6 +704,8 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
     val entries = actions.map { action ->
         when (action) {
             MessageAction.REPLY -> KitMenuEntry(stringResource(R.string.ui_reply), "reply")
+            MessageAction.FORWARD -> KitMenuEntry(stringResource(R.string.chat_action_forward), "forward")
+            MessageAction.COPY -> KitMenuEntry(stringResource(R.string.chat_action_copy), "copy")
             MessageAction.EDIT -> KitMenuEntry(stringResource(R.string.ui_edit), "pencil")
             MessageAction.DELETE_FOR_ME -> KitMenuEntry(
                 stringResource(R.string.ui_delete_for_me),
@@ -399,8 +714,10 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
                 groupBefore = true
             )
             MessageAction.DELETE_FOR_EVERYONE -> KitMenuEntry(stringResource(R.string.ui_delete_for_everyone), "trash-2", danger = true)
+            MessageAction.DISCARD -> KitMenuEntry(stringResource(R.string.chat_discard), "trash-2", danger = true, groupBefore = true)
         }
     }
+    val reactionLabels = QUICK_REACTIONS.map { stringResource(R.string.chat_react_with, it) }
     Box(
         Modifier
             .matchParentSize()
@@ -408,31 +725,94 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onAction(ChatAction.Dismiss) }
             .testTag("message-actions-scrim")
     )
-    Column(
-        Modifier.align(if (own) Alignment.BottomEnd else Alignment.BottomStart).padding(gap.dp).testTag("message-actions"),
-        horizontalAlignment = if (own) Alignment.End else Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy((gap * .5f).dp)
+    val reactions = !row.deleted && !row.placeholder && row.delivery == null
+    var picker by remember(row.id) { mutableStateOf(false) }
+    if (picker) {
+        EmojiSheet({ onAction(ChatAction.React(it)) }, { picker = false })
+        return
+    }
+    AnchoredActions(
+        anchor,
+        own,
+        gap.dp,
+        Modifier.matchParentSize().testTag("message-actions")
     ) {
-        if (!row.deleted) {
-            // The conversation ABI supports one reaction, the acknowledgement; no emoji set is offered.
+        if (reactions) {
             KitReactionBar(
-                listOf(KitReaction(stringResource(R.string.ui_react), icon = "check")),
-                { onAction(ChatAction.React) },
-                null,
+                QUICK_REACTIONS.mapIndexed { index, glyph -> KitReaction(reactionLabels[index], glyph) },
+                { index -> onAction(ChatAction.React(QUICK_REACTIONS[index])) },
+                { picker = true },
+                moreLabel = stringResource(R.string.chat_react_more),
                 tag = "message-reactions"
             )
+        } else {
+            Spacer(Modifier)
         }
         Bubble(row, own, state.groupId != null, stamps, null)
         KitContextMenu(entries, { index ->
             onAction(
                 when (actions[index]) {
                     MessageAction.REPLY -> ChatAction.Reply
+                    MessageAction.FORWARD -> ChatAction.Forward()
+                    MessageAction.COPY -> ChatAction.Copy
                     MessageAction.EDIT -> ChatAction.Edit
                     MessageAction.DELETE_FOR_ME -> ChatAction.DeleteForMe
                     MessageAction.DELETE_FOR_EVERYONE -> ChatAction.DeleteForEveryone
+                    MessageAction.DISCARD -> ChatAction.Discard(row.id)
                 }
             )
         }, tag = "message-menu")
+    }
+}
+
+/**
+ * The platform emoji picker (androidx.emoji2) for any reaction; the view model accepts one grapheme the
+ * SDK takes. The picker view draws with the system emoji font and stays inside this window.
+ */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.EmojiSheet(onPick: (String) -> Unit, onClose: () -> Unit) {
+    val theme = LocalRFTheme.current
+    BackHandler(onBack = onClose)
+    Column(Modifier.matchParentSize().background(theme.bg).testTag("emoji-picker")) {
+        KitPageHeader(stringResource(R.string.chat_react_more), actionLabel = stringResource(R.string.ui_cancel), onAction = onClose)
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = { context ->
+                androidx.emoji2.emojipicker.EmojiPickerView(context).apply {
+                    setOnEmojiPickedListener { picked -> onPick(picked.emoji) }
+                }
+            },
+            modifier = Modifier.fillMaxWidth().weight(1f)
+        )
+    }
+}
+
+/**
+ * Places the reaction bar, the bubble copy and the menu so the copy covers the pressed bubble (board
+ * MOB-B03), shifted only as far as needed to keep the whole group on screen. Without an anchor the group
+ * sits at the bottom edge.
+ */
+@Composable
+private fun AnchoredActions(anchor: Rect?, own: Boolean, gap: Dp, modifier: Modifier, content: @Composable () -> Unit) {
+    Layout(content, modifier) { measurables, constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val inner = loose.copy(maxWidth = (constraints.maxWidth - 2 * gap.roundToPx()).coerceAtLeast(0))
+        val placeables = measurables.map { it.measure(inner) }
+        val (bar, copy, menu) = placeables
+        val spacing = (gap / 2).roundToPx()
+        val edge = gap.roundToPx()
+        val total = bar.height + spacing + copy.height + spacing + menu.height
+        val bubbleTop = anchor?.top?.toInt() ?: (constraints.maxHeight - edge - menu.height - spacing - copy.height)
+        val desired = bubbleTop - bar.height - spacing
+        val top = desired.coerceAtMost(constraints.maxHeight - edge - total).coerceAtLeast(edge)
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            fun x(width: Int) = if (own) constraints.maxWidth - edge - width else edge
+            var y = top
+            bar.placeRelative(x(bar.width), y)
+            y += bar.height + spacing
+            copy.placeRelative(x(copy.width), y)
+            y += copy.height + spacing
+            menu.placeRelative(x(menu.width), y)
+        }
     }
 }
 
@@ -471,6 +851,7 @@ private const val AVATAR = 36f
 private const val COMPOSER_LINES = 4
 private const val MESSAGE_SPACE = .625f
 private const val CHIP_SPACE = .125f
+private const val OLDER_PREFETCH = 8
 
 // Skeletons for the best localized pattern: hour (0-23) or hour (1-12) with minutes.
 private val HOUR_24 = charArrayOf('H', 'm').concatToString()

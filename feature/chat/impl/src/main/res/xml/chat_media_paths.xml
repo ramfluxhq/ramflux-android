@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Only the transient hand-over and camera capture folders are exposed; the decrypted media store is never shared directly. -->
+<paths>
+    <cache-path name="handover" path="media-handover/" />
+    <cache-path name="capture" path="media-capture/" />
+</paths>

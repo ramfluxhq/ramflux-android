@@ -21,7 +21,7 @@ class AndroidClientData(context: Context, expectedDescriptor: String, languages:
     val conversations: ConversationDirectoryRepository = DefaultConversationDirectoryRepository(driver.transport)
     val history: MessageHistoryRepository = DefaultMessageHistoryRepository(driver.transport)
     val calls: CallDirectoryRepository = DefaultCallDirectoryRepository(driver.transport)
-    val cards: CardHostAvailabilityRepository = UnavailableCardHostAvailabilityRepository()
+    val cards: CardHostAvailabilityRepository = SurfaceCardHostAvailabilityRepository()
     val taskDirectory: TaskDirectoryRepository = DefaultTaskDirectoryRepository(driver.transport)
     val agents: AgentDirectoryRepository = DefaultAgentDirectoryRepository(driver.transport)
     val groups: GroupDirectoryRepository = DefaultGroupDirectoryRepository(driver.transport)

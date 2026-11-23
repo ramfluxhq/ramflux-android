@@ -21,7 +21,8 @@ fun KitEmpty(
     modifier: Modifier = Modifier,
     action: String? = null,
     onAction: (() -> Unit)? = null,
-    tag: String? = null
+    tag: String? = null,
+    compactAction: Boolean = false
 ) {
     val theme = LocalRFTheme.current
     Column(
@@ -34,6 +35,13 @@ fun KitEmpty(
         if (body.isNotEmpty()) {
             KitText(body, style = kitStyle(theme.size_body, FontWeight.Normal, theme.secondary, RfMetrics.lineBody))
         }
-        if (action != null && onAction != null) KitButton(action, onAction, Modifier.fillMaxWidth())
+        if (action != null && onAction != null) {
+            // Boards MOB-B01X and MOB-B12 use a compact outlined button sized to its label.
+            if (compactAction) {
+                KitButton(action, onAction, kind = KitButtonKind.Secondary, size = KitButtonSize.Compact, tag = tag?.let { "$it-action" })
+            } else {
+                KitButton(action, onAction, Modifier.fillMaxWidth())
+            }
+        }
     }
 }

@@ -7,8 +7,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
 class CardHostAvailabilityTest {
-    @Test fun deferredNativeCardHostReturnsTypedUnavailableWithoutAnyContentOrActionContract() = runTest(timeout = 5.seconds) {
-        assertEquals(ClientResult.Unavailable(ClientFeature.CARDS, UnavailableReason.FEATURE_NOT_INSTALLED),
-            UnavailableCardHostAvailabilityRepository().availability())
+    @Test fun cardsAreAvailableInConversationsWithoutStandaloneContent() = runTest(timeout = 5.seconds) {
+        assertEquals(ClientResult.Ready(Unit), SurfaceCardHostAvailabilityRepository().availability())
     }
 }

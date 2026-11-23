@@ -57,4 +57,54 @@
     <string name="calls_timeout">通话已超时</string>
     <string name="calls_answered_elsewhere">已在其他设备接听</string>
     <string name="calls_failed">通话失败</string>
+    <!-- Call screen status when the microphone permission is needed first (board MOB-K04). -->
+    <string name="call_stage_permission">Ramflux 需要麦克风权限才能通话。</string>
+    <!-- Call screen status while the call is being set up. -->
+    <string name="call_stage_starting">正在发起…</string>
+    <!-- Call screen status while the other person's devices ring (board MOB-K01). -->
+    <string name="call_stage_outgoing">正在呼叫…</string>
+    <!-- Call screen status of an incoming call (board MOB-K02). -->
+    <string name="call_stage_incoming">来电</string>
+    <!-- Call screen status after answering, before the call is live. -->
+    <string name="call_stage_connecting">正在连接…</string>
+    <!-- Call screen status of a live call (board MOB-K03). -->
+    <string name="call_stage_in_call">通话中</string>
+    <!-- Call screen status when the private session closed during the call (board MOB-K05). -->
+    <string name="call_stage_connection_lost">连接已断开</string>
+    <!-- Call screen status when there is no connection to place the call (board MOB-K08). -->
+    <string name="call_stage_offline">你已离线</string>
+    <!-- Call screen status when the call could not be placed or continued (board MOB-K09). -->
+    <string name="call_stage_failed">通话失败</string>
+    <!-- Call screen status after the call ended. -->
+    <string name="call_stage_ended">通话已结束</string>
+    <!-- Shown during a call: signalling works but this phone has no audio or video engine yet. -->
+    <string name="call_media_unavailable">本机暂不支持音频和视频，此通话仅完成信令连接。</string>
+    <!-- Button that opens the microphone permission explanation. -->
+    <string name="call_allow_microphone">允许使用麦克风</string>
+    <!-- Button that answers an incoming call. -->
+    <string name="call_answer">接听</string>
+    <!-- Button that declines an incoming call. -->
+    <string name="call_decline">拒绝</string>
+    <!-- Button that ends the call. -->
+    <string name="call_hang_up">挂断</string>
+    <!-- Accessibility label of the mute control. -->
+    <string name="call_mute">静音</string>
+    <!-- Accessibility label of the speaker control. -->
+    <string name="call_speaker">扬声器</string>
+    <!-- Accessibility label of the camera switch control. -->
+    <string name="call_camera">切换摄像头</string>
+    <!-- Button that tries the call again. -->
+    <string name="call_retry">重试</string>
+    <!-- Button that closes the call screen. -->
+    <string name="call_close">关闭</string>
+    <!-- Shown when calls are not available on this device. -->
+    <string name="call_unavailable">此处无法通话。</string>
+    <!-- Call failure with a numeric code; %1$s is the code. -->
+    <string name="call_failed_code">通话失败（代码 %1$s）。</string>
+    <!-- Call failure with the SDK reason name; %1$s is the reason, shown as received. -->
+    <string name="call_failed_reason">通话失败：%1$s</string>
+    <!-- Name of the app in the phone's system call screens. -->
+    <string name="call_system_label">Ramflux</string>
+    <!-- Ongoing notification while a call carries audio; names no person. -->
+    <string name="call_ongoing">通话进行中</string>
 </resources>

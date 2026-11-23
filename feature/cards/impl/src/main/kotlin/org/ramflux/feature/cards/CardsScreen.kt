@@ -39,6 +39,15 @@ fun CardsScreen(state: CardsState, onAction: (CardsAction) -> Unit, modifier: Mo
                             "unavailable"
                         ) { KitEmpty("inbox", stringResource(R.string.cards_unavailable), it.render()) }
                     }
+                    if (state.inConversations) {
+                        item("conversations") {
+                            KitEmpty(
+                                "message-square",
+                                stringResource(R.string.cards_in_conversations),
+                                stringResource(R.string.cards_in_conversations_body)
+                            )
+                        }
+                    }
                     state.problem?.let {
                         item(
                             "problem"

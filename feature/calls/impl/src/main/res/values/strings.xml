@@ -57,4 +57,54 @@
     <string name="calls_timeout">Call timed out</string>
     <string name="calls_answered_elsewhere">Answered on another device</string>
     <string name="calls_failed">Call failed</string>
+    <!-- Call screen status when the microphone permission is needed first (board MOB-K04). -->
+    <string name="call_stage_permission">Ramflux needs the microphone for calls.</string>
+    <!-- Call screen status while the call is being set up. -->
+    <string name="call_stage_starting">Starting…</string>
+    <!-- Call screen status while the other person's devices ring (board MOB-K01). -->
+    <string name="call_stage_outgoing">Ringing…</string>
+    <!-- Call screen status of an incoming call (board MOB-K02). -->
+    <string name="call_stage_incoming">Incoming call</string>
+    <!-- Call screen status after answering, before the call is live. -->
+    <string name="call_stage_connecting">Connecting…</string>
+    <!-- Call screen status of a live call (board MOB-K03). -->
+    <string name="call_stage_in_call">In call</string>
+    <!-- Call screen status when the private session closed during the call (board MOB-K05). -->
+    <string name="call_stage_connection_lost">Connection lost</string>
+    <!-- Call screen status when there is no connection to place the call (board MOB-K08). -->
+    <string name="call_stage_offline">You are offline</string>
+    <!-- Call screen status when the call could not be placed or continued (board MOB-K09). -->
+    <string name="call_stage_failed">Call failed</string>
+    <!-- Call screen status after the call ended. -->
+    <string name="call_stage_ended">Call ended</string>
+    <!-- Shown during a call: signalling works but this phone has no audio or video engine yet. -->
+    <string name="call_media_unavailable">Audio and video are not available on this phone yet. The call is connected only as a signal.</string>
+    <!-- Button that opens the microphone permission explanation. -->
+    <string name="call_allow_microphone">Allow microphone</string>
+    <!-- Button that answers an incoming call. -->
+    <string name="call_answer">Answer</string>
+    <!-- Button that declines an incoming call. -->
+    <string name="call_decline">Decline</string>
+    <!-- Button that ends the call. -->
+    <string name="call_hang_up">Hang up</string>
+    <!-- Accessibility label of the mute control. -->
+    <string name="call_mute">Mute</string>
+    <!-- Accessibility label of the speaker control. -->
+    <string name="call_speaker">Speaker</string>
+    <!-- Accessibility label of the camera switch control. -->
+    <string name="call_camera">Switch camera</string>
+    <!-- Button that tries the call again. -->
+    <string name="call_retry">Try again</string>
+    <!-- Button that closes the call screen. -->
+    <string name="call_close">Close</string>
+    <!-- Shown when calls are not available on this device. -->
+    <string name="call_unavailable">Calls are not available here.</string>
+    <!-- Call failure with a numeric code; %1$s is the code. -->
+    <string name="call_failed_code">The call failed (code %1$s).</string>
+    <!-- Call failure with the SDK reason name; %1$s is the reason, shown as received. -->
+    <string name="call_failed_reason">The call failed: %1$s</string>
+    <!-- Name of the app in the phone's system call screens. -->
+    <string name="call_system_label">Ramflux</string>
+    <!-- Ongoing notification while a call carries audio; names no person. -->
+    <string name="call_ongoing">Call in progress</string>
 </resources>

@@ -43,7 +43,8 @@ class CardsViewModelTest {
         repo.checking = { ClientResult.Ready(Unit) }
         vm.onAction(CardsAction.Refresh)
         runCurrent()
-        assertEquals(uiText(R.string.cards_unverified), vm.state.value.problem)
+        assertTrue(vm.state.value.inConversations)
+        assertNull(vm.state.value.problem)
         assertNull(vm.state.value.unavailable)
         assertTrue(events.isEmpty())
     }

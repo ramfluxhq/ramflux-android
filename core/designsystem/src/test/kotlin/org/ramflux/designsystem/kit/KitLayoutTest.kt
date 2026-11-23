@@ -174,6 +174,55 @@ class KitLayoutTest {
         compose.onNodeWithTag("row", useUnmergedTree = true).assertIsNotEnabled()
     }
 
+    @Test fun composerBandReachesOverTheHomeIndicatorAndKeepsItsControlsAbove() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column {
+                    KitComposer("x", {}, "\u6d88\u606f", {}, {}, sendActive = true, tag = "plain")
+                    KitComposer(
+                        "x",
+                        {},
+                        "\u6d88\u606f",
+                        {},
+                        {},
+                        sendActive = true,
+                        tag = "banded",
+                        bottomInset = WindowInsets(bottom = 34.dp)
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("plain").assertHeightIsEqualTo(60.dp)
+        compose.onNodeWithTag("banded").assertHeightIsEqualTo(94.dp)
+        compose.onNodeWithTag("banded-send", useUnmergedTree = true).assertHeightIsEqualTo(48.dp)
+    }
+
+    @Test fun albumHeightsDependOnlyOnTheCountAndTheCap() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                Column {
+                    for (count in listOf(2, 3, 5)) {
+                        KitAlbumGrid(count, own = false, maxWidth = 300.dp, more = "+1", tag = "album-$count") { _, modifier ->
+                            Box(modifier)
+                        }
+                    }
+                }
+            }
+        }
+        compose.onNodeWithTag("album-2").assertWidthIsEqualTo(300.dp).assertHeightIsEqualTo(149.dp)
+        compose.onNodeWithTag("album-3").assertHeightIsEqualTo(200.dp)
+        compose.onNodeWithTag("album-5").assertHeightIsEqualTo(300.dp)
+    }
+
+    @Test fun anEmptyStateCanCarryACompactOutlinedAction() {
+        compose.setContent {
+            RamfluxTheme(dark = false) {
+                KitEmpty("inbox", "Empty", "", action = "Retry", onAction = {}, tag = "empty", compactAction = true)
+            }
+        }
+        compose.onNodeWithTag("empty-action", useUnmergedTree = true).assertHeightIsEqualTo(44.dp)
+    }
+
     @Test fun nestedHitsStayFortyEightInsideTheMasterFrame() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
