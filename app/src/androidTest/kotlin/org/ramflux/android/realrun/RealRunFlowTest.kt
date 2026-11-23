@@ -237,9 +237,12 @@ class RealRunFlowTest {
         if (phoneDigits.length < 12) fail("the safety number shows no digits (${phoneDigits.length})")
         // The phone's text also carries the fingerprint; the twelve groups of five must appear in order.
         val matches = peer.optInt("exit") == 0 && peerDigits.length == 60 && phoneDigits.contains(peerDigits)
-        ui.tap("contacts-verify")
-        confirmIfAsked()
         val verified = ui.str("contacts_safety_state_verified")
+        // A contact verified in an earlier invocation offers no verify action any more.
+        if (ui.find("contacts-verify", 3_000) != null) {
+            ui.tap("contacts-verify")
+            confirmIfAsked()
+        }
         if (!ui.eventually(30_000) { ui.hasText(verified) }) fail("not shown as verified after confirming: ${ui.screen()}")
         if (!matches) {
             fail(
