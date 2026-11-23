@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
@@ -80,8 +81,8 @@ import org.ramflux.feature.tasks.TasksState
 import org.ramflux.feature.tasks.api.TasksRoute
 import org.ramflux.navigation.LocalPaneRole
 import org.ramflux.navigation.PaneRole
+import org.ramflux.navigation.TopLevelNavigator
 import org.ramflux.navigation.pane
-import org.ramflux.navigation.rememberTopLevelNavigator
 import org.ramflux.testing.fixtures.ChatBoards
 import org.ramflux.testing.fixtures.ConversationBoards
 import org.ramflux.testing.screenshot.ScreenshotCase
@@ -171,7 +172,10 @@ class ShellBoardScreenshotTest {
         }
         // Security text must wrap, never clip. Reviewed clipping (Kit fixed heights, see the file) is
         // reported; any other clipped text fails.
-        File("build/outputs/shell-matrix/clipped-text.tsv").writeText(clipped.joinToString("\n", postfix = "\n"))
+        // Roborazzi writes no image in a plain test run, so the folder may not exist yet.
+        val report = File("build/outputs/shell-matrix/clipped-text.tsv")
+        report.parentFile.mkdirs()
+        report.writeText(clipped.joinToString("\n", postfix = "\n"))
         val known = requireNotNull(javaClass.classLoader).getResource("shell-matrix/known-clipped-text.tsv").readText()
             .lines().filter { it.isNotBlank() && !it.startsWith("#") }.toSet()
         println("CLIPPED_TEXT known=${clipped.count { it in known }} new=${clipped.count { it !in known }}")
@@ -220,10 +224,13 @@ private fun EntryProviderScope<NavKey>.fixtureEntries(fixture: ShellFixture) {
 
 @Composable
 private fun FixtureShell(fixture: ShellFixture, insets: WindowInsets = BOARD_INSETS) {
-    val navigator = rememberTopLevelNavigator(SHELL_TAB_ROOTS)
-    remember(navigator) {
-        navigator.select(fixture.tab)
-        fixture.pushed?.let(navigator::openDetail)
+    // The fixture state is the navigator's initial state, built before the shell composes; nothing
+    // is mutated during composition.
+    val navigator = remember(fixture) {
+        TopLevelNavigator(SHELL_TAB_ROOTS.map { mutableStateListOf<NavKey>(it) }, mutableIntStateOf(0)).apply {
+            select(fixture.tab)
+            fixture.pushed?.let(::openDetail)
+        }
     }
     RamfluxShell(navigator, SHELL_ROUTE_POLICY, {}, insets = insets) { fixtureEntries(fixture) }
 }

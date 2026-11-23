@@ -14,10 +14,10 @@ import org.ramflux.data.AgentCapability
 fun AgentsNavigation(
     onBack: () -> Unit,
     onSetupAccount: () -> Unit,
+    modifier: Modifier = Modifier,
     vm: AgentsViewModel = hiltViewModel(),
     rooted: Boolean = false,
-    onAtRoot: (Boolean) -> Unit = {},
-    modifier: Modifier = Modifier
+    onAtRoot: (Boolean) -> Unit = {}
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
@@ -37,5 +37,5 @@ fun AgentsNavigation(
             }
         }
     }
-    AgentsScreen(state, vm::onAction, rooted, modifier = modifier)
+    AgentsScreen(state, vm::onAction, modifier, rooted)
 }

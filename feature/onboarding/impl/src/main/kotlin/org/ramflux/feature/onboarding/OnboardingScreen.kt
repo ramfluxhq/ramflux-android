@@ -26,8 +26,8 @@ import org.ramflux.feature.onboarding.impl.R
 fun OnboardingScreen(
     state: OnboardingState,
     onAction: (OnboardingAction) -> Unit,
-    drawPhrase: (Int, (CharArray) -> Unit) -> Unit = { _, _ -> },
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    drawPhrase: (Int, (CharArray) -> Unit) -> Unit = { _, _ -> }
 ) {
     val theme = LocalRFTheme.current
     val challenge = remember { ChallengeEntry() }

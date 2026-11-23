@@ -21,10 +21,10 @@ import org.ramflux.feature.permissions.impl.R
 fun PermissionsNavigation(
     route: PermissionsRoute,
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
     onReady: () -> Unit = onBack,
     onSelection: (String) -> Unit = {},
-    vm: PermissionsViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
+    vm: PermissionsViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
