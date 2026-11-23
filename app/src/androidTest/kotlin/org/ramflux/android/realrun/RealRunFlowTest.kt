@@ -43,8 +43,9 @@ class RealRunFlowTest {
         assumeTrue("real run not requested (rf_realrun=1)", args.enabled)
         control = PeerControl(args.control)
         ui = Ui(control)
-        // Marks each flow in the app's debug trace (debug builds log it), so app-logcat.txt lines can be placed.
-        org.ramflux.data.clientDebugEvent("realrun.flow.start")
+        // Marks each flow under the app's debug trace tag, so app-logcat.txt lines can be placed. Logged directly: the
+        // suite's classes may not share the app's installed trace sink.
+        android.util.Log.w("ramflux.abi", "realrun.flow.start")
     }
 
     private fun flow(id: String, needsAccount: Boolean = true, block: () -> String) {

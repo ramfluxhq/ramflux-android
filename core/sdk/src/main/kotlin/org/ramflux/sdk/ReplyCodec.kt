@@ -11,7 +11,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 internal object ReplyCodec {
-    var debugTrace: SdkDebugTrace? = null
+    /** Installed once on the main thread at start, read from every worker thread. */
+    @Volatile var debugTrace: SdkDebugTrace? = null
 
     fun submitRefusal(reply: NativeReply, operationId: String? = null): CoreResult.Failure = try {
         CoreResult.Failure(error(if (reply.code == 0) 16 else reply.code, Effect.NONE), operationId)

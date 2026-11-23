@@ -80,7 +80,7 @@ object ClientModule {
     @Provides fun appearance(data: AndroidClientData): AppearanceRepository = data.appearance
 
     @Provides fun confirmTrace(): ConfirmTrace = if (BuildConfig.DEBUG) {
-        ConfirmTrace { message -> Log.d("ramflux.abi", message) }
+        ConfirmTrace { message -> Log.w(DEBUG_TAG, message) }
     } else {
         ConfirmTrace {}
     }
