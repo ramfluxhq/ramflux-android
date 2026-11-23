@@ -14,6 +14,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.ramflux.data.*
@@ -89,6 +90,7 @@ class BackupViewModel @Inject constructor(
             } else {
                 watch?.cancel()
                 watch = null
+                poll?.cancel()
             }
             BackupAction.StartCreate -> if (!local.value.freshInstall && local.value.account != null) step(BackupStep.CREATE)
             is BackupAction.SubmitCreate -> {
@@ -233,7 +235,11 @@ class BackupViewModel @Inject constructor(
         }
     }
 
-    /** Follows the backup-job stream while the screen is shown; each change rereads the bounded job list. */
+    /**
+     * Follows the backup-job stream while the screen is shown; each change rereads the bounded job list. Backup jobs
+     * are daemon-scoped events, which the account's journal subscription (`bus.subscribe`) does not carry, so while a
+     * job is running the list is also reread every [JOB_POLL_MS].
+     */
     private fun watch() {
         if (!local.value.ready || watch?.isActive == true) return
         val account = local.value.account
@@ -242,6 +248,20 @@ class BackupViewModel @Inject constructor(
                 if (change is ClientResult.Ready) {
                     reload()
                 } else if (change is ClientResult.Failed) local.update { it.copy(problem = change.problem.backupMessage()) }
+            }
+        }
+        pollWhileRunning()
+    }
+
+    private var poll: Job? = null
+
+    /** Rereads the list every [JOB_POLL_MS] while a job runs and the stream is followed; stops once all have ended. */
+    private fun pollWhileRunning() {
+        if (poll?.isActive == true || watch?.isActive != true || local.value.jobs.none { !it.state.terminal }) return
+        poll = viewModelScope.launch {
+            while (watch?.isActive == true && local.value.jobs.any { !it.state.terminal }) {
+                delay(JOB_POLL_MS)
+                if (watch?.isActive == true) reload()
             }
         }
     }
@@ -256,6 +276,7 @@ class BackupViewModel @Inject constructor(
                     it.kind == BackupJobKind.BACKUP && it.state.terminal && it.state != BackupJobState.DONE
                 }.forEach { backups.discard(it.id) }
                 local.update { it.copy(loading = false, jobs = rows.value.toPersistentList()) }
+                pollWhileRunning()
             }
             is ClientResult.Failed -> local.update { it.copy(loading = false, problem = rows.problem.backupMessage()) }
             is ClientResult.Unavailable -> local.update { it.copy(loading = false, problem = uiText(R.string.backup_unavailable)) }
@@ -313,3 +334,5 @@ private fun ClientProblem.backupMessage(): UiText = uiText(
         else -> if (outcome == ClientOutcome.UNKNOWN) R.string.backup_unknown else R.string.backup_failed
     }
 )
+
+private const val JOB_POLL_MS = 2_000L
