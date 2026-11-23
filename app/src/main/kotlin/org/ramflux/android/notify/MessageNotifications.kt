@@ -35,8 +35,8 @@ interface MessageNotifier {
     fun post(token: String)
 }
 
-/** A conversation a tapped notification opens. */
-data class NotificationTarget(val account: String, val conversation: String) {
+/** A conversation a tapped notification opens; a group conversation carries its group id, as a list tap does. */
+data class NotificationTarget(val account: String, val conversation: String, val group: String? = null) {
     override fun toString() = "NotificationTarget(<redacted>)"
 }
 
@@ -136,6 +136,7 @@ class MessageNotificationDriver(
         val page = (conversations.page(account, null) as? ClientResult.Ready)?.value ?: return
         val grown = baseline.next(page.rows)
         if (grown.isEmpty() || foreground() || !notifier.allowed()) return
-        for (conversation in grown) notifier.post(routes.issue(NotificationTarget(account, conversation)))
+        val groups = page.rows.associate { it.id to it.groupId }
+        for (conversation in grown) notifier.post(routes.issue(NotificationTarget(account, conversation, groups[conversation])))
     }
 }

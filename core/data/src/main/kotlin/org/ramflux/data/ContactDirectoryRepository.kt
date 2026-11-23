@@ -45,6 +45,10 @@ interface ContactDirectoryRepository {
     suspend fun requestPage(account: String, scope: ContactRequestScope, query: String = "", cursor: String? = null): ClientResult<WindowedPage<ContactRequestSummary>> =
         ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
 
+    /** The direct conversation with the contact whose identity root is [root] (see [DirectConversations]). */
+    suspend fun conversation(account: String, root: String): ClientResult<String?> =
+        ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
     /** Live changes for [account]; collect while a contacts screen is visible. */
     fun changes(account: String): Flow<ClientResult<ContactChange>> = emptyFlow()
     suspend fun submit(command: ContactCommand, confirmed: Boolean): ClientResult<Unit>

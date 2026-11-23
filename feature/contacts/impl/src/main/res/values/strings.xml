@@ -4,6 +4,10 @@
     <string name="contacts_profile">Contact details</string>
     <string name="contacts_add">Add contact</string>
     <string name="contacts_safety">Safety number</string>
+    <!-- Contact profile row: opens the direct conversation with this contact. -->
+    <string name="contacts_message">Message</string>
+    <!-- Shown when the contact's identity does not address a direct conversation. -->
+    <string name="contacts_no_conversation">No conversation can be opened with this contact.</string>
     <string name="contacts_decline">Decline</string>
     <string name="contacts_batch">Manage requests</string>
     <string name="contacts_back">Back</string>

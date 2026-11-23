@@ -408,4 +408,30 @@ class ContactsViewModelTest {
         runCurrent()
         assertEquals(1, events.size)
     }
+
+    @Test fun messageOpensTheContactsDirectConversationAndKeepsTheProfile() = runTest(timeout = 5.seconds) {
+        val repo = FakeContactDirectory().apply {
+            capability = ClientResult.Ready(Unit)
+            reading = { ClientResult.Ready(listOf(ContactSummary("link", "peer", "Name", false, "root"))) }
+        }
+        val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
+        observe(vm)
+        runCurrent()
+        val events = mutableListOf<ContactsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(ContactsAction.Select("link"))
+        vm.onAction(ContactsAction.Message)
+        runCurrent()
+        assertEquals(listOf("root"), repo.conversationRoots)
+        assertEquals(1, events.size)
+        assertTrue(events.single() is ContactsEvent.OpenChat)
+        assertEquals("dm:peer", (events.single() as ContactsEvent.OpenChat).conversation)
+        assertEquals(ContactsPage.DETAIL, vm.state.value.page)
+        repo.conversationResult = ClientResult.Ready(null)
+        vm.onAction(ContactsAction.Message)
+        runCurrent()
+        assertEquals(1, events.size)
+        assertEquals(uiText(R.string.contacts_no_conversation), vm.state.value.unavailable)
+    }
 }
+

@@ -177,9 +177,16 @@ and deletes an active agent (`agent.delete`), both with `confirmed` after the ho
 review says that the agent's keys on the desktop and its node record are not removed. Creation stays on the
 desktop. A creation waiting for this device (`agent.operation.get` with an empty id) is shown read only:
 `agent.creation.decide` needs the plan hash, which the C ABI does not return. The access policy is read only:
-`agent.access.set` needs a base identity the read result does not carry. "Message" opens the existing direct
-conversation whose route names the agent's anchor as the recipient commitment; the client does not derive
-the SDK's direct conversation id itself.
+`agent.access.set` needs a base identity the read result does not carry. "Message" opens the direct conversation
+with the agent through `DirectConversations` (below).
+
+One way addresses a direct conversation by root anchor: `DirectConversations.resolve` reads this account's root
+(`account.status` `principal_commitment`) and derives the SDK's id with `DirectConversationId`
+(`"dm:" + base64url(BLAKE3(lp(domain) || lp(lower anchor) || lp(higher anchor)))`, `message/dm_scope.rs`,
+Bouncy Castle BLAKE3, tested against the SDK's own golden vector). Agents ("Message" on an agent) and contacts
+("Message" on a contact profile) use it; only when the account root cannot be read does it fall back to the
+directory row whose direct route names the peer. Message notifications open their conversation with the
+group id from the directory row, as a list tap does.
 
 Tasks read task conversations (`conversation.directory`), the tasks of one conversation (`task.list`) and the
 permission list (`grant.list`: grants, approvals and decision receipts) through windowed sources

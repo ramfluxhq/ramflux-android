@@ -128,7 +128,9 @@ fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
             onMicrophonePermission = { shell.navigate(PermissionsRoute(PermissionEntry.MICROPHONE)) }
         )
     }
-    entry<ContactsRoute> { ContactsNavigation(shell::back, setup) }
+    entry<ContactsRoute> {
+        ContactsNavigation(shell::back, setup, onChat = { account, conversation -> shell.openDetail(ChatRoute(account, conversation)) })
+    }
     entry<TasksRoute> { TasksNavigation(shell::back, setup) }
     entry<CallsRoute> {
         CallsNavigation(shell::back, setup, onOpenCall = { account, call -> shell.navigate(CallRoute(account, callId = call)) })

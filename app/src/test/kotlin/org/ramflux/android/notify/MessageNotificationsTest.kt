@@ -99,6 +99,18 @@ class MessageNotificationsTest {
         assertNull("a claim is taken once", rig.routes.claim())
     }
 
+    @Test fun aNotifiedGroupConversationOpensWithItsGroupId() = runTest(StandardTestDispatcher(), timeout = 5.seconds) {
+        val rig = Rig(this)
+        val group = ConversationSummary("thread", "Team", 0u, false, false, group = true, groupId = "g")
+        rig.directory.rows["a"] = listOf(group)
+        runCurrent()
+        rig.directory.rows["a"] = listOf(group.copy(unread = 1u, isUnread = true))
+        rig.change()
+        runCurrent()
+        rig.routes.open(rig.notifier.posted.single())
+        assertEquals(NotificationTarget("a", "thread", "g"), rig.routes.claim())
+    }
+
     @Test fun mutedForegroundAndDisallowedPostNothing() = runTest(StandardTestDispatcher(), timeout = 5.seconds) {
         val rig = Rig(this)
         rig.directory.rows["a"] = listOf(row("muted", 0u, muted = true), row("c", 0u))

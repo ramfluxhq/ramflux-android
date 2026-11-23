@@ -15,11 +15,13 @@ fun ContactsNavigation(
     onBack: () -> Unit,
     onSetupAccount: () -> Unit,
     modifier: Modifier = Modifier,
+    onChat: (account: String, conversation: String) -> Unit = { _, _ -> },
     vm: ContactsViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     val setup by rememberUpdatedState(onSetupAccount)
+    val chat by rememberUpdatedState(onChat)
     BackHandler { vm.onAction(ContactsAction.Back) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(ContactsAction.Refresh) }
     LifecycleStartEffect(vm) {
@@ -31,6 +33,7 @@ fun ContactsNavigation(
             when (it) {
                 ContactsEvent.Back -> back()
                 ContactsEvent.SetupAccount -> setup()
+                is ContactsEvent.OpenChat -> chat(it.account, it.conversation)
             }
         }
     }

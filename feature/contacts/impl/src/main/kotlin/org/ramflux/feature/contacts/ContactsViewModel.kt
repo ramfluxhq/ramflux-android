@@ -136,6 +136,35 @@ class ContactsViewModel @Inject constructor(
                 if (action.page == ContactsPage.SAFETY) readSafety()
             }
             is ContactsAction.Operate -> preflight(action.operation)
+            ContactsAction.Message -> message()
+        }
+    }
+
+    /** Addresses the contact's direct conversation by root anchor and opens it; the profile stays as it is. */
+    private fun message() {
+        val row = local.value.selected ?: return
+        val root = row.root ?: return
+        if (row.request || row.blocked) return
+        val owner = activeAccount ?: return
+        request?.cancel()
+        val expected = ++ticket
+        val generation = session.status.value.generation
+        local.update { it.copy(loading = true, problem = null, unavailable = null) }
+        request = viewModelScope.launch {
+            try {
+                if (account(expected, generation, owner) == null) return@launch
+                val result = directory.conversation(owner, root)
+                current(expected, generation)
+                if (account(expected, generation, owner) == null) return@launch
+                when (result) {
+                    is ClientResult.Ready -> result.value?.let { channel.send(ContactsEvent.OpenChat(owner, it)) }
+                        ?: local.update { it.copy(unavailable = uiText(R.string.contacts_no_conversation)) }
+                    is ClientResult.Failed -> local.update { it.copy(problem = result.problem.message()) }
+                    is ClientResult.Unavailable -> local.update { it.copy(unavailable = result.reason.message()) }
+                }
+            } finally {
+                if (expected == ticket) local.update { it.copy(loading = false) }
+            }
         }
     }
 

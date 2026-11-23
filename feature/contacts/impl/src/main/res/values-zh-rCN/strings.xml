@@ -4,6 +4,10 @@
     <string name="contacts_profile">联系人资料</string>
     <string name="contacts_add">添加联系人</string>
     <string name="contacts_safety">安全号码</string>
+    <!-- Contact profile row: opens the direct conversation with this contact. -->
+    <string name="contacts_message">发消息</string>
+    <!-- Shown when the contact's identity does not address a direct conversation. -->
+    <string name="contacts_no_conversation">无法与此联系人打开会话。</string>
     <string name="contacts_decline">不通过</string>
     <string name="contacts_batch">批量处理请求</string>
     <string name="contacts_back">返回</string>

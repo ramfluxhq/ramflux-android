@@ -21,7 +21,7 @@ fun NotificationOpener(routes: NotificationRoutes, tabs: TopLevelNavigator) {
         if (pending == null) return@LaunchedEffect
         val target = routes.claim() ?: return@LaunchedEffect
         if (tabs.selected != MESSAGES_TAB) tabs.select(MESSAGES_TAB)
-        tabs.openDetail(ChatRoute(target.account, target.conversation))
+        tabs.openDetail(ChatRoute(target.account, target.conversation, target.group))
     }
 }
 

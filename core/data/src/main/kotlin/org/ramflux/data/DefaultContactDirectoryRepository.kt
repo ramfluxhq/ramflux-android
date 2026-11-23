@@ -25,6 +25,7 @@ internal class DefaultContactDirectoryRepository(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<String, String>, String>) = size > 32
     }
     private val actions = ContactCommandAdapter(transport) { account, root -> synchronized(stamps) { stamps[account to root] } }
+    private val direct = DirectConversations(transport)
     private val contactPages = SnapshotPager<ContactSummary>(PAGE)
     private val requestPages = SnapshotPager<ContactRequestSummary>(PAGE)
     override suspend fun submit(command: ContactCommand, confirmed: Boolean) = actions.submit(command, confirmed)
@@ -124,6 +125,8 @@ internal class DefaultContactDirectoryRepository(
             }
         }
     }
+    override suspend fun conversation(account: String, root: String): ClientResult<String?> = direct.resolve(account, root)
+
     override suspend fun safety(account: String, root: String): ClientResult<ContactSafety> {
         if (account.isBlank() || root.isBlank() || account.length > 4096 || root.length > 4096) return invalid()
         return when (val reply = source.safety_number(RepositoryContext(account), SecretBody.fields { publicText("contact_identity_commitment", root) })) {

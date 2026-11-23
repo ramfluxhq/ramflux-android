@@ -13,7 +13,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
-import org.ramflux.sdk.ConversationDirectoryMetadataReader
 import org.ramflux.sdk.CoreResult
 
 /**
@@ -25,7 +24,7 @@ import org.ramflux.sdk.CoreResult
  */
 internal class DefaultAgentDirectoryRepository(transport: RepositoryTransport) : AgentDirectoryRepository {
     private val source = DefaultAgentsRepository(transport)
-    private val conversations = DefaultConversationsRepository(transport)
+    private val direct = DirectConversations(transport)
     private val starts = ForwardCursorIndex()
 
     override suspend fun agentPage(account: String, cursor: String?): ClientResult<AgentPage> {
@@ -122,31 +121,10 @@ internal class DefaultAgentDirectoryRepository(transport: RepositoryTransport) :
         return recordOf(source.agentDelete(RepositoryContext(account), body), anchor)
     }
 
-    /**
-     * The ordinary direct conversation with the agent: the directory row whose direct route names the agent's
-     * anchor as the recipient commitment. The SDK derives a direct conversation id from both root anchors
-     * (`dm_scope::derive`, BLAKE3); the client does not reimplement it, so it follows the directory's cursor
-     * until it finds the row or reaches the end.
-     */
+    /** The ordinary direct conversation with the agent, addressed by its anchor through [DirectConversations]. */
     override suspend fun conversation(account: String, anchor: String): ClientResult<String?> {
         if (!valid(account) || !valid(anchor)) return invalid()
-        var cursor: String? = null
-        do {
-            val body = buildJsonObject {
-                put("limit", DIRECTORY_PAGE)
-                cursor?.let { put("cursor", it) }
-            }
-            val page = when (val reply = conversations.conversationDirectory(RepositoryContext(account), body)) {
-                is CoreResult.Failure -> return ClientResult.Failed(reply.error.appProblem())
-                is CoreResult.Success -> when (val decoded = ConversationDirectoryMetadataReader.read(reply.value)) {
-                    is CoreResult.Failure -> return ClientResult.Failed(decoded.error.appProblem())
-                    is CoreResult.Success -> decoded.value
-                }
-            }
-            page.rows.firstOrNull { !it.hidden && it.kind != "group" && it.peer == anchor }?.let { return ClientResult.Ready(it.id) }
-            cursor = page.nextCursor?.takeIf { it.isNotEmpty() && it != cursor }
-        } while (cursor != null)
-        return ClientResult.Ready(null)
+        return direct.resolve(account, anchor)
     }
 
     private fun recordOf(reply: CoreResult<JsonObject>, anchor: String): ClientResult<AgentSummary> = when (val value = result(reply, "record")) {
@@ -216,7 +194,6 @@ internal class DefaultAgentDirectoryRepository(transport: RepositoryTransport) :
     private companion object {
         /** One SDK reply is serialized into at most 8 KiB (`custody_response::success`); eight typical records fit. */
         const val PAGE = 8
-        const val DIRECTORY_PAGE = 100
         const val MAX_CURSOR = 512
         const val MAX_ID = 4096
         const val MAX_PLAN_BYTES = 16 * 1024

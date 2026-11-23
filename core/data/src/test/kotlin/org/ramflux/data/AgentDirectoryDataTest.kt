@@ -17,6 +17,9 @@ class AgentDirectoryDataTest {
         var agents = (0 until 20).map { "anchor-$it" }
         var pending: String? = null
         var refuse: String? = null
+
+        /** The account root `account.status` reports; null answers without one, as an older SDK would. */
+        var ownRoot: String? = null
         private var failing = mutableSetOf<Long>()
         private val delegate = abi
         override fun negotiate() = delegate.negotiate()
@@ -72,6 +75,12 @@ class AgentDirectoryDataTest {
                         put("requestJson", Base64.getEncoder().encodeToString("""{"display_name":"${pending ?: ""}","request_id":"request-1"}""".toByteArray()))
                     })
                 }
+                "account.status" -> ownRoot?.let { root ->
+                    buildJsonObject {
+                        put("local_account_id", "account"); put("principal_id", "own"); put("principal_commitment", root)
+                        put("device_id", "own-device"); put("local_device_authorized", true); put("authority_blocked", false)
+                    }
+                } ?: buildJsonObject {}
                 "conversation.directory" -> Json.parseToJsonElement(
                     """{"conversations":[{"id":"group-conv","kind":"group","unread_count":0,"archived":false,"hidden":false,"is_unread":false},""" +
                         """{"id":"dm:agent","kind":"direct","unread_count":0,"archived":false,"hidden":false,"is_unread":false,"direct_route":{"recipient_principal_commitment":"anchor-3"}}]}"""
@@ -142,4 +151,18 @@ class AgentDirectoryDataTest {
             assertTrue(repo.agent("account", "gone") is ClientResult.Failed)
         } finally { client.close() }
     }
+
+    @Test fun theAgentConversationIsDerivedFromBothRootsWithoutADirectoryScan() = runTest(timeout = 5.seconds) {
+        val oracle = Oracle().apply { ownRoot = DirectConversationsTest.A }
+        val client = (CoreClient.open(oracle, "/test/agent-dm", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
+        try {
+            val repo = DefaultAgentDirectoryRepository(SdkRepositoryTransport { client })
+            assertEquals(DirectConversationsTest.ID, (repo.conversation("account", DirectConversationsTest.B) as ClientResult.Ready).value)
+            assertTrue(oracle.abi.submitted.none { it["method"]?.jsonPrimitive?.content == "conversation.directory" })
+            // A malformed anchor or the account's own root addresses no conversation.
+            assertNull((repo.conversation("account", "anchor-3") as ClientResult.Ready).value)
+            assertNull((repo.conversation("account", DirectConversationsTest.A) as ClientResult.Ready).value)
+        } finally { client.close() }
+    }
 }
+

@@ -293,6 +293,14 @@ private fun LazyListScope.profile(row: PersonItem, onAction: (ContactsAction) ->
             row.note?.let { UntrustedText(it, kind = UntrustedKind.Excerpt, modifier = Modifier.padding(horizontal = theme.gap.dp)) }
             row.count?.let { Notice(it.render()) }
             row.expires?.let { Notice(stringResource(R.string.contacts_expires, it.render())) }
+            if (!row.request && !row.blocked && row.root != null) {
+                KitRow(
+                    stringResource(R.string.contacts_message),
+                    { onAction(ContactsAction.Message) },
+                    icon = "message-square",
+                    testTag = "contacts-message"
+                )
+            }
             if (!row.request && !row.blocked) {
                 KitRow(
                     stringResource(R.string.contacts_safety),

@@ -25,4 +25,7 @@ sealed interface ContactsAction {
     data class Toggle(val id: String) : ContactsAction
     data class Page(val page: ContactsPage) : ContactsAction
     data class Operate(val operation: ContactOperation) : ContactsAction
+
+    /** Opens the direct conversation with the selected contact. */
+    data object Message : ContactsAction
 }
