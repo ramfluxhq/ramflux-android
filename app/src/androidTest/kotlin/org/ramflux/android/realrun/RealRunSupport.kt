@@ -221,8 +221,10 @@ class Ui(private val control: PeerControl) {
         throw FlowStop("FAIL", "could not enter text into the field${tag?.let { " under '$it'" }.orEmpty()}; ${screen()}")
     }
 
+    /** A held press of about 1.5 s at the centre of [target] (longer than any long-press timeout setting). */
     fun longPress(target: UiObject2) {
-        target.longClick()
+        val point = target.visibleCenter
+        device.swipe(point.x, point.y, point.x, point.y, LONG_PRESS_STEPS)
         device.waitForIdle()
     }
 
@@ -241,6 +243,35 @@ class Ui(private val control: PeerControl) {
         }
         instrumentation.addMonitor(monitor)
         return monitor
+    }
+
+    /**
+     * Runs [action] while the system share sheet is intercepted, and returns the shared text (the sheet never opens,
+     * so nothing reaches another app on the shared phone).
+     */
+    fun captureShare(action: () -> Unit): String? {
+        var shared: String? = null
+        val monitor = object : Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+                val inner = if (intent.action == Intent.ACTION_CHOOSER) {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
+                } else {
+                    intent
+                }
+                if (inner?.action != Intent.ACTION_SEND) return null
+                shared = inner.getStringExtra(Intent.EXTRA_TEXT)
+                return Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
+            }
+        }
+        instrumentation.addMonitor(monitor)
+        try {
+            action()
+            eventually(10_000, POLL) { shared != null }
+        } finally {
+            instrumentation.removeMonitor(monitor)
+        }
+        return shared
     }
 
     fun removeMonitor(monitor: Instrumentation.ActivityMonitor) = instrumentation.removeMonitor(monitor)
@@ -340,6 +371,7 @@ class Ui(private val control: PeerControl) {
         const val POLL = 300L
         private const val EDIT_TEXT = "android.widget.EditText"
         private const val MAX_SECRET = 4096
+        private const val LONG_PRESS_STEPS = 300
     }
 }
 

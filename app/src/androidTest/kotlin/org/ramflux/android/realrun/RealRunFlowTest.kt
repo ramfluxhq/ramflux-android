@@ -196,10 +196,12 @@ class RealRunFlowTest {
         val number = ui.need("contacts-safety-number", Ui.LONG, "safety number")
         val phoneDigits = (number.text ?: number.contentDescription ?: ui.texts()).filter(Char::isDigit)
         val peer = control.rf("alice", "contact", "safety-number", "--contact", commitment)
-        val peerDigits = (peer.optJSONObject("json")?.toString() ?: peer.optString("stdout")).filter(Char::isDigit)
+        val groups = peer.optJSONObject("json")?.optJSONArray("safety_number")
+        val peerDigits = (0 until (groups?.length() ?: 0)).joinToString("") { groups!!.optString(it) }
         ui.shot("04-safety-number")
         if (phoneDigits.length < 12) fail("the safety number shows no digits (${phoneDigits.length})")
-        val matches = peer.optInt("exit") == 0 && peerDigits.contains(phoneDigits)
+        // The phone's text also carries the fingerprint; the twelve groups of five must appear in order.
+        val matches = peer.optInt("exit") == 0 && peerDigits.length == 60 && phoneDigits.contains(peerDigits)
         ui.tap("contacts-verify")
         confirmIfAsked()
         val verified = ui.str("contacts_safety_state_verified")
@@ -348,10 +350,12 @@ class RealRunFlowTest {
         openSettings()
         ui.tap("account-security")
         ui.tap("my-card")
-        val cardNode = ui.need("my-card-text", Ui.LONG, "contact card text")
+        ui.need("my-card-text", Ui.LONG, "contact card text")
         ui.shot("08-my-card")
-        val card = Regex("ramflux-card:v[0-9]+:[A-Za-z0-9_=.-]+").find((cardNode.text ?: "") + " " + ui.texts())?.value
-            ?: fail("My contact card shows no card text: ${ui.screen()}")
+        // The card is drawn in short runs; Share hands over the whole text, read here without opening the sheet.
+        val shared = ui.captureShare { ui.tap("my-card-share") }
+        val card = Regex("ramflux-card:v[0-9]+:[A-Za-z0-9_=.-]+").find(shared.orEmpty())?.value
+            ?: fail("Share on My contact card handed over no card text: ${ui.screen()}")
         val added = control.rf("alice", "contact", "add", "--card", card)
         notes += if (added.optInt("exit") == 0) "alice added the phone's contact card" else
             "alice: rf contact add --card exit ${added.optInt("exit")}: ${added.optString("stderr").takeLast(200)}"
@@ -734,6 +738,8 @@ class RealRunFlowTest {
             val accepted = control.rf(peer, "contact", "accept", "--principal", row.optString("principal_id"))
             if (accepted.optInt("exit") != 0) blocked("$peer: rf contact accept failed (exit ${accepted.optInt("exit")}): ${accepted.optString("stderr").takeLast(300)}")
         }
+        // The add page stays open after the request; the list is one back away.
+        if (ui.find("contacts-send", 1_000) != null) ui.device.pressBack()
         if (!ui.eventually(90_000, 3_000) {
                 if (ui.hasText(peerName(peer))) true else {
                     ui.device.findObject(By.pkg(ui.packageName).text(ui.str("contacts_refresh")))?.click()
@@ -781,9 +787,12 @@ class RealRunFlowTest {
     }
 
     private fun openActions(fragment: String) {
-        val bubble = ui.text(fragment, 20_000) ?: fail("no bubble with '$fragment'")
-        ui.longPress(bubble)
-        ui.need("message-menu", Ui.SHORT, "message actions on '$fragment'")
+        repeat(2) {
+            val bubble = ui.text(fragment, 20_000) ?: fail("no bubble with '$fragment'")
+            ui.longPress(bubble)
+            if (ui.find("message-menu", Ui.SHORT) != null) return
+        }
+        fail("a long press on the bubble '$fragment' did not open the message actions; ${ui.screen()}")
     }
 
     /** Own bubbles sit on the trailing (end) half of the timeline. */
