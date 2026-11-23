@@ -95,9 +95,10 @@ fun OnboardingScreen(
                                         )
                                     }
                                     for (account in state.accounts) {
+                                        // The whole row opens or unlocks the account, like its trailing button.
                                         KitRow(
                                             account.label,
-                                            {},
+                                            { if (!state.busy) onAction(OnboardingAction.SelectAccount(account.id)) },
                                             value = account.subtitle.render(),
                                             leading = { KitAvatar(account.label.take(1), 36f, KitAvatarKind.Person) },
                                             trailingContent = {

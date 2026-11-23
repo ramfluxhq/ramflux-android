@@ -79,6 +79,26 @@ class OnboardingScreenTest {
         compose.runOnIdle { assertEquals(listOf(OnboardingAction.ReviewAddress), actions) }
     }
 
+    @Test fun tappingALockedAccountRowSelectsItLikeItsUnlockButton() {
+        val actions = mutableListOf<OnboardingAction>()
+        val account = AccountItem("account-1", "Work", UiText.Data("Locked"), unlocked = false)
+        compose.setContent {
+            RamfluxTheme {
+                OnboardingScreen(
+                    OnboardingState(
+                        page = OnboardingPage.START,
+                        sessionReady = true,
+                        accountsLoaded = true,
+                        accounts = persistentListOf(account)
+                    ),
+                    { actions.add(it) }
+                )
+            }
+        }
+        compose.onNodeWithTag("account-1").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(listOf(OnboardingAction.SelectAccount("account-1")), actions) }
+    }
+
     @Test fun failedReadDoesNotRenderEmptyAccountClaim() {
         compose.setContent {
             RamfluxTheme {
@@ -325,7 +345,7 @@ class OnboardingScreenTest {
         val field = root!!.findTagged("challenge-0")
         compose.runOnIdle { assertTrue(field.openConnection().second.commitText("hidden", 1)) }
         compose.waitForIdle()
-        val info = android.view.accessibility.AccessibilityNodeInfo.obtain()
+        val info = android.view.accessibility.AccessibilityNodeInfo()
         compose.runOnIdle { field.onInitializeAccessibilityNodeInfo(info) }
         assertEquals("android.widget.EditText", info.className?.toString())
         assertTrue(info.isEditable)
