@@ -60,7 +60,7 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                                     testTag = row.permission.name
                                 )
                                 when (row.permission) {
-                                    OsPermission.MICROPHONE, OsPermission.INCOMING_CALL -> Text(
+                                    OsPermission.INCOMING_CALL -> Text(
                                         stringResource(R.string.permissions_media_help)
                                     )
                                     OsPermission.PHOTOS_FILES -> Text(stringResource(R.string.permissions_picker_help))
@@ -103,6 +103,7 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                 when (permission) {
                     OsPermission.NOTIFICATIONS -> R.string.permissions_notification_title
                     OsPermission.BATTERY -> R.string.permissions_battery_title
+                    OsPermission.MICROPHONE -> R.string.permissions_microphone_title
                     else -> R.string.permissions_camera_title
                 }
             )
@@ -110,6 +111,7 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                 when (permission) {
                     OsPermission.NOTIFICATIONS -> R.string.permissions_notification_why
                     OsPermission.BATTERY -> R.string.permissions_battery_why
+                    OsPermission.MICROPHONE -> R.string.permissions_microphone_why
                     else -> R.string.permissions_camera_why
                 }
             )
@@ -117,6 +119,7 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                 when (permission) {
                     OsPermission.NOTIFICATIONS -> R.string.permissions_notification_without
                     OsPermission.BATTERY -> R.string.permissions_battery_without
+                    OsPermission.MICROPHONE -> R.string.permissions_microphone_without
                     else -> R.string.permissions_camera_without
                 }
             )

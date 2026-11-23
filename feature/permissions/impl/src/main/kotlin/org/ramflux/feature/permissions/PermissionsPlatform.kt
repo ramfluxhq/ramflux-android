@@ -19,8 +19,9 @@ object PermissionsPlatform {
     fun batterySettings() = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
     fun permissionName(permission: OsPermission): String? = when (permission) {
         OsPermission.CAMERA -> Manifest.permission.CAMERA
+        OsPermission.MICROPHONE -> Manifest.permission.RECORD_AUDIO
         OsPermission.NOTIFICATIONS -> if (Build.VERSION.SDK_INT >= 33) Manifest.permission.POST_NOTIFICATIONS else null
-        else -> null // Media permissions cannot be requested in v1.
+        else -> null // Media library and call-integration permissions are not requested.
     }
     fun activity(context: Context): Activity? {
         var current = context

@@ -60,7 +60,7 @@ class AndroidOsPermissionsRepository(context: Context) : OsPermissionsRepository
         )
     }
     override suspend fun claimPrompt(permission: OsPermission) = local {
-        require(permission == OsPermission.CAMERA || permission == OsPermission.NOTIFICATIONS)
+        require(permission in PROMPTABLE)
         val key = "asked-${permission.name}"
         if (preferences.getBoolean(key, false)) false else { check(preferences.edit().putBoolean(key, true).commit()); true }
     }
@@ -76,3 +76,6 @@ class AndroidOsPermissionsRepository(context: Context) : OsPermissionsRepository
         }
     }
 }
+
+/** Runtime permissions the app asks for, each only after its explanation. */
+private val PROMPTABLE = setOf(OsPermission.CAMERA, OsPermission.MICROPHONE, OsPermission.NOTIFICATIONS)
