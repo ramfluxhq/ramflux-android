@@ -253,6 +253,7 @@ fun rememberLocalVideoPlayer(path: String, muted: Boolean = false): LocalVideoPl
 private const val POSITION_MS = 500L
 
 /** The picture of [player]; a SurfaceView inherits the window's secure flag. */
+@OptIn(UnstableApi::class)
 @Composable
 fun MediaVideoSurface(player: LocalVideoPlayer, modifier: Modifier = Modifier) {
     PlayerSurface(player.player, modifier)

@@ -4,7 +4,7 @@
 package org.ramflux.media
 
 import android.content.Context
-import android.net.Uri
+import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.ramflux.data.MediaRepository
@@ -20,7 +20,7 @@ class AndroidMediaStager(context: Context, private val media: MediaRepository) :
 
     override suspend fun visual(account: String, uri: String, progress: (Float) -> Unit): StageResult {
         val outbox = media.outbox(account) ?: return StageResult.Refused(StageRefusal.UNREADABLE)
-        val parsed = Uri.parse(uri)
+        val parsed = uri.toUri()
         val mime = withContext(Dispatchers.IO) { resolver.getType(parsed) }.orEmpty()
         val staged = when {
             mime.startsWith("video/") -> return when (val outcome = MediaVideo.transcode(app, parsed, outbox, progress)) {
@@ -39,17 +39,17 @@ class AndroidMediaStager(context: Context, private val media: MediaRepository) :
 
     override suspend fun image(account: String, uri: String): StagedMedia? {
         val outbox = media.outbox(account) ?: return null
-        return MediaNormalizer.image(resolver, Uri.parse(uri), outbox)
+        return MediaNormalizer.image(resolver, uri.toUri(), outbox)
     }
 
     override suspend fun file(account: String, uri: String): StagedMedia? {
         val outbox = media.outbox(account) ?: return null
-        return MediaNormalizer.file(resolver, Uri.parse(uri), outbox)
+        return MediaNormalizer.file(resolver, uri.toUri(), outbox)
     }
 
     /** The camera wrote EXIF (possibly with location); only the re-encoded pixels leave, the capture is removed. */
     override suspend fun camera(account: String, uri: String): StagedMedia? {
-        val parsed = Uri.parse(uri)
+        val parsed = uri.toUri()
         return try {
             image(account, uri)
         } finally {

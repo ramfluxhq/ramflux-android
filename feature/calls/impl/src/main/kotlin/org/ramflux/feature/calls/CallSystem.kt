@@ -3,6 +3,7 @@
 
 package org.ramflux.feature.calls
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.Service
 import android.content.ComponentName
@@ -80,13 +81,20 @@ class CallTelecom(private val context: Context) {
         context.getSystemService(TelecomManager::class.java).registerPhoneAccount(account)
     }
 
+    // MANAGE_OWN_CALLS is checked at run time in declared(); it is not in the manifest until call media lands (R28).
+    @SuppressLint("MissingPermission")
     fun placeOutgoing(conversation: String) {
         if (!declared()) return
         val extras = Bundle().apply { putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, handle) }
-        context.getSystemService(TelecomManager::class.java).placeCall(
-            Uri.fromParts(SCHEME, conversation.hashCode().toString(), null),
-            extras
-        )
+        // The permission can be revoked between the check in declared() and this call.
+        try {
+            context.getSystemService(TelecomManager::class.java).placeCall(
+                Uri.fromParts(SCHEME, conversation.hashCode().toString(), null),
+                extras
+            )
+        } catch (_: SecurityException) {
+            return
+        }
     }
 
     fun reportIncoming() {

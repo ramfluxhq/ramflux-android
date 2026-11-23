@@ -24,6 +24,10 @@ androidAllSdk28 = "9-robolectric-4913185-2-i7"
 androidAllSdk35 = "15-robolectric-13954326-i7"
 # QR encoder for the device-pairing invitation (Apache-2.0); core only, no Android or camera artefacts.
 zxing = "3.5.4"
+# AndroidX Media3 (Apache-2.0): on-device video transcoding and playback from app-private files.
+media3 = "1.11.1"
+# Bouncy Castle (MIT-style licence): BLAKE3 for attachment digests and the direct-conversation scope.
+bouncycastle = "1.78.1"
 
 [libraries]
 collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version = "0.4.0" }
@@ -35,6 +39,13 @@ coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", ve
 serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 junit = { module = "junit:junit", version.ref = "junit" }
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+media3-common = { module = "androidx.media3:media3-common", version.ref = "media3" }
+media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3" }
+media3-effect = { module = "androidx.media3:media3-effect", version.ref = "media3" }
+media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
+media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3" }
+emoji2-picker = { module = "androidx.emoji2:emoji2-emojipicker", version = "1.4.0" }
 
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose" }
 compose-ui = { module = "androidx.compose.ui:ui" }

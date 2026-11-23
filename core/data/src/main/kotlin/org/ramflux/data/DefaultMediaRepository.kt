@@ -223,7 +223,7 @@ class DefaultMediaRepository(
                 val buffer = ByteArray(CHUNK)
                 var offset = 0L
                 while (true) {
-                    val read = input.readNBytes(buffer, 0, CHUNK)
+                    val read = input.fill(buffer)
                     if (read <= 0) break
                     hasher.update(buffer, 0, read)
                     val encoded = Base64.getUrlEncoder().withoutPadding().encode(buffer.copyOf(read))
@@ -410,4 +410,15 @@ class DefaultMediaRepository(
         const val UNSORTED = "unsorted"
         val json = Json { ignoreUnknownKeys = true }
     }
+}
+
+/** Reads until [buffer] is full or the stream ends; returns the bytes read (InputStream.readNBytes needs API 33). */
+private fun java.io.InputStream.fill(buffer: ByteArray): Int {
+    var total = 0
+    while (total < buffer.size) {
+        val read = read(buffer, total, buffer.size - total)
+        if (read < 0) break
+        total += read
+    }
+    return total
 }
