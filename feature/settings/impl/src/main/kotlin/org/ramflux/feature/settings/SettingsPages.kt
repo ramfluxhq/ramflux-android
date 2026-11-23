@@ -151,6 +151,12 @@ internal fun LazyListScope.accountPage(state: SettingsState, onAction: (Settings
             )
         }
     }
+    if (state.codeChange.done) {
+        item(
+            "code-changed"
+        ) { Text(stringResource(R.string.settings_code_changed), Modifier.testTag("code-changed")) }
+    }
+    if (state.codeChange.open || state.codeChange.working) item("code-form") { CodeChangeForm(state.codeChange, onAction) }
     item("account-exit") {
         SettingsGroup(stringResource(R.string.settings_account_exit)) {
             KitRow(
@@ -200,12 +206,6 @@ internal fun LazyListScope.accountPage(state: SettingsState, onAction: (Settings
             }
         }
     }
-    if (state.codeChange.done) {
-        item(
-            "code-changed"
-        ) { Text(stringResource(R.string.settings_code_changed), Modifier.testTag("code-changed")) }
-    }
-    if (state.codeChange.open || state.codeChange.working) item("code-form") { CodeChangeForm(state.codeChange, onAction) }
 }
 
 @Composable
