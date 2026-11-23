@@ -15,8 +15,8 @@
     <string name="groups_account_help">Groups belong to the active unlocked account.</string>
     <string name="groups_account_action">Set up or select account</string>
     <string name="groups_filter">Filter groups</string>
-    <string name="groups_empty">No matching groups</string>
-    <string name="groups_empty_help">Your joined groups appear here after an account read.</string>
+    <string name="groups_empty">No groups yet</string>
+    <string name="groups_empty_help">Create a group, or wait for an invitation to join one.</string>
     <string name="groups_invitations">Invitations</string>
     <string name="groups_creator_only">The creator starts as the only member.</string>
     <string name="groups_review_create">Review group creation</string>

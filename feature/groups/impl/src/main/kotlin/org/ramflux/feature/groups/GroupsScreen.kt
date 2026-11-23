@@ -78,7 +78,7 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, rooted: B
                         GroupsPage.INVITATION -> state.selectedInvitation?.let { invitation(it, state, onAction) }
                     }
                 }
-                if (state.page == GroupsPage.LIST) {
+                if (state.page == GroupsPage.LIST && !state.emptyRoot) {
                     TextButton(onClick = {
                         onAction(GroupsAction.Page(GroupsPage.CREATE))
                     }) { Text(stringResource(R.string.groups_create)) }
@@ -186,21 +186,33 @@ private fun LazyListScope.after(state: GroupsState, list: GroupList, last: Strin
 
 /** MOB-C01 and MOB-C15: joined groups, then pending invitations. */
 private fun LazyListScope.list(state: GroupsState, rooted: Boolean, onAction: (GroupsAction) -> Unit) {
+    // MOB-C15: with no group and no filter the board shows only the empty state and its create action.
+    if (state.emptyRoot) {
+        item("empty", contentType = "notice") {
+            // Placed as on the board: three parts of the free space above, seven below.
+            Column(Modifier.fillParentMaxSize()) {
+                Spacer(Modifier.weight(EMPTY_ABOVE))
+                KitEmpty(
+                    "users-round",
+                    stringResource(R.string.groups_empty),
+                    stringResource(R.string.groups_empty_help),
+                    action = stringResource(R.string.groups_create),
+                    onAction = { onAction(GroupsAction.Page(GroupsPage.CREATE)) },
+                    tag = if (rooted) "groups-empty" else null
+                )
+                Spacer(Modifier.weight(EMPTY_BELOW))
+            }
+        }
+        return
+    }
     item("search", contentType = "search") {
         Box(Modifier.padding(horizontal = LocalRFTheme.current.gap.dp)) {
             KitSearchField(state.query, { onAction(GroupsAction.Query(it)) }, stringResource(R.string.groups_filter), tag = "group-search")
         }
     }
     if (skeleton(state, "groups-skeleton")) return
-    if (state.loaded && state.groups.isEmpty() && state.problem == null && !state.accountRequired) {
-        item("empty", contentType = "notice") {
-            KitEmpty(
-                "users-round",
-                stringResource(if (state.query.isBlank()) R.string.groups_empty else R.string.groups_no_matches),
-                stringResource(R.string.groups_empty_help),
-                tag = if (rooted) "groups-empty" else null
-            )
-        }
+    if (state.loaded && state.groups.isEmpty() && state.query.isNotBlank() && state.problem == null) {
+        item("no-match", contentType = "notice") { KitEmpty("search-x", stringResource(R.string.groups_no_matches), "") }
     }
     before(state, GroupList.GROUPS, state.groups.firstOrNull()?.id, onAction)
     items(state.groups, key = { "group:" + it.id }, contentType = { "group" }) { row ->
@@ -511,6 +523,12 @@ private fun GroupName(value: String, onAction: (GroupsAction) -> Unit) {
     }, label = { Text(stringResource(R.string.groups_name)) }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
 }
 
+/** No group, no invitation, no filter and nothing failed: the MOB-C15 empty state. */
+private val GroupsState.emptyRoot
+    get() = loaded && groups.isEmpty() && invitations.isEmpty() && query.isBlank() && problem == null && !accountRequired
+
 private const val SKELETON_ROWS = 5
+private const val EMPTY_ABOVE = 3f
+private const val EMPTY_BELOW = 7f
 private const val AVATAR = 40f
 private const val PROFILE_AVATAR = 56f

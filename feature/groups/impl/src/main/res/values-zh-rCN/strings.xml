@@ -15,8 +15,8 @@
     <string name="groups_account_help">群组属于当前已解锁的账号。</string>
     <string name="groups_account_action">设置或选择账号</string>
     <string name="groups_filter">筛选群组</string>
-    <string name="groups_empty">没有匹配的群组</string>
-    <string name="groups_empty_help">读取账号后，您加入的群组将显示在此处。</string>
+    <string name="groups_empty">还没有群组</string>
+    <string name="groups_empty_help">创建一个群组，或等别人邀请你加入。</string>
     <string name="groups_invitations">邀请</string>
     <string name="groups_creator_only">创建者最初是唯一成员。</string>
     <string name="groups_review_create">核对群组创建</string>
