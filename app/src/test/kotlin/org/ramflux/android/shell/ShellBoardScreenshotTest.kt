@@ -173,6 +173,8 @@ class ShellBoardScreenshotTest {
         }
         // Security text must wrap, never clip. Reviewed clipping (Kit fixed heights, see the file) is
         // reported; any other clipped text fails.
+        // Without recording (a clean build) no capture has created the folder yet.
+        File("build/outputs/shell-matrix").mkdirs()
         File("build/outputs/shell-matrix/clipped-text.tsv").writeText(clipped.joinToString("\n", postfix = "\n"))
         val known = requireNotNull(javaClass.classLoader).getResource("shell-matrix/known-clipped-text.tsv").readText()
             .lines().filter { it.isNotBlank() && !it.startsWith("#") }.toSet()
