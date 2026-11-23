@@ -448,6 +448,22 @@ class RealRunFlowTest {
         } else {
             "alice: rf contact add --card exit ${added.optInt("exit")}: ${added.optString("stderr").takeLast(200)}"
         }
+        // The phone pins alice's home node from her card: the SDK refuses media to a contact known only by a lookup
+        // (typed authority_unavailable) until the sender has imported the peer's card (contact.add with the card).
+        val aliceCard = control.rf("alice", "contact", "card").optJSONObject("json")?.optString("card").orEmpty()
+        if (aliceCard.startsWith("ramflux-card:")) {
+            ensureShell()
+            ui.tap("shell-tabs-3")
+            ui.tap("shell-more-contacts", Ui.SHORT)
+            ui.tap("contacts-add")
+            ui.fill(null, aliceCard)
+            ui.tap("contacts-send")
+            confirmIfAsked()
+            ui.shot("08-alice-card")
+            notes += "the phone imported alice's contact card"
+        } else {
+            notes += "alice's contact card could not be read"
+        }
         // This device's id from My devices; alice's attachment send addresses it directly.
         ensureShell()
         openSettings()
@@ -490,20 +506,26 @@ class RealRunFlowTest {
             for (caption in captions) {
                 ui.text(caption, 90_000) ?: fail("message $caption from alice did not appear; ${notes.joinToString("; ")}")
             }
-            // rf dm send --attach declares application/octet-stream for every file, so both arrive as file cards.
+            // rf dm send --attach declares the sniffed media type: the PNG arrives as an image tile (no file name drawn),
+            // the text file as a file card named by its stem.
             val pending = listOf(ui.str("chat_media_download"), ui.str("chat_media_loading"))
+            val incoming = java.util.regex.Pattern.compile("attachment-(?!local:).+")
             for (file in listOf("rr-image.png", "rr-file.txt")) {
                 // The file name is drawn with bidi isolates around its extension: match the stem on the attachment card.
                 val stem = file.substringBefore('.')
-                val selector = By.res(java.util.regex.Pattern.compile("attachment-(?!local:).+")).hasDescendant(By.textContains(stem))
+                fun visible(): UiObject2? = if (file.endsWith(".png")) {
+                    ui.device.findObjects(By.res(incoming)).lastOrNull { it.findObject(By.textContains("rr-file")) == null }
+                } else {
+                    ui.device.findObject(By.res(incoming).hasDescendant(By.textContains(stem)))
+                }
 
                 // The card may sit above the visible part of the timeline (new rows scroll it away): look upwards too.
                 fun card(): UiObject2? {
-                    ui.device.findObject(selector)?.let { return it }
+                    visible()?.let { return it }
                     val timeline = ui.device.findObject(By.res("chat-timeline")) ?: return null
                     repeat(3) {
                         runCatching { timeline.scroll(androidx.test.uiautomator.Direction.UP, 0.5f) }
-                        ui.device.findObject(selector)?.let { return it }
+                        visible()?.let { return it }
                     }
                     return null
                 }
@@ -605,6 +627,8 @@ class RealRunFlowTest {
             ui.tap("groups-open-invite", Ui.LONG)
             ui.text(peerName(peer), 30_000)?.click() ?: fail("$peer is not offered in the invite picker: ${ui.screen()}")
             ui.tap("host-confirmation-confirm", Ui.SHORT)
+            // The app returns to the member list once the SDK answered the add; the picker also shows the principal.
+            ui.find("groups-open-invite", 90_000) ?: fail("the app did not return to the member list after adding $peer: ${ui.screen()}")
             val principal = peerArg(peer, "principal")
             if (!ui.eventually(90_000, 2_000) {
                     ui.hasText(principal) || ui.hasText(principal.removePrefix("principal-")) || ui.hasText(peerName(peer))
@@ -628,8 +652,8 @@ class RealRunFlowTest {
         val groupId = group!!.optString("group_id")
         val groupConversation = group!!.optString("conversation_id").ifEmpty { groupId }
         notes += "alice lists the group"
-        // Phone sends; alice and bob read it.
-        ui.device.pressBack()
+        // Phone sends; alice and bob read it. The members page's own back control returns to the group's detail.
+        ui.find("groups-header-back", 5_000)?.click() ?: ui.device.pressBack()
         ui.tap("groups-open-chat", Ui.LONG)
         val fromPhone = "rr-gphone-" + token()
         send(fromPhone)
