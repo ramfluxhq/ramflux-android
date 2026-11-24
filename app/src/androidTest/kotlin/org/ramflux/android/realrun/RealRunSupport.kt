@@ -113,6 +113,51 @@ class PeerControl(private val base: String) {
     }
 }
 
+/**
+ * A tap (or a held press) at the centre of this node, injected synchronously by the instrumentation's UiAutomation into
+ * the app's window. UiAutomator's own click is injected without waiting for the result; after a cold launch the test
+ * phone refused injected input for about a minute ("Input event injection ... failed" in the input dispatcher log while
+ * the app's main thread kept answering), and those clicks were lost without a trace. A touch is therefore repeated
+ * until the dispatcher reports both its down and its up delivered (bounded).
+ */
+fun UiObject2.press(holdMillis: Long = 0) {
+    val point = visibleCenter
+    val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+    fun inject(action: Int, downTime: Long): Boolean {
+        val event = android.view.MotionEvent.obtain(
+            downTime,
+            android.os.SystemClock.uptimeMillis(),
+            action,
+            point.x.toFloat(),
+            point.y.toFloat(),
+            0
+        )
+        event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+        return try {
+            automation.injectInputEvent(event, true)
+        } finally {
+            event.recycle()
+        }
+    }
+    // A whole touch (down and up) must be delivered: while the phone refuses injected input the attempt is repeated.
+    val deadline = android.os.SystemClock.uptimeMillis() + PRESS_DELIVERY_MILLIS
+    while (true) {
+        val downTime = android.os.SystemClock.uptimeMillis()
+        if (inject(android.view.MotionEvent.ACTION_DOWN, downTime)) {
+            if (holdMillis > 0) Thread.sleep(holdMillis)
+            if (inject(android.view.MotionEvent.ACTION_UP, downTime)) return
+            inject(android.view.MotionEvent.ACTION_CANCEL, downTime)
+        }
+        if (android.os.SystemClock.uptimeMillis() > deadline) {
+            throw FlowStop("FAIL", "the phone refused injected touches for ${PRESS_DELIVERY_MILLIS / 1000} s")
+        }
+        Thread.sleep(PRESS_RETRY_MILLIS)
+    }
+}
+
+private const val PRESS_DELIVERY_MILLIS = 90_000L
+private const val PRESS_RETRY_MILLIS = 300L
+
 /** A flow could not continue; [status] is what the table records (FAIL or BLOCKED). */
 class FlowStop(val status: String, message: String) : Exception(message)
 
@@ -191,7 +236,7 @@ class Ui(private val control: PeerControl) {
                     Thread.sleep(POLL)
                     return@repeat
                 }
-                target.click()
+                target.press()
                 device.waitForIdle()
                 return
             } catch (_: androidx.test.uiautomator.StaleObjectException) {
@@ -261,7 +306,7 @@ class Ui(private val control: PeerControl) {
         repeat(4) {
             try {
                 val target = field(tag)
-                target.click()
+                target.press()
                 device.waitForIdle()
                 field(tag).text = value
                 device.waitForIdle()
@@ -275,9 +320,7 @@ class Ui(private val control: PeerControl) {
 
     /** A held press of about 1.5 s at the centre of [target] (longer than any long-press timeout setting). */
     fun longPress(target: UiObject2) {
-        val point = target.visibleCenter
-        device.swipe(point.x, point.y, point.x, point.y, LONG_PRESS_STEPS)
-        device.waitForIdle()
+        target.press(holdMillis = LONG_PRESS_MILLIS)
     }
 
     /**
@@ -344,7 +387,7 @@ class Ui(private val control: PeerControl) {
             // node's centre, so it waits until the node is laid out where it stays (a screen sliding in moves it).
             val clicked = try {
                 settled(By.res(tag))?.let {
-                    it.click()
+                    it.press()
                     true
                 } ?: false
             } catch (_: androidx.test.uiautomator.StaleObjectException) {
@@ -367,11 +410,20 @@ class Ui(private val control: PeerControl) {
      * is missing, disabled or still moving (a page transition or a list settling).
      */
     fun settled(selector: androidx.test.uiautomator.BySelector): UiObject2? {
+        // Input reaches only the focused window: right after a launch the app is drawn before it has focus.
+        if (!focused()) return null
         val first = device.findObject(selector)?.takeIf { it.isEnabled } ?: return null
         val bounds = first.visibleBounds
         Thread.sleep(SETTLE)
         val again = device.findObject(selector)?.takeIf { it.isEnabled } ?: return null
         return again.takeIf { it.visibleBounds == bounds }
+    }
+
+    /** Whether the app's resumed activity has window focus (a system dialog or a launch animation takes it away). */
+    fun focused(): Boolean {
+        var focus = false
+        instrumentation.runOnMainSync { focus = resumed()?.hasWindowFocus() == true }
+        return focus
     }
 
     /** The first of [tags] on screen within [timeout], or null. */
@@ -410,7 +462,7 @@ class Ui(private val control: PeerControl) {
     private fun enter(tag: String, text: String) {
         val field = need(tag)
         val editable = if (field.className == EDIT_TEXT) field else field.findObject(By.clazz(EDIT_TEXT)) ?: field
-        editable.click()
+        editable.press()
         editable.text = text
         device.waitForIdle()
         val now = find(tag)?.let { if (it.className == EDIT_TEXT) it else it.findObject(By.clazz(EDIT_TEXT)) }
@@ -445,7 +497,26 @@ class Ui(private val control: PeerControl) {
         if (!foreground()) return
         val out = ByteArrayOutputStream()
         runCatching { device.dumpWindowHierarchy(out) }.onSuccess { control.dump(name, out.toByteArray()) }
+        control.log("$name windows: " + windows())
+        control.dump("$name-input", inputDispatcherState())
     }
+
+    /** The input dispatcher's focus and queue state lines (no content), read through the instrumentation's shell. */
+    fun inputDispatcherState(): ByteArray = runCatching {
+        val descriptor = instrumentation.uiAutomation.executeShellCommand("dumpsys input")
+        val text = android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes().decodeToString() }
+        val wanted = Regex("Focus|focus|Pending|pending|Inject|inject|Paused|paused|Waiting|ANR|Anr|Connection|realrun|TouchState|Window #")
+        text.lineSequence().filter { wanted.containsMatchIn(it) }.take(400).joinToString("\n").encodeToByteArray()
+    }.getOrDefault("unavailable".encodeToByteArray())
+
+    /** The windows on screen as accessibility reports them (type, layer, display, bounds, package), for failures. */
+    fun windows(): String = runCatching {
+        instrumentation.uiAutomation.windows.joinToString(" ; ") { window ->
+            val bounds = android.graphics.Rect().also(window::getBoundsInScreen)
+            "type=${window.type} layer=${window.layer} display=${window.displayId} focused=${window.isFocused} " +
+                "active=${window.isActive} bounds=$bounds pkg=${window.root?.packageName}"
+        }
+    }.getOrDefault("unavailable")
 
     companion object {
         const val SHORT = 15_000L
@@ -455,7 +526,7 @@ class Ui(private val control: PeerControl) {
         private const val TEXT_TAPS = 10
         private const val EDIT_TEXT = "android.widget.EditText"
         private const val MAX_SECRET = 4096
-        private const val LONG_PRESS_STEPS = 300
+        private const val LONG_PRESS_MILLIS = 1_500L
     }
 }
 
