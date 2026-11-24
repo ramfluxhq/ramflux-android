@@ -723,7 +723,8 @@ class RealRunFlowTest {
         ui.device.pressBack()
         ui.tap("appearance")
         ui.tap("language")
-        val languages = ui.eventually(10_000) { ui.ids().contains("language:") }
+        // The id list is cut at 700 characters, so a row far down the screen never showed in it: ask for the row itself.
+        val languages = ui.eventually(10_000) { ui.find("language:system", 500) != null }
         notes += if (languages) "language screen lists languages" else "language screen shows no language rows"
         ui.shot("10-language")
         ensureShell()
@@ -962,6 +963,11 @@ class RealRunFlowTest {
         val device = phoneDevice()
         val card = ownCard()
         val bob = control.config().getJSONObject("peers").getJSONObject("bob")
+        // A contact's group joins directly and no invitation exists, so the flow only means something while bob is no
+        // contact of this account yet (flow 09 makes him one).
+        if (jsonRows(control.rf("bob", "contact", "list"), "contacts").any { it.optString("root_commitment") == commitment }) {
+            blocked("bob is already a contact of this account, so his group joins directly; run this flow before flow 09 (groups)")
+        }
         val carded = control.rf("bob", "contact", "add", "--card", card)
         notes += "bob took the phone's contact card (exit ${carded.optInt("exit")})"
         val group = UUID.randomUUID().toString()
