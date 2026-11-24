@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
+import org.ramflux.android.shell.settledAccounts
 import org.ramflux.data.AccountAccessRepository
 import org.ramflux.data.ClientPhase
 import org.ramflux.data.ClientResult
@@ -140,7 +141,8 @@ class MessageNotificationDriver(
     }
 
     private suspend fun activeAccount(): String? {
-        val catalog = (accounts.list() as? ClientResult.Ready)?.value ?: return null
+        // After a cold start the account is still being reopened when the session reports open.
+        val catalog = (settledAccounts(accounts, session) as? ClientResult.Ready)?.value ?: return null
         return catalog.accounts.singleOrNull { it.id == catalog.activeId && it.unlocked }?.id
     }
 

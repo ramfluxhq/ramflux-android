@@ -67,15 +67,7 @@ class StartupModel @Inject constructor(
     }
 
     private suspend fun refresh() {
-        var accountResult = accounts.list()
-        // After a cold start the SDK reopens accounts through the device-bound key on its own: wait for that state
-        // to settle (bounded) instead of offering an unlock that is not needed.
-        var waited = 0L
-        while (restoring(accountResult) && waited < RESTORE_WAIT_MS && session.status.value.phase == ClientPhase.OPEN) {
-            delay(RESTORE_POLL_MS)
-            waited += RESTORE_POLL_MS
-            accountResult = accounts.list()
-        }
+        val accountResult = settledAccounts(accounts, session)
         val nodeResult = nodes.list()
         if (session.status.value.phase != ClientPhase.OPEN) return
         val listed = (accountResult as? ClientResult.Ready)?.value
@@ -90,6 +82,22 @@ class StartupModel @Inject constructor(
     fun showGateway() {
         override.value = StartupPlace.GATEWAY
     }
+}
+
+/**
+ * The account list once the SDK has finished reopening accounts after a cold start. The client reports `open` before
+ * that restore ends and publishes no event when it does, so the wait is bounded and shared by everything that needs
+ * the unlocked account right after the session opens (the startup gate, the message driver).
+ */
+internal suspend fun settledAccounts(accounts: AccountAccessRepository, session: ClientSessionRepository): ClientResult<org.ramflux.data.AccountCatalog> {
+    var result = accounts.list()
+    var waited = 0L
+    while (restoring(result) && waited < RESTORE_WAIT_MS && session.status.value.phase == ClientPhase.OPEN) {
+        delay(RESTORE_POLL_MS)
+        waited += RESTORE_POLL_MS
+        result = accounts.list()
+    }
+    return result
 }
 
 private fun restoring(result: ClientResult<org.ramflux.data.AccountCatalog>): Boolean =
