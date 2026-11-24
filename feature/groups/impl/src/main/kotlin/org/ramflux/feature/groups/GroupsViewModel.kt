@@ -216,7 +216,8 @@ class GroupsViewModel @Inject constructor(
                 prepared = null
                 local.update { it.copy(confirmation = null) }
             }
-            GroupsAction.Confirm -> if (local.value.confirmation != null && request?.isActive != true) mutate()
+            // A list refresh still running is retired by the mutation; only another mutation in flight blocks it.
+            GroupsAction.Confirm -> if (local.value.confirmation != null && !local.value.busy) mutate()
         }
     }
     private fun manageable(): GroupDetail? = header?.first?.takeIf { local.value.authorityFresh && it.canManage }
@@ -253,9 +254,7 @@ class GroupsViewModel @Inject constructor(
                 selectedInvitation = if (page == GroupsPage.INVITATION) it.invitations.find { row -> row.id == id } else null,
                 members = if (keepRows) it.members else persistentListOf(),
                 contacts = persistentListOf(), requests = persistentListOf(),
-                // The retired read never clears its own loading flag (its ticket is stale): clear it here, or the
-                // create page would keep its action disabled after opening during a list refresh.
-                canManage = false, authorityFresh = false, loaded = false, loading = false,
+                canManage = false, authorityFresh = false, loaded = false,
                 title = if (sameGroup) it.title else it.groups.find { row -> row.id == group }?.title,
                 epoch = if (sameGroup) it.epoch else UiText.Empty,
                 memberCount = if (sameGroup) it.memberCount else UiText.Empty,
@@ -265,12 +264,16 @@ class GroupsViewModel @Inject constructor(
         if (page != GroupsPage.CREATE) read() else local.update { it.copy(loaded = true) }
     }
 
-    /** Cancels every read and mutation in flight; results that arrive afterwards are discarded. */
+    /**
+     * Cancels every read and mutation in flight; results that arrive afterwards are discarded. A retired read never
+     * clears its own loading flag (its ticket is stale), so it is cleared here; a new read sets it again.
+     */
     private fun retire() {
         request?.cancel()
         queryJob?.cancel()
         feeds.values.forEach { it.job?.cancel() }
         ticket++
+        local.update { it.copy(loading = false) }
     }
     private fun stop() {
         retire()

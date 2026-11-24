@@ -102,7 +102,8 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, modifier:
                     stringResource(R.string.groups_deny),
                     stringResource(R.string.groups_confirm),
                     stringResource(R.string.groups_confirm_accessibility, facts.operation.render()),
-                    enabled = !state.busy && !state.loading,
+                    // A list refresh running meanwhile does not change the reviewed facts; confirming retires it.
+                    enabled = !state.busy,
                     onDeny = { onAction(GroupsAction.Deny) },
                     onConfirm = { onAction(GroupsAction.Confirm) }
                 )

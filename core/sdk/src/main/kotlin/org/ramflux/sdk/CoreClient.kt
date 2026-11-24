@@ -107,6 +107,8 @@ class CoreClient internal constructor(
                         if (reply.code != PENDING) {
                             terminal = decode(reply).also { decoded ->
                                 if (decoded is CoreResult.Success && decoded.value is java.io.Closeable) unreturned = decoded.value
+                                // Debug builds only: names the method of a failure the decoder traced just before.
+                                if (decoded is CoreResult.Failure) ReplyCodec.debugTrace?.event("sdk.failed.method=$method")
                             }
                             continue
                         }
