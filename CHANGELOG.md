@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- SDK pin moved to the core's `next` head `14e38cda6`: suspend and resume, prompt-free cold open through the device-bound key, read receipts with a derived route, conversation names, leave group, the group invitation topic, username methods on phones and the SDK-verified AI marker.
+- Returning from the background or relaunching asks for nothing: the client is suspended in the background and resumed on return (same session, screens and draft kept), and a new process waits while the SDK reopens the account through its device-bound key. The code is still asked after an explicit lock or sign-out, at set-up, restore and to change it. The SDK data root is a dedicated private directory.
+- The AI marker appears wherever a person is shown (contacts and requests, the conversation list, the chat header, group members and the authors of group messages); agents are otherwise shown exactly like people.
+- Direct conversations take their names from the SDK; group members and the authors of group messages are named from contacts instead of showing a device id. Group service rows (member added, name changed, ...) are centred lines, not undisplayable bubbles.
+- Groups: leave a group (every member but the owner); invitations arrive live through `group.invitation`; the invitation buttons and the create actions carry test tags.
+- Usernames: Privacy shows this account's username or the directory's typed refusal, and Contacts adds a contact by `@name`.
+- Settings keeps the account and its actions usable while it refreshes; a tap on Lock right after opening the page was dropped before.
+- Real run: the flow table and the instrumentation agree (a FAIL fails the test, a dead process or failed test is recorded as FAIL), a failing flow leaves a UI dump, every invocation starts from a stopped app, flows 03 and 07 fail on any prompt, and new flows cover the read receipt, an invitation from a non-contact with leaving, and usernames. Flow 09 waits for the create action that is laid out.
+
 - SDK pin moved to the core's `next` head `e39111de5`: phone attachment send, own replies and the invitation list fixed in the SDK; account list with locked accounts, the unlock wait, sign-out and local removal; card session methods in the policy.
 - Groups: a contact is added by its principal id alone (an explicit root made the SDK read the principal id as a device id, code 16); a new group opens the conversation its creation reply names, and opening a listed group asks the group's metadata before history.
 - Accounts come from the SDK's `account.list` (locked ones included); the app's own account registry is removed. Settings signs the account out and removes it from this phone.
