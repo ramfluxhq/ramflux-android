@@ -378,6 +378,22 @@ class Ui(private val control: PeerControl) {
         "step '$step': '$tag' did not appear within ${timeout / 1000} s; screen: ${texts().take(400)}"
     )
 
+    /**
+     * Opens the More tab and taps its [entry]. The test phone sometimes accepts an injected touch (the input manager logs
+     * it) without delivering it to the window right after a cold launch, so the tab is tapped again, a bounded number
+     * of times, until its entry is shown; selecting the More tab again is harmless.
+     */
+    fun more(entry: String) {
+        repeat(MORE_ATTEMPTS) {
+            tap("shell-tabs-3")
+            if (find(entry, MORE_WAIT) != null) {
+                tap(entry, SHORT)
+                return
+            }
+        }
+        tap(entry, SHORT)
+    }
+
     /** Taps [tag] once it is shown and enabled (a row disabled while its screen loads ignores taps). */
     fun tap(tag: String, timeout: Long = SHORT) {
         need(tag, timeout)
@@ -513,6 +529,8 @@ class Ui(private val control: PeerControl) {
         const val SHORT = 15_000L
         const val LONG = 60_000L
         const val POLL = 300L
+        private const val MORE_ATTEMPTS = 3
+        private const val MORE_WAIT = 5_000L
         private const val SETTLE = 200L
         private const val TEXT_TAPS = 10
         private const val EDIT_TEXT = "android.widget.EditText"
