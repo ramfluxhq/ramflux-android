@@ -35,6 +35,28 @@ import org.ramflux.designsystem.UntrustedKind
 
 enum class KitRowTrailing { Chevron, Check, None }
 
+/**
+ * The AI marker (AP-10): the only difference between how an agent and a person are shown. Used only for the SDK's
+ * verified `ai_agent` class, never for a self-declared one. Announced as "AI agent".
+ */
+@Composable
+fun KitAiMarker(modifier: Modifier = Modifier) {
+    val theme = LocalRFTheme.current
+    val description = stringResource(R.string.kit_ai_marker_description)
+    Box(
+        modifier
+            .background(theme.surface, shapeOf(theme.radius_chip))
+            .padding(horizontal = dp(RfMetrics.tagPadH), vertical = dp(RfMetrics.tagPadV))
+            .semantics { contentDescription = description }
+            .kitTag("ai-marker")
+    ) {
+        KitText(
+            stringResource(R.string.kit_ai_marker),
+            style = kitStyle(theme.size_meta, FontWeight.SemiBold, theme.secondary, RfMetrics.lineMetaRow())
+        )
+    }
+}
+
 @Composable
 fun KitIconTile(icon: String, modifier: Modifier = Modifier, tag: String? = null) {
     val theme = LocalRFTheme.current
@@ -88,7 +110,8 @@ fun KitRow(
     leading: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
     peer: Boolean = false,
-    testTag: String? = null
+    testTag: String? = null,
+    ai: Boolean = false
 ) {
     val theme = LocalRFTheme.current
     val interaction = remember { MutableInteractionSource() }
@@ -116,11 +139,20 @@ fun KitRow(
             KitIconTile(icon)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.labelGap))) {
-            KitText(
-                shownLabel,
-                designLine = true,
-                style = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.text, RfMetrics.lineTitle).copy(textDirection = direction)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))) {
+                KitText(
+                    shownLabel,
+                    modifier = Modifier.weight(1f, fill = false),
+                    designLine = true,
+                    style = kitStyle(
+                        theme.size_mobile_body,
+                        FontWeight.Normal,
+                        theme.text,
+                        RfMetrics.lineTitle
+                    ).copy(textDirection = direction)
+                )
+                if (ai) KitAiMarker()
+            }
             if (!value.isNullOrEmpty()) {
                 KitText(
                     value,
@@ -171,7 +203,8 @@ fun KitConversationRow(
     read: Boolean = false,
     badge: String? = null,
     enabled: Boolean = true,
-    tag: String? = null
+    tag: String? = null,
+    ai: Boolean = false
 ) {
     val theme = LocalRFTheme.current
     val interaction = remember { MutableInteractionSource() }
@@ -208,6 +241,7 @@ fun KitConversationRow(
                         RfMetrics.lineTitle
                     ).copy(textDirection = TextDirection.Content)
                 )
+                if (ai) KitAiMarker()
                 if (muted) KitIcon("bell-off", RfMetrics.metaIcon, theme.secondary)
                 Box(Modifier.weight(1f))
                 KitText(

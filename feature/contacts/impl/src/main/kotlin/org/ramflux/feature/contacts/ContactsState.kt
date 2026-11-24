@@ -23,7 +23,9 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
     val expires: UiText? = null,
     val root: String? = null,
     val blocked: Boolean = false,
-    val verified: Boolean = false
+    val verified: Boolean = false,
+    /** SDK-verified AI agent: shown with the AI marker, otherwise exactly like a person. */
+    val ai: Boolean = false
 ) {
     override fun toString() = "PersonItem(<redacted>)"
 }

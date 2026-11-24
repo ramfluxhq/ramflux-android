@@ -160,7 +160,8 @@ fun KitChatHeader(
     backLabel: String = "chevron-left",
     callLabel: String = "phone",
     moreLabel: String = "ellipsis",
-    tag: String? = null
+    tag: String? = null,
+    ai: Boolean = false
 ) {
     val theme = LocalRFTheme.current
     Row(
@@ -179,18 +180,22 @@ fun KitChatHeader(
         }
         avatar()
         Column(Modifier.weight(1f)) {
-            KitText(
-                untrustedDisplay(title, UntrustedKind.Excerpt),
-                designLine = true,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = kitStyle(
-                    theme.size_mobile_body,
-                    FontWeight.SemiBold,
-                    theme.text,
-                    RfMetrics.lineTitle
-                ).copy(textDirection = TextDirection.Content)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.bubbleGap))) {
+                KitText(
+                    untrustedDisplay(title, UntrustedKind.Excerpt),
+                    modifier = Modifier.weight(1f, fill = false),
+                    designLine = true,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = kitStyle(
+                        theme.size_mobile_body,
+                        FontWeight.SemiBold,
+                        theme.text,
+                        RfMetrics.lineTitle
+                    ).copy(textDirection = TextDirection.Content)
+                )
+                if (ai) KitAiMarker()
+            }
             if (!subtitle.isNullOrEmpty()) {
                 KitText(
                     untrustedDisplay(subtitle, UntrustedKind.Excerpt),

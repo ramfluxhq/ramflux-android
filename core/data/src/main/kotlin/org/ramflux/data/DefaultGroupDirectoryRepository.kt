@@ -18,6 +18,7 @@ internal class DefaultGroupDirectoryRepository(
     private val source = DefaultGroupsRepository(transport)
     private val accounts = DefaultAccountsRepository(transport)
     private val people = DefaultContactDirectoryRepository(transport, decoding)
+    private val directory = PeerDirectory(people)
     private data class Attempt(val id: String, val change: GroupChange, var result: ClientResult<GroupOutcome>?, val origin: GroupAuthority? = null)
     private val journal = mutableMapOf<String, Attempt>()
     private val groupPages = SnapshotPager<GroupSummary>(PAGE)
@@ -39,7 +40,10 @@ internal class DefaultGroupDirectoryRepository(
                 require(it.group.id == group)
                 it.roster.map { member -> GroupMember(member.principal, member.root, member.device, member.role.appRole(), member.active) }
             }
-            filtered(roster) { query.isBlank() || it.principal.contains(query, true) || it.device.contains(query, true) }
+            val known = if (roster is ClientResult.Ready) ClientResult.Ready(named(account, roster.value)) else roster
+            filtered(known) {
+                query.isBlank() || it.principal.contains(query, true) || it.device.contains(query, true) || it.name?.contains(query, true) == true
+            }
         }
     }
 
@@ -82,6 +86,15 @@ internal class DefaultGroupDirectoryRepository(
         return decoded(source.members(RepositoryContext(account), buildJsonObject { put("group_id", group) }), { GroupMetadataReader.detail(it, decoding) }) {
             require(it.group.id == group)
             GroupDetail(it.group.appGroup(), it.roster.map { member -> GroupMember(member.principal, member.root, member.device, member.role.appRole(), member.active) }, authority.value)
+        }.let { result -> if (result is ClientResult.Ready) ClientResult.Ready(result.value.copy(roster = named(account, result.value.roster))) else result }
+    }
+
+    /** Members named from the contact list, with the SDK-verified AI marker; one contact read per roster. */
+    private suspend fun named(account: String, roster: List<GroupMember>): List<GroupMember> {
+        val peers = directory.peers(account, roster.flatMapTo(HashSet()) { listOfNotNull(it.principal.takeIf(String::isNotBlank), it.root) })
+        return roster.map { member ->
+            val peer = peers[member.principal] ?: member.root?.let { peers[it] }
+            if (peer == null) member else member.copy(name = peer.name, ai = peer.ai)
         }
     }
     private suspend fun authority(account: String): ClientResult<GroupAuthority> = decoded(accounts.accountStatus(RepositoryContext(account), buildJsonObject {}), GroupMetadataReader::authority) {
@@ -129,8 +142,8 @@ internal class DefaultGroupDirectoryRepository(
     }
     /**
      * Journal topics of the pinned SDK (`bus/journal/project.rs`): `group.changed` follows the group,
-     * member and ban projections; `conversation.changed` the group conversation rows. The SDK projects
-     * no topic of its own for inbound invitations; they reload on resume and on resync.
+     * member and ban projections; `group.invitation` an invitation held for consent; `conversation.changed`
+     * the group conversation rows.
      */
     override fun updates(account: String): Flow<ClientResult<Unit>> = source.updates(SubscriptionFilter(account, buildJsonObject {
         put("topics", buildJsonArray { GROUP_TOPICS.forEach { add(it) } })
@@ -171,6 +184,12 @@ internal class DefaultGroupDirectoryRepository(
                 val current = invitations(account)
                 if (current !is ClientResult.Ready) return current.failure()
                 if (invitation.id != change.group || invitation !in current.value || invitation.expiresAt <= System.currentTimeMillis() / 1000) return invalid()
+            }
+            GroupOperation.LEAVE -> {
+                // Any member but the owner leaves through the signed group state (`group.leave`, CHAT-ACTIONS-01).
+                val current = detail(account, change.group)
+                if (current !is ClientResult.Ready) return current.failure()
+                if (!current.value.canLeave) return denied()
             }
             else -> {
                 val current = detail(account, change.group)
@@ -221,6 +240,7 @@ internal class DefaultGroupDirectoryRepository(
                 GroupOperation.ROLE -> source.roleSet(context, body)
                 GroupOperation.ACCEPT -> source.invitationAccept(context, body)
                 GroupOperation.DECLINE -> source.invitationDecline(context, body)
+                GroupOperation.LEAVE -> source.leave(context, body)
             }
             val accept = when(change.operation) { GroupOperation.ACCEPT -> true; GroupOperation.DECLINE -> false; else -> null }
             val result = decoded(reply, { GroupMetadataReader.outcome(it, change.group, accept) }) {
@@ -256,4 +276,5 @@ internal class DefaultGroupDirectoryRepository(
 private const val PAGE = 100
 private const val MAX_QUERY = 256
 
-internal val GROUP_TOPICS = listOf("group.changed", "conversation.changed")
+/** `group.invitation` (CHAT-ACTIONS-01) announces an invitation held for consent, so the list shows it at once. */
+internal val GROUP_TOPICS = listOf("group.changed", "group.invitation", "conversation.changed")

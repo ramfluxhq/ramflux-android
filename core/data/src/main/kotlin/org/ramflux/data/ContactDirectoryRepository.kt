@@ -6,12 +6,13 @@ package org.ramflux.data
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
-data class ContactSummary(val id: String, val principal: String, val name: String?, val verified: Boolean, val root: String? = null) {
+/** [ai] is the SDK-verified AI marker: an agent is shown exactly like a person plus this marker. */
+data class ContactSummary(val id: String, val principal: String, val name: String?, val verified: Boolean, val root: String? = null, val ai: Boolean = false) {
     override fun toString() = "ContactSummary(<redacted>)"
 }
 enum class RequestDirection { INBOUND, OUTBOUND }
 enum class ContactRequestStatus { PENDING, ACCEPTED, DECLINED, BLOCKED, EXPIRED, UNKNOWN }
-data class ContactRequestSummary(val id: String, val principal: String, val name: String?, val direction: RequestDirection, val status: ContactRequestStatus, val note: String?, val messageCount: ULong, val expiresAt: Long, val root: String? = null) {
+data class ContactRequestSummary(val id: String, val principal: String, val name: String?, val direction: RequestDirection, val status: ContactRequestStatus, val note: String?, val messageCount: ULong, val expiresAt: Long, val root: String? = null, val ai: Boolean = false) {
     override fun toString() = "ContactRequestSummary(<redacted>)"
 }
 /**

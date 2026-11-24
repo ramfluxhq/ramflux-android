@@ -304,4 +304,16 @@
     <string name="chat_media_unsent">Not sent</string>
     <!-- A send the SDK refused because the contact's home node is not known yet (no contact card imported); the entry keeps a Retry. -->
     <string name="chat_send_needs_card">Not sent. Exchange contact cards with this contact to send media.</string>
+    <!-- Centred service line in a group chat: member added. -->
+    <string name="chat_service_member_added">A member was added</string>
+    <!-- Centred service line in a group chat: member removed. -->
+    <string name="chat_service_member_removed">A member was removed</string>
+    <!-- Centred service line in a group chat: name changed. -->
+    <string name="chat_service_name_changed">The group name changed</string>
+    <!-- Centred service line in a group chat: key changed. -->
+    <string name="chat_service_key_changed">A member\'s safety key changed</string>
+    <!-- Centred service line in a group chat: pin added. -->
+    <string name="chat_service_pin_added">A message was pinned</string>
+    <!-- Centred service line in a group chat: pin removed. -->
+    <string name="chat_service_pin_removed">A message was unpinned</string>
 </resources>

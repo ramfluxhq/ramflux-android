@@ -133,7 +133,8 @@ fun ConversationsScreen(
                                 { onAction(ConversationsAction.Open(row.id)) },
                                 muted = row.muted,
                                 badge = row.unread.takeIf { row.hasUnread },
-                                tag = "conversation-" + row.id
+                                tag = "conversation-" + row.id,
+                                ai = row.ai
                             )
                         } else {
                             ExactConversationRow(

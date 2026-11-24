@@ -143,10 +143,14 @@ the shared event hub to `conversation.changed`, `message.received` and the inbou
 contact-request topics (never `*`): changed rows are upserted in place, removed rows
 dropped, the message-requests row recounted, and `resync_required` reloads the
 window. The SDK directory row has no message preview; rows show the conversation
-kind. A direct row has no SDK title: `DirectConversationTitles` names it from the row's direct-route recipient
-(then its participants) against one `contact.list` read per page, reused for a minute and re-read on a miss at
-most every five seconds, off the main thread. Without a matching contact the title is a short identifier
-(`titleIsIdentifier`) drawn left-to-right isolated (`Bidi.ltr`); the raw `dm:` id is never shown. Local search and an uninstalled chat feature return typed unavailable.
+kind. A direct row is titled with the SDK's name of the peer (`peer_display_name`, CHAT-ACTIONS-01); only when
+the SDK has none does the contact name serve. `PeerDirectory` keeps one `contact.list` read per page (reused for a
+minute, re-read on a miss at most every five seconds, off the main thread) for what the SDK rows name only by key:
+the SDK-verified AI marker (`verified_classification` = `ai_agent`) of direct peers, group members and the authors
+of group messages, and the names of the last two. An agent is shown exactly like a person plus that marker.
+Without any name the title is a short identifier (`titleIsIdentifier`) drawn left-to-right isolated
+(`Bidi.ltr`); the raw `dm:` id is never shown. Group service rows (member added or removed, name changed, ...)
+are centred lines worded from their action, never bubbles. Local search and an uninstalled chat feature return typed unavailable.
 
 Chat installs a public account/conversation route and renders on the Kit: chat
 header, bubbles, date chips, unread divider, message actions and `KitComposer`.

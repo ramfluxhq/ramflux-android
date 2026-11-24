@@ -116,7 +116,7 @@ internal class DefaultContactDirectoryRepository(
                             ContactListScope.ACCEPTED -> it.relation == "accepted" && !it.blocked
                             ContactListScope.BLOCKED -> it.blocked
                         }
-                    }.map { ContactSummary(it.id, it.principal, it.name, it.verified, it.root) }
+                    }.map { ContactSummary(it.id, it.principal, it.name, it.verified, it.root, it.ai) }
                 })
             }
         }
@@ -137,7 +137,7 @@ internal class DefaultContactDirectoryRepository(
                             "blocked" -> ContactRequestStatus.BLOCKED
                             "expired" -> ContactRequestStatus.EXPIRED
                             else -> ContactRequestStatus.UNKNOWN
-                        }, it.note, it.count, it.expiresAt, it.root)
+                        }, it.note, it.count, it.expiresAt, it.root, it.ai)
                 } })
             }
         }

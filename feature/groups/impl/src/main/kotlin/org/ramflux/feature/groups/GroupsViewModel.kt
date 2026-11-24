@@ -191,6 +191,9 @@ class GroupsViewModel @Inject constructor(
                     )
                 )
             }
+            GroupsAction.Leave -> header?.first?.takeIf { local.value.authorityFresh && it.canLeave }?.let { current ->
+                prepare(GroupChange(GroupOperation.LEAVE, current.group.id, current.group.epoch))
+            }
             is GroupsAction.Remove -> member(action.id)?.let { (current, selected) ->
                 prepare(GroupChange(GroupOperation.REMOVE, current.group.id, current.group.epoch, member = selected))
             }
@@ -205,7 +208,6 @@ class GroupsViewModel @Inject constructor(
                     notice = uiText(
                         when (action.control) {
                             GroupControl.TRANSFER -> R.string.groups_transfer_unavailable
-                            GroupControl.LEAVE -> R.string.groups_leave_unavailable
                         }
                     )
                 )
@@ -462,7 +464,9 @@ class GroupsViewModel @Inject constructor(
                 row.role.label(),
                 row.active,
                 detail?.canChange(row) == true,
-                row.role == GroupRole.ADMIN
+                row.role == GroupRole.ADMIN,
+                row.name,
+                row.ai
             )
         }.toPersistentList()
         val invitations = inviteFeed.window.rows().map { row ->
@@ -487,6 +491,7 @@ class GroupsViewModel @Inject constructor(
                 memberCount = current?.let { UiText.Quantity(R.plurals.groups_member_count, it.second.toULong()) } ?: screen.memberCount,
                 ownRole = detail?.ownRole?.label() ?: screen.ownRole,
                 canManage = detail?.canManage == true,
+                canLeave = detail?.canLeave == true,
                 authorityFresh = detail != null,
                 selectedMember = screen.selectedMember?.let { selected ->
                     members.find { it.id == selected.id } ?: selected.copy(manageable = false)
@@ -515,6 +520,7 @@ class GroupsViewModel @Inject constructor(
             }
             if (change.operation == GroupOperation.ROLE) add(change.role.label())
             if (change.operation == GroupOperation.REMOVE) add(uiText(R.string.groups_remove_explanation))
+            if (change.operation == GroupOperation.LEAVE) add(uiText(R.string.groups_leave_explanation))
             change.invitation?.let {
                 add(UiText.Data(it.creator))
                 add(UiText.Data(it.inviter))
@@ -597,6 +603,10 @@ class GroupsViewModel @Inject constructor(
                                 }
                             }
                         } else {
+                            // After leaving, the group is gone from this phone's list (or waits for the owner's device).
+                            if (attempt.second.operation == GroupOperation.LEAVE) {
+                                local.update { it.copy(page = GroupsPage.LIST, selected = null, selectedMember = null) }
+                            }
                             if (attempt.second.operation == GroupOperation.REMOVE && !result.value.waiting) {
                                 attempt.second.member?.let { memberFeed.window.remove(it.id) }
                                 local.update { it.copy(page = GroupsPage.MEMBERS, selectedMember = null) }
@@ -701,6 +711,7 @@ private fun GroupOperation.label() = uiText(
         GroupOperation.ROLE -> R.string.groups_role
         GroupOperation.ACCEPT -> R.string.groups_accept
         GroupOperation.DECLINE -> R.string.groups_decline
+        GroupOperation.LEAVE -> R.string.groups_leave
     }
 )
 private fun GroupRole.label() = uiText(

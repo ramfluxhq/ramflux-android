@@ -81,7 +81,9 @@ enum class LocalDelivery {
     val receipt: Receipt? = null,
     val reactions: ImmutableList<ReactionCount> = persistentListOf(),
     val delivery: LocalDelivery? = null,
-    val attachments: ImmutableList<AttachmentItem> = persistentListOf()
+    val attachments: ImmutableList<AttachmentItem> = persistentListOf(),
+    /** The author is an SDK-verified AI agent (shown with the AI marker). */
+    val senderAi: Boolean = false
 ) : TimelineItem {
     override fun toString() = "MessageItem(<redacted>)"
 }
@@ -90,6 +92,8 @@ enum class LocalDelivery {
     val conversationId: String = "",
     val groupId: String? = null,
     val title: UiText? = null,
+    /** The direct peer is an SDK-verified AI agent (the header shows the AI marker). */
+    val titleAi: Boolean = false,
     val headerProblem: UiText? = null,
     val rows: ImmutableList<TimelineItem> = persistentListOf(),
     val loading: Boolean = false,

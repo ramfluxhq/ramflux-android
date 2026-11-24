@@ -29,6 +29,12 @@ data class MessageSummary(
     val service: Boolean = false,
     /** The `content.message.media[]` references, addressed as (message id, index). */
     val attachments: List<MediaAttachment> = emptyList(),
+    /** The author's contact name (group messages from known people); [sender] stays the device. */
+    val senderName: String? = null,
+    /** The author is an SDK-verified AI agent. */
+    val senderAi: Boolean = false,
+    /** A service row's action (`member_added`, `member_removed`, `name_changed`, ..., `other`). */
+    val serviceAction: String? = null,
 ) : TimelineSummary {
     override fun toString() = "MessageSummary(<redacted>)"
 }
@@ -48,7 +54,9 @@ data class ConversationHeader(
     val groupId: String? = null,
     val unread: Long = 0,
     val peer: String? = null,
-    val muted: Boolean = false
+    val muted: Boolean = false,
+    /** The direct peer is an SDK-verified AI agent. */
+    val ai: Boolean = false
 ) {
     override fun toString() = "ConversationHeader(<redacted>)"
 }

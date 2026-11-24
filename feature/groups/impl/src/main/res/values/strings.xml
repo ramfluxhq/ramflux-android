@@ -86,7 +86,6 @@
     <!-- Explains why ownership transfer is not offered -->
     <string name="groups_transfer_unavailable">Transferring ownership needs a certificate from the device that created the group. A phone cannot produce it, so transfer ownership on that device. Nothing was changed.</string>
     <!-- Explains why leaving is not offered -->
-    <string name="groups_leave_unavailable">Leaving a group is not available yet: there is no leave operation, and removing yourself would only send a request to the owner. Nothing was changed.</string>
     <!-- Placeholder of the member filter field -->
     <string name="groups_member_filter">Filter members</string>
     <!-- Empty state of the member list -->
@@ -105,4 +104,8 @@
     <string name="groups_no_contacts">No accepted contacts to add</string>
     <!-- Shown in the removal review -->
     <string name="groups_remove_explanation">The member loses access to new group messages. Messages they already received stay on their devices.</string>
+    <!-- Shown in the confirmation before leaving a group. -->
+    <string name="groups_leave_explanation">You stop receiving this group\'s messages. The group\'s owner device records that you left.</string>
+    <!-- Next to Leave group when this phone owns the group. -->
+    <string name="groups_leave_owner">The owner leaves only after transferring ownership.</string>
 </resources>

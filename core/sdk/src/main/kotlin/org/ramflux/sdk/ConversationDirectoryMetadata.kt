@@ -18,6 +18,8 @@ data class ConversationDirectoryEntry(
     val peer: String? = null,
     /** The group of a group conversation (public id, needed to address group sends); null for direct rows. */
     val groupId: String? = null,
+    /** The direct peer's display name as the SDK resolves it (`peer_display_name`); null for groups and unknown. */
+    val peerName: String? = null,
 )
 /** One event of the directory topics; [row] is null when the frame carries no usable row. */
 data class ConversationDirectoryEvent(val topic: String?, val row: ConversationDirectoryEntry?)
@@ -33,7 +35,7 @@ object ConversationDirectoryMetadataReader {
                     fields.unsigned(row, "unread_count"), fields.boolean(row, "archived"), fields.boolean(row, "hidden"),
                     fields.boolean(row, "is_unread"), fields.optionalSigned(row, "last_activity"),
                     fields.text(row, "kind"), participants, fields.optionalBoolean(row, "muted") == true, directPeer(fields, row),
-                    groupOf(fields, row))
+                    groupOf(fields, row), peerName(fields, row))
             }
             require(rows.map { it.id }.distinct().size == rows.size)
             CoreResult.Success(ConversationDirectoryMetadata(rows, fields.text(fields.root, "next_cursor")))
@@ -60,6 +62,14 @@ object ConversationDirectoryMetadataReader {
 private fun directPeer(fields: DisplayFields, row: ByteJson.Node): String? = try {
     fields.field(row, "direct_route")?.takeIf { it.kind == 123 }
         ?.let { fields.text(it, "recipient_principal_commitment") }?.takeIf { it.length in 1..128 }
+} catch (_: Exception) {
+    null
+}
+
+/** The SDK's name of a direct peer (CHAT-ACTIONS-01); a value that does not read is omitted, never a failure. */
+private fun peerName(fields: DisplayFields, row: ByteJson.Node): String? = try {
+    fields.field(row, "peer_display_name")?.takeIf { it.kind == 34 }?.let { fields.text(row, "peer_display_name") }
+        ?.takeIf { it.isNotBlank() && it.length <= 256 }
 } catch (_: Exception) {
     null
 }
@@ -97,6 +107,6 @@ private fun eventRow(fields: DisplayFields, topic: String?): ConversationDirecto
         else -> ConversationDirectoryEntry(id, fields.text(row, "title"), fields.unsigned(row, "unread_count"), fields.boolean(row, "archived"),
             fields.boolean(row, "hidden"), fields.boolean(row, "is_unread"), fields.optionalSigned(row, "last_activity"),
             fields.text(row, "kind"), participantNames(fields, row), fields.optionalBoolean(row, "muted") == true,
-            peer = directPeer(fields, row), groupId = groupOf(fields, row))
+            peer = directPeer(fields, row), groupId = groupOf(fields, row), peerName = peerName(fields, row))
     }
 } catch (_: Exception) { null }

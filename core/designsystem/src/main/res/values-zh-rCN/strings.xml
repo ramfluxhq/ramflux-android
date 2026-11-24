@@ -9,4 +9,8 @@
     <plurals name="unread_messages">
         <item quantity="other">%1$s 条未读消息</item>
     </plurals>
+    <!-- Short marker shown next to the name of a person the SDK verified as an AI agent. Keep it to two or three characters. -->
+    <string name="kit_ai_marker">AI</string>
+    <!-- Accessibility label of the AI marker next to a name. -->
+    <string name="kit_ai_marker_description">AI 智能体</string>
 </resources>

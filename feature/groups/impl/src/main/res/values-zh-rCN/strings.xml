@@ -86,7 +86,6 @@
     <!-- Explains why ownership transfer is not offered -->
     <string name="groups_transfer_unavailable">转让群主需要创建该群组的设备出具的证书，手机无法生成，请在该设备上转让。未做任何更改。</string>
     <!-- Explains why leaving is not offered -->
-    <string name="groups_leave_unavailable">暂不支持退出群组：目前没有退出操作，移除自己只会向群主发送请求。未做任何更改。</string>
     <!-- Placeholder of the member filter field -->
     <string name="groups_member_filter">筛选成员</string>
     <!-- Empty state of the member list -->
@@ -105,4 +104,8 @@
     <string name="groups_no_contacts">没有可添加的已通过联系人</string>
     <!-- Shown in the removal review -->
     <string name="groups_remove_explanation">该成员将无法收到新的群消息。其已收到的消息仍保留在其设备上。</string>
+    <!-- Shown in the confirmation before leaving a group. -->
+    <string name="groups_leave_explanation">你将不再收到此群组的消息。群主的设备会记录你已退出。</string>
+    <!-- Next to Leave group when this phone owns the group. -->
+    <string name="groups_leave_owner">群主须先转让群组才能退出。</string>
 </resources>

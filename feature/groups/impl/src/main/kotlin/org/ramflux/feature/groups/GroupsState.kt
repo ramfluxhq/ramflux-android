@@ -13,7 +13,7 @@ enum class GroupsPage { LIST, CREATE, DETAIL, MEMBERS, MEMBER, INVITE, REQUESTS,
 enum class GroupList { GROUPS, INVITATIONS, MEMBERS, CONTACTS, REQUESTS }
 
 /** Controls the SDK cannot perform from a phone today; tapping one explains why instead of acting. */
-enum class GroupControl { TRANSFER, LEAVE }
+enum class GroupControl { TRANSFER }
 
 @Immutable data class GroupRow(val id: String, val title: String, val count: UiText)
 
@@ -25,8 +25,15 @@ enum class GroupControl { TRANSFER, LEAVE }
     val role: UiText,
     val active: Boolean,
     val manageable: Boolean,
-    val admin: Boolean = false
-)
+    val admin: Boolean = false,
+    /** Contact name of the member, when known. */
+    val name: String? = null,
+    /** SDK-verified AI agent: shown with the AI marker, otherwise like a person. */
+    val ai: Boolean = false
+) {
+    /** The member as shown: the contact name, else the principal, else the device. */
+    val label: String get() = name?.takeIf { it.isNotBlank() } ?: principal.ifEmpty { device }
+}
 
 @Immutable data class InviteRow(val id: String, val title: String, val creator: String, val inviter: String, val expiry: UiText)
 
@@ -57,6 +64,8 @@ enum class GroupControl { TRANSFER, LEAVE }
     val query: String = "",
     val name: String = "",
     val canManage: Boolean = false,
+    /** Every active member but the owner can leave (`group.leave`); the owner transfers ownership first. */
+    val canLeave: Boolean = false,
     val authorityFresh: Boolean = false,
     val loading: Boolean = false,
     val loadingMore: Boolean = false,
