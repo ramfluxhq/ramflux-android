@@ -32,8 +32,8 @@
     <string name="calls_account_changed">当前账号已更改。请重新打开通话。</string>
     <string name="calls_pending">操作 %1$s 的结果待核对。请刷新以读取权威通话状态。</string>
     <string name="calls_invalid">返回了无效的通话记录。</string>
-    <string name="calls_unknown_outcome">结果未知（代码 %1$s）。发送另一信令前请刷新。</string>
-    <string name="calls_error_code">通话操作失败（代码 %1$s）。</string>
+    <string name="calls_unknown_outcome">结果未知（%1$s）。发送另一信令前请刷新。</string>
+    <string name="calls_error_code">通话操作失败（%1$s）。</string>
     <string name="calls_incoming">呼入</string>
     <string name="calls_outgoing">呼出</string>
     <string name="calls_unknown">状态不可用</string>
@@ -100,7 +100,7 @@
     <!-- Shown when calls are not available on this device. -->
     <string name="call_unavailable">此处无法通话。</string>
     <!-- Call failure with a numeric code; %1$s is the code. -->
-    <string name="call_failed_code">通话失败（代码 %1$s）。</string>
+    <string name="call_failed_code">通话失败（%1$s）。</string>
     <!-- Call failure with the SDK reason name; %1$s is the reason, shown as received. -->
     <string name="call_failed_reason">通话失败：%1$s</string>
     <!-- Name of the app in the phone's system call screens. -->

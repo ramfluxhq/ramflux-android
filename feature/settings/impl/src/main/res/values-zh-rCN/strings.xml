@@ -19,7 +19,7 @@
     <string name="settings_sdk_missing">此版本暂不支持此操作。</string>
     <string name="settings_custody_missing">需要此设备上的安全账户访问支持。</string>
     <string name="settings_error">无法继续</string>
-    <string name="settings_read_failed">请求未完成（代码 %1$s）。</string>
+    <string name="settings_read_failed">请求未完成（%1$s）。</string>
     <string name="settings_unknown_outcome">操作结果未知，请先刷新当前状态再发起新请求。</string>
     <string name="settings_account_changed">当前账户已变更，请刷新以读取当前状态。</string>
     <string name="settings_closed">私有数据已关闭，账户详情已隐藏。</string>

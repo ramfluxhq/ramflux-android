@@ -46,8 +46,8 @@
     <string name="groups_account_changed">The active account changed. Reopen groups.</string>
     <string name="groups_unavailable">This control needs additional verified context or SDK support. No change was made.</string>
     <string name="groups_invalid">Invalid group metadata was returned.</string>
-    <string name="groups_unknown">Outcome unknown (code %1$s). Preserve the original operation identity.</string>
-    <string name="groups_error_code">Operation failed (code %1$s).</string>
+    <string name="groups_unknown">Outcome unknown (%1$s). Preserve the original operation identity.</string>
+    <string name="groups_error_code">Operation failed (%1$s).</string>
     <string name="groups_waiting">Waiting for the group owner; not yet applied.</string>
     <string name="groups_expired">The group request expired.</string>
     <string name="groups_acknowledged">SDK acknowledged the change. Member-device delivery is not confirmed.</string>

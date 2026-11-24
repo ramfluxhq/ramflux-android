@@ -9,7 +9,7 @@
     <string name="tasks_more">加载更多</string>
     <string name="tasks_loading">正在读取任务…</string>
     <string name="tasks_error">无法读取任务</string>
-    <string name="tasks_error_code">请求失败（代码 %1$s）。</string>
+    <string name="tasks_error_code">请求失败（%1$s）。</string>
     <string name="tasks_account_required">需要已解锁的当前账户。</string>
     <string name="tasks_setup">设置账户</string>
     <string name="tasks_closed">私密数据已关闭。</string>

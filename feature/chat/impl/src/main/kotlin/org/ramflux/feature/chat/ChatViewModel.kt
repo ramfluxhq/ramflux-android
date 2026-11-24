@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.ramflux.data.*
 import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.failureText
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
 
@@ -319,9 +320,9 @@ class ChatViewModel @Inject constructor(
             is ClientResult.Ready -> catalog.value
             is ClientResult.Failed -> {
                 local.value = ChatState(
-                    problem = uiText(
+                    problem = failureText(
                         R.string.ui_account_state_could_not_be_read_code_value,
-                        UiText.Number(catalog.problem.code.toLong())
+                        catalog.problem.code, catalog.problem.statusName, catalog.problem.check
                     ),
                     draft = local.value.draft
                 )
@@ -409,9 +410,9 @@ class ChatViewModel @Inject constructor(
                                     is ClientResult.Ready, is ClientResult.Failed -> null
                                 },
                                 problem = when (capability) {
-                                    is ClientResult.Failed -> uiText(
+                                    is ClientResult.Failed -> failureText(
                                         R.string.ui_send_availability_failed_code_value,
-                                        UiText.Number(capability.problem.code.toLong())
+                                        capability.problem.code, capability.problem.statusName, capability.problem.check
                                     )
                                     is ClientResult.Ready, is ClientResult.Unavailable -> null
                                 }
@@ -423,7 +424,7 @@ class ChatViewModel @Inject constructor(
                         if (sendReady) resendQueued()
                     }
                     is ClientResult.Failed -> local.update {
-                        it.copy(problem = uiText(R.string.ui_read_failed_code_value, UiText.Number(result.problem.code.toLong())))
+                        it.copy(problem = failureText(R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check))
                     }
                     is ClientResult.Unavailable -> local.update {
                         it.copy(unavailable = uiText(R.string.ui_message_history_is_unavailable))
@@ -627,7 +628,7 @@ class ChatViewModel @Inject constructor(
                         publish()
                     }
                     is ClientResult.Failed -> local.update {
-                        it.copy(problem = uiText(R.string.ui_read_failed_code_value, UiText.Number(result.problem.code.toLong())))
+                        it.copy(problem = failureText(R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check))
                     }
                     is ClientResult.Unavailable -> older = null
                 }
@@ -1275,7 +1276,7 @@ class ChatViewModel @Inject constructor(
                             it.copy(
                                 gallery = it.gallery?.copy(
                                     loading = false,
-                                    problem = uiText(R.string.ui_read_failed_code_value, UiText.Number(result.problem.code.toLong()))
+                                    problem = failureText(R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check)
                                 )
                             )
                         }
@@ -1485,7 +1486,7 @@ class ChatViewModel @Inject constructor(
                     it.copy(
                         forward = open.copy(
                             loading = false,
-                            problem = uiText(R.string.ui_read_failed_code_value, UiText.Number(result.problem.code.toLong()))
+                            problem = failureText(R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check)
                         )
                     )
                 }
@@ -1617,7 +1618,7 @@ private fun cardFailure(problem: ClientProblem): UiText = when (problem.statusNa
     else -> if (problem.outcome == ClientOutcome.UNKNOWN) {
         uiText(R.string.card_outcome_unknown)
     } else {
-        coded(problem, R.string.ui_action_failed_code_value, R.string.ui_action_failed_status_value)
+        failureText(R.string.ui_action_failed_code_value, problem.code, problem.statusName, problem.check)
     }
 }
 
@@ -1685,20 +1686,12 @@ private fun rank(state: String) = when (state) {
 
 private fun sendFailure(problem: ClientProblem): UiText = when (problem.outcome) {
     ClientOutcome.UNKNOWN -> uiText(R.string.ui_send_outcome_is_unknown_refresh_before_making_another)
-    ClientOutcome.NONE, ClientOutcome.REFUSED -> coded(
-        problem,
-        R.string.ui_the_message_was_not_sent_code_value,
-        R.string.ui_the_message_was_not_sent_status_value
-    )
+    ClientOutcome.NONE, ClientOutcome.REFUSED -> failureText(R.string.ui_the_message_was_not_sent_code_value, problem.code, problem.statusName, problem.check)
 }
 
 private fun actionFailure(problem: ClientProblem): UiText = when (problem.outcome) {
     ClientOutcome.UNKNOWN -> uiText(R.string.ui_send_outcome_is_unknown_refresh_before_making_another)
-    ClientOutcome.NONE, ClientOutcome.REFUSED -> coded(
-        problem,
-        R.string.ui_action_failed_code_value,
-        R.string.ui_action_failed_status_value
-    )
+    ClientOutcome.NONE, ClientOutcome.REFUSED -> failureText(R.string.ui_action_failed_code_value, problem.code, problem.statusName, problem.check)
 }
 
 private fun failedNotice(problem: ClientProblem): UiText? = when {
@@ -1718,12 +1711,6 @@ private fun typingNotice(result: ClientResult<Unit>): UiText? = when (result) {
     } else {
         uiText(R.string.ui_typing_unavailable)
     }
-}
-
-private fun coded(problem: ClientProblem, codeOnly: Int, withStatus: Int): UiText {
-    val code = UiText.Number(problem.code.toLong())
-    val status = problem.statusName
-    return if (status.isNullOrEmpty()) uiText(codeOnly, code) else uiText(withStatus, UiText.Data(status), code)
 }
 
 private fun UnavailableReason.description(): UiText = when (this) {

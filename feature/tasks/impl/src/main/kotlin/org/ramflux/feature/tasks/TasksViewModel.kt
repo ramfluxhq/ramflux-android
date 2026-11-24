@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.*
 import org.ramflux.data.*
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.uiText
+import org.ramflux.designsystem.failureText
 import org.ramflux.feature.tasks.impl.R
 
 /**
@@ -534,7 +535,7 @@ class TasksViewModel @Inject constructor(
         is ClientResult.Failed -> if (result.problem.outcome == ClientOutcome.UNKNOWN) {
             uiText(R.string.tasks_unknown)
         } else {
-            uiText(R.string.tasks_error_code, UiText.Number(result.problem.code.toLong()))
+            failureText(R.string.tasks_error_code, result.problem.code, result.problem.statusName, result.problem.check)
         }
         else -> uiText(R.string.tasks_unavailable_detail)
     }

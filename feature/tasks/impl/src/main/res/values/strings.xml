@@ -9,7 +9,7 @@
     <string name="tasks_more">Load more</string>
     <string name="tasks_loading">Reading tasks…</string>
     <string name="tasks_error">Unable to read tasks</string>
-    <string name="tasks_error_code">The request failed (code %1$s).</string>
+    <string name="tasks_error_code">The request failed (%1$s).</string>
     <string name="tasks_account_required">An unlocked active account is required.</string>
     <string name="tasks_setup">Set up an account</string>
     <string name="tasks_closed">Private data is closed.</string>

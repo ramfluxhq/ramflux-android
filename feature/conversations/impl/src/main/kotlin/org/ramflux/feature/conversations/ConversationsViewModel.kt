@@ -16,6 +16,8 @@ import kotlinx.coroutines.sync.withLock
 import org.ramflux.data.*
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.uiText
+import org.ramflux.designsystem.failureDetail
+import org.ramflux.designsystem.failureWords
 import org.ramflux.feature.conversations.impl.R
 
 @HiltViewModel
@@ -265,7 +267,7 @@ class ConversationsViewModel @Inject constructor(
     }
 }
 private fun ClientResult.Failed.notice(state: ConversationsState, subject: UiText) = state.copy(
-    problem = uiText(R.string.ui_value_could_not_be_read_code_value, subject, UiText.Number(problem.code.toLong())),
+    problem = failureWords(problem.check) ?: uiText(R.string.ui_value_could_not_be_read_code_value, subject, failureDetail(problem.code, problem.statusName, problem.check)),
     problemKind = problem.kind,
     unavailable = null,
     unavailableReason = null

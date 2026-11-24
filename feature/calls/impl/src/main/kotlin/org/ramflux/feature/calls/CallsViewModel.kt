@@ -247,10 +247,11 @@ class CallsViewModel @Inject constructor(
         }
     }
 }
-private fun ClientProblem.message() = uiText(
-    if (outcome == ClientOutcome.UNKNOWN) R.string.calls_unknown_outcome else R.string.calls_error_code,
-    UiText.Number(code.toLong())
-)
+private fun ClientProblem.message() = if (outcome == ClientOutcome.UNKNOWN) {
+    uiText(R.string.calls_unknown_outcome, failureDetail(code, statusName, check))
+} else {
+    failureText(R.string.calls_error_code, code, statusName, check)
+}
 private fun CallRecord.item() = CallItem(
     id, peer,
     uiText(

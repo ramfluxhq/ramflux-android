@@ -531,7 +531,7 @@ private fun ContactRequestSummary.person() = PersonItem(
     ai = ai
 )
 
-private fun ClientProblem.message() = uiText(R.string.contacts_read_failed, UiText.Number(code.toLong()))
+private fun ClientProblem.message() = failureText(R.string.contacts_read_failed, code, statusName, check)
 private fun UnavailableReason.message() = uiText(
     when (this) {
         UnavailableReason.FEATURE_NOT_INSTALLED -> R.string.contacts_action_unavailable

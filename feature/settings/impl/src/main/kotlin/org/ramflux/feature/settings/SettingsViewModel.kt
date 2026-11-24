@@ -658,7 +658,7 @@ private val DEVICE_NAME = android.os.Build.MODEL?.takeIf { it.isNotBlank() }?.ta
 private fun ClientProblem.message(): UiText = if (outcome == ClientOutcome.UNKNOWN) {
     uiText(R.string.settings_unknown_outcome)
 } else {
-    uiText(R.string.settings_read_failed, UiText.Number(code.toLong()))
+    failureText(R.string.settings_read_failed, code, statusName, check)
 }
 private fun UnavailableReason.message(): UiText = uiText(
     when (this) {
