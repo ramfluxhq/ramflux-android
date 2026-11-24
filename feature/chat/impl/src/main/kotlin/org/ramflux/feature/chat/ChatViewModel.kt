@@ -424,7 +424,11 @@ class ChatViewModel @Inject constructor(
                         if (sendReady) resendQueued()
                     }
                     is ClientResult.Failed -> local.update {
-                        it.copy(problem = failureText(R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check))
+                        it.copy(
+                            problem = failureText(
+                                R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check
+                            )
+                        )
                     }
                     is ClientResult.Unavailable -> local.update {
                         it.copy(unavailable = uiText(R.string.ui_message_history_is_unavailable))
@@ -628,7 +632,11 @@ class ChatViewModel @Inject constructor(
                         publish()
                     }
                     is ClientResult.Failed -> local.update {
-                        it.copy(problem = failureText(R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check))
+                        it.copy(
+                            problem = failureText(
+                                R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check
+                            )
+                        )
                     }
                     is ClientResult.Unavailable -> older = null
                 }
@@ -1276,7 +1284,12 @@ class ChatViewModel @Inject constructor(
                             it.copy(
                                 gallery = it.gallery?.copy(
                                     loading = false,
-                                    problem = failureText(R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check)
+                                    problem = failureText(
+                                        R.string.ui_read_failed_code_value,
+                                        result.problem.code,
+                                        result.problem.statusName,
+                                        result.problem.check
+                                    )
                                 )
                             )
                         }
@@ -1486,7 +1499,9 @@ class ChatViewModel @Inject constructor(
                     it.copy(
                         forward = open.copy(
                             loading = false,
-                            problem = failureText(R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check)
+                            problem = failureText(
+                                R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check
+                            )
                         )
                     )
                 }
@@ -1686,12 +1701,22 @@ private fun rank(state: String) = when (state) {
 
 private fun sendFailure(problem: ClientProblem): UiText = when (problem.outcome) {
     ClientOutcome.UNKNOWN -> uiText(R.string.ui_send_outcome_is_unknown_refresh_before_making_another)
-    ClientOutcome.NONE, ClientOutcome.REFUSED -> failureText(R.string.ui_the_message_was_not_sent_code_value, problem.code, problem.statusName, problem.check)
+    ClientOutcome.NONE, ClientOutcome.REFUSED -> failureText(
+        R.string.ui_the_message_was_not_sent_code_value,
+        problem.code,
+        problem.statusName,
+        problem.check
+    )
 }
 
 private fun actionFailure(problem: ClientProblem): UiText = when (problem.outcome) {
     ClientOutcome.UNKNOWN -> uiText(R.string.ui_send_outcome_is_unknown_refresh_before_making_another)
-    ClientOutcome.NONE, ClientOutcome.REFUSED -> failureText(R.string.ui_action_failed_code_value, problem.code, problem.statusName, problem.check)
+    ClientOutcome.NONE, ClientOutcome.REFUSED -> failureText(
+        R.string.ui_action_failed_code_value,
+        problem.code,
+        problem.statusName,
+        problem.check
+    )
 }
 
 private fun failedNotice(problem: ClientProblem): UiText? = when {

@@ -14,9 +14,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.ramflux.data.*
 import org.ramflux.designsystem.ThemeCatalog
-import org.ramflux.designsystem.UiText
-import org.ramflux.designsystem.uiText
 import org.ramflux.designsystem.failureText
+import org.ramflux.designsystem.uiText
 import org.ramflux.feature.app_shell.impl.R
 
 @HiltViewModel

@@ -28,9 +28,9 @@ import org.ramflux.data.ClientPhase
 import org.ramflux.data.ClientResult
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.designsystem.UiText
-import org.ramflux.designsystem.uiText
-import org.ramflux.designsystem.failureWords
 import org.ramflux.designsystem.failureText
+import org.ramflux.designsystem.failureWords
+import org.ramflux.designsystem.uiText
 import org.ramflux.feature.calls.impl.R
 
 /** Boards MOB-K01 to K05, K08 and K09. */
@@ -175,7 +175,10 @@ class CallSessionViewModel @Inject constructor(
             is ClientResult.Ready -> result.value.firstOrNull { it.id == wanted }?.let { apply(id, it) }
                 ?: if (record == null) local.update { it.copy(stage = CallStage.ENDED, busy = false) } else Unit
             is ClientResult.Failed -> if (record == null) {
-                local.value = CallSessionState(stage = CallStage.FAILED, problem = failure(result.problem.code, result.problem.statusName, result.problem.check))
+                local.value = CallSessionState(
+                    stage = CallStage.FAILED,
+                    problem = failure(result.problem.code, result.problem.statusName, result.problem.check)
+                )
             }
             is ClientResult.Unavailable -> local.value = CallSessionState(
                 stage = CallStage.FAILED,

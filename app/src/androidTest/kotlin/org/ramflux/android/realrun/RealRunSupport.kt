@@ -248,7 +248,9 @@ class Ui(private val control: PeerControl) {
 
     /** The visible test tags (resource ids) of the app, for failure details. */
     // Reading a node that the app replaced meanwhile throws: such a node is skipped (also in texts()).
-    fun ids(): String = device.findObjects(By.pkg(packageName).res(Pattern.compile(".+"))).mapNotNull { runCatching { it.resourceName }.getOrNull() }
+    fun ids(): String = device.findObjects(By.pkg(packageName).res(Pattern.compile(".+"))).mapNotNull {
+        runCatching { it.resourceName }.getOrNull()
+    }
         .filterNot { it.startsWith("android:") }.distinct().joinToString(",").take(700)
 
     fun screen(): String = "screen: ${texts().take(500)}; tags: ${ids()}"
