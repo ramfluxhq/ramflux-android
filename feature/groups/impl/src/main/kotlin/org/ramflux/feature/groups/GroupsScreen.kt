@@ -79,9 +79,10 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, modifier:
                     }
                 }
                 if (state.page == GroupsPage.LIST && !state.emptyRoot) {
-                    TextButton(onClick = {
-                        onAction(GroupsAction.Page(GroupsPage.CREATE))
-                    }) { Text(stringResource(R.string.groups_create)) }
+                    TextButton(
+                        onClick = { onAction(GroupsAction.Page(GroupsPage.CREATE)) },
+                        modifier = Modifier.testTag("groups-create")
+                    ) { Text(stringResource(R.string.groups_create)) }
                 }
             }
         }
