@@ -789,14 +789,12 @@ class RealRunFlowTest {
         ui.shot("12-agents")
         notes += "Agents tab: ${agents ?: "nothing"}"
         ensureShell()
-        ui.tap("shell-tabs-3")
-        ui.tap("shell-more-tasks", Ui.SHORT)
+        ui.more("shell-more-tasks")
         Thread.sleep(3_000)
         ui.shot("12-tasks")
         notes += "Tasks: ${ui.texts().take(120)}"
         ensureShell()
-        ui.tap("shell-tabs-3")
-        ui.tap("shell-more-calls", Ui.SHORT)
+        ui.more("shell-more-calls")
         Thread.sleep(3_000)
         ui.shot("12-calls")
         notes += "Calls: ${ui.texts().take(120)}"
@@ -1025,8 +1023,7 @@ class RealRunFlowTest {
         val shown = rowText(ui.find("username") ?: row)
         ui.shot("18-username")
         ensureShell()
-        ui.tap("shell-tabs-3")
-        ui.tap("shell-more-contacts", Ui.SHORT)
+        ui.more("shell-more-contacts")
         ui.tap("contacts-add")
         val alice = peerName("alice")
         ui.fill(null, "@" + alice.lowercase().replace(Regex("[^a-z0-9_]"), ""))
@@ -1085,8 +1082,7 @@ class RealRunFlowTest {
     private fun acceptRequestFrom(peer: String): String {
         val name = peerName(peer)
         ensureShell()
-        ui.tap("shell-tabs-3")
-        ui.tap("shell-more-contacts", Ui.SHORT)
+        ui.more("shell-more-contacts")
         ui.find("tab:STRANGERS", 5_000)?.press() ?: return "no Strangers tab"
         val row = ui.text(name, 20_000) ?: return "no pending request from $peer on the phone"
         row.press()
@@ -1183,8 +1179,7 @@ class RealRunFlowTest {
         ui.device.findObjects(By.pkg(ui.packageName).res(java.util.regex.Pattern.compile("account-.+"))).firstOrNull()
 
     private fun openSettings() {
-        ui.tap("shell-tabs-3")
-        ui.tap("shell-more-settings", Ui.SHORT)
+        ui.more("shell-more-settings")
     }
 
     /**
@@ -1195,8 +1190,7 @@ class RealRunFlowTest {
         val card = control.rf(peer, "contact", "card").optJSONObject("json")?.optString("card").orEmpty()
         if (!card.startsWith("ramflux-card:")) return "$peer's contact card could not be read"
         ensureShell()
-        ui.tap("shell-tabs-3")
-        ui.tap("shell-more-contacts", Ui.SHORT)
+        ui.more("shell-more-contacts")
         ui.tap("contacts-add")
         ui.fill(null, card)
         ui.tap("contacts-send")
@@ -1250,8 +1244,7 @@ class RealRunFlowTest {
     /** Adds [peer] by principal id unless listed already; the peer accepts with rf. Returns the peer's row for the phone. */
     private fun addContact(peer: String): JSONObject {
         val name = RunState["name"] ?: blocked("needs flow 01 (display name)")
-        ui.tap("shell-tabs-3")
-        ui.tap("shell-more-contacts", Ui.SHORT)
+        ui.more("shell-more-contacts")
         val listed = ui.text(peerName(peer), 5_000) != null
         if (!listed) {
             ui.tap("contacts-add")
