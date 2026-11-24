@@ -143,6 +143,7 @@ class InAppBanners @Inject constructor(
 
     /** A tap: the conversation opens through the same route as a tapped notification. */
     fun open(banner: InAppBanner) {
+        clientDebugEvent("banner.tap")
         routes.open(routes.issue(NotificationTarget(banner.account, banner.conversation, banner.group)))
         dismiss(banner)
     }
