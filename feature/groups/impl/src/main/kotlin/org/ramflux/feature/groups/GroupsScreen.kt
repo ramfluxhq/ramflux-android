@@ -78,7 +78,9 @@ fun GroupsScreen(state: GroupsState, onAction: (GroupsAction) -> Unit, modifier:
                         GroupsPage.INVITATION -> state.selectedInvitation?.let { invitation(it, state, onAction) }
                     }
                 }
-                if (state.page == GroupsPage.LIST && !state.emptyRoot) {
+                // Only once the first page has loaded: while it loads, an empty account would show this button and
+                // then swap it for the empty state's own create action.
+                if (state.page == GroupsPage.LIST && state.loaded && !state.emptyRoot) {
                     TextButton(
                         onClick = { onAction(GroupsAction.Page(GroupsPage.CREATE)) },
                         modifier = Modifier.testTag("groups-create")
