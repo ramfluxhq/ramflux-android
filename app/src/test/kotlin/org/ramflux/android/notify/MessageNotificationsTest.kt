@@ -81,21 +81,21 @@ class MessageNotificationsTest {
 
     @Test fun firstReadIsTheBaselineThenGrownUnreadNotifiesWithAnOpaqueToken() = runTest(StandardTestDispatcher(), timeout = 5.seconds) {
         val rig = Rig(this)
-        rig.directory.rows["a"] = listOf(row("c1", 3u), row("c2", 0u))
+        rig.directory.rows["a"] = listOf(row("talk-x", 3u), row("c2", 0u))
         runCurrent()
         assertEquals("existing unread messages are the baseline", emptyList<String>(), rig.notifier.posted)
         assertEquals(listOf("a"), rig.directory.subscribed)
-        rig.directory.rows["a"] = listOf(row("c1", 4u), row("c2", 0u))
+        rig.directory.rows["a"] = listOf(row("talk-x", 4u), row("c2", 0u))
         rig.change()
         runCurrent()
         val token = rig.notifier.posted.single()
-        assertTrue("the token carries no conversation id", !token.contains("c1") && !token.contains("a:"))
-        rig.directory.rows["a"] = listOf(row("c1", 5u), row("c2", 0u))
+        assertTrue("the token carries no conversation id", !token.contains("talk-x") && !token.contains("a:"))
+        rig.directory.rows["a"] = listOf(row("talk-x", 5u), row("c2", 0u))
         rig.change()
         runCurrent()
         assertEquals("one token per conversation: the notification is replaced", listOf(token, token), rig.notifier.posted)
         rig.routes.open(token)
-        assertEquals(NotificationTarget("a", "c1"), rig.routes.claim())
+        assertEquals(NotificationTarget("a", "talk-x"), rig.routes.claim())
         assertNull("a claim is taken once", rig.routes.claim())
     }
 
