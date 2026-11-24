@@ -21,6 +21,7 @@ interface ContactsRepository {
     suspend fun rejected(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun remove(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun request(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun requestsDecline(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun requestsList(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun requestsPolicyGet(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun requestsPolicySet(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -63,6 +64,9 @@ class DefaultContactsRepository(transport: RepositoryTransport) : SdkRepository(
 
     override suspend fun request(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("contact.request", "contact", context, body)
+
+    override suspend fun requestsDecline(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("contact.requests.decline", "contact", context, body)
 
     override suspend fun requestsList(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("contact.requests.list", "contact", context, SecretBody.publicJson("contact.requests.list", body))

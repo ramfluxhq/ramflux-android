@@ -47,9 +47,20 @@ object SdkMethodPolicy {
         "account.switch" to MethodPolicy(true, true, false, false, true, "account"),
         "account.unlock" to MethodPolicy(true, true, false, false, true, "account"),
         "agent.access.set" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.approval.decide" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.approval.list" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.approval.publish" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.job.list" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.job.pause" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.job.remove" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.job.resume" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.job.session" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.job.sessions" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.progress" to MethodPolicy(false, false, false, false, true, "agent"),
         "agent.create" to MethodPolicy(false, false, false, true, true, "agent"),
         "agent.creation.decide" to MethodPolicy(false, false, false, true, true, "agent"),
         "agent.get" to MethodPolicy(false, false, false, false, true, "agent"),
+        "agent.host.manage" to MethodPolicy(false, false, false, false, true, "agent"),
         "agent.list" to MethodPolicy(false, false, false, false, true, "agent"),
         "agent.operation.get" to MethodPolicy(false, false, false, false, true, "agent"),
         "agent.persona.edit" to MethodPolicy(false, false, false, false, true, "agent"),
@@ -100,6 +111,7 @@ object SdkMethodPolicy {
         "contact.rejected" to MethodPolicy(false, true, false, false, true, "contact"),
         "contact.remove" to MethodPolicy(true, true, false, false, true, "contact"),
         "contact.request" to MethodPolicy(true, true, false, false, true, "contact"),
+        "contact.requests.decline" to MethodPolicy(true, true, false, false, true, "contact"),
         "contact.requests.list" to MethodPolicy(false, true, false, false, true, "contact"),
         "contact.requests.policy.get" to MethodPolicy(false, true, false, false, true, "contact"),
         "contact.requests.policy.set" to MethodPolicy(true, true, false, false, true, "contact"),
@@ -147,6 +159,7 @@ object SdkMethodPolicy {
         "group.invitation.accept" to MethodPolicy(true, true, false, false, true, "group"),
         "group.invitation.decline" to MethodPolicy(true, true, false, false, true, "group"),
         "group.invitations.list" to MethodPolicy(false, true, false, false, true, "group"),
+        "group.leave" to MethodPolicy(true, true, false, false, true, "group"),
         "group.list" to MethodPolicy(false, true, false, false, true, "group"),
         "group.member.add" to MethodPolicy(true, true, false, false, true, "group"),
         "group.member.kick" to MethodPolicy(true, true, false, false, true, "group"),
@@ -236,11 +249,11 @@ object SdkMethodPolicy {
         "task.resolve" to MethodPolicy(true, true, false, false, true, "task"),
         "task.start" to MethodPolicy(true, true, false, false, true, "task"),
         "task.update" to MethodPolicy(true, true, false, false, true, "task"),
-        "username.mutate" to MethodPolicy(true, true, false, false, false, "username"),
-        "username.status" to MethodPolicy(false, true, false, false, false, "username"),
-        "username.resolve" to MethodPolicy(false, true, false, false, false, "username"),
-        "username.contact.add" to MethodPolicy(true, true, false, false, false, "username"),
-        "profile.update" to MethodPolicy(true, true, false, false, false, "profile"),
+        "username.mutate" to MethodPolicy(true, true, false, false, true, "username"),
+        "username.status" to MethodPolicy(false, true, false, false, true, "username"),
+        "username.resolve" to MethodPolicy(false, true, false, false, true, "username"),
+        "username.contact.add" to MethodPolicy(true, true, false, false, true, "username"),
+        "profile.update" to MethodPolicy(true, true, false, false, true, "profile"),
     )
 }
 
@@ -248,6 +261,6 @@ object ContactVerifyCas {
     const val CONTRACT = "CONTACT-VERIFY-CAS-01"
     const val REQUEST_TYPE = "ramflux.message.v1.ContactSafetyVerifyRequest"
     const val RESPONSE_TYPE = "ramflux.message.v1.ContactSafetyVerifyResult"
-    const val MESSAGE_DESCRIPTOR = "88d7da63263e2132e048ee86d833bd12c95088c80e112cce03456bf00fd6dab9"
-    const val PRODUCT_PIN = "679c753bdaa6bd31c8b5b493cfc4cbe8088a3537"
+    const val MESSAGE_DESCRIPTOR = "50108989877d6e1601743d5d242862d4e130155bf3bd1b3fd28b213426b42686"
+    const val PRODUCT_PIN = "36cf7b76679c625c0bc9a31fe20d8ce95b35523f"
 }
