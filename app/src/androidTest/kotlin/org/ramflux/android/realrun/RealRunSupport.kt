@@ -379,18 +379,22 @@ class Ui(private val control: PeerControl) {
     )
 
     /**
-     * Opens the More tab and taps its [entry]. The test phone sometimes accepts an injected touch (the input manager logs
-     * it) without delivering it to the window right after a cold launch, so the tab is tapped again, a bounded number
-     * of times, until its entry is shown; selecting the More tab again is harmless.
+     * Taps [tag], which opens a screen showing [next], and taps it again (bounded) while [tag] is still shown without
+     * [next]. A delivered tap is sometimes lost on the test phone: right after a cold launch the input manager accepts
+     * an injected touch without delivering it to the window, and a tap on a screen that is still fading in reaches the
+     * window but does nothing. Repeating is safe because [tag] is only tapped again while its screen is still shown.
      */
-    fun more(entry: String) {
-        repeat(MORE_ATTEMPTS) {
-            tap("shell-tabs-3")
-            if (find(entry, MORE_WAIT) != null) {
-                tap(entry, SHORT)
-                return
-            }
+    fun open(tag: String, next: String, timeout: Long = SHORT) {
+        tap(tag, timeout)
+        repeat(OPEN_ATTEMPTS - 1) {
+            if (find(next, OPEN_WAIT) != null || find(tag, 0) == null) return
+            tap(tag, timeout)
         }
+    }
+
+    /** Opens the More tab and taps its [entry] (see [open]). */
+    fun more(entry: String) {
+        open("shell-tabs-3", entry)
         tap(entry, SHORT)
     }
 
@@ -529,8 +533,8 @@ class Ui(private val control: PeerControl) {
         const val SHORT = 15_000L
         const val LONG = 60_000L
         const val POLL = 300L
-        private const val MORE_ATTEMPTS = 3
-        private const val MORE_WAIT = 5_000L
+        private const val OPEN_ATTEMPTS = 3
+        private const val OPEN_WAIT = 5_000L
         private const val SETTLE = 200L
         private const val TEXT_TAPS = 10
         private const val EDIT_TEXT = "android.widget.EditText"

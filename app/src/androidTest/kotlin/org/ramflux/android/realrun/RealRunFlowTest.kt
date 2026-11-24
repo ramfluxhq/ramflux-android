@@ -760,7 +760,7 @@ class RealRunFlowTest {
     @Test fun f11_backup() = flow("11-backup") {
         ensureShell()
         openSettings()
-        ui.tap("backup")
+        ui.open("backup", "backup-create")
         ui.tap("backup-create", Ui.LONG)
         val passphrase = UUID.randomUUID().toString().replace("-", "").take(20).toCharArray()
         try {
