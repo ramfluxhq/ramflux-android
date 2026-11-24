@@ -637,6 +637,11 @@ object RunState {
 
     operator fun get(key: String): String? = load().getProperty(key)?.takeIf { it.isNotEmpty() }
 
+    /** Forgets every fact of an earlier run: a new account starts a new run, and its ids are derived again. */
+    fun clear() {
+        file.delete()
+    }
+
     operator fun set(key: String, value: String) {
         val values = load()
         values.setProperty(key, value)

@@ -128,6 +128,8 @@ class RealRunFlowTest {
             null -> fail("no create entry after saving the node: ${ui.screen()}")
         }
         val name = "Phone RealRun " + UUID.randomUUID().toString().take(4)
+        // A new account: facts kept from an earlier run (its conversation id, device id) would point at the old one.
+        RunState.clear()
         RunState["name"] = name
         ui.type("display-name", name)
         ui.tap("begin-create")
