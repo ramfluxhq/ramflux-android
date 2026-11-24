@@ -75,7 +75,14 @@ class AndroidCoreHost internal constructor(private val native: NativeCore, priva
         transitions.withLock {
             val current = mutableState.value
             if (current !is HostState.Running) return@withLock CoreResult.Success(kotlinx.serialization.json.JsonObject(emptyMap()))
-            current.client.suspend().also { if (it is CoreResult.Success) mutableState.value = HostState.Suspended(current.client) }
+            // A failed suspend can leave the client partly suspended (its calls refused as suspended, the event pump
+            // paused). Unless it closed, it is treated as suspended so the next foreground resumes it; resuming a
+            // client that is not suspended does nothing.
+            current.client.suspend().also {
+                if (it is CoreResult.Success || (it as CoreResult.Failure).error !is CoreError.Closed) {
+                    mutableState.value = HostState.Suspended(current.client)
+                }
+            }
         }
     }
 }
