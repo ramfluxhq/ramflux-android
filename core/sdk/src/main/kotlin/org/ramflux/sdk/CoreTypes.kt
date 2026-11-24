@@ -85,6 +85,10 @@ enum class SdkStatus(val code: Int) {
     OBJECT_ERASED(19), OBJECT_IDENTITY_CONFLICT(20), OBJECT_OWNERSHIP_UNVERIFIED(21),
     CUSTODY_FORK_FENCED(22), SCHEMA_RESET_REQUIRED(23), PENDING(24), CANCELLED(25),
     CLOSED(26), RESYNC_REQUIRED(27),
+    /** The client is suspended (background): a refused call had no effects, an admitted one reports unknown. */
+    SUSPENDED(30),
+    /** Host custody is locked (before the first device unlock after a restart); no client was opened. */
+    VAULT_LOCKED(31),
 }
 
 sealed interface CoreResult<out T> {

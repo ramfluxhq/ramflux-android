@@ -15,13 +15,18 @@ import org.ramflux.sdk.vault.HostCustodyBridge
 sealed interface HostState {
     data object Stopped : HostState
     class Running(val client: CoreClient) : HostState
+    /** Backgrounded: files closed and networking stopped, unlocked accounts kept in memory (C-ABI-SUSPEND-01). */
+    class Suspended(val client: CoreClient) : HostState
     data class Failed(val error: CoreError, val shutdownPending: Boolean = false) : HostState
 }
 
-/** Application lifecycle owner: one supervisor, no service or socket, no store held in background. */
+/**
+ * Application lifecycle owner: one supervisor, no service or socket. In the background the client is suspended (no
+ * file or network held, accounts stay unlocked in memory) and resumed on return without the account code; a new
+ * process opens with the device-bound custody key, so it asks for no code either.
+ */
 class AndroidCoreHost internal constructor(private val native: NativeCore, private val dataRoot: String, private val expectedDescriptorFingerprint: String) {
     private val transitions = Mutex()
-    private var retiring: CoreClient? = null
     private val mutableState = MutableStateFlow<HostState>(HostState.Stopped)
     val state: StateFlow<HostState> = mutableState.asStateFlow()
 
@@ -41,15 +46,14 @@ class AndroidCoreHost internal constructor(private val native: NativeCore, priva
         transitions.withLock {
             val current = mutableState.value
             if (current is HostState.Running) return@withLock CoreResult.Success(current.client)
-            retiring?.let { previous ->
-                when (val stopped = previous.close()) {
-                    is CoreResult.Success -> retiring = null
-                    is CoreResult.Failure -> {
-                        if (stopped.error.code in setOf(10, 24)) return@withLock stopped
-                        val released = previous.releaseFailedClose()
-                        if (released is CoreResult.Failure) return@withLock released
-                        retiring = null
+            if (current is HostState.Suspended) {
+                return@withLock when (val resumed = current.client.resume()) {
+                    is CoreResult.Success -> {
+                        mutableState.value = HostState.Running(current.client)
+                        CoreResult.Success(current.client)
                     }
+                    // A data-root conflict leaves the client suspended; the next foreground tries again.
+                    is CoreResult.Failure -> resumed
                 }
             }
             when (val result = CoreClient.open(native, dataRoot, expectedDescriptorFingerprint)) {
@@ -66,18 +70,12 @@ class AndroidCoreHost internal constructor(private val native: NativeCore, priva
         }
     }
 
-    /** Releasing the writer is a completed transition, never a fire-and-forget callback. */
+    /** Background: suspending is a completed transition (files closed when it returns), never a fire-and-forget callback. */
     suspend fun background(): CoreResult<kotlinx.serialization.json.JsonObject> = withContext(NonCancellable) {
         transitions.withLock {
             val current = mutableState.value
             if (current !is HostState.Running) return@withLock CoreResult.Success(kotlinx.serialization.json.JsonObject(emptyMap()))
-            val result = current.client.close()
-            if (result is CoreResult.Failure) retiring = current.client
-            mutableState.value = when (result) {
-                is CoreResult.Success -> HostState.Stopped
-                is CoreResult.Failure -> HostState.Failed(result.error, shutdownPending = true)
-            }
-            result
+            current.client.suspend().also { if (it is CoreResult.Success) mutableState.value = HostState.Suspended(current.client) }
         }
     }
 }

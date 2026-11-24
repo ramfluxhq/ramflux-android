@@ -16,6 +16,15 @@ interface NativeCore {
     fun operationRelease(core: Long, operation: Long): Int
     fun eventReset(core: Long, generation: Long): Int
     fun eventPoll(core: Long): NativeReply
+    /** Stops networking and closes files; unlocked accounts stay in memory. Blocking: call on the IO dispatcher. */
+    fun suspendClient(core: Long): Int = UNSUPPORTED
+    /** Reopens files and reconnects without the account code. Blocking: call on the IO dispatcher. */
+    fun resumeClient(core: Long): Int = UNSUPPORTED
+
+    companion object {
+        /** Status of a core without suspend support (InvalidArgument); only test doubles lack it. */
+        const val UNSUPPORTED = 1
+    }
 }
 
 /** One JNI translation unit calls the shared C ABI; no business code crosses this seam. */
@@ -36,6 +45,8 @@ class JniCore : NativeCore {
     override external fun operationRelease(core: Long, operation: Long): Int
     override external fun eventReset(core: Long, generation: Long): Int
     override external fun eventPoll(core: Long): NativeReply
+    override external fun suspendClient(core: Long): Int
+    override external fun resumeClient(core: Long): Int
 
     companion object {
         fun load(): JniCore {
