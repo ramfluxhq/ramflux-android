@@ -15,6 +15,7 @@ interface GroupsRepository {
     suspend fun invitationAccept(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun invitationDecline(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun invitationsList(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
+    suspend fun leave(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun list(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun memberAdd(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun memberKick(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -45,6 +46,9 @@ class DefaultGroupsRepository(transport: RepositoryTransport) : SdkRepository(tr
 
     override suspend fun invitationsList(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("group.invitations.list", "group", context, SecretBody.publicJson("group.invitations.list", body))
+
+    override suspend fun leave(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("group.leave", "group", context, body)
 
     override suspend fun list(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("group.list", "group", context, SecretBody.publicJson("group.list", body))

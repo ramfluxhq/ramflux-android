@@ -11,9 +11,20 @@ import org.ramflux.sdk.SecretReply
 
 interface AgentsRepository {
     suspend fun agentAccessSet(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentApprovalDecide(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentApprovalList(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentApprovalPublish(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentJobList(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentJobPause(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentJobRemove(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentJobResume(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentJobSession(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentJobSessions(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentProgress(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun agentCreate(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun agentCreationDecide(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun agentGet(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun agentHostManage(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun agentList(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun agentOperationGet(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun agentPersonaEdit(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
@@ -30,6 +41,36 @@ class DefaultAgentsRepository(transport: RepositoryTransport) : SdkRepository(tr
     override suspend fun agentAccessSet(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
         execute("agent.access.set", "agent", context, body)
 
+    override suspend fun agentApprovalDecide(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.approval.decide", "agent", context, body)
+
+    override suspend fun agentApprovalList(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.approval.list", "agent", context, body)
+
+    override suspend fun agentApprovalPublish(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.approval.publish", "agent", context, body)
+
+    override suspend fun agentJobList(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.job.list", "agent", context, body)
+
+    override suspend fun agentJobPause(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.job.pause", "agent", context, body)
+
+    override suspend fun agentJobRemove(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.job.remove", "agent", context, body)
+
+    override suspend fun agentJobResume(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.job.resume", "agent", context, body)
+
+    override suspend fun agentJobSession(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.job.session", "agent", context, body)
+
+    override suspend fun agentJobSessions(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.job.sessions", "agent", context, body)
+
+    override suspend fun agentProgress(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.progress", "agent", context, body)
+
     override suspend fun agentCreate(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
         execute("agent.create", "agent", context, body)
 
@@ -38,6 +79,9 @@ class DefaultAgentsRepository(transport: RepositoryTransport) : SdkRepository(tr
 
     override suspend fun agentGet(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
         execute("agent.get", "agent", context, body)
+
+    override suspend fun agentHostManage(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("agent.host.manage", "agent", context, body)
 
     override suspend fun agentList(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
         execute("agent.list", "agent", context, body)
