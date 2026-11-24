@@ -253,7 +253,9 @@ class GroupsViewModel @Inject constructor(
                 selectedInvitation = if (page == GroupsPage.INVITATION) it.invitations.find { row -> row.id == id } else null,
                 members = if (keepRows) it.members else persistentListOf(),
                 contacts = persistentListOf(), requests = persistentListOf(),
-                canManage = false, authorityFresh = false, loaded = false,
+                // The retired read never clears its own loading flag (its ticket is stale): clear it here, or the
+                // create page would keep its action disabled after opening during a list refresh.
+                canManage = false, authorityFresh = false, loaded = false, loading = false,
                 title = if (sameGroup) it.title else it.groups.find { row -> row.id == group }?.title,
                 epoch = if (sameGroup) it.epoch else UiText.Empty,
                 memberCount = if (sameGroup) it.memberCount else UiText.Empty,
