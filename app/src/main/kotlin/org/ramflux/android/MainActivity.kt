@@ -4,13 +4,18 @@
 package org.ramflux.android
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.Window
 import android.view.WindowManager
+import android.view.contentcapture.ContentCaptureManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -18,6 +23,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import org.ramflux.android.notify.AndroidMessageNotifier
+import org.ramflux.android.notify.InAppBanners
+import org.ramflux.android.notify.installInAppBannerHost
 import org.ramflux.android.notify.NotificationOpener
 import org.ramflux.android.notify.NotificationRoutes
 import org.ramflux.android.shell.RamfluxShell
@@ -26,10 +33,12 @@ import org.ramflux.android.shell.SHELL_TAB_ROOTS
 import org.ramflux.android.shell.StartupHost
 import org.ramflux.android.shell.StartupModel
 import org.ramflux.android.shell.StartupPlace
+import org.ramflux.data.AppearanceRepository
 import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
 import org.ramflux.feature.appshell.AppShellNavigation
 import org.ramflux.feature.appshell.ShellPage
+import org.ramflux.feature.chat.api.ChatRoute
 import org.ramflux.feature.onboarding.BackupNavigation
 import org.ramflux.feature.onboarding.OnboardingNavigation
 import org.ramflux.feature.onboarding.api.BackupRoute
@@ -44,10 +53,16 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var language: LanguageRepository
 
     @Inject lateinit var notificationRoutes: NotificationRoutes
+
+    @Inject lateinit var banners: InAppBanners
+
+    @Inject lateinit var appearance: AppearanceRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         applySecureCapturePolicy(window, BuildConfig.DEBUG)
+        applyRecentsAndCapturePolicy(this)
         if (savedInstanceState == null) openNotification(intent)
         setContent {
             val locale by language.language.collectAsStateWithLifecycle()
@@ -60,6 +75,13 @@ class MainActivity : ComponentActivity() {
                     // The tab stacks live here, above the startup gate, so a locked session can drop
                     // account routes from them before the shell is shown again.
                     val tabs = rememberTopLevelNavigator(SHELL_TAB_ROOTS)
+                    // The banner is not shown for the conversation the user is looking at.
+                    LaunchedEffect(tabs) {
+                        snapshotFlow { tabs.current.lastOrNull() as? ChatRoute }.collect {
+                            banners.chatOpened(it?.accountId, it?.conversationId)
+                        }
+                    }
+                    DisposableEffect(Unit) { onDispose { banners.chatOpened(null, null) } }
                     AppShellNavigation(
                         shellReady = startupUi.place == StartupPlace.SHELL,
                         policy = SHELL_ROUTE_POLICY,
@@ -97,6 +119,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        // The banner's own view, added after the content so it draws above every screen of this window.
+        installInAppBannerHost(this, banners, language, appearance)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -115,6 +139,19 @@ class MainActivity : ComponentActivity() {
 internal fun applySecureCapturePolicy(window: Window, debugBuild: Boolean) {
     if (!debugBuild) {
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+}
+
+/**
+ * Every build, before any content: the Overview thumbnail is a blank theme card (API 33+) and content capture
+ * services get no session for this activity, so neither can keep what a screen or the in-app banner shows.
+ */
+internal fun applyRecentsAndCapturePolicy(activity: ComponentActivity) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        activity.setRecentsScreenshotEnabled(false)
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        activity.getSystemService(ContentCaptureManager::class.java)?.setContentCaptureEnabled(false)
     }
 }
 

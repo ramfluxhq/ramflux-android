@@ -32,7 +32,8 @@ class MessageNotificationService @Inject constructor(
     private val accounts: AccountAccessRepository,
     private val conversations: ConversationDirectoryRepository,
     private val permissions: OsPermissionsRepository,
-    private val routes: NotificationRoutes
+    private val routes: NotificationRoutes,
+    private val banners: InAppBanners
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -52,7 +53,8 @@ class MessageNotificationService @Inject constructor(
             accounts,
             conversations,
             AndroidMessageNotifier(context, secret = !BuildConfig.DEBUG),
-            routes
+            routes,
+            banners
         ) { lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) }.start(scope)
     }
 }

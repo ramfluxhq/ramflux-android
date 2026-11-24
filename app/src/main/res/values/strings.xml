@@ -68,6 +68,12 @@
     <string name="shell_detail_empty_body">Choose an item in the list to open it here.</string>
     <!-- Title of the local notification for a message that arrived while the app was not in front. It must stay generic: never a sender, conversation or message text. -->
     <string name="notification_new_message">New message</string>
+    <!-- One-line preview of the in-app banner for a call. Fixed text: it never carries message content. -->
+    <string name="banner_preview_call">Call</string>
+    <!-- One-line preview of the in-app banner for a system event of a conversation (member added, name changed, ...). Fixed text. -->
+    <string name="banner_preview_update">Conversation update</string>
+    <!-- One-line preview of the in-app banner for a message that only carries media. Fixed text. -->
+    <string name="banner_preview_attachment">Attachment</string>
     <!-- Accessibility label of the info button next to a section title on the unlock pages. -->
     <string name="startup_info">More information</string>
     <!-- Accessibility label of the info button that opens the unlock details of an account; %1$s is the account name. -->
