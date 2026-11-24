@@ -31,6 +31,7 @@ class ConversationsViewModel @Inject constructor(
         if (status.phase == ClientPhase.OPEN) value else ConversationsState(problem = uiText(R.string.ui_private_data_is_closed))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), ConversationsState())
     private var request: Job? = null
+    private var opening: Job? = null
     private var cursor: String? = null
     private var ticket = 0L
 
@@ -70,7 +71,8 @@ class ConversationsViewModel @Inject constructor(
                 visible = action.visible
                 if (visible) local.value.accountId?.takeIf { local.value.loaded }?.let(::startWatch) else stopWatch()
             }
-            is ConversationsAction.Open -> if (request?.isActive != true && local.value.rows.any { it.id == action.id }) open(action.id)
+            // A list refresh still running is retired by opening a row; only another open in flight blocks a tap.
+            is ConversationsAction.Open -> if (opening?.isActive != true && local.value.rows.any { it.id == action.id }) open(action.id)
         }
     }
 
@@ -192,6 +194,7 @@ class ConversationsViewModel @Inject constructor(
                 if (expected == ticket) local.update { it.copy(loading = false) }
             }
         }
+        opening = request
     }
 
     /** One shared subscription per visible list; cancelled when the list leaves the screen. */
