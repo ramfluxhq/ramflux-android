@@ -47,7 +47,13 @@ def main():
     for flow, _ in FLOWS:
         status = results.get(flow, {}).get("status", "NOT RUN")
         counts[status] = counts.get(status, 0) + 1
-    lines += ["", "Totals: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())), "",
+    # One verdict line for the whole table: any FAIL row makes it FAIL, whatever else passed.
+    for flow in results:
+        if flow not in known:
+            status = results[flow].get("status", "NOT RUN")
+            counts[status] = counts.get(status, 0) + 1
+    verdict = "FAIL" if counts.get("FAIL") else ("PASS" if set(counts) == {"PASS"} else "INCOMPLETE")
+    lines += ["", "Totals: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())), "", f"Overall: {verdict}", "",
               "Screenshots: screenshots/. Peer commands: peer-commands.log. Instrumentation output: instrument.log."]
     print("\n".join(lines))
 

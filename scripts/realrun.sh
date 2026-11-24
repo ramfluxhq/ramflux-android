@@ -236,13 +236,25 @@ else
 fi
 dev shell getprop ro.product.model > "$OUT/device.txt" 2>&1 || true
 
-# 3. Build the realrun app and the instrumented suite.
+# 3. Build the realrun app and the instrumented suite. The username directory trust pin is provisioned at build time
+# (c-abi-v2.md, "Phone provisioning"): node-facts.json may carry a "username_directory" object (url, id, public_key,
+# generation; public values); without it the build has no pin and the username flow reports the directory's refusal.
+pin_field() { "$PYTHON" -I -c 'import json,sys; d=json.load(open(sys.argv[1])).get("username_directory"); print("" if d is None else d[sys.argv[2]])' "$LOCAL_NODE/node-facts.json" "$1"; }
+PIN_ARGS=()
+PIN_URL=$(pin_field url)
+if [ -n "$PIN_URL" ]; then
+  PIN_ARGS=(-Pramflux.usernameDirectory.url="$PIN_URL" -Pramflux.usernameDirectory.id="$(pin_field id)"
+    -Pramflux.usernameDirectory.publicKey="$(pin_field public_key)" -Pramflux.usernameDirectory.generation="$(pin_field generation)")
+  say "the build pins the username directory from node-facts.json"
+else
+  say "node-facts.json has no username_directory: the build has no pin and the username flow is expected to be BLOCKED"
+fi
 APK=app/build/outputs/apk/realrun/app-realrun.apk
 TEST_APK=app/build/outputs/apk/androidTest/realrun/app-realrun-androidTest.apk
 if [ "$SKIP_BUILD" = 0 ]; then
   say "building the realrun app and suite (log: $OUT/build.log)"
   [ -d core/sdk/build/generated/native/jniLibs ] && export RAMFLUX_NATIVE_PREBUILT=1
-  ./gradlew -Pramflux.realrun=true :app:assembleRealrun :app:assembleRealrunAndroidTest --console=plain > "$OUT/build.log" 2>&1 \
+  ./gradlew -Pramflux.realrun=true ${PIN_ARGS[@]+"${PIN_ARGS[@]}"} :app:assembleRealrun :app:assembleRealrunAndroidTest --console=plain > "$OUT/build.log" 2>&1 \
     || { grep -E '^e:|What went wrong' -A3 "$OUT/build.log" | head -20 >&2; die "build failed (see $OUT/build.log)"; }
 fi
 # 4. Install only our package (never the other org.ramflux.android install on a shared phone).
@@ -356,6 +368,18 @@ dev shell run-as "$APP_ID" cat no_backup/debug-trace.log > "$OUT/app-trace.txt" 
 # A fresh install starts a new trace file: each invocation's copy is also kept, so no earlier install's trace is lost.
 mkdir -p "$OUT/traces"
 cp "$OUT/app-trace.txt" "$OUT/traces/$(date -u '+%H%M%S')-$(printf '%s' "${TESTS:-all}" | tr -c 'a-z0-9' '-').txt" 2> /dev/null || true
+# The SDK's own diagnostic log (c-abi-v2.md, diagnostic log Phase 0): `diag/` below the app's data root
+# (no_backup/ramflux), rotated NDJSON per process. Each invocation's copy is kept under sdk-diag/, named like the
+# trace copy above, because a fresh install starts a new log. An empty copy is reported, never silently dropped.
+DIAG_DIR="$OUT/sdk-diag/$(date -u '+%H%M%S')-$(printf '%s' "${TESTS:-all}" | tr -c 'a-z0-9' '-')"
+mkdir -p "$DIAG_DIR"
+if dev exec-out run-as "$APP_ID" tar -c -C no_backup/ramflux diag > "$DIAG_DIR/diag.tar" 2> "$DIAG_DIR/pull.err" \
+    && tar -x -C "$DIAG_DIR" -f "$DIAG_DIR/diag.tar" 2>> "$DIAG_DIR/pull.err" && ls "$DIAG_DIR"/diag/*.ndjson > /dev/null 2>&1; then
+  rm -f "$DIAG_DIR/diag.tar" "$DIAG_DIR/pull.err"
+  say "SDK log: $(ls "$DIAG_DIR"/diag/*.ndjson | wc -l | tr -d ' ') file(s), $(du -sk "$DIAG_DIR/diag" | cut -f1) KiB in $DIAG_DIR/diag"
+else
+  say "warning: no SDK log could be pulled from the app's data root (see $DIAG_DIR/pull.err)"
+fi
 
 # 8. The control server stops writing results; then the flow results and the instrumentation are made to agree (a
 # flow left RUNNING by a dead process, or a test the instrumentation failed, becomes FAIL).
@@ -367,20 +391,28 @@ RECONCILED=0
 "$PYTHON" -I "$ROOT/scripts/realrun/flow_table.py" "$OUT" "$(( $(date +%s) - START ))" > "$OUT/flow-table.md"
 cat "$OUT/flow-table.md"
 say "output: $OUT"
-# Non-zero when a flow recorded by this invocation failed, or the instrumentation itself crashed or failed.
-FAILED_HERE=$(BEFORE="$BEFORE" "$PYTHON" -I -c '
-import json, os, sys
-before = json.loads(os.environ["BEFORE"] or "{}")
+# The exit code covers the whole flow table, not only this invocation's flows: a FAIL row left by an earlier invocation
+# in the same --out directory keeps the exit code non-zero until that flow is run again and passes (RFGUI-87).
+FAILED_ALL=$("$PYTHON" -I -c '
+import json, sys
 try:
     after = json.load(open(sys.argv[1]))
 except (OSError, ValueError):
     after = {}
-print(" ".join(sorted(k for k, v in after.items() if v.get("status") == "FAIL" and before.get(k) != v)))
+print(" ".join(sorted(k for k, v in after.items() if v.get("status") == "FAIL")))
 ' "$OUT/results.json")
-if [ "$RECONCILED" != 0 ]; then say "the flow table and the instrumentation disagree (see above)"; exit 1; fi
-if [ -n "$FAILED_HERE" ]; then say "failed in this invocation: $FAILED_HERE"; exit 1; fi
-if tail -n +"$(( INSTRUMENT_FROM + 1 ))" "$OUT/instrument.log" | grep -q -E 'INSTRUMENTATION_FAILED|Process crashed|FAILURES!!!'; then
-  say "the instrumentation failed in this invocation (see $OUT/instrument.log)"
+if [ "$RECONCILED" != 0 ]; then say "FAILED: the flow table and the instrumentation disagree (see above)"; exit 1; fi
+if [ -n "$FAILED_ALL" ]; then say "FAILED: flows with a FAIL row in the table: $FAILED_ALL"; exit 1; fi
+# The instrumentation must have run and ended normally: this invocation's part of the log needs started tests and a
+# final INSTRUMENTATION_CODE line (an adb error, a missing instrumentation or a lost connection prints neither).
+THIS_RUN=$(tail -n +"$(( INSTRUMENT_FROM + 1 ))" "$OUT/instrument.log")
+if printf '%s\n' "$THIS_RUN" | grep -q -E 'INSTRUMENTATION_FAILED|Process crashed|FAILURES!!!'; then
+  say "FAILED: the instrumentation failed in this invocation (see $OUT/instrument.log)"
   exit 1
 fi
+if ! printf '%s\n' "$THIS_RUN" | grep -q '^INSTRUMENTATION_STATUS_CODE:' || ! printf '%s\n' "$THIS_RUN" | grep -q '^INSTRUMENTATION_CODE:'; then
+  say "FAILED: the instrumentation did not run to its end in this invocation (see $OUT/instrument.log)"
+  exit 1
+fi
+say "no FAIL row in the flow table"
 exit 0
