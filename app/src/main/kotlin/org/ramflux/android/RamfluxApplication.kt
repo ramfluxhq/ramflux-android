@@ -28,6 +28,7 @@ class RamfluxApplication : Application() {
             }
             // One line per process start, so a capture shows whether the sink was installed at all.
             clientDebugEvent("app.start")
+            MainThreadWatch.start()
         }
         super.onCreate()
         ProcessLifecycleOwner.get().lifecycle.addObserver(sessionLifecycle)
