@@ -512,7 +512,7 @@ class RealRunFlowTest {
                     return null
                 }
                 if (!ui.eventually(30_000) { card() != null }) fail("the attachment card of $file is not shown; ${ui.screen()}")
-                card()?.click()
+                card()?.press()
                 val downloaded = ui.eventually(90_000, 2_000) {
                     ui.hasText(ui.str("chat_media_open_title")) || ui.find("media-viewer", 300) != null ||
                         card()?.let { label -> pending.none { rowText(label).contains(it) } } == true
@@ -536,7 +536,7 @@ class RealRunFlowTest {
         val uri = Uri.parse("content://${ui.packageName}.chatmedia/capture/rr-phone.png")
         val monitor = ui.stubPicker(setOf(MediaStore.ACTION_PICK_IMAGES, Intent.ACTION_OPEN_DOCUMENT, Intent.ACTION_GET_CONTENT), uri)
         try {
-            (ui.desc(ui.str("ui_attach"), Ui.SHORT) ?: fail("no attach control in the composer")).click()
+            (ui.desc(ui.str("ui_attach"), Ui.SHORT) ?: fail("no attach control in the composer")).press()
             ui.need("attach-menu")
             ui.tapText(ui.str("chat_attach_photo"))
             if (!ui.eventually(10_000, 500) { monitor.hits > 0 }) fail("the app did not request the photo picker")
@@ -615,7 +615,7 @@ class RealRunFlowTest {
         ui.tap("groups-open-members", Ui.LONG)
         for (peer in listOf("alice", "bob")) {
             ui.tap("groups-open-invite", Ui.LONG)
-            ui.text(peerName(peer), 30_000)?.click() ?: fail("$peer is not offered in the invite picker: ${ui.screen()}")
+            ui.text(peerName(peer), 30_000)?.press() ?: fail("$peer is not offered in the invite picker: ${ui.screen()}")
             ui.tap("host-confirmation-confirm", Ui.SHORT)
             // The app returns to the member list once the SDK answered the add; the picker also shows the principal.
             ui.find("groups-open-invite", 90_000) ?: fail("the app did not return to the member list after adding $peer: ${ui.screen()}")
@@ -643,7 +643,7 @@ class RealRunFlowTest {
         val groupConversation = group!!.optString("conversation_id").ifEmpty { groupId }
         notes += "alice lists the group"
         // Phone sends; alice and bob read it. The members page's own back control returns to the group's detail.
-        ui.find("groups-header-back", 5_000)?.click() ?: ui.device.pressBack()
+        ui.find("groups-header-back", 5_000)?.press() ?: ui.device.pressBack()
         ui.tap("groups-open-chat", Ui.LONG)
         val fromPhone = "rr-gphone-" + token()
         send(fromPhone)
@@ -677,7 +677,7 @@ class RealRunFlowTest {
         val groupUri = Uri.parse("content://${ui.packageName}.chatmedia/capture/rr-group.png")
         val pick = ui.stubPicker(setOf(MediaStore.ACTION_PICK_IMAGES, Intent.ACTION_OPEN_DOCUMENT, Intent.ACTION_GET_CONTENT), groupUri)
         try {
-            (ui.desc(ui.str("ui_attach"), Ui.SHORT) ?: fail("no attach control in the group composer")).click()
+            (ui.desc(ui.str("ui_attach"), Ui.SHORT) ?: fail("no attach control in the group composer")).press()
             ui.need("attach-menu")
             ui.tapText(ui.str("chat_attach_photo"))
             if (!ui.eventually(10_000, 500) { pick.hits > 0 }) fail("the app did not request the photo picker in the group")
@@ -815,7 +815,7 @@ class RealRunFlowTest {
         ui.find("open-account", 3_000)?.let { row ->
             val label = rowText(row)
             if (row.isEnabled) {
-                row.click()
+                row.press()
                 Thread.sleep(2_000)
                 ui.shot("12-open-account")
                 notes += "open account: ${ui.texts().take(160)}"
@@ -828,7 +828,7 @@ class RealRunFlowTest {
         ui.tap("devices")
         val link = ui.need("link-device", Ui.SHORT, "link device row")
         if (link.isEnabled) {
-            link.click()
+            link.press()
             Thread.sleep(3_000)
             ui.shot("12-pairing")
             notes += "link device: ${ui.texts().take(160)}"
@@ -1087,9 +1087,9 @@ class RealRunFlowTest {
         ensureShell()
         ui.tap("shell-tabs-3")
         ui.tap("shell-more-contacts", Ui.SHORT)
-        ui.find("tab:STRANGERS", 5_000)?.click() ?: return "no Strangers tab"
+        ui.find("tab:STRANGERS", 5_000)?.press() ?: return "no Strangers tab"
         val row = ui.text(name, 20_000) ?: return "no pending request from $peer on the phone"
-        row.click()
+        row.press()
         ui.tap("contacts-accept", Ui.LONG)
         confirmIfAsked()
         return "the phone accepted $peer's contact request"
@@ -1144,7 +1144,7 @@ class RealRunFlowTest {
                 "startup-details-header" -> ui.tap("startup-view-unlock")
                 "startup-info-header" -> ui.tap("startup-unlock-code")
                 // After a lock from settings the account chooser offers the locked account by name.
-                "onboarding-header" -> lockedAccountRow()?.click() ?: fail("the account chooser offers no account: ${ui.screen()}")
+                "onboarding-header" -> lockedAccountRow()?.press() ?: fail("the account chooser offers no account: ${ui.screen()}")
                 "unlock-account-name" -> {
                     val code = RunCode.load() ?: blocked("no saved run code on this install")
                     try {
@@ -1243,7 +1243,7 @@ class RealRunFlowTest {
     }
 
     private fun confirmIfAsked() {
-        ui.find("host-confirmation-confirm", 3_000)?.click()
+        ui.find("host-confirmation-confirm", 3_000)?.press()
         ui.device.waitForIdle()
     }
 
@@ -1291,7 +1291,7 @@ class RealRunFlowTest {
                 if (ui.hasText(peerName(peer))) {
                     true
                 } else {
-                    ui.device.findObject(By.pkg(ui.packageName).text(ui.str("contacts_refresh")))?.click()
+                    ui.device.findObject(By.pkg(ui.packageName).text(ui.str("contacts_refresh")))?.press()
                     false
                 }
             }
@@ -1302,7 +1302,7 @@ class RealRunFlowTest {
     }
 
     private fun openContactRow(peer: String) {
-        ui.text(peerName(peer), Ui.SHORT)?.click() ?: fail("no contact row for $peer")
+        ui.text(peerName(peer), Ui.SHORT)?.press() ?: fail("no contact row for $peer")
         ui.need("contacts-open-safety", Ui.SHORT, "contact detail")
     }
 

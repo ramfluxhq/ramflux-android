@@ -347,6 +347,9 @@ if [ -n "$APP_UID" ]; then
   { echo "== $(date -u '+%H:%M:%S') ${TESTS:-all} (uid $APP_UID)"; dev logcat -d ${LOG_SINCE:+-T "$LOG_SINCE"} --uid="$APP_UID"; } \
     | grep -v -E 'InsetsSource|UiAutomation|AccessibilityNodeInfo|QueryController|InteractionController' >> "$OUT/app-logcat.txt" 2> /dev/null || true
 fi
+# Input dispatch lines naming the app's window (dropped or redirected touches show only there, not in the app's log).
+{ echo "== $(date -u '+%H:%M:%S') ${TESTS:-all}"; dev logcat -d ${LOG_SINCE:+-T "$LOG_SINCE"} -s InputDispatcher:V InputManager:V WindowManager:W ActivityTaskManager:W 2> /dev/null \
+    | grep -v -E "^-+ beginning" ; } >> "$OUT/input-dispatch.txt" 2> /dev/null || true
 # The app's debug trace file (codes and names only), read through run-as: some phones keep none of the app's own
 # log lines. It holds every invocation since this install, so it is copied whole.
 dev shell run-as "$APP_ID" cat no_backup/debug-trace.log > "$OUT/app-trace.txt" 2> /dev/null || true
