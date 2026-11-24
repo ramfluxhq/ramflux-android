@@ -169,7 +169,7 @@ class SettingsViewModel @Inject constructor(
             }
             SettingsAction.Lock -> {
                 val account = activeAccount
-                clientDebugEvent("settings.lock.tap account:" + (account != null) + ".loading:" + local.value.loading + ".ticket:" + ticket)
+                clientDebugEvent("settings.lock.tap.account:" + (account != null) + ".loading:" + local.value.loading + ".ticket:" + ticket)
                 if (account == null) return
                 capability {
                     clientDebugEvent("settings.lock.call")
@@ -567,6 +567,7 @@ class SettingsViewModel @Inject constructor(
             )
         }
     }
+
     /**
      * Reads the account, its status and its devices. A refresh keeps what the screen shows (and its actions usable)
      * until the new answer replaces it: the screen refreshes on every resume, and blanking the account there disabled
@@ -577,7 +578,7 @@ class SettingsViewModel @Inject constructor(
         if (session.status.value.phase != ClientPhase.OPEN) return
         val expected = ticket
         val serial = ++reads
-        clientDebugEvent("settings.read ticket:" + expected + ".serial:" + serial)
+        clientDebugEvent("settings.read.ticket:" + expected + ".serial:" + serial)
         val generation = session.status.value.generation
         local.update { it.copy(loading = true, problem = null, unavailable = null) }
         request = viewModelScope.launch {
@@ -586,6 +587,8 @@ class SettingsViewModel @Inject constructor(
                 val status = accountStatus.read(selected.id)
                 current(expected, generation)
                 val rows = devices.list(selected.id)
+                current(expected, generation)
+                val name = security.usernameStatus(selected.id)
                 current(expected, generation)
                 val confirmed = account(expected, generation, selected.id) ?: return@launch
                 if (serial != reads) return@launch
@@ -604,6 +607,18 @@ class SettingsViewModel @Inject constructor(
                             is ClientResult.Unavailable -> rows.reason.message()
                         },
                         status = (status as? ClientResult.Ready)?.value?.presentation(),
+                        username = when (name) {
+                            is ClientResult.Ready -> name.value.name?.let { uiText(R.string.settings_username_value, UiText.Untrusted(it)) }
+                                ?: uiText(R.string.settings_username_none)
+                            is ClientResult.Failed -> uiText(
+                                R.string.settings_username_unavailable,
+                                UiText.Data(name.problem.statusName ?: name.problem.code.toString())
+                            )
+                            is ClientResult.Unavailable -> uiText(
+                                R.string.settings_username_unavailable,
+                                UiText.Data(name.reason.name.lowercase())
+                            )
+                        },
                         statusProblem = when (status) {
                             is ClientResult.Ready -> null
                             is ClientResult.Failed -> status.problem.message()
@@ -620,7 +635,7 @@ class SettingsViewModel @Inject constructor(
         currentCoroutineContext().ensureActive()
         if (ticket != expected || generation != session.status.value.generation || session.status.value.phase != ClientPhase.OPEN) {
             clientDebugEvent(
-                "settings.retired ticket:" + expected + "->" + ticket + ".generation:" + generation + "->" +
+                "settings.retired.ticket:" + expected + ".to:" + ticket + ".generation:" + generation + ".to:" +
                     session.status.value.generation + ".phase:" + session.status.value.phase
             )
             throw CancellationException("retired settings")

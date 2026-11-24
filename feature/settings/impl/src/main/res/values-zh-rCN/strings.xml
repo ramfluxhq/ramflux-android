@@ -236,4 +236,9 @@
     <string name="settings_remove_account_confirm_title">从此手机移除此账户？</string>
     <!-- Consequence of removal; recovery needs a backup, the recovery phrase or another device. -->
     <string name="settings_remove_account_confirm_body">本机上此账户的密钥、消息和媒体将被删除，且无法在此撤销：如需在本机再次使用，需要备份、恢复短语或你的另一台设备。</string>
+    <!-- The claimed username; %1$s is the name without the at sign. -->
+    <string name="settings_username_value">@%1$s</string>
+    <string name="settings_username_none">尚未认领用户名</string>
+    <!-- %1$s is the directory's typed refusal code, shown as it is. -->
+    <string name="settings_username_unavailable">用户名目录不可用（%1$s）</string>
 </resources>

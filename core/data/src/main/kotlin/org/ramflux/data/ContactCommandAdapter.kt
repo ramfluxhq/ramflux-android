@@ -8,6 +8,7 @@ import org.ramflux.sdk.*
 /** Account-scoped, process-lifetime journal retains uncertain identities across feature recreation. */
 internal class ContactCommandAdapter(transport: RepositoryTransport, private val stamp: (String, String) -> String? = { _, _ -> null }) {
     private val source = DefaultContactsRepository(transport)
+    private val usernames = DefaultUsernamesRepository(transport)
     private val journal = mutableMapOf<Pair<String, String>, Pair<ContactCommand, ContactAttemptPhase>>()
     fun attempts(account: String): List<ContactAttempt> = synchronized(journal) {
         journal.values.filter { it.first.account == account }.map { (command, phase) ->
@@ -50,6 +51,8 @@ internal class ContactCommandAdapter(transport: RepositoryTransport, private val
         val context = RepositoryContext(command.account, command.operationId)
         val card = command.operation == ContactOperation.ADD &&
             (command.target.startsWith("ramflux-card:") || command.target.startsWith("ramflux://contact/"))
+        // "@name" adds through the username directory (`username.contact.add`, admitted on phones since OPEN-USERNAME-ABI-01).
+        val username = command.operation == ContactOperation.ADD && command.target.startsWith("@")
         val field = when (command.operation) {
             ContactOperation.ADD -> if (card) "card" else "principal_id"
             ContactOperation.REMOVE, ContactOperation.BLOCK_CONTACT, ContactOperation.UNBLOCK -> "link_id"
@@ -61,6 +64,7 @@ internal class ContactCommandAdapter(transport: RepositoryTransport, private val
                 ContactOperation.VERIFY -> SecretBody.takeJson("{\"expected\":${requireNotNull(stamp(command.account, command.target))}}".toByteArray())
                 // "me" is the reference caller's default scope (`apps/rf/src/cli/contact.rs`).
                 ContactOperation.REMOVE -> SecretBody.fields { publicText(field, command.target); publicText("scope", "me") }
+                ContactOperation.ADD if username -> SecretBody.fields { publicText("name", command.target.removePrefix("@")) }
                 else -> SecretBody.fields { publicText(field, command.target) }
             }
         } catch (_: Exception) {
@@ -69,7 +73,7 @@ internal class ContactCommandAdapter(transport: RepositoryTransport, private val
         }
         try {
             val result = when (command.operation) {
-                ContactOperation.ADD -> source.add(context, body)
+                ContactOperation.ADD -> if (username) usernames.contactAdd(context, body) else source.add(context, body)
                 ContactOperation.ACCEPT -> source.accept(context, body)
                 ContactOperation.DECLINE -> source.decline(context, body)
                 ContactOperation.BLOCK, ContactOperation.BLOCK_CONTACT -> source.block(context, body)
@@ -81,7 +85,12 @@ internal class ContactCommandAdapter(transport: RepositoryTransport, private val
             val decoded = when (result) {
                 is CoreResult.Failure -> result
                 is CoreResult.Success -> when (command.operation) {
-                    ContactOperation.ADD -> ContactCompletionMetadataReader.added(result.value, if (card) null else command.target)
+                    ContactOperation.ADD -> if (username) {
+                        result.value.close()
+                        CoreResult.Success(Unit)
+                    } else {
+                        ContactCompletionMetadataReader.added(result.value, if (card) null else command.target)
+                    }
                     ContactOperation.REMOVE -> ContactCompletionMetadataReader.link(result.value, command.target, null)
                     ContactOperation.BLOCK_CONTACT -> ContactCompletionMetadataReader.link(result.value, command.target, true)
                     ContactOperation.UNBLOCK -> ContactCompletionMetadataReader.link(result.value, command.target, false)

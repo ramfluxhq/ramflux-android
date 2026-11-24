@@ -236,4 +236,9 @@
     <string name="settings_remove_account_confirm_title">Remove this account from this phone?</string>
     <!-- Consequence of removal; recovery needs a backup, the recovery phrase or another device. -->
     <string name="settings_remove_account_confirm_body">The account\'s keys, messages and media on this phone are deleted. This cannot be undone here: to use it on this phone again you need a backup, the recovery phrase or another of your devices.</string>
+    <!-- The claimed username; %1$s is the name without the at sign. -->
+    <string name="settings_username_value">@%1$s</string>
+    <string name="settings_username_none">No username claimed</string>
+    <!-- %1$s is the directory's typed refusal code, shown as it is. -->
+    <string name="settings_username_unavailable">Username directory unavailable (%1$s)</string>
 </resources>
