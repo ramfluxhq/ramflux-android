@@ -82,7 +82,8 @@ object BannerText {
             out.appendCodePoint(point)
             count++
         }
-        return out.toString()
+        // The cut can land right after a collapsed blank: the ends are trimmed.
+        return out.toString().trimEnd()
     }
 }
 
