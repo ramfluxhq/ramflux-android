@@ -142,9 +142,9 @@ class OnboardingViewModelTest {
         runCurrent()
         assertEquals(OnboardingNoticeKind.ERROR, vm.state.value.notice?.kind)
         val message = vm.state.value.notice?.message as UiText.Resource
-        assertEquals(R.string.ui_the_request_did_not_complete_code_value_name, message.id)
-        assertTrue(message.args.any { it is UiText.Number && it.value == 1L })
-        assertTrue(message.args.any { it is UiText.Data && it.value == "CustodySetupInvalid" })
+        assertEquals(R.string.ui_the_request_did_not_complete_code_value_refresh, message.id)
+        assertTrue(message.leaves().any { it is UiText.Number && it.value == 1L })
+        assertTrue(message.leaves().any { it is UiText.Code && it.value == "CustodySetupInvalid" })
     }
 
     @Test fun confirmWordMismatchShowsThePositionAndNotTheWord() = runTest(timeout = 5.seconds) {
@@ -178,9 +178,9 @@ class OnboardingViewModelTest {
         assertEquals(listOf("confirm.failed.5.CustodyConfirmationFailed.NONE"), traced)
         assertTrue(traced.none { it.contains("word_") || it.contains("passphrase_") })
         val message = vm.state.value.notice?.message as UiText.Resource
-        assertEquals(R.string.ui_the_request_did_not_complete_code_value_name_check, message.id)
-        assertTrue(message.args.any { it is UiText.Data && it.value == "word_8" })
-        assertTrue(message.args.none { it is UiText.Data && it.value == "alpha" })
+        assertEquals(R.string.ui_the_request_did_not_complete_code_value_refresh, message.id)
+        assertTrue(message.leaves().any { it is UiText.Code && it.value == "word_8" })
+        assertTrue(message.leaves().none { it is UiText.Code && it.value == "alpha" })
         assertNotEquals(OnboardingPage.CREATED, vm.state.value.page)
         assertTrue(words.all { it.isEmpty() })
         assertTrue(passphrase.isEmpty())
@@ -540,9 +540,9 @@ class OnboardingViewModelTest {
         assertEquals(1, ceremony.confirmations)
         assertEquals(OnboardingNoticeKind.ERROR, vm.state.value.notice?.kind)
         val message = vm.state.value.notice?.message as UiText.Resource
-        assertEquals(R.string.ui_the_request_did_not_complete_code_value_name, message.id)
-        assertTrue(message.args.any { it is UiText.Number && it.value == 16L })
-        assertTrue(message.args.any { it is UiText.Data && it.value == "CustodyExpired" })
+        assertEquals(R.string.ui_the_request_did_not_complete_code_value_refresh, message.id)
+        assertTrue(message.leaves().any { it is UiText.Number && it.value == 16L })
+        assertTrue(message.leaves().any { it is UiText.Code && it.value == "CustodyExpired" })
         assertFalse(vm.state.value.busy)
         assertTrue(words.all { it.isEmpty() })
         assertTrue(passphrase.isEmpty())
@@ -775,7 +775,7 @@ class OnboardingViewModelTest {
         assertNull(vm.state.value.forgetAccountId)
         vm.onAction(OnboardingAction.SubmitUnlock(ErasableBuffer().also { it.replace("482915".toCharArray()) }))
         runCurrent()
-        assertEquals(R.string.ui_the_request_did_not_complete_code_value_name, (vm.state.value.notice?.message as UiText.Resource).id)
+        assertEquals(R.string.ui_the_request_did_not_complete_code_value_refresh, (vm.state.value.notice?.message as UiText.Resource).id)
         assertEquals("a", vm.state.value.forgetAccountId)
         vm.onAction(OnboardingAction.ForgetAccount("a"))
         runCurrent()
@@ -842,3 +842,6 @@ private fun challengeBuffers(first: String, second: String, third: String): List
     listOf(first, second, third).forEachIndexed { index, text -> words[index].replace(text.toCharArray()) }
     return words
 }
+
+/** Every leaf argument of a message, descending into nested resources such as the shared failure detail. */
+private fun UiText.Resource.leaves(): List<UiText> = args.flatMap { if (it is UiText.Resource) it.leaves() else listOf(it) }
