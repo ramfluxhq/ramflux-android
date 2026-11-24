@@ -36,11 +36,13 @@ fun KitEmpty(
             KitText(body, style = kitStyle(theme.size_body, FontWeight.Normal, theme.secondary, RfMetrics.lineBody))
         }
         if (action != null && onAction != null) {
+            // Both button forms carry the action tag, so the action is addressable whichever form a screen uses.
+            val actionTag = tag?.let { "$it-action" }
             // Boards MOB-B01X and MOB-B12 use a compact outlined button sized to its label.
             if (compactAction) {
-                KitButton(action, onAction, kind = KitButtonKind.Secondary, size = KitButtonSize.Compact, tag = tag?.let { "$it-action" })
+                KitButton(action, onAction, kind = KitButtonKind.Secondary, size = KitButtonSize.Compact, tag = actionTag)
             } else {
-                KitButton(action, onAction, Modifier.fillMaxWidth())
+                KitButton(action, onAction, Modifier.fillMaxWidth(), tag = actionTag)
             }
         }
     }
