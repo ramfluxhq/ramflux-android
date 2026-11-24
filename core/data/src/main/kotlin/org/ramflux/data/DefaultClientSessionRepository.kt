@@ -19,9 +19,22 @@ internal class DefaultClientSessionRepository(
     override suspend fun foreground() {
         transitions.withLock {
             withContext(io + NonCancellable) {
-                mutable.value = mutable.value.copy(phase = ClientPhase.OPENING, problem = null)
+                val current = mutable.value
+                if (current.phase == ClientPhase.OPEN && current.suspended) {
+                    // Return from the background: the same client resumes; no new generation, no account code.
+                    mutable.value = when (val result = driver.open()) {
+                        is ClientResult.Ready -> current.copy(suspended = false, problem = null)
+                        is ClientResult.Failed -> current.copy(phase = ClientPhase.FAILED, problem = result.problem, suspended = false)
+                        is ClientResult.Unavailable -> current.copy(phase = ClientPhase.FAILED, suspended = false,
+                            problem = ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE))
+                    }
+                    clientDebugEvent("session.resume:" + mutable.value.phase)
+                    return@withContext
+                }
+                mutable.value = current.copy(phase = ClientPhase.OPENING, problem = null, suspended = false)
                 when (val result = driver.open()) {
                     is ClientResult.Ready -> mutable.value = ClientSnapshot(ClientPhase.OPEN, mutable.value.generation + 1)
+                        .also { clientDebugEvent("session.open") }
                     is ClientResult.Failed -> mutable.value = mutable.value.copy(phase = ClientPhase.FAILED, problem = result.problem)
                     is ClientResult.Unavailable -> mutable.value = mutable.value.copy(phase = ClientPhase.FAILED,
                         problem = ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE))
@@ -29,16 +42,19 @@ internal class DefaultClientSessionRepository(
             }
         }
     }
+    /** Background: the open client suspends (files and network released, accounts kept unlocked); nothing else changes. */
     override suspend fun background() {
         transitions.withLock {
             withContext(io + NonCancellable) {
-                mutable.value = mutable.value.copy(phase = ClientPhase.CLOSING, problem = null)
-                when (val result = driver.close()) {
-                    is ClientResult.Failed -> mutable.value = mutable.value.copy(phase = ClientPhase.FAILED, problem = result.problem)
-                    is ClientResult.Ready -> mutable.value = mutable.value.copy(phase = ClientPhase.CLOSED)
-                    is ClientResult.Unavailable -> mutable.value = mutable.value.copy(phase = ClientPhase.FAILED,
+                val current = mutable.value
+                if (current.phase != ClientPhase.OPEN || current.suspended) return@withContext
+                mutable.value = when (val result = driver.suspend()) {
+                    is ClientResult.Ready -> current.copy(suspended = true)
+                    is ClientResult.Failed -> current.copy(phase = ClientPhase.FAILED, problem = result.problem)
+                    is ClientResult.Unavailable -> current.copy(phase = ClientPhase.FAILED,
                         problem = ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE))
                 }
+                clientDebugEvent("session.suspend:" + (if (mutable.value.suspended) "ok" else "failed." + mutable.value.problem?.code))
             }
         }
     }

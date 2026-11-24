@@ -5,6 +5,7 @@ package org.ramflux.sdk
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -54,6 +55,7 @@ class EventHub internal constructor(
     private var pumpAccount: String? = null
     private var pumpTopics: Set<String> = emptySet()
     private var generation = 0uL
+    private var paused = false
 
     /** Number of collectors currently registered (for tests and diagnostics). */
     val collectorCount: Int get() = synchronized(lock) { subscribers.size }
@@ -74,7 +76,43 @@ class EventHub internal constructor(
         }
     }
 
+    /**
+     * The client is suspending: the pump stops without telling its collectors (they stay registered and keep their
+     * flows open). [resume] restarts it and asks every collector to reload.
+     */
+    suspend fun pause() {
+        val job = synchronized(lock) {
+            paused = true
+            pump.also { pump = null }
+        }
+        job?.cancelAndJoin()
+    }
+
+    /** The client resumed: the pump reopens from the journal head and every collector gets `resync_required`. */
+    fun resume() = synchronized(lock) {
+        paused = false
+        if (pump == null && subscribers.isNotEmpty()) {
+            val account = pumpAccount
+            start(account, union(subscribers.filter { it.account == account }))
+            subscribers.forEach { offer(it, resync()) }
+        }
+    }
+
     private fun register(subscriber: Subscriber) = synchronized(lock) {
+        if (paused) {
+            // Collectors that join while the client is suspended wait for [resume]; one account at a time still holds.
+            if (pumpAccount != subscriber.account) {
+                subscribers.filter { it.account != subscriber.account }.forEach { other ->
+                    subscribers.remove(other)
+                    drain(other.channel)
+                    other.channel.trySend(CoreUpdate.Failure(CoreError.Closed()))
+                    other.channel.close()
+                }
+                pumpAccount = subscriber.account
+            }
+            subscribers.add(subscriber)
+            return@synchronized
+        }
         val running = pump?.isActive == true
         if (running && pumpAccount != subscriber.account) {
             subscribers.filter { it.account != subscriber.account }.forEach { other ->

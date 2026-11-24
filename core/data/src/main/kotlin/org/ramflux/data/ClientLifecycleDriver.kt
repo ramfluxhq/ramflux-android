@@ -9,7 +9,8 @@ import org.ramflux.sdk.*
 /** Data-internal native boundary, so lifecycle ordering can be verified without a native process. */
 internal interface ClientLifecycleDriver {
     suspend fun open(): ClientResult<Unit>
-    suspend fun close(): ClientResult<Unit>
+    /** Suspends the open client for the background (files and network released, accounts kept unlocked). */
+    suspend fun suspend(): ClientResult<Unit>
 }
 internal class AndroidClientLifecycleDriver(private val context: Context, private val descriptor: String) : ClientLifecycleDriver {
     @Volatile private var host: AndroidCoreHost? = null
@@ -25,16 +26,11 @@ internal class AndroidClientLifecycleDriver(private val context: Context, privat
             null -> ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, -1, ClientOutcome.NONE))
         }
     }
-    override suspend fun close(): ClientResult<Unit> {
+    override suspend fun suspend(): ClientResult<Unit> {
         val current = host ?: return ClientResult.Ready(Unit)
-        return when (val closed = current.background()) {
-            is CoreResult.Failure -> ClientResult.Failed(closed.error.appProblem())
-            is CoreResult.Success -> {
-                // A repeated background on a retained failed close is a no-op in this SDK pin.
-                val state = current.state.value
-                if (state is HostState.Failed && state.shutdownPending) ClientResult.Failed(state.error.appProblem())
-                else ClientResult.Ready(Unit)
-            }
+        return when (val suspended = current.background()) {
+            is CoreResult.Failure -> ClientResult.Failed(suspended.error.appProblem())
+            is CoreResult.Success -> ClientResult.Ready(Unit)
         }
     }
 }

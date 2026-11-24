@@ -21,7 +21,16 @@ data class ClientProblem(
     /** A wait the SDK reported before the same request may be tried again (seconds). */
     val retryAfterSecs: Long? = null,
 )
-data class ClientSnapshot(val phase: ClientPhase = ClientPhase.CLOSED, val generation: Long = 0, val problem: ClientProblem? = null)
+/**
+ * [suspended] is true while the app is in the background: the open client has released its files and network but
+ * keeps its unlocked accounts, so [phase] stays OPEN and [generation] is unchanged; screens keep their state.
+ */
+data class ClientSnapshot(
+    val phase: ClientPhase = ClientPhase.CLOSED,
+    val generation: Long = 0,
+    val problem: ClientProblem? = null,
+    val suspended: Boolean = false
+)
 enum class UnavailableReason { FEATURE_NOT_INSTALLED, UNSUPPORTED_BY_CORE, CUSTODY_PROVIDER_REQUIRED }
 sealed interface ClientResult<out T> {
     data class Ready<T>(val value: T) : ClientResult<T>

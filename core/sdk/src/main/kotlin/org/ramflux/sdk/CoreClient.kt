@@ -290,6 +290,29 @@ class CoreClient internal constructor(
         }
     }
 
+    /**
+     * Background (C-ABI-SUSPEND-01): the shared event pump pauses first (its collectors stay registered and get no
+     * terminal), then the core stops networking and closes its files while the unlocked accounts stay in memory.
+     * Calls made while suspended are refused with [SdkStatus.SUSPENDED].
+     */
+    suspend fun suspend(): CoreResult<JsonObject> = withContext(io + NonCancellable) {
+        shutdown.withLock {
+            if (guard.withLock { closing }) return@withLock CoreResult.Failure(CoreError.Closed())
+            events.pause()
+            ReplyCodec.decode(NativeReply(native.suspendClient(core), byteArrayOf()))
+        }
+    }
+
+    /** Foreground: the core reopens its files and reconnects (no account code); the event pump restarts with a resync. */
+    suspend fun resume(): CoreResult<JsonObject> = withContext(io + NonCancellable) {
+        shutdown.withLock {
+            if (guard.withLock { closing }) return@withLock CoreResult.Failure(CoreError.Closed())
+            ReplyCodec.decode(NativeReply(native.resumeClient(core), byteArrayOf())).also {
+                if (it is CoreResult.Success) events.resume()
+            }
+        }
+    }
+
     /** Release only a terminal failed close; Pending keeps ownership and never proves lease release. */
     suspend fun releaseFailedClose(): CoreResult<JsonObject> = withContext(io + NonCancellable) {
         shutdown.withLock {

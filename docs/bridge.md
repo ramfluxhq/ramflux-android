@@ -56,12 +56,24 @@ not from a runtime negotiation echo. A mismatch fails before opening a data root
 Negotiation also compares the complete method policy (version, method names,
 capabilities and all secret flags) with the pinned generated table. A missing or
 changed policy returns typed `MethodPolicyMismatch` before opening a writer.
-The application must await `foreground()` and `background()`
-on its lifecycle transitions; background completes only after native close has
-returned. A failed or pending shutdown retains its native handle. Foreground retries it:
-initial timeout is 10, pending is 24, and only confirmed completion is 0. A terminal
-failed shutdown is explicitly released after its error is observed; the data-root
-lease still arbitrates any replacement open. Busy/storage refusals remain retryable.
+The application must await `foreground()` and `background()` on its lifecycle
+transitions. Background suspends the client (`ramflux_v2_client_suspend`, C-ABI-SUSPEND-01):
+the shared event pump pauses without ending its collectors, then the SDK stops networking
+and closes its files while the unlocked accounts stay in memory; it completes only after
+the native call returned. Foreground resumes the same client (`ramflux_v2_client_resume`)
+without the account code, restarts the event pump and asks every collector to reload; the
+session keeps its generation, so screens and drafts stay as they were. Calls made while
+suspended are refused with status 30. A new process opens with custody: the SDK reopens
+every account that was not explicitly locked through its device-bound key on its own
+(`account.list` reports `restore_pending` meanwhile, and the app waits for it), so neither
+a return nor a relaunch asks for anything. The code is still asked at first set-up, restore,
+after an explicit lock or sign-out, and to change it. An optional app lock is not part of
+this build; its seam is the startup decision (`StartupDecision.kt`).
+
+The data root is a dedicated `no_backup/ramflux` directory with mode 0700, as the SDK's
+shared-root contract requires (a group- or world-accessible root is refused). Before the
+first device unlock after a restart the app reports custody locked (status 31) and opens
+nothing.
 Repositories resolve the current host generation for every call and collection.
 The host application must keep the library's backup and device-transfer exclusions,
 internal-only installation and strict network-security policy in its merged manifest.
@@ -237,8 +249,8 @@ only when notifications and the message channel are already allowed; release bui
 `FLAG_SECURE`) hide it on the lock screen (`VISIBILITY_SECRET`), debug builds post it private with an
 equally generic public version. Only conversations on the first directory page (100 rows) are compared.
 
-Known beta limitation: the session closes when the app goes to the background (owner decision,
-2026-11-23), so no event reaches the app after it stopped and nothing is posted then. Real background
+Known beta limitation: the client is suspended while the app is in the background (no network or open files;
+the unlocked accounts stay in memory), so no event reaches the app after it stopped and nothing is posted then. Real background
 delivery needs the node's push and background-delivery design (request R21: what the node sends, what a
 phone may decrypt or must fetch, and the wake path) and, for incoming calls, the call wake of request R28.
 No Firebase Cloud Messaging or other push dependency is added until that design exists.

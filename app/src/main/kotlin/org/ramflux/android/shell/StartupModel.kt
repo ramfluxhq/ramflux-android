@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +20,6 @@ import org.ramflux.data.ClientResult
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.NodeSetupRepository
 import org.ramflux.data.SavedNode
-import org.ramflux.data.clientDebugEvent
 
 data class StartupUi(
     val place: StartupPlace,
@@ -62,13 +62,20 @@ class StartupModel @Inject constructor(
     }
 
     private suspend fun refresh() {
-        val accountResult = accounts.list()
+        var accountResult = accounts.list()
+        // After a cold start the SDK reopens accounts through the device-bound key on its own: wait for that state
+        // to settle (bounded) instead of offering an unlock that is not needed.
+        var waited = 0L
+        while (restoring(accountResult) && waited < RESTORE_WAIT_MS && session.status.value.phase == ClientPhase.OPEN) {
+            delay(RESTORE_POLL_MS)
+            waited += RESTORE_POLL_MS
+            accountResult = accounts.list()
+        }
         val nodeResult = nodes.list()
         if (session.status.value.phase != ClientPhase.OPEN) return
         val listed = (accountResult as? ClientResult.Ready)?.value
         val saved = (nodeResult as? ClientResult.Ready)?.value
         facts.value = StartupFacts(listed, saved, failed = listed == null || saved == null)
-        clientDebugEvent("startup.facts unlocked:" + listed?.accounts?.count { it.unlocked } + ".locked:" + listed?.accounts?.count { !it.unlocked })
     }
 
     fun showWelcome() {
@@ -79,6 +86,12 @@ class StartupModel @Inject constructor(
         override.value = StartupPlace.GATEWAY
     }
 }
+
+private fun restoring(result: ClientResult<org.ramflux.data.AccountCatalog>): Boolean =
+    (result as? ClientResult.Ready)?.value?.accounts?.any { it.state == RESTORE_PENDING } == true
+
+private const val RESTORE_POLL_MS = 250L
+private const val RESTORE_WAIT_MS = 30_000L
 
 private fun lockedLabel(facts: StartupFacts): String = facts.accounts?.accounts?.firstOrNull { !it.unlocked }?.label.orEmpty()
 

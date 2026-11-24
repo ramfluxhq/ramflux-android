@@ -141,3 +141,15 @@ extern "C" JNIEXPORT jint JNICALL
 Java_org_ramflux_sdk_JniCore_releaseClosed(JNIEnv*, jobject, jlong core) {
     return ramflux_v2_client_release(static_cast<uint64_t>(core));
 }
+
+// Background: stop networking and close files while the unlocked accounts stay in memory (C-ABI-SUSPEND-01).
+extern "C" JNIEXPORT jint JNICALL
+Java_org_ramflux_sdk_JniCore_suspendClient(JNIEnv*, jobject, jlong core) {
+    return ramflux_v2_client_suspend(static_cast<uint64_t>(core));
+}
+
+// Foreground: reopen files and reconnect; never asks for the account code.
+extern "C" JNIEXPORT jint JNICALL
+Java_org_ramflux_sdk_JniCore_resumeClient(JNIEnv*, jobject, jlong core) {
+    return ramflux_v2_client_resume(static_cast<uint64_t>(core));
+}

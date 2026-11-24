@@ -104,9 +104,9 @@ class UnreadBaseline {
 /**
  * Local message notifications while the process is alive with an open session and the app is not in the
  * foreground, driven by the shared event hub (the conversation directory's topics, never `*`). Each change
- * re-reads the first directory page of the active unlocked account and compares unread counts; the session
- * closes in the background (owner decision), so nothing is posted after the app has stopped. Real background
- * delivery needs the node's push design (requests R21 and R28, see docs/bridge.md).
+ * re-reads the first directory page of the active unlocked account and compares unread counts. In the background
+ * the client is suspended (no network, accounts kept unlocked), so nothing is posted after the app has stopped. Real
+ * background delivery needs the node's push design (requests R21 and R28, see docs/bridge.md).
  */
 class MessageNotificationDriver(
     private val session: ClientSessionRepository,
