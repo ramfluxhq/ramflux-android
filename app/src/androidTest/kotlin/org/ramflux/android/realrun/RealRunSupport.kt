@@ -410,20 +410,11 @@ class Ui(private val control: PeerControl) {
      * is missing, disabled or still moving (a page transition or a list settling).
      */
     fun settled(selector: androidx.test.uiautomator.BySelector): UiObject2? {
-        // Input reaches only the focused window: right after a launch the app is drawn before it has focus.
-        if (!focused()) return null
         val first = device.findObject(selector)?.takeIf { it.isEnabled } ?: return null
         val bounds = first.visibleBounds
         Thread.sleep(SETTLE)
         val again = device.findObject(selector)?.takeIf { it.isEnabled } ?: return null
         return again.takeIf { it.visibleBounds == bounds }
-    }
-
-    /** Whether the app's resumed activity has window focus (a system dialog or a launch animation takes it away). */
-    fun focused(): Boolean {
-        var focus = false
-        instrumentation.runOnMainSync { focus = resumed()?.hasWindowFocus() == true }
-        return focus
     }
 
     /** The first of [tags] on screen within [timeout], or null. */
