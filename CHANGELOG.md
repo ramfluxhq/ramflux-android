@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- SDK pin moved to the core's `next` head `f2f466be2`: a contact re-added from its card keeps the pinned node fingerprint and a receive error no longer stops the apply pass (media send, later events and group invitations after a card exchange), the attachment contract is documented (the client already enables, prepares, streams and sends `prepares` as it describes), no plaintext attachment copy stays in the SDK after a send, agents call like people, and the app-lock methods enter the policy (not used by the app yet).
 - SDK pin moved to the core's `next` head `14e38cda6`: suspend and resume, prompt-free cold open through the device-bound key, read receipts with a derived route, conversation names, leave group, the group invitation topic, username methods on phones and the SDK-verified AI marker.
 - Returning from the background or relaunching asks for nothing: the client is suspended in the background and resumed on return (same session, screens and draft kept), and a new process waits while the SDK reopens the account through its device-bound key. The code is still asked after an explicit lock or sign-out, at set-up, restore and to change it. The SDK data root is a dedicated private directory.
 - The AI marker appears wherever a person is shown (contacts and requests, the conversation list, the chat header, group members and the authors of group messages); agents are otherwise shown exactly like people.
