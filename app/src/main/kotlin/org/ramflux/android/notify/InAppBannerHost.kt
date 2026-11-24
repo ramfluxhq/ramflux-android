@@ -28,15 +28,18 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import org.ramflux.android.BuildConfig
 import org.ramflux.android.R
 import org.ramflux.data.Appearance
 import org.ramflux.data.AppearanceRepository
@@ -113,32 +116,37 @@ internal fun InAppBannerOverlay(banners: InAppBanners) {
         BannerPreview.Generic -> stringResource(R.string.notification_new_message)
     }
     val shape = RoundedCornerShape(theme.radius_card.dp)
-    Box(
-        Modifier
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-            .padding(horizontal = 8.dp, vertical = 8.dp)
-            .shadow(4.dp, shape)
-            .clip(shape)
-            .background(theme.surface_white)
-            .pointerInput(shown) {
-                var travelled = 0f
-                detectVerticalDragGestures(
-                    onDragStart = { travelled = 0f },
-                    onDragEnd = { if (travelled < -threshold) banners.dismiss(shown) },
-                    onDragCancel = { travelled = 0f },
-                    onVerticalDrag = { _, delta -> travelled += delta }
-                )
-            }
-            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }
-    ) {
-        KitConversationRow(
-            title = shown.sender,
-            preview = preview,
-            time = "",
-            avatar = { KitAvatar(shown.sender.take(1), BANNER_AVATAR, KitAvatarKind.Person) },
-            onClick = { banners.open(shown) },
-            tag = "in-app-banner"
-        )
+    // Debuggable builds expose the Compose test tags as view ids (as the activity content does), so the opt-in
+    // real-run suite can find the banner across processes. Nothing else changes.
+    Box(if (BuildConfig.DEBUG) Modifier.semantics { testTagsAsResourceId = true } else Modifier) {
+        Box(
+            Modifier
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .padding(horizontal = 8.dp, vertical = 8.dp)
+                .shadow(4.dp, shape)
+                .clip(shape)
+                .background(theme.surface_white)
+                .pointerInput(shown) {
+                    var travelled = 0f
+                    detectVerticalDragGestures(
+                        onDragStart = { travelled = 0f },
+                        onDragEnd = { if (travelled < -threshold) banners.dismiss(shown) },
+                        onDragCancel = { travelled = 0f },
+                        onVerticalDrag = { _, delta -> travelled += delta }
+                    )
+                }
+                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }
+                .testTag("in-app-banner")
+        ) {
+            KitConversationRow(
+                title = shown.sender,
+                preview = preview,
+                time = "",
+                avatar = { KitAvatar(shown.sender.take(1), BANNER_AVATAR, KitAvatarKind.Person) },
+                onClick = { banners.open(shown) },
+                tag = "in-app-banner"
+            )
+        }
     }
 }
 
