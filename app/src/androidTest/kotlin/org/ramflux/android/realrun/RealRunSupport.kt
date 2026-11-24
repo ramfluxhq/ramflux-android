@@ -165,11 +165,20 @@ class Ui(private val control: PeerControl) {
         device.wait(Until.findObject(By.pkg(packageName).descContains(fragment)), timeout)
 
     fun tapText(text: String, timeout: Long = SHORT, step: String = text) {
-        repeat(3) {
-            val target = device.wait(Until.findObject(By.pkg(packageName).text(text)), timeout)
-                ?: device.wait(Until.findObject(By.pkg(packageName).desc(text)), 2_000)
-                ?: throw FlowStop("FAIL", "step '$step': no '$text' on screen; ${screen()}")
+        repeat(TEXT_TAPS) {
+            val byText = By.pkg(packageName).text(text)
+            val selector = if (device.wait(Until.findObject(byText), timeout) != null) {
+                byText
+            } else if (device.wait(Until.findObject(By.pkg(packageName).desc(text)), 2_000) != null) {
+                By.pkg(packageName).desc(text)
+            } else {
+                throw FlowStop("FAIL", "step '$step': no '$text' on screen; ${screen()}")
+            }
             try {
+                val target = settled(selector) ?: run {
+                    Thread.sleep(POLL)
+                    return@repeat
+                }
                 target.click()
                 device.waitForIdle()
                 return
@@ -319,9 +328,10 @@ class Ui(private val control: PeerControl) {
         need(tag, timeout)
         val end = System.currentTimeMillis() + timeout
         while (true) {
-            // Compose may replace the node while it recomposes: look it up again on every pass.
+            // Compose may replace the node while it recomposes: look it up again on every pass. The click goes to the
+            // node's centre, so it waits until the node is laid out where it stays (a screen sliding in moves it).
             val clicked = try {
-                device.findObject(By.res(tag))?.takeIf { it.isEnabled }?.let {
+                settled(By.res(tag))?.let {
                     it.click()
                     true
                 } ?: false
@@ -338,6 +348,18 @@ class Ui(private val control: PeerControl) {
             Thread.sleep(POLL)
         }
         device.waitForIdle()
+    }
+
+    /**
+     * The enabled node matching [selector] once its bounds are the same in two reads [SETTLE] ms apart, or null while it
+     * is missing, disabled or still moving (a page transition or a list settling).
+     */
+    fun settled(selector: androidx.test.uiautomator.BySelector): UiObject2? {
+        val first = device.findObject(selector)?.takeIf { it.isEnabled } ?: return null
+        val bounds = first.visibleBounds
+        Thread.sleep(SETTLE)
+        val again = device.findObject(selector)?.takeIf { it.isEnabled } ?: return null
+        return again.takeIf { it.visibleBounds == bounds }
     }
 
     /** The first of [tags] on screen within [timeout], or null. */
@@ -417,6 +439,8 @@ class Ui(private val control: PeerControl) {
         const val SHORT = 15_000L
         const val LONG = 60_000L
         const val POLL = 300L
+        private const val SETTLE = 200L
+        private const val TEXT_TAPS = 10
         private const val EDIT_TEXT = "android.widget.EditText"
         private const val MAX_SECRET = 4096
         private const val LONG_PRESS_STEPS = 300

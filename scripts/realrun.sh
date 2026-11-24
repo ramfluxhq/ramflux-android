@@ -350,6 +350,9 @@ fi
 # The app's debug trace file (codes and names only), read through run-as: some phones keep none of the app's own
 # log lines. It holds every invocation since this install, so it is copied whole.
 dev shell run-as "$APP_ID" cat no_backup/debug-trace.log > "$OUT/app-trace.txt" 2> /dev/null || true
+# A fresh install starts a new trace file: each invocation's copy is also kept, so no earlier install's trace is lost.
+mkdir -p "$OUT/traces"
+cp "$OUT/app-trace.txt" "$OUT/traces/$(date -u '+%H%M%S')-$(printf '%s' "${TESTS:-all}" | tr -c 'a-z0-9' '-').txt" 2> /dev/null || true
 
 # 8. The control server stops writing results; then the flow results and the instrumentation are made to agree (a
 # flow left RUNNING by a dead process, or a test the instrumentation failed, becomes FAIL).
