@@ -106,7 +106,8 @@ class UnreadBaseline {
  * foreground, driven by the shared event hub (the conversation directory's topics, never `*`). Each change
  * re-reads the first directory page of the active unlocked account and compares unread counts. In the background
  * the client is suspended (no network, accounts kept unlocked), so nothing is posted after the app has stopped. Real
- * background delivery needs the node's push design (requests R21 and R28, see docs/bridge.md).
+ * background delivery needs the node's push design (requests R21 and R28, see docs/bridge.md). While the app is in
+ * front the same unread growth feeds [InAppBanners] instead, and nothing is posted to the system.
  */
 class MessageNotificationDriver(
     private val session: ClientSessionRepository,
@@ -114,6 +115,7 @@ class MessageNotificationDriver(
     private val conversations: ConversationDirectoryRepository,
     private val notifier: MessageNotifier,
     private val routes: NotificationRoutes,
+    private val banners: InAppBanners? = null,
     private val foreground: () -> Boolean
 ) {
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -135,7 +137,13 @@ class MessageNotificationDriver(
     private suspend fun read(account: String, baseline: UnreadBaseline) {
         val page = (conversations.page(account, null) as? ClientResult.Ready)?.value ?: return
         val grown = baseline.next(page.rows)
-        if (grown.isEmpty() || foreground() || !notifier.allowed()) return
+        if (grown.isEmpty()) return
+        if (foreground()) {
+            // In front: an in-app banner, never a system notification.
+            banners?.let { sink -> grown.forEach { id -> page.rows.firstOrNull { it.id == id }?.let { sink.announce(account, it) } } }
+            return
+        }
+        if (!notifier.allowed()) return
         val groups = page.rows.associate { it.id to it.groupId }
         for (conversation in grown) notifier.post(routes.issue(NotificationTarget(account, conversation, groups[conversation])))
     }

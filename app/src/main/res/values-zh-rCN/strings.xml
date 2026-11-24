@@ -66,6 +66,9 @@
     <string name="shell_detail_empty_body">在列表中选择一项即可在此打开。</string>
     <!-- Title of the local notification for a message that arrived while the app was not in front. It must stay generic: never a sender, conversation or message text. -->
     <string name="notification_new_message">新消息</string>
+    <string name="banner_preview_call">通话</string>
+    <string name="banner_preview_update">会话动态</string>
+    <string name="banner_preview_attachment">附件</string>
     <!-- Accessibility label of the info button next to a section title on the unlock pages. -->
     <string name="startup_info">详细信息</string>
     <!-- Accessibility label of the info button that opens the unlock details of an account; %1$s is the account name. -->
