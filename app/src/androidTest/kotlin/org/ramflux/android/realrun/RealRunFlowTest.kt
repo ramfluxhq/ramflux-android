@@ -16,6 +16,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.AfterClass
 import org.junit.Assume.assumeTrue
+import org.junit.AssumptionViolatedException
 import org.junit.Before
 import org.junit.FixMethodOrder
 import org.junit.Test
@@ -24,9 +25,10 @@ import org.ramflux.android.RealRunProbe
 
 /**
  * The opt-in real run of the beta flows against the local node (scripts/realrun.sh). Skipped unless the
- * instrumentation argument `rf_realrun=1` is given, and in no CI task's class list. Each flow records PASS,
- * FAIL, BLOCKED or NOT RUN with the control server, which writes the flow table; a flow never fails the JUnit
- * run by itself, so later flows still report.
+ * instrumentation argument `rf_realrun=1` is given, and in no CI task's class list. Each flow records RUNNING when it
+ * starts and then PASS, FAIL, BLOCKED or NOT RUN with the control server, which writes the flow table. The JUnit
+ * result agrees with the table: a FAIL fails the test, BLOCKED and NOT RUN mark it skipped, PASS passes; later flows
+ * of the invocation still run. A flow left RUNNING (the process died) is turned into FAIL by the script.
  *
  * The script runs the flows in several invocations (each under ten minutes); every invocation starts the app
  * process afresh, so the first flow of a later invocation also proves a cold start. The account code is generated
@@ -51,24 +53,33 @@ class RealRunFlowTest {
     private fun flow(id: String, needsAccount: Boolean = true, block: () -> String) {
         if (needsAccount && !accountReady) {
             control.result(id, "BLOCKED", "no account: flow 01 did not complete on this install")
-            return
+            throw AssumptionViolatedException("flow $id: BLOCKED: no account on this install")
         }
         val first = flowsInProcess++ == 0
         coldProcess = first
-        try {
-            val detail = block()
-            control.result(id, "PASS", detail)
+        control.result(id, "RUNNING", "started")
+        val (status, detail) = try {
+            "PASS" to block()
         } catch (stop: FlowStop) {
-            if (!secretScreen) ui.shot("$id-stop")
-            control.result(id, stop.status, stop.message.orEmpty())
+            evidence("$id-stop")
+            stop.status to stop.message.orEmpty()
         } catch (error: Throwable) {
-            if (!secretScreen) ui.shot("$id-error")
-            control.result(
-                id,
-                "FAIL",
-                "${error.javaClass.simpleName}: ${error.message.orEmpty().take(600)}; ${runCatching { ui.screen() }.getOrDefault("")}"
-            )
+            evidence("$id-error")
+            "FAIL" to "${error.javaClass.simpleName}: ${error.message.orEmpty().take(600)}; ${runCatching { ui.screen() }.getOrDefault("")}"
         }
+        control.result(id, status, detail)
+        when (status) {
+            "PASS" -> Unit
+            "FAIL" -> throw AssertionError("flow $id: FAIL: ${detail.take(1500)}")
+            else -> throw AssumptionViolatedException("flow $id: $status: ${detail.take(1500)}")
+        }
+    }
+
+    /** A screenshot and a UI dump of the moment a flow stopped (neither while recovery words are shown). */
+    private fun evidence(name: String) {
+        if (secretScreen) return
+        ui.shot(name)
+        ui.dump(name)
     }
 
     private fun fail(message: String): Nothing = throw FlowStop("FAIL", message)
@@ -431,24 +442,7 @@ class RealRunFlowTest {
         ensureShell()
         val commitment = RunState["commitment"] ?: blocked("needs flow 04 (contact with alice)")
         val notes = mutableListOf<String>()
-        // The phone's own contact card goes to alice, so her record of the phone names its home node.
-        openSettings()
-        ui.tap("account-security")
-        ui.tap("my-card")
-        ui.need("my-card-text", Ui.LONG, "contact card text")
-        ui.shot("08-my-card")
-        // The card is drawn in short runs; Share hands over the whole text, read here without opening the sheet.
-        if (!ui.scrollTo("my-card-share")) fail("My contact card has no Share action: ${ui.screen()}")
-        val shared = ui.captureShare { ui.tap("my-card-share") }
-        val card = Regex("ramflux-card:v[0-9]+:[A-Za-z0-9_=.-]+").find(shared.orEmpty())?.value
-            ?: fail("Share on My contact card handed over no card text: ${ui.screen()}")
-        val added = control.rf("alice", "contact", "add", "--card", card)
-        notes += if (added.optInt("exit") == 0) {
-            "alice added the phone's contact card"
-        } else {
-            "alice: rf contact add --card exit ${added.optInt("exit")}: ${added.optString("stderr").takeLast(200)}"
-        }
-        notes += importCard("alice")
+        notes += exchangeCards("alice", "08-my-card")
         // This device's id from My devices; alice's attachment send addresses it directly.
         ensureShell()
         openSettings()
@@ -586,15 +580,21 @@ class RealRunFlowTest {
         val notes = mutableListOf<String>()
         addContact("bob")
         notes += "bob added as a contact"
-        // Group media goes to every member's home node: the phone holds alice's card from flow 08 and imports bob's.
-        notes += importCard("bob")
+        // Group media goes to every member's home node: the phone and both peers exchange contact cards (flow 08 did
+        // it for alice already; doing it again here keeps this flow's precondition to flow 04).
+        notes += exchangeCards("alice")
+        notes += exchangeCards("bob")
         ensureShell()
         val name = "rr-group-" + token()
         ui.tap("shell-tabs-1")
-        when (ui.first("groups-empty", "groups-header", "groups-error", timeout = Ui.LONG)) {
-            "groups-empty" -> ui.tap("groups-empty-action")
-            else -> ui.tapText(ui.str("groups_create"))
-        }
+        // The Groups tab offers creation in exactly one place: the empty state's action when there is no group, the
+        // list's create button otherwise (also while the first page loads). Wait for whichever is laid out; the header
+        // alone says nothing about which one will be there.
+        val entry = ui.first("groups-empty-action", "groups-create", "groups-error", timeout = Ui.LONG)
+            ?: fail("the Groups tab offered no create action: ${ui.screen()}")
+        if (entry == "groups-error") fail("the Groups tab showed an error: ${ui.screen()}")
+        notes += "created from '$entry'"
+        ui.tap(entry)
         ui.fill(null, name)
         ui.tap("groups-review-create")
         ui.tap("host-confirmation-confirm", Ui.SHORT)
@@ -1030,6 +1030,31 @@ class RealRunFlowTest {
         confirmIfAsked()
         ui.shot("card-$peer")
         return "the phone imported $peer's contact card"
+    }
+
+    /**
+     * The phone's own contact card goes to [peer] (so the peer's record of the phone names its home node) and the
+     * phone imports the peer's card: media in either direction needs both.
+     */
+    private fun exchangeCards(peer: String, shot: String? = null): String {
+        ensureShell()
+        openSettings()
+        ui.tap("account-security")
+        ui.tap("my-card")
+        ui.need("my-card-text", Ui.LONG, "contact card text")
+        shot?.let(ui::shot)
+        // The card is drawn in short runs; Share hands over the whole text, read here without opening the sheet.
+        if (!ui.scrollTo("my-card-share")) fail("My contact card has no Share action: ${ui.screen()}")
+        val shared = ui.captureShare { ui.tap("my-card-share") }
+        val card = Regex("ramflux-card:v[0-9]+:[A-Za-z0-9_=.-]+").find(shared.orEmpty())?.value
+            ?: fail("Share on My contact card handed over no card text: ${ui.screen()}")
+        val added = control.rf(peer, "contact", "add", "--card", card)
+        val sent = if (added.optInt("exit") == 0) {
+            "$peer added the phone's contact card"
+        } else {
+            "$peer: rf contact add --card exit ${added.optInt("exit")}: ${added.optString("stderr").takeLast(200)}"
+        }
+        return sent + "; " + importCard(peer)
     }
 
     /** Scrolls [tag] into view, again when the list recomposed under the scroll (a stale node). */

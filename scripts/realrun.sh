@@ -328,7 +328,7 @@ say "running ${TESTS:-the whole suite} (log: $OUT/instrument.log)"
 LOG_SINCE=$(dev shell date "+%m-%d\ %H:%M:%S.000" 2> /dev/null | tr -d '\r' || true)
 # The results of earlier invocations in this folder, so this invocation's exit code covers only its own flows.
 BEFORE=$(cat "$OUT/results.json" 2> /dev/null || echo '{}')
-INSTRUMENT_FROM=$(wc -l < "$OUT/instrument.log" 2> /dev/null || echo 0)
+INSTRUMENT_FROM=0; [ -f "$OUT/instrument.log" ] && INSTRUMENT_FROM=$(wc -l < "$OUT/instrument.log" | tr -d ' ')
 set +e
 { echo "== $(date -u '+%H:%M:%S') ${TESTS:-all}"; dev shell am instrument -w -r "${ARGS[@]}" -e class "$CLASS_ARG" "$RUNNER"; } >> "$OUT/instrument.log" 2>&1
 set -e
@@ -342,7 +342,13 @@ fi
 # log lines. It holds every invocation since this install, so it is copied whole.
 dev shell run-as "$APP_ID" cat no_backup/debug-trace.log > "$OUT/app-trace.txt" 2> /dev/null || true
 
-# 8. Flow table.
+# 8. The control server stops writing results; then the flow results and the instrumentation are made to agree (a
+# flow left RUNNING by a dead process, or a test the instrumentation failed, becomes FAIL).
+kill "$CONTROL_PID" 2> /dev/null; wait "$CONTROL_PID" 2> /dev/null || true; CONTROL_PID=""
+RECONCILED=0
+"$PYTHON" -I "$ROOT/scripts/realrun/reconcile.py" "$OUT" "$INSTRUMENT_FROM" || RECONCILED=$?
+
+# 9. Flow table.
 "$PYTHON" -I "$ROOT/scripts/realrun/flow_table.py" "$OUT" "$(( $(date +%s) - START ))" > "$OUT/flow-table.md"
 cat "$OUT/flow-table.md"
 say "output: $OUT"
@@ -356,6 +362,7 @@ except (OSError, ValueError):
     after = {}
 print(" ".join(sorted(k for k, v in after.items() if v.get("status") == "FAIL" and before.get(k) != v)))
 ' "$OUT/results.json")
+if [ "$RECONCILED" != 0 ]; then say "the flow table and the instrumentation disagree (see above)"; exit 1; fi
 if [ -n "$FAILED_HERE" ]; then say "failed in this invocation: $FAILED_HERE"; exit 1; fi
 if tail -n +"$(( INSTRUMENT_FROM + 1 ))" "$OUT/instrument.log" | grep -q -E 'INSTRUMENTATION_FAILED|Process crashed|FAILURES!!!'; then
   say "the instrumentation failed in this invocation (see $OUT/instrument.log)"

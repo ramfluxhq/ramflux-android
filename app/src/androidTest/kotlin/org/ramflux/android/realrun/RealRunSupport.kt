@@ -86,6 +86,11 @@ class PeerControl(private val base: String) {
         runCatching { raw("/screenshot/$name", png, "image/png", 30) }
     }
 
+    /** A UI hierarchy dump (XML) of the moment a flow stopped; never taken while recovery words are shown. */
+    fun dump(name: String, xml: ByteArray) {
+        runCatching { raw("/dump/$name", xml, "application/xml", 30) }
+    }
+
     private fun get(path: String): JSONObject {
         val connection = URL(base + path).openConnection() as HttpURLConnection
         connection.connectTimeout = 5_000
@@ -387,6 +392,13 @@ class Ui(private val control: PeerControl) {
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         bitmap.recycle()
         control.screenshot(name, out.toByteArray())
+    }
+
+    /** The window hierarchy as UiAutomator sees it (texts and test tags), only while the app is in front. */
+    fun dump(name: String) {
+        if (!foreground()) return
+        val out = ByteArrayOutputStream()
+        runCatching { device.dumpWindowHierarchy(out) }.onSuccess { control.dump(name, out.toByteArray()) }
     }
 
     companion object {

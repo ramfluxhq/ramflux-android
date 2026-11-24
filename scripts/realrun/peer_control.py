@@ -7,7 +7,7 @@ The instrumented suite on the phone reaches this server over plain HTTP through 
 for a phone attached to another machine, an SSH remote forward that binds only that machine's loopback), and
 asks it to act as the peer side at the right moments: run an allow-listed `rf`
 command on the alice or bob daemon, derive a direct conversation id, create a test file, record
-a flow result or store a screenshot. The server never receives the phone account's six-digit code
+a flow result or store a screenshot or a UI dump. The server never receives the phone account's six-digit code
 or recovery words; it only handles public identifiers and test message text.
 
 Usage: peer_control.py --port N --out DIR --local-node DIR --rf PATH [--udid UDID --app PATH]
@@ -40,7 +40,7 @@ ALLOWED = {
     ("group", "invitation"), ("group", "member"), ("attachment", "import"), ("attachment", "enable"), ("account", "status"),
 }
 SAFE_NAME = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
-STATUSES = {"PASS", "FAIL", "BLOCKED", "NOT RUN"}
+STATUSES = {"PASS", "FAIL", "BLOCKED", "NOT RUN", "RUNNING"}
 
 
 BUNDLE = "org.ramflux.ios"
@@ -212,6 +212,13 @@ def handler_for(harness: Harness):
                     if not SAFE_NAME.match(name):
                         raise ValueError("bad name")
                     (harness.out / "screenshots" / (name + ".png")).write_bytes(raw)
+                    return self.reply(200, {"ok": True})
+                if self.path.startswith("/dump/"):
+                    name = self.path.split("/", 2)[2]
+                    if not SAFE_NAME.match(name):
+                        raise ValueError("bad name")
+                    (harness.out / "dumps").mkdir(exist_ok=True)
+                    (harness.out / "dumps" / (time.strftime("%H%M%S-") + name + ".xml")).write_bytes(raw)
                     return self.reply(200, {"ok": True})
                 body = json.loads(raw or b"{}")
                 if self.path == "/rf":
