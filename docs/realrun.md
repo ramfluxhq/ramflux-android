@@ -64,17 +64,20 @@ scripts/realrun.sh --target emulator --path tunnel  # a local emulator or device
 
 A command may be limited to ten minutes on a shared machine, so a complete run is several invocations against
 one output folder; results accumulate in `results.json` and `flow-table.md` is rewritten each time. Every
-invocation starts a new app process, so the first flow of a later invocation is a cold start.
+invocation stops the app first and starts a new process, so the first flow of a later invocation is a terminate and
+relaunch; it must open the account without asking for anything (the SDK reopens it through the device-bound key).
+Flow 17 runs before flow 09: bob must not yet be a contact of the phone for his group to arrive as an invitation.
 
 ```sh
 O=build/realrun/final
 scripts/realrun.sh --tests "f01 f02" --out $O                           # build, fresh install, onboarding, lock
-scripts/realrun.sh --skip-build --no-install --tests "f03 f04 f05" --out $O   # cold start, contacts, list
-scripts/realrun.sh --skip-build --no-install --tests "f06 f07" --out $O       # direct chat, background
+scripts/realrun.sh --skip-build --no-install --tests "f03 f04 f05" --out $O   # relaunch without a prompt, contacts, list
+scripts/realrun.sh --skip-build --no-install --tests "f06 f07 f16" --out $O   # direct chat, background, read receipt
 scripts/realrun.sh --skip-build --no-install --tests "f08" --out $O           # media
+scripts/realrun.sh --skip-build --no-install --tests "f17" --out $O           # invitation from a non-contact, leave
 scripts/realrun.sh --skip-build --no-install --tests "f09" --out $O           # groups
 scripts/realrun.sh --skip-build --no-install --tests "f10 f11 f12" --out $O   # settings, backup, honest states
-scripts/realrun.sh --skip-build --no-install --tests "f13 f14" --out $O       # invitation list, sign out and back in
+scripts/realrun.sh --skip-build --no-install --tests "f13 f14 f18" --out $O   # invitation list, sign out and back in, usernames
 scripts/realrun.sh --skip-build --no-install --tests "f15" --out $O           # remove the account from this phone: last
 ```
 
@@ -137,13 +140,19 @@ vault by design. Flows from account creation on need a real phone.
 
 ## What the suite does and does not do
 
-It runs fifteen flows (`f01` to `f15`): onboarding and account creation, lock and unlock, cold start, contacts,
-the conversation list, direct chat, background behaviour, media (including a group image), groups, settings,
-backup, the honest states of the app when the node or a peer is unavailable, the group invitation list, signing
-out and back in, and finally removing the account from the phone (`f15` erases the account: run it last).
+It runs eighteen flows (`f01` to `f18`): onboarding and account creation, lock and unlock, terminate and relaunch
+without a prompt, contacts, the conversation list, direct chat, background and return without a prompt (screen
+and draft kept), media (including a group image), groups, settings, backup, the honest states of the app when the
+node or a peer is unavailable, the group invitation list, signing out and back in, removing the account from the
+phone (`f15` erases the account: run it last), a read receipt seen by the peer (`f16`), an invitation from a
+non-contact accepted and the group left (`f17`), and usernames (`f18`: BLOCKED with the directory's refusal on a
+node without a username directory).
 Restore is not run: it needs the archive passphrase to reach another install. Each flow ends PASS, FAIL, BLOCKED
 (a precondition such as the QUIC relay is missing) or NOT RUN in `flow-table.md`, which covers every invocation in
-the output folder; each invocation exits non-zero when a flow it ran failed or the instrumentation failed. It
+the output folder. The table and the instrumentation agree: a FAIL fails its JUnit test (BLOCKED and NOT RUN are
+skipped tests), a flow left RUNNING by a dead process and a test the instrumentation failed are recorded as FAIL
+(`scripts/realrun/reconcile.py`), and each invocation exits non-zero when a flow it ran failed or the
+instrumentation failed. A failing flow leaves a screenshot and a UI dump (`dumps/`). It
 does not change the node, the phone's settings or its rotation, other apps, or the phone's photos, and it does
 not run in CI.
 

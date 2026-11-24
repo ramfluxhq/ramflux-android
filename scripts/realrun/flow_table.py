@@ -26,6 +26,9 @@ FLOWS = [
     ("13-invitations", "5 Groups: the invitation list loads"),
     ("14-sign-out", "10 Sign out on this phone and sign back in with the code"),
     ("15-remove-local", "10 Remove the account from this phone (last step)"),
+    ("16-read-receipt", "4 Read receipt: the phone reads alice's message, alice sees it read"),
+    ("17-invitation-leave", "5 Invitation from a non-contact accepted, then leave the group"),
+    ("18-usernames", "15 Username in settings and adding a contact by @name"),
 ]
 
 

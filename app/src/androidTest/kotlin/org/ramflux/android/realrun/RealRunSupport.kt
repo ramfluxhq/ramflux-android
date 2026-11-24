@@ -207,6 +207,18 @@ class Ui(private val control: PeerControl) {
         return false
     }
 
+    /** [scrollTo] that survives a list recomposing under the scroll (a stale node). */
+    fun scrollToTag(tag: String): Boolean {
+        repeat(3) {
+            try {
+                return scrollTo(tag)
+            } catch (_: androidx.test.uiautomator.StaleObjectException) {
+                device.waitForIdle()
+            }
+        }
+        return false
+    }
+
     /** The first edit field under [tag] (or anywhere on screen without a tag). */
     fun field(tag: String? = null, timeout: Long = SHORT): UiObject2 {
         val end = System.currentTimeMillis() + timeout

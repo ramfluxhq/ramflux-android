@@ -205,7 +205,8 @@ class RealRunFlowTest {
             "; unlocked with the six-digit code" + (if (reopened) "; the settings screen open before the lock came back" else "")
     }
 
-    // Flow 1 (continued): every invocation restarts the app process, so this first flow of invocation 2 is a cold start.
+    // Flow 1 (continued): every invocation starts a new app process (the script stops the previous one first), so this
+    // first flow of an invocation is a terminate-and-relaunch: the account opens through the device-bound key, no code.
 
     @Test fun f03_coldStartUnlock() = flow("03-cold-start") {
         if (!coldProcess) {
@@ -227,9 +228,8 @@ class RealRunFlowTest {
             ?: fail("no screen after a cold start: ${ui.screen()}")
         if (first == "startup-welcome") fail("after a cold start the app offers account creation instead of the existing account")
         ui.shot("03-cold-start")
-        if (first != "shell-tabs") unlock()
-        ui.need("shell-tabs", Ui.LONG, "shell after the cold-start unlock")
-        "cold start (new app process) showed '$first' and the account opened with its code"
+        if (first != "shell-tabs") fail("the relaunched app asked for the account code ('$first'): ${ui.screen()}")
+        "terminate and relaunch (new app process) opened the shell with no prompt"
     }
 
     // Flow 6: add alice by principal id, alice accepts, safety number, verify.
@@ -409,10 +409,13 @@ class RealRunFlowTest {
             timeout = Ui.LONG
         )
             ?: fail("nothing shown after returning: ${ui.screen()}")
-        val unlocked = back != "composer" && back != "shell-tabs"
-        if (unlocked) unlock()
+        if (back != "composer" && back != "shell-tabs") {
+            fail(
+                "returning from the background asked for the account code ('$back'): ${ui.screen()}"
+            )
+        }
         val inChat = ui.find("composer", 20_000) != null
-        if (!inChat) fail("after returning${if (unlocked) " and unlocking" else ""} the app did not reopen the chat: ${ui.screen()}")
+        if (!inChat) fail("after returning the app did not reopen the chat: ${ui.screen()}")
         if (ui.text(incoming, 60_000) == null) {
             fail(
                 "alice's message sent while the app was in the background did not appear after returning"
@@ -430,8 +433,8 @@ class RealRunFlowTest {
                 fail("the kept draft was not delivered after sending")
             }
         }
-        "after ${BACKGROUND_WAIT / 1000} s in the background the app returned to the open chat" +
-            (if (unlocked) " after the unlock step" else " without an unlock") +
+        if (!draft) fail("the draft typed before going to the background was not kept: ${ui.screen()}")
+        "after ${BACKGROUND_WAIT / 1000} s in the background the app returned to the open chat with no prompt" +
             "; the message alice sent meanwhile is shown" + (if (draft) "; the draft was kept and sent" else "; the draft was not kept")
     }
 
@@ -920,6 +923,174 @@ class RealRunFlowTest {
         ui.shot("15-removed")
         if (stillListed) fail("the removed account '$name' is still offered: ${ui.screen()}")
         "account.remove_local accepted; the app returned to '$after' and no longer offers '$name'"
+    }
+
+    // Flow 4 (receipts): the phone reads alice's message and alice's copy shows it read (CHAT-ACTIONS-01).
+
+    @Test fun f16_readReceiptSeenByPeer() = flow("16-read-receipt") {
+        val conversation = aliceConversation()
+        ensureShell()
+        ui.tap("shell-tabs-0")
+        val text = "rr-read-" + token()
+        val sent = control.rf("alice", "conversation", "send", "--conversation", conversation, "--text", text)
+        if (sent.optInt("exit") != 0) {
+            blocked(
+                "alice: rf conversation send failed (exit ${sent.optInt("exit")}): ${sent.optString("stderr").takeLast(300)}"
+            )
+        }
+        openConversation(conversation)
+        ui.text(text, 60_000) ?: fail("alice's message did not appear on the phone: ${ui.screen()}")
+        ui.shot("16-displayed")
+        var states = "none"
+        val read = ui.eventually(60_000, 3_000) {
+            val now = receipts(aliceMessage(conversation, text))
+            states = now.ifEmpty { listOf("none") }.joinToString(",")
+            "read" in now
+        }
+        if (!read) fail("alice's copy shows no read receipt within 60 s after the phone displayed it (receipts: $states)")
+        "the phone displayed alice's message and alice's copy shows it read (receipts: $states)"
+    }
+
+    // Flow 5 (invitation and leave): bob, not yet a contact of the phone, creates a group with the phone in it; the phone
+    // gets an invitation, accepts it, then leaves the group; bob's roster no longer lists the phone. Run it before flow
+    // 09, which makes bob a contact (a contact's group joins directly, without an invitation).
+
+    @Test fun f17_invitationAcceptAndLeave() = flow("17-invitation-leave") {
+        ensureShell()
+        val notes = mutableListOf<String>()
+        val commitment = RunState["commitment"] ?: blocked("needs flow 04 (the phone's identity commitment)")
+        val device = phoneDevice()
+        val card = ownCard()
+        val bob = control.config().getJSONObject("peers").getJSONObject("bob")
+        val carded = control.rf("bob", "contact", "add", "--card", card)
+        notes += "bob took the phone's contact card (exit ${carded.optInt("exit")})"
+        val group = UUID.randomUUID().toString()
+        val created = control.rf("bob", "group", "create", "--group", group, "--creator", bob.getString("device_id"), timeoutSecs = 120)
+        if (created.optInt("exit") != 0) {
+            blocked(
+                "bob: rf group create failed (exit ${created.optInt("exit")}): ${created.optString("stderr").takeLast(300)}"
+            )
+        }
+        val added = control.rf(
+            "bob", "group", "member", "add", "--group", group, "--member-device", device, "--member-principal-commitment", commitment,
+            timeoutSecs = 120
+        )
+        if (added.optInt("exit") != 0) {
+            blocked(
+                "bob: rf group member add failed (exit ${added.optInt("exit")}): ${added.optString("stderr").takeLast(300)}"
+            )
+        }
+        notes += "bob created a group and added the phone"
+        ensureShell()
+        ui.tap("shell-tabs-1")
+        if (!ui.eventually(120_000, 3_000) { ui.find(group, 1_000) != null }) {
+            fail("no invitation to bob's group reached the Groups tab within 120 s: ${ui.screen()}; ${notes.joinToString("; ")}")
+        }
+        val pending = ui.hasText(ui.str("groups_invitations"))
+        ui.shot("17-invitation")
+        notes += if (pending) "the invitation is listed under Invitations" else "the group is listed without an Invitations section"
+        ui.tap(group)
+        ui.tap("groups-invitation-accept", Ui.LONG)
+        ui.tap("host-confirmation-confirm", Ui.SHORT)
+        if (!ui.eventually(120_000, 4_000) { bobMembers(group).contains(device) }) {
+            fail("bob's roster never listed the phone after it accepted: ${ui.screen()}; ${notes.joinToString("; ")}")
+        }
+        notes += "accepted; bob's roster lists the phone"
+        ensureShell()
+        ui.tap("shell-tabs-1")
+        ui.tap(group, 30_000)
+        if (!ui.scrollToTag("groups-leave")) fail("the group detail offers no Leave group: ${ui.screen()}")
+        ui.tap("groups-leave", Ui.LONG)
+        ui.shot("17-leave-confirm")
+        ui.tap("host-confirmation-confirm", Ui.SHORT)
+        if (!ui.eventually(120_000, 4_000) { !bobMembers(group).contains(device) }) {
+            fail("bob's roster still lists the phone 120 s after it left: ${ui.screen()}; ${notes.joinToString("; ")}")
+        }
+        ui.shot("17-left")
+        notes += "left; bob's roster no longer lists the phone"
+        notes += acceptRequestFrom("bob")
+        notes.joinToString("; ")
+    }
+
+    // Flow 15 (usernames): this account's username in settings and adding a contact by @name (OPEN-USERNAME-ABI-01).
+
+    @Test fun f18_usernames() = flow("18-usernames") {
+        ensureShell()
+        openSettings()
+        ui.tap("account-security")
+        ui.tap("privacy")
+        if (!reach("username")) fail("Privacy has no username row: ${ui.screen()}")
+        val row = ui.need("username", Ui.LONG, "username row")
+        val status = ui.eventually(30_000) { rowText(ui.find("username", 1_000) ?: row).contains("@") }
+        val shown = rowText(ui.find("username") ?: row)
+        ui.shot("18-username")
+        ensureShell()
+        ui.tap("shell-tabs-3")
+        ui.tap("shell-more-contacts", Ui.SHORT)
+        ui.tap("contacts-add")
+        val alice = peerName("alice")
+        ui.fill(null, "@" + alice.lowercase().replace(Regex("[^a-z0-9_]"), ""))
+        ui.tap("contacts-send")
+        confirmIfAsked()
+        Thread.sleep(3_000)
+        val answer = ui.texts().take(300)
+        ui.shot("18-add-by-name")
+        val unavailable = ui.str("settings_username_unavailable", "\u0000").substringBefore('\u0000')
+        if (shown.contains(unavailable)) {
+            blocked("username directory not available to this account: settings shows '$shown'; adding @name answered: $answer")
+        }
+        if (!status) fail("the username row shows no name or state: '$shown'")
+        "settings shows '$shown'; adding @name answered: $answer"
+    }
+
+    /** This phone's device id, from My devices (public). */
+    private fun phoneDevice(): String {
+        RunState["device"]?.let { return it }
+        ensureShell()
+        openSettings()
+        ui.tap("devices")
+        val current = ui.str("settings_current_device")
+        var device: String? = null
+        ui.eventually(30_000) {
+            device = ui.device.findObjects(By.pkg(ui.packageName).res(java.util.regex.Pattern.compile("device-.+")))
+                .firstOrNull { row -> rowText(row).contains(current) }?.resourceName
+            device != null
+        }
+        val found = device ?: fail("My devices lists no current device: ${ui.screen()}")
+        RunState["device"] = found
+        return found
+    }
+
+    /** The phone's own contact card text, read through Share on My contact card (the sheet never opens). */
+    private fun ownCard(): String {
+        ensureShell()
+        openSettings()
+        ui.tap("account-security")
+        ui.tap("my-card")
+        ui.need("my-card-text", Ui.LONG, "contact card text")
+        if (!ui.scrollTo("my-card-share")) fail("My contact card has no Share action: ${ui.screen()}")
+        val shared = ui.captureShare { ui.tap("my-card-share") }
+        return Regex("ramflux-card:v[0-9]+:[A-Za-z0-9_=.-]+").find(shared.orEmpty())?.value
+            ?: fail("Share on My contact card handed over no card text: ${ui.screen()}")
+    }
+
+    private fun bobMembers(group: String): String {
+        val result = control.rf("bob", "group", "members", "--group", group)
+        return result.optJSONObject("json")?.toString() ?: result.optString("stdout")
+    }
+
+    /** Accepts [peer]'s pending contact request on the phone, when there is one (Contacts, Strangers). */
+    private fun acceptRequestFrom(peer: String): String {
+        val name = peerName(peer)
+        ensureShell()
+        ui.tap("shell-tabs-3")
+        ui.tap("shell-more-contacts", Ui.SHORT)
+        ui.find("tab:STRANGERS", 5_000)?.click() ?: return "no Strangers tab"
+        val row = ui.text(name, 20_000) ?: return "no pending request from $peer on the phone"
+        row.click()
+        ui.tap("contacts-accept", Ui.LONG)
+        confirmIfAsked()
+        return "the phone accepted $peer's contact request"
     }
 
     /** Brings the app to its unlocked shell with the tab bar shown. */
