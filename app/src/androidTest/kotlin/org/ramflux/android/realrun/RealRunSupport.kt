@@ -142,6 +142,18 @@ class Ui(private val control: PeerControl) {
         instrumentation.runOnMainSync {
             resumed()?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
+        // A sideways activity is recreated for portrait: until the resumed activity is a portrait one that stays the
+        // same between two reads, a tap can land in the window being torn down and be lost.
+        var last: Activity? = null
+        eventually(LONG, POLL) {
+            var now: Activity? = null
+            instrumentation.runOnMainSync { now = resumed() }
+            val current = now
+            val stable = current != null && current === last &&
+                current.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+            last = current
+            stable
+        }
         device.waitForIdle()
     }
 
