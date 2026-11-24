@@ -247,7 +247,8 @@ class Ui(private val control: PeerControl) {
     }
 
     /** The visible test tags (resource ids) of the app, for failure details. */
-    fun ids(): String = device.findObjects(By.pkg(packageName).res(Pattern.compile(".+"))).mapNotNull { it.resourceName }
+    // Reading a node that the app replaced meanwhile throws: such a node is skipped (also in texts()).
+    fun ids(): String = device.findObjects(By.pkg(packageName).res(Pattern.compile(".+"))).mapNotNull { runCatching { it.resourceName }.getOrNull() }
         .filterNot { it.startsWith("android:") }.distinct().joinToString(",").take(700)
 
     fun screen(): String = "screen: ${texts().take(500)}; tags: ${ids()}"
@@ -303,7 +304,9 @@ class Ui(private val control: PeerControl) {
 
     /** Public text into the first text field under [tag] (accessibility set-text), looked up again if it recomposes. */
     fun fill(tag: String?, value: String) {
-        repeat(4) {
+        // A field on a screen that is still coming in is replaced several times; keep trying for a bounded time.
+        val end = System.currentTimeMillis() + SHORT
+        while (System.currentTimeMillis() < end) {
             try {
                 val target = field(tag)
                 target.press()
@@ -491,7 +494,7 @@ class Ui(private val control: PeerControl) {
 
     /** Every visible text of the app, joined (for checks and failure details; no secret is drawn as text). */
     fun texts(): String = device.findObjects(By.pkg(packageName))
-        .mapNotNull { it.text?.takeIf(String::isNotBlank) }.distinct().joinToString(" | ")
+        .mapNotNull { node -> runCatching { node.text }.getOrNull()?.takeIf(String::isNotBlank) }.distinct().joinToString(" | ")
 
     fun shot(name: String) {
         // Only the app's own screens: never the shared phone's launcher or another app.
