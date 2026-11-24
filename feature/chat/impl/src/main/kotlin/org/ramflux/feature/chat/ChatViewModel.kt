@@ -381,6 +381,7 @@ class ChatViewModel @Inject constructor(
                         title = (header as? ClientResult.Ready)?.value?.title?.takeIf { title -> title.isNotBlank() }?.let { title ->
                             UiText.Data(title)
                         } ?: it.title,
+                        titleAi = (header as? ClientResult.Ready)?.value?.ai == true,
                         headerProblem = when (header) {
                             is ClientResult.Ready -> null
                             is ClientResult.Failed, is ClientResult.Unavailable -> uiText(R.string.ui_conversation_details_unavailable)
@@ -960,12 +961,12 @@ class ChatViewModel @Inject constructor(
         val content = when {
             row.deleted -> uiText(R.string.ui_message_deleted)
             row.placeholder -> uiText(R.string.ui_message_placeholder)
-            row.service && row.text == null -> uiText(R.string.ui_service_message)
+            row.service && row.text == null -> uiText(serviceLine(row.serviceAction))
             else -> row.text?.let { UiText.Data(it) } ?: uiText(R.string.ui_message_content_is_unavailable)
         }
         return MessageItem(
             row.id,
-            if (row.deleted) "" else row.sender ?: "",
+            if (row.deleted) "" else row.senderName ?: row.sender ?: "",
             row.own,
             row.deleted,
             content,
@@ -977,7 +978,8 @@ class ChatViewModel @Inject constructor(
             row.service,
             receiptLabel(row.receipts),
             row.reactions.map { ReactionCount(it.token, it.count) }.toPersistentList(),
-            attachments = if (row.deleted) persistentListOf() else row.attachments.map { attachmentItem(it, row.own) }.toPersistentList()
+            attachments = if (row.deleted) persistentListOf() else row.attachments.map { attachmentItem(it, row.own) }.toPersistentList(),
+            senderAi = row.senderAi
         )
     }
 
@@ -1716,4 +1718,15 @@ private fun UnavailableReason.description(): UiText = when (this) {
     UnavailableReason.FEATURE_NOT_INSTALLED -> uiText(R.string.ui_the_feature_is_not_installed)
     UnavailableReason.UNSUPPORTED_BY_CORE -> uiText(R.string.ui_the_sdk_operation_is_not_available_in_this)
     UnavailableReason.CUSTODY_PROVIDER_REQUIRED -> uiText(R.string.ui_secure_account_access_is_required_on_this_device)
+}
+
+/** The wording of a group service row from its action; the row itself carries no text. */
+private fun serviceLine(action: String?): Int = when (action) {
+    "member_added" -> R.string.chat_service_member_added
+    "member_removed" -> R.string.chat_service_member_removed
+    "name_changed" -> R.string.chat_service_name_changed
+    "key_changed" -> R.string.chat_service_key_changed
+    "pin_added" -> R.string.chat_service_pin_added
+    "pin_removed" -> R.string.chat_service_pin_removed
+    else -> R.string.ui_service_message
 }

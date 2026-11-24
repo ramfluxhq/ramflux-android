@@ -38,6 +38,7 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
     private val mutations = linkedMapOf<String, Attempt<Unit>>()
     private val devices = DefaultDeviceDirectoryRepository(transport)
     private val readers = HashMap<String, String>()
+    private val directory = PeerDirectory(DefaultContactDirectoryRepository(transport))
 
     override fun repositoryTransport(): RepositoryTransport = transport
 
@@ -89,7 +90,10 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
                 if (page.rows.any { it.conversationId != conversation }) {
                     invalid()
                 } else {
-                    ClientResult.Ready(TimelinePage(page.rows.asReversed().map { summary(it) }, page.nextBefore))
+                    // Authors of other people's messages are named from the contact list (one read per page).
+                    val roots = page.rows.mapNotNullTo(HashSet()) { (it as? MessageHistoryEntry)?.takeIf { row -> !row.own }?.senderRoot }
+                    val peers = directory.peers(account, roots)
+                    ClientResult.Ready(TimelinePage(page.rows.asReversed().map { summary(it, peers) }, page.nextBefore))
                 }
             }
         }
@@ -102,8 +106,8 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
             is ClientResult.Failed -> return device
             is ClientResult.Unavailable -> return device
         }
-        // Local projection only: the peer-visible receipt also needs the delivery id of the incoming
-        // envelope (`target_delivery_id`), which the read model does not carry.
+        // The SDK derives the sender's device and delivery route from the stored message and sends the peer-visible
+        // read receipt (CHAT-ACTIONS-01); the body names only the conversation, the message and this reader.
         val body = SecretBody.fields {
             publicText("conversation_id", conversation)
             publicText("message_id", message)
@@ -133,14 +137,18 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
         }
     }
 
-    private fun summary(row: org.ramflux.sdk.TimelineMetadata): TimelineSummary = when (row) {
-        is MessageHistoryEntry -> MessageSummary(
-            row.id, row.sender, row.own, row.deleted, row.text, row.createdAt, row.revision, row.edited,
-            row.reactions.map { MessageReaction(it.token, it.count) },
-            row.receipts.map { MessageReceipt(it.deviceId, it.state) },
-            row.replyPreview, row.placeholder, row.service,
-            if (row.deleted) emptyList() else row.attachments.map { attachment(row, it) },
-        )
+    private fun summary(row: org.ramflux.sdk.TimelineMetadata, peers: Map<String, Peer> = emptyMap()): TimelineSummary = when (row) {
+        is MessageHistoryEntry -> {
+            val author = row.senderRoot?.takeIf { !row.own }?.let { peers[it] }
+            MessageSummary(
+                row.id, row.sender, row.own, row.deleted, row.text, row.createdAt, row.revision, row.edited,
+                row.reactions.map { MessageReaction(it.token, it.count) },
+                row.receipts.map { MessageReceipt(it.deviceId, it.state) },
+                row.replyPreview, row.placeholder, row.service,
+                if (row.deleted) emptyList() else row.attachments.map { attachment(row, it) },
+                senderName = author?.name, senderAi = author?.ai == true, serviceAction = row.serviceAction,
+            )
+        }
         is CallHistoryEntry -> CallSummary(row.id, row.createdAt)
     }
 
@@ -167,7 +175,10 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
             }
             page.rows.firstOrNull { it.id == conversation && !it.hidden }?.let {
                 val unread = it.unread.coerceAtMost(Long.MAX_VALUE.toULong()).toLong()
-                return ClientResult.Ready(ConversationHeader(it.title, unread = unread, peer = it.peer, muted = it.muted))
+                val known = it.peer?.let { peer -> directory.peers(account, setOf(peer))[peer] }
+                return ClientResult.Ready(
+                    ConversationHeader(it.title ?: it.peerName ?: known?.name, unread = unread, peer = it.peer, muted = it.muted, ai = known?.ai == true)
+                )
             }
             val next = page.nextCursor ?: return ClientResult.Ready(ConversationHeader(null))
             if (next.length > 8192 || !seen.add(next)) return invalid()

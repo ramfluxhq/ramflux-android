@@ -226,15 +226,12 @@ class GroupsViewModelTest {
         assertEquals(GroupsPage.MEMBERS, vm.state.value.page)
     }
 
-    @Test fun transferAndLeaveExplainWhyTheyAreUnavailableWithoutAnyChange() = runTest(timeout = 5.seconds) {
+    @Test fun transferExplainsWhyItIsUnavailableWithoutAnyChange() = runTest(timeout = 5.seconds) {
         val repo = FakeGroups()
         val vm = load(repo)
         vm.onAction(GroupsAction.Page(GroupsPage.DETAIL, "g"))
         runCurrent()
         vm.onAction(GroupsAction.Unavailable(GroupControl.TRANSFER))
-        runCurrent()
-        assertNotNull(vm.state.value.notice)
-        vm.onAction(GroupsAction.Unavailable(GroupControl.LEAVE))
         runCurrent()
         assertNotNull(vm.state.value.notice)
         assertNull(vm.state.value.confirmation)

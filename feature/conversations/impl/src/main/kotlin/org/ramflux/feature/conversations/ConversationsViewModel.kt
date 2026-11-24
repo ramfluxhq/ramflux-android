@@ -249,7 +249,8 @@ class ConversationsViewModel @Inject constructor(
             muted = row.muted,
             group = row.group,
             groupId = row.groupId,
-            identifier = row.titleIsIdentifier
+            identifier = row.titleIsIdentifier,
+            ai = row.ai
         )
     }.toPersistentList()
 

@@ -21,6 +21,7 @@ sealed interface GroupsAction {
     data class Add(val id: String) : GroupsAction
     data class Role(val id: String, val admin: Boolean) : GroupsAction
     data class Remove(val id: String) : GroupsAction
+    data object Leave : GroupsAction
     data class Invitation(val accept: Boolean) : GroupsAction
     data object OpenChat : GroupsAction
     data class Unavailable(val control: GroupControl) : GroupsAction

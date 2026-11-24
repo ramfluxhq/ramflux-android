@@ -303,4 +303,16 @@
     <string name="chat_media_unsent">未发送</string>
     <!-- A send the SDK refused because the contact's home node is not known yet (no contact card imported); the entry keeps a Retry. -->
     <string name="chat_send_needs_card">未发送。与此联系人交换联系人名片后才能发送媒体。</string>
+    <!-- Centred service line in a group chat: member added. -->
+    <string name="chat_service_member_added">已添加成员</string>
+    <!-- Centred service line in a group chat: member removed. -->
+    <string name="chat_service_member_removed">已移除成员</string>
+    <!-- Centred service line in a group chat: name changed. -->
+    <string name="chat_service_name_changed">群组名称已更改</string>
+    <!-- Centred service line in a group chat: key changed. -->
+    <string name="chat_service_key_changed">成员的安全密钥已更改</string>
+    <!-- Centred service line in a group chat: pin added. -->
+    <string name="chat_service_pin_added">已置顶一条消息</string>
+    <!-- Centred service line in a group chat: pin removed. -->
+    <string name="chat_service_pin_removed">已取消置顶一条消息</string>
 </resources>

@@ -20,7 +20,9 @@ import org.ramflux.designsystem.UiText
     val group: Boolean = false,
     val groupId: String? = null,
     /** [title] is a short identifier (no contact name is known); shown left-to-right isolated. */
-    val identifier: Boolean = false
+    val identifier: Boolean = false,
+    /** The direct peer is an SDK-verified AI agent: shown with the AI marker, otherwise like a person. */
+    val ai: Boolean = false
 ) {
     /** The title as drawn: identifiers through the left-to-right identifier primitive. */
     val shownTitle: String get() = if (identifier) Bidi.ltr(title) else title

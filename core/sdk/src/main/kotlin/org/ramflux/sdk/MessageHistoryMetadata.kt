@@ -29,6 +29,10 @@ data class MessageHistoryEntry(
     val placeholder: Boolean = false,
     val service: Boolean = false,
     val attachments: List<TimelineAttachment> = emptyList(),
+    /** The author's account anchor (root commitment), for naming the author of a group message. */
+    val senderRoot: String? = null,
+    /** A service row's action without its `SERVICE_` prefix, lower case (`member_added`, ...); null otherwise. */
+    val serviceAction: String? = null,
 ) : TimelineMetadata {
     override fun toString() = "MessageHistoryEntry(<redacted>)"
 }
@@ -182,13 +186,16 @@ object MessageHistoryMetadataReader {
             }
         }
         val shown = resolved?.takeUnless { it.toByteArray(Charsets.UTF_8).size > 65536 }
-        val usable = shown != null
+        val action = if (kind == "service") serviceAction(fields, row) else null
+        // A service row needs no text: the client words it from its action (member added, name changed, ...).
+        val usable = shown != null || action != null
         return MessageHistoryEntry(
             id, conversation, if (usable) sender(fields, row) else null, own, deleted = false,
             shown, createdAt, revision, edited,
             reactions(fields, row), if (own) receipts(fields, row) else emptyList(),
             replyTo = replyTo(fields, row), placeholder = !usable, service = kind == "service",
-            attachments = attachments(fields, row),
+            attachments = attachments(fields, row), senderRoot = if (usable) senderRoot(fields, row) else null,
+            serviceAction = action,
         )
     }
 
@@ -307,6 +314,29 @@ object MessageHistoryMetadataReader {
 
     private fun placeholder(id: String, conversation: String, own: Boolean, createdAt: Long?, service: Boolean) =
         MessageHistoryEntry(id, conversation, null, own, false, null, createdAt, placeholder = true, service = service)
+
+    private fun senderRoot(fields: DisplayFields, row: ByteJson.Node): String? {
+        val author = fields.field(row, "author")?.takeIf { it.kind == 123 } ?: return null
+        return fields.text(author, "account_anchor")?.takeIf { it.length in 1..128 }
+    }
+
+    /** `content.service.action` as the SDK serializes the enum: its name, or its number. Unknown actions read `other`. */
+    private fun serviceAction(fields: DisplayFields, row: ByteJson.Node): String? = try {
+        val service = fields.field(row, "content")?.takeIf { it.kind == 123 }?.let { fields.field(it, "service") }?.takeIf { it.kind == 123 }
+        val node = service?.let { fields.field(it, "action") }
+        val name = when (node?.kind) {
+            34 -> fields.text(service, "action")?.removePrefix("SERVICE_")?.lowercase()
+            110, null -> null
+            else -> SERVICE_ACTIONS[fields.optionalUnsigned(service, "action")?.toInt()]
+        }
+        name?.takeIf { it in SERVICE_ACTIONS.values } ?: if (service != null) "other" else null
+    } catch (_: Exception) {
+        "other"
+    }
+
+    private val SERVICE_ACTIONS = mapOf(
+        1 to "member_added", 2 to "member_removed", 3 to "name_changed", 5 to "key_changed", 6 to "pin_added", 7 to "pin_removed"
+    )
 
     private fun sender(fields: DisplayFields, row: ByteJson.Node): String? {
         val author = fields.field(row, "author")?.takeIf { it.kind == 123 } ?: return null

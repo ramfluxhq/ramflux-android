@@ -202,7 +202,7 @@ class GroupDirectoryDataTest {
 
     @Test fun groupUpdatesUseSpecificJournalTopics() {
         assertFalse("*" in GROUP_TOPICS)
-        assertEquals(listOf("group.changed", "conversation.changed"), GROUP_TOPICS)
+        assertEquals(listOf("group.changed", "group.invitation", "conversation.changed"), GROUP_TOPICS)
     }
 
     @Test fun unpagedGroupListsAreServedAsWindowPagesFromOneSnapshot() = runTest(timeout = 20.seconds) {

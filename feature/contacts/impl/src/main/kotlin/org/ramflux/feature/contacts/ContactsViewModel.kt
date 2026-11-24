@@ -519,14 +519,16 @@ private fun ContactSummary.person(blocked: Boolean) = PersonItem(
     false,
     root = root,
     blocked = blocked,
-    verified = verified
+    verified = verified,
+    ai = ai
 )
 
 private fun ContactRequestSummary.person() = PersonItem(
     id, principal, name?.takeIf { it.isNotBlank() } ?: principal, status.message(), true,
     direction == RequestDirection.INBOUND, note,
     UiText.Quantity(R.plurals.contacts_messages, messageCount), UiText.DateTime(expiresAt),
-    root = root
+    root = root,
+    ai = ai
 )
 
 private fun ClientProblem.message() = uiText(R.string.contacts_read_failed, UiText.Number(code.toLong()))

@@ -326,9 +326,10 @@ private fun LazyListScope.detail(state: GroupsState, onAction: (GroupsAction) ->
             )
             KitRow(
                 stringResource(R.string.groups_leave),
-                { onAction(GroupsAction.Unavailable(GroupControl.LEAVE)) },
+                { onAction(GroupsAction.Leave) },
                 icon = "user-minus",
-                value = stringResource(R.string.groups_not_on_phone),
+                value = if (state.loaded && !state.canLeave) stringResource(R.string.groups_leave_owner) else null,
+                enabled = state.canLeave && state.authorityFresh && !state.busy && state.pending == null,
                 testTag = "groups-leave"
             )
         }
@@ -376,7 +377,7 @@ private fun LazyListScope.members(state: GroupsState, onAction: (GroupsAction) -
     }
     before(state, GroupList.MEMBERS, state.members.firstOrNull()?.id, onAction)
     items(state.members, key = { "member:" + it.id }, contentType = { "member" }) { member ->
-        val name = member.principal.ifEmpty { member.device }
+        val name = member.label
         val role = member.role.render()
         KitRow(
             name,
@@ -384,7 +385,8 @@ private fun LazyListScope.members(state: GroupsState, onAction: (GroupsAction) -
             value = if (member.active) role else stringResource(R.string.groups_role_inactive, role),
             leading = { KitAvatar(name.take(1), AVATAR, KitAvatarKind.Person) },
             peer = true,
-            testTag = "member:" + member.id
+            testTag = "member:" + member.id,
+            ai = member.ai
         )
     }
     after(state, GroupList.MEMBERS, state.members.lastOrNull()?.id, onAction)
@@ -394,12 +396,16 @@ private fun LazyListScope.members(state: GroupsState, onAction: (GroupsAction) -
 private fun LazyListScope.member(member: MemberRow, state: GroupsState, onAction: (GroupsAction) -> Unit) {
     item("member", contentType = "identity") {
         val theme = LocalRFTheme.current
-        val name = member.principal.ifEmpty { member.device }
+        val name = member.label
         Column(Modifier.padding(horizontal = theme.gap.dp), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 KitAvatar(name.take(1), PROFILE_AVATAR, KitAvatarKind.Person)
                 Column(Modifier.padding(start = theme.gap.dp).weight(1f)) {
-                    UntrustedText(name, style = MaterialTheme.typography.titleLarge)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(theme.gap.dp / 2)) {
+                        UntrustedText(name, style = MaterialTheme.typography.titleLarge)
+                        if (member.ai) KitAiMarker()
+                    }
+                    if (member.name != null && member.principal.isNotEmpty()) LtrCode(member.principal)
                     Text(member.role.render(), color = theme.secondary, modifier = Modifier.testTag("member-role"))
                     if (!member.active) Text(stringResource(R.string.groups_inactive), color = theme.secondary)
                 }
@@ -504,13 +510,15 @@ private fun LazyListScope.invitation(invitation: InviteRow, state: GroupsState, 
                     { onAction(GroupsAction.Invitation(false)) },
                     Modifier.weight(1f),
                     KitButtonKind.Secondary,
-                    enabled = !state.busy && state.pending == null
+                    enabled = !state.busy && state.pending == null,
+                    tag = "groups-invitation-decline"
                 )
                 KitButton(
                     stringResource(R.string.groups_accept),
                     { onAction(GroupsAction.Invitation(true)) },
                     Modifier.weight(1f),
-                    enabled = !state.busy && state.pending == null
+                    enabled = !state.busy && state.pending == null,
+                    tag = "groups-invitation-accept"
                 )
             }
         }

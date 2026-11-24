@@ -249,7 +249,8 @@ private fun LazyListScope.list(state: ContactsState, onAction: (ContactsAction) 
             value = row.status.render(),
             leading = { KitAvatar(row.label.take(1), AVATAR, KitAvatarKind.Person) },
             peer = true,
-            testTag = row.id
+            testTag = row.id,
+            ai = row.ai
         )
     }
     if (state.hasMore) {
@@ -277,7 +278,10 @@ private fun LazyListScope.identity(row: PersonItem) {
         ) {
             KitAvatar(row.label.take(1), PROFILE_AVATAR, KitAvatarKind.Person)
             Column(Modifier.padding(start = theme.gap.dp).weight(1f)) {
-                UntrustedText(row.label, kind = UntrustedKind.Name, modifier = Modifier.testTag(row.id))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(theme.gap.dp / 2)) {
+                    UntrustedText(row.label, kind = UntrustedKind.Name, modifier = Modifier.testTag(row.id))
+                    if (row.ai) KitAiMarker()
+                }
                 Text(row.status.render(), color = theme.secondary)
             }
         }

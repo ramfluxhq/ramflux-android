@@ -200,7 +200,8 @@ private fun ChatHeader(state: ChatState, rooted: Boolean, onAction: (ChatAction)
         backLabel = stringResource(R.string.ui_back),
         callLabel = stringResource(R.string.chat_call),
         moreLabel = stringResource(R.string.chat_conversation_menu),
-        tag = "chat-header"
+        tag = "chat-header",
+        ai = state.titleAi && !group
     )
 }
 
@@ -356,7 +357,14 @@ private fun TimelineList(
                         KitMeta(stringResource(R.string.ui_call_record_unavailable), centered = true)
                         stamps.time(row.sentAt)?.let { KitMeta(it, centered = true) }
                     }
-                    is MessageItem -> Message(row, state, stamps, cap, padded, actionsLabel, anchors, onAction)
+                    // Group service rows (member added, name changed, ...) are centred lines, never a bubble.
+                    is MessageItem -> if (row.service && !row.deleted) {
+                        Column(padded.testTag("service-" + row.id), horizontalAlignment = Alignment.CenterHorizontally) {
+                            KitMeta(row.content.render(), centered = true)
+                        }
+                    } else {
+                        Message(row, state, stamps, cap, padded, actionsLabel, anchors, onAction)
+                    }
                     is CardItem -> CardView(row, cap, padded, onAction)
                 }
             }
@@ -470,6 +478,7 @@ private fun Bubble(row: MessageItem, own: Boolean, group: Boolean, stamps: Stamp
         time = status,
         edited = if (row.edited) stringResource(R.string.ui_edited) else null,
         sender = if (group && !own) row.sender else null,
+        agentTag = if (group && !own && row.senderAi) stringResource(org.ramflux.core.designsystem.R.string.kit_ai_marker) else null,
         pending = row.delivery == LocalDelivery.QUEUED || row.delivery == LocalDelivery.SENDING,
         read = row.receipt == Receipt.READ,
         failed = row.delivery == LocalDelivery.FAILED,
