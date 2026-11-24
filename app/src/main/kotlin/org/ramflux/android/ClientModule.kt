@@ -13,9 +13,6 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.Multibinds
 import javax.inject.Singleton
 import org.ramflux.data.*
-import org.ramflux.sdk.CoreOpenConfig
-import org.ramflux.sdk.DiagnosticConfig
-import org.ramflux.sdk.UsernameDirectoryPin
 import org.ramflux.feature.onboarding.ConfirmTrace
 
 /** Declares the store set so the app builds even when no feature contributes a store. */
@@ -29,8 +26,12 @@ interface AccountStoreBindings {
 @InstallIn(SingletonComponent::class)
 object ClientModule {
     @Provides @Singleton
-    fun data(@ApplicationContext context: Context) =
-        AndroidClientData(context, BuildConfig.MESSAGE_DESCRIPTOR, appLanguages(context.resources, R.xml._generated_res_locale_config), openConfig())
+    fun data(@ApplicationContext context: Context) = AndroidClientData(
+        context,
+        BuildConfig.MESSAGE_DESCRIPTOR,
+        appLanguages(context.resources, R.xml._generated_res_locale_config),
+        openConfig()
+    )
 
     /**
      * The open-config fields the host provisions: the username directory pin (build properties; absent leaves
@@ -38,15 +39,20 @@ object ClientModule {
      * itself so the SDK may keep free text; the SDK lowers both unless the library carries its real-run feature.
      * Release builds keep the SDK defaults (`info`, `release`).
      */
-    internal fun openConfig(): CoreOpenConfig = CoreOpenConfig(
+    internal fun openConfig(): ClientOpenConfig = ClientOpenConfig(
         usernameDirectory = BuildConfig.USERNAME_DIRECTORY_URL.takeIf { it.isNotEmpty() }?.let {
-            UsernameDirectoryPin(it, BuildConfig.USERNAME_DIRECTORY_ID, BuildConfig.USERNAME_DIRECTORY_KEY, BuildConfig.USERNAME_DIRECTORY_GENERATION)
+            ClientDirectoryPin(
+                it,
+                BuildConfig.USERNAME_DIRECTORY_ID,
+                BuildConfig.USERNAME_DIRECTORY_KEY,
+                BuildConfig.USERNAME_DIRECTORY_GENERATION
+            )
         },
         diagnostics = when (BuildConfig.BUILD_TYPE) {
-            "realrun" -> DiagnosticConfig(level = "debug", buildClass = "realrun")
-            "debug" -> DiagnosticConfig(level = "debug", buildClass = "beta")
+            "realrun" -> ClientDiagnostics(level = "debug", buildClass = "realrun")
+            "debug" -> ClientDiagnostics(level = "debug", buildClass = "beta")
             else -> null
-        },
+        }
     )
 
     @Provides fun session(data: AndroidClientData): ClientSessionRepository = data.session
