@@ -155,6 +155,23 @@ class MessageNotificationsTest {
         assertTrue("no reads or posts with the session closed", rig.notifier.posted.isEmpty())
     }
 
+    @Test fun aSuspendedClientStopsTheDriverAndTheResumeSubscribesAgainWithANewBaseline() = runTest(StandardTestDispatcher(), timeout = 5.seconds) {
+        val rig = Rig(this)
+        rig.foreground = true
+        rig.directory.rows["a"] = listOf(row("c", 1u))
+        runCurrent()
+        assertEquals(listOf("a"), rig.directory.subscribed)
+        rig.session.status.value = ClientSnapshot(ClientPhase.OPEN, 1, suspended = true)
+        runCurrent()
+        rig.session.status.value = ClientSnapshot(ClientPhase.OPEN, 1, suspended = false)
+        runCurrent()
+        assertEquals("a resumed client is subscribed again", listOf("a", "a"), rig.directory.subscribed)
+        rig.directory.rows["a"] = listOf(row("c", 2u))
+        rig.change()
+        runCurrent()
+        assertTrue("an app in front never posts to the system", rig.notifier.posted.isEmpty())
+    }
+
     @Test fun aTappedNotificationOfAnotherAccountOrAForgedTokenOpensNothing() = runTest(timeout = 5.seconds) {
         val accounts = Accounts()
         val routes = NotificationRoutes(accounts)

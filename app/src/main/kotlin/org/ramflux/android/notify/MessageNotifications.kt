@@ -9,6 +9,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -25,6 +26,7 @@ import org.ramflux.data.ClientResult
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.ConversationDirectoryRepository
 import org.ramflux.data.ConversationSummary
+import org.ramflux.data.clientDebugEvent
 
 /** Posts the generic message notification. Implementations never ask for the notification permission. */
 interface MessageNotifier {
@@ -120,12 +122,20 @@ class MessageNotificationDriver(
 ) {
     @OptIn(ExperimentalCoroutinesApi::class)
     fun start(scope: CoroutineScope): Job = scope.launch {
-        session.status.map { it.phase == ClientPhase.OPEN }.distinctUntilChanged().flatMapLatest { open ->
-            if (!open) flowOf(null) else merge(flowOf(Unit), accounts.revisions.map { }).map { activeAccount() }
+        // Live means open and not suspended: a suspended client has no event stream, and a resumed one needs a new
+        // subscription (a stream ended by the hub or by the closing client never comes back by itself).
+        session.status.map { it.phase == ClientPhase.OPEN && !it.suspended }.distinctUntilChanged().flatMapLatest { live ->
+            if (!live) flowOf(null) else merge(flowOf(Unit), accounts.revisions.map { }).map { activeAccount() }
         }.distinctUntilChanged().collectLatest { account ->
             if (account == null) return@collectLatest
+            clientDebugEvent("notify.driver.watch")
             val baseline = UnreadBaseline()
-            merge(flowOf(Unit), conversations.changes(account).map { }).conflate().collect { read(account, baseline) }
+            while (true) {
+                merge(flowOf(Unit), conversations.changes(account).map { }).conflate().collect { read(account, baseline) }
+                // The stream ended while the session is still live: subscribe again after a short pause.
+                clientDebugEvent("notify.driver.resubscribe")
+                delay(RESUBSCRIBE_MS)
+            }
         }
     }
 
@@ -135,10 +145,16 @@ class MessageNotificationDriver(
     }
 
     private suspend fun read(account: String, baseline: UnreadBaseline) {
-        val page = (conversations.page(account, null) as? ClientResult.Ready)?.value ?: return
+        val page = (conversations.page(account, null) as? ClientResult.Ready)?.value
+        if (page == null) {
+            clientDebugEvent("notify.driver.page_failed")
+            return
+        }
         val grown = baseline.next(page.rows)
         if (grown.isEmpty()) return
-        if (foreground()) {
+        val front = foreground()
+        clientDebugEvent("notify.driver.grown:" + grown.size + (if (front) ".front" else ".back"))
+        if (front) {
             // In front: an in-app banner, never a system notification.
             banners?.let { sink -> grown.forEach { id -> page.rows.firstOrNull { it.id == id }?.let { sink.announce(account, it) } } }
             return
@@ -146,5 +162,9 @@ class MessageNotificationDriver(
         if (!notifier.allowed()) return
         val groups = page.rows.associate { it.id to it.groupId }
         for (conversation in grown) notifier.post(routes.issue(NotificationTarget(account, conversation, groups[conversation])))
+    }
+
+    private companion object {
+        const val RESUBSCRIBE_MS = 2_000L
     }
 }
