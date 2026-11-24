@@ -133,7 +133,7 @@ class ContactsViewModel @Inject constructor(
                 request?.cancel()
                 ticket++
                 local.update { it.copy(page = action.page, unavailable = null, problem = null, loading = false, safety = null) }
-                if (action.page == ContactsPage.SAFETY) readSafety()
+                if (action.page == ContactsPage.SAFETY) readSafety("open")
             }
             is ContactsAction.Operate -> preflight(action.operation)
             ContactsAction.Message -> message()
@@ -313,9 +313,19 @@ class ContactsViewModel @Inject constructor(
                     ContactChange.REQUESTS -> state.tab != ContactsTab.BLOCKED
                     ContactChange.SAFETY -> state.page == ContactsPage.SAFETY || state.tab == ContactsTab.CONTACTS
                 }
+                val safetyRead = state.page == ContactsPage.SAFETY &&
+                    (change == ContactChange.SAFETY || change == ContactChange.RELOAD)
+                if (affects && safetyRead) {
+                    val busy = request?.isActive == true
+                    val approving = state.approval != null
+                    clientDebugEvent(
+                        "contacts.safety.event:" + change.name + (if (busy || approving) ".ignored" else ".read") +
+                            ".request:" + busy + ".approval:" + approving
+                    )
+                }
                 if (!affects || request?.isActive == true || state.approval != null) return@collect
                 when {
-                    state.page == ContactsPage.SAFETY && (change == ContactChange.SAFETY || change == ContactChange.RELOAD) -> readSafety()
+                    safetyRead -> readSafety("event")
                     state.page == ContactsPage.LIST -> read()
                 }
             }
@@ -328,7 +338,8 @@ class ContactsViewModel @Inject constructor(
         watchedAccount = null
     }
 
-    private fun readSafety() {
+    /** [source] names what asked for the read (open, reread after verify, or event); it is traced, never shown. */
+    private fun readSafety(source: String) {
         val row = local.value.selected ?: return
         val root = row.root
         if (root == null) {
@@ -345,6 +356,13 @@ class ContactsViewModel @Inject constructor(
                 val result = directory.safety(owner, root)
                 current(expected, generation)
                 if (account(expected, generation, owner) == null) return@launch
+                clientDebugEvent(
+                    "contacts.safety.read:" + source + "." + when (result) {
+                        is ClientResult.Ready -> "state:" + result.value.state.name + ".verifiable:" + result.value.verifiable
+                        is ClientResult.Failed -> "failed:" + (result.problem.statusName ?: result.problem.code)
+                        is ClientResult.Unavailable -> "unavailable:" + result.reason.name
+                    }
+                )
                 when (result) {
                     is ClientResult.Ready -> local.update {
                         it.copy(
@@ -446,6 +464,15 @@ class ContactsViewModel @Inject constructor(
                     val result = directory.submit(command, confirmed = true)
                     current(expected, generation)
                     if (account(expected, generation, command.account) == null) return@launch
+                    clientDebugEvent(
+                        "contacts.submit:" + command.operation.name + "." + when (result) {
+                            is ClientResult.Ready -> "ok"
+                            is ClientResult.Failed ->
+                                "failed:" + (result.problem.statusName ?: result.problem.code) + ".outcome:" + result.problem.outcome.name +
+                                    (result.problem.reason?.let { ".reason:" + it.name } ?: "")
+                            is ClientResult.Unavailable -> "unavailable:" + result.reason.name
+                        }
+                    )
                     when (result) {
                         is ClientResult.Ready -> {
                             window.remove(command.target)
@@ -477,7 +504,7 @@ class ContactsViewModel @Inject constructor(
             if (!done) return@launch
             val operation = prepared.first().operation
             if (operation == ContactOperation.VERIFY) {
-                readSafety()
+                readSafety("reread")
             } else if (operation != ContactOperation.ADD) {
                 // The acted-on row left this list; show the list without it and reload the window.
                 local.update {
@@ -531,7 +558,7 @@ private fun ContactRequestSummary.person() = PersonItem(
     ai = ai
 )
 
-private fun ClientProblem.message() = uiText(R.string.contacts_read_failed, UiText.Number(code.toLong()))
+private fun ClientProblem.message() = failureText(R.string.contacts_read_failed, code, statusName, check)
 private fun UnavailableReason.message() = uiText(
     when (this) {
         UnavailableReason.FEATURE_NOT_INSTALLED -> R.string.contacts_action_unavailable

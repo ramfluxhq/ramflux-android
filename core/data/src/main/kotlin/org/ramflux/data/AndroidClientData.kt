@@ -9,8 +9,8 @@ import android.content.Context
  * One composition-root instance owns the one native writer and the app preference store. [languages] are
  * the host languages the app offers (see [appLanguages]).
  */
-class AndroidClientData(context: Context, expectedDescriptor: String, languages: List<AppLanguage>) {
-    private val driver = AndroidClientLifecycleDriver(context.applicationContext, expectedDescriptor)
+class AndroidClientData(context: Context, expectedDescriptor: String, languages: List<AppLanguage>, openConfig: ClientOpenConfig = ClientOpenConfig()) {
+    private val driver = AndroidClientLifecycleDriver(context.applicationContext, expectedDescriptor, openConfig.toCore())
 
     /** Account-scoped host stores (drafts, media) register here; see [AccountScopedStores]. */
     val accountStores = AccountScopedStores()

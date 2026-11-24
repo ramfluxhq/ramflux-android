@@ -22,7 +22,7 @@ or test the app.
 
 | File | Content |
 |---|---|
-| `node-facts.json` | `discovery_origin`, `gateway_tcp_addr`, `relay_quic_addr`, `node_id`, `node_public_key`, `node_key_fingerprint` |
+| `node-facts.json` | `discovery_origin`, `gateway_tcp_addr`, `relay_quic_addr`, `node_id`, `node_public_key`, `node_key_fingerprint`; optional `username_directory` (`url`, `id`, `public_key`, `generation`), the independently provisioned trust pin of the username directory, applied at build time |
 | `peers.json` | `peers`: a list of objects with `name` (`alice`, `bob`), `account_id`, `principal_id`, `principal_commitment` and `daemon_socket` |
 | `status.sh` | exits 0 when the node is healthy |
 | `peers.sh status` | prints `alice: running` and `bob: running` when both daemons are up |
@@ -111,6 +111,12 @@ appears (with retries); replacing an installed package shows no prompt.
   `ramflux.abi` and to `no_backup/debug-trace.log` in the app's storage. Some phones keep none of an app's own log
   lines, so after each invocation the script copies that file with `run-as` to `app-trace.txt`; `app-logcat.txt`
   keeps the app's logcat lines and the suite's flow markers.
+- **SDK log.** The SDK writes a bounded, rotated NDJSON log (`diag/`) below its data root, `no_backup/ramflux` in the app's
+  storage; the realrun build asks for level `debug` through the open config. After each invocation the script copies
+  `diag/` with `run-as tar` into `sdk-diag/<time>-<tests>/diag/` of the output folder (one copy per invocation, because
+  a fresh install starts a new log) and prints the file count and size, or a warning when nothing could be pulled. The SDK
+  lowers `debug` and free text to `info` unless the core library carries its real-run feature, so the level actually
+  written is in each file's header. Scan the copy for secret canaries before sharing it.
 - **Peer control** `scripts/realrun/peer_control.py` on a loopback port of the machine running the script: allow-listed `rf`
   commands for alice and bob, results, screenshots. `scripts/realrun/flow_table.py` writes
   `flow-table.md` (PASS / FAIL / BLOCKED / NOT RUN).
@@ -145,14 +151,15 @@ without a prompt, contacts, the conversation list, direct chat, background and r
 and draft kept), media (including a group image), groups, settings, backup, the honest states of the app when the
 node or a peer is unavailable, the group invitation list, signing out and back in, removing the account from the
 phone (`f15` erases the account: run it last), a read receipt seen by the peer (`f16`), an invitation from a
-non-contact accepted and the group left (`f17`), and usernames (`f18`: BLOCKED with the directory's refusal on a
-node without a username directory).
+non-contact accepted and the group left (`f17`), and usernames (`f18`: BLOCKED with the directory's refusal when the build has no username directory pin, that is when
+`node-facts.json` has no `username_directory`).
 Restore is not run: it needs the archive passphrase to reach another install. Each flow ends PASS, FAIL, BLOCKED
 (a precondition such as the QUIC relay is missing) or NOT RUN in `flow-table.md`, which covers every invocation in
 the output folder. The table and the instrumentation agree: a FAIL fails its JUnit test (BLOCKED and NOT RUN are
 skipped tests), a flow left RUNNING by a dead process and a test the instrumentation failed are recorded as FAIL
-(`scripts/realrun/reconcile.py`), and each invocation exits non-zero when a flow it ran failed or the
-instrumentation failed. A failing flow leaves a screenshot and a UI dump (`dumps/`). It
+(`scripts/realrun/reconcile.py`), and each invocation exits non-zero when any row of the table is FAIL (also one left by an
+earlier invocation in the same folder, until that flow is run again), when the instrumentation failed or did not run to its
+end, and the table ends with an `Overall:` line (FAIL, PASS or INCOMPLETE). A failing flow leaves a screenshot and a UI dump (`dumps/`). It
 does not change the node, the phone's settings or its rotation, other apps, or the phone's photos, and it does
 not run in CI.
 

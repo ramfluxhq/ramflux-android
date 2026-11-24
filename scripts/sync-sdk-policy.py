@@ -4,6 +4,7 @@
 """Import an immutable SDK policy and generate transport/repository classifications."""
 import argparse
 import hashlib
+import re
 import json
 from pathlib import Path
 import subprocess
@@ -67,6 +68,29 @@ data class MethodPolicy(val secretInput: Boolean, val secretOutput: Boolean, val
 object SdkMethodPolicy {
     val methods: Map<String, MethodPolicy> = mapOf(
 ''' + rows + '\n    )\n}\n' + cas)
+# Status names and numbers come from the generated C header of the same revision.
+header = subprocess.check_output(['git', '-C', a.sdk, 'show', a.revision + ':crates/ramflux-sdk/include/ramflux_sdk.h'], text=True)
+status_rows = []
+for prefix in ('RAMFLUX_ERROR_CODE_', 'RAMFLUX_V2_STATUS_'):
+    status_rows += [(m.group(1), int(m.group(2))) for m in re.finditer(r'^\s*' + prefix + r'([A-Z0-9_]+) = (\d+),', header, re.M)]
+status_rows.sort(key=lambda r: r[1])
+assert len({c for _, c in status_rows}) == len(status_rows) and (0 in {c for _, c in status_rows})
+def pascal(n): return ''.join(w.capitalize() for w in n.split('_'))
+status_entries = ',\n'.join('    ' + n + '(' + str(c) + ', "' + pascal(n) + '")' for n, c in status_rows)
+(root / 'core/sdk/src/main/kotlin/org/ramflux/sdk/SdkStatus.kt').write_text(h + """package org.ramflux.sdk
+
+/**
+ * Stable ABI numbers with the typed name the SDK reports for each (C header `RamfluxErrorCode`
+ * and `RamfluxV2Status`). Unknown future values remain intact in [CoreError.Native].
+ */
+enum class SdkStatus(val code: Int, val wireName: String) {
+""" + status_entries + """;
+
+    companion object {
+        fun of(code: Int): SdkStatus? = entries.firstOrNull { it.code == code }
+    }
+}
+""")
 # All repository surfaces come from the same immutable method inventory.
 groups = {"Accounts": ["account", "identity"], "Nodes": ["node"], "Conversations": ["conversation", "message", "object", "stream"], "Contacts": ["contact"], "Groups": ["group"], "Agents": ["bot", "agent"], "Devices": ["device"], "Permissions": ["grant", "mcp"], "Tasks": ["task"], "Surfaces": ["surface", "a2i", "a2ui"], "Calls": ["call"], "Settings": ["sync"], "Attachments": ["attachment"], "Usernames": ["username"]}
 for name, prefixes in groups.items():

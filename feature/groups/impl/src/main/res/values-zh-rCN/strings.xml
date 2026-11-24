@@ -46,8 +46,8 @@
     <string name="groups_account_changed">当前账号已更改。请重新打开群组。</string>
     <string name="groups_unavailable">此操作需要额外已验证的上下文或 SDK 支持。未进行更改。</string>
     <string name="groups_invalid">返回了无效的群组元数据。</string>
-    <string name="groups_unknown">结果未知（代码 %1$s）。请保留原操作标识。</string>
-    <string name="groups_error_code">操作失败（代码 %1$s）。</string>
+    <string name="groups_unknown">结果未知（%1$s）。请保留原操作标识。</string>
+    <string name="groups_error_code">操作失败（%1$s）。</string>
     <string name="groups_waiting">正在等待群主；尚未应用。</string>
     <string name="groups_expired">群组请求已过期。</string>
     <string name="groups_acknowledged">SDK 已确认此更改。尚未确认成员设备收到更改。</string>

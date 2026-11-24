@@ -43,7 +43,7 @@
     <string name="contacts_closed">私密账号数据已关闭。</string>
     <string name="contacts_account_changed">当前账号已更改。请刷新联系人。</string>
     <string name="contacts_invalid">账号返回了无效的联系人记录。</string>
-    <string name="contacts_read_failed">读取失败（代码 %1$s）。</string>
+    <string name="contacts_read_failed">读取失败（%1$s）。</string>
     <string name="contacts_action_unavailable">所需的设备批准流程尚未安装。未进行任何更改。</string>
     <string name="contacts_custody_unavailable">此设备需要安全账号访问权限。</string>
     <string name="contacts_sdk_unavailable">已发布的 SDK 暂不支持此操作。</string>

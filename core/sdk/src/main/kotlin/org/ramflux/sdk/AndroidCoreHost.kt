@@ -25,19 +25,19 @@ sealed interface HostState {
  * file or network held, accounts stay unlocked in memory) and resumed on return without the account code; a new
  * process opens with the device-bound custody key, so it asks for no code either.
  */
-class AndroidCoreHost internal constructor(private val native: NativeCore, private val dataRoot: String, private val expectedDescriptorFingerprint: String) {
+class AndroidCoreHost internal constructor(private val native: NativeCore, private val dataRoot: String, private val expectedDescriptorFingerprint: String, private val openConfig: CoreOpenConfig = CoreOpenConfig()) {
     private val transitions = Mutex()
     private val mutableState = MutableStateFlow<HostState>(HostState.Stopped)
     val state: StateFlow<HostState> = mutableState.asStateFlow()
 
     companion object {
-        suspend fun create(context: android.content.Context, expectedDescriptorFingerprint: String): CoreResult<AndroidCoreHost> =
+        suspend fun create(context: android.content.Context, expectedDescriptorFingerprint: String, openConfig: CoreOpenConfig = CoreOpenConfig()): CoreResult<AndroidCoreHost> =
             withContext(kotlinx.coroutines.Dispatchers.IO) { when (val root = AndroidStorage.noBackupRoot(context)) {
                 is CoreResult.Failure -> root
                 is CoreResult.Success -> try {
                     val native = JniCore.load()
                     HostCustodyBridge.install(context.applicationContext)
-                    CoreResult.Success(AndroidCoreHost(native, root.value.absolutePath, expectedDescriptorFingerprint))
+                    CoreResult.Success(AndroidCoreHost(native, root.value.absolutePath, expectedDescriptorFingerprint, openConfig))
                 } catch (_: LinkageError) { CoreResult.Failure(CoreError.UnsupportedVersion(Effect.NONE)) }
             } }
     }
@@ -56,7 +56,7 @@ class AndroidCoreHost internal constructor(private val native: NativeCore, priva
                     is CoreResult.Failure -> resumed
                 }
             }
-            when (val result = CoreClient.open(native, dataRoot, expectedDescriptorFingerprint)) {
+            when (val result = CoreClient.open(native, dataRoot, expectedDescriptorFingerprint, openConfig = openConfig)) {
                 is CoreResult.Success -> {
                     mutableState.value = HostState.Running(result.value)
                     result

@@ -60,7 +60,7 @@ sealed interface CoreError {
         override val statusName: String? = null,
         override val reasonCode: String? = null,
     ) : CoreError {
-        val status: SdkStatus? get() = SdkStatus.entries.firstOrNull { it.code == code }
+        val status: SdkStatus? get() = SdkStatus.of(code)
     }
     data object MethodPolicyMismatch : CoreError {
         override val code = -4
@@ -74,22 +74,6 @@ sealed interface CoreError {
     data class InvalidResponse(override val effect: Effect = Effect.UNKNOWN) : CoreError { override val code = -2 }
 }
 
-
-/** Stable ABI numbers. Unknown future values remain intact in CoreError.Native. */
-enum class SdkStatus(val code: Int) {
-    OK(0), INVALID_ARGUMENT(1), INVALID_JSON(2), UNSUPPORTED_VERSION(3),
-    CAPABILITY_REJECTED(4), AUTH_FAILED(5), DEVICE_REVOKED(6), CRYPTO_FAILED(7),
-    STORAGE_FAILED(8), TRANSPORT_UNAVAILABLE(9), TIMEOUT(10), REPLAY_REJECTED(11),
-    PERMISSION_DENIED(12), MCP_GRANT_REJECTED(13), OBJECT_TRANSFER_FAILED(14),
-    RATE_LIMITED(15), INTERNAL(16), PANIC_ABORTED(17), ACCOUNT_BUSY(18),
-    OBJECT_ERASED(19), OBJECT_IDENTITY_CONFLICT(20), OBJECT_OWNERSHIP_UNVERIFIED(21),
-    CUSTODY_FORK_FENCED(22), SCHEMA_RESET_REQUIRED(23), PENDING(24), CANCELLED(25),
-    CLOSED(26), RESYNC_REQUIRED(27),
-    /** The client is suspended (background): a refused call had no effects, an admitted one reports unknown. */
-    SUSPENDED(30),
-    /** Host custody is locked (before the first device unlock after a restart); no client was opened. */
-    VAULT_LOCKED(31),
-}
 
 sealed interface CoreResult<out T> {
     class Success<T>(val value: T) : CoreResult<T> {

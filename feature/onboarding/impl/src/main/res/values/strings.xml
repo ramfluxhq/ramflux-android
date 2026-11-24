@@ -57,9 +57,7 @@
     <string name="ui_secure_setup_is_unavailable_no_phrase_or_account">Secure setup is unavailable. No phrase or account was created.</string>
     <string name="ui_set_up_a_connection">Set up a connection</string>
     <string name="ui_the_outcome_is_unknown_refresh_the_current_state">The outcome is unknown. Refresh the current state before starting another request.</string>
-    <string name="ui_the_request_did_not_complete_code_value_name">The request did not complete (code %1$s, %2$s). Refresh to try reading the current state.</string>
-    <string name="ui_the_request_did_not_complete_code_value_name_check">The request did not complete (code %1$s, %2$s, %3$s). Refresh to try reading the current state.</string>
-    <string name="ui_the_request_did_not_complete_code_value_refresh">The request did not complete (code %1$s). Refresh to try reading the current state.</string>
+    <string name="ui_the_request_did_not_complete_code_value_refresh">The request did not complete (%1$s). Refresh to try reading the current state.</string>
     <string name="ui_the_saved_node_key_changed_confirmation_is_blocked">The saved node key changed. Confirmation is blocked; contact your node operator.</string>
     <string name="ui_this_action_is_not_available_in_this_version">This action is not available in this version.</string>
     <string name="ui_this_node_cannot_be_selected_review_its_identity">This node cannot be selected. Review its identity and availability with your node operator.</string>

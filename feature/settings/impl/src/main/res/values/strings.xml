@@ -19,7 +19,7 @@
     <string name="settings_sdk_missing">This operation is not available in this version.</string>
     <string name="settings_custody_missing">Secure account access is required on this device.</string>
     <string name="settings_error">Unable to continue</string>
-    <string name="settings_read_failed">The request did not complete (code %1$s).</string>
+    <string name="settings_read_failed">The request did not complete (%1$s).</string>
     <string name="settings_unknown_outcome">The outcome is unknown. Refresh the current state before another request.</string>
     <string name="settings_account_changed">The active account changed. Refresh to read its current state.</string>
     <string name="settings_closed">Private data is closed. Account details are hidden.</string>

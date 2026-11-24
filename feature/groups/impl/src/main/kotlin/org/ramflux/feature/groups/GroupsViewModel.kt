@@ -702,10 +702,11 @@ private fun GroupsPage.parent(): GroupsPage? = when (this) {
 private fun ClientProblem.message() = when (reason) {
     ClientFailureReason.GROUP_CAPACITY -> uiText(R.string.groups_capacity)
     ClientFailureReason.GROUP_INVALID -> uiText(R.string.groups_invalid_request)
-    null -> uiText(
-        if (outcome == ClientOutcome.UNKNOWN) R.string.groups_unknown else R.string.groups_error_code,
-        UiText.Number(code.toLong())
-    )
+    null -> if (outcome == ClientOutcome.UNKNOWN) {
+        uiText(R.string.groups_unknown, failureDetail(code, statusName, check))
+    } else {
+        failureText(R.string.groups_error_code, code, statusName, check)
+    }
 }
 private fun GroupOperation.label() = uiText(
     when (this) {

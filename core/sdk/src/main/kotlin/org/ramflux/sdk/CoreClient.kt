@@ -372,6 +372,7 @@ class CoreClient internal constructor(
             dataRoot: String,
             expectedDescriptorFingerprint: String,
             io: CoroutineDispatcher = Dispatchers.IO,
+            openConfig: CoreOpenConfig = CoreOpenConfig(),
         ): CoreResult<CoreClient> {
             currentCoroutineContext().ensureActive()
             var unreturned = 0L
@@ -387,6 +388,7 @@ class CoreClient internal constructor(
                     val bytes = buildJsonObject {
                         put("data_root", dataRoot)
                         put("allow_secret_exports", true)
+                        openConfig.writeTo(this)
                     }.toString().toByteArray()
                     val reply = try { native.open(bytes) } finally { bytes.fill(0) }
                     if (reply.code == 0 && reply.handle != 0L) {

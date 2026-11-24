@@ -12,6 +12,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import org.ramflux.data.*
 import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.failureText
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.agents.impl.R
 
@@ -430,7 +431,7 @@ class AgentsViewModel @Inject constructor(
     }
 }
 
-private fun ClientProblem.message() = uiText(R.string.agents_read_failure, UiText.Number(code.toLong()))
+private fun ClientProblem.message() = failureText(R.string.agents_read_failure, code, statusName, check)
 
 /** The Kit glyph for a stored avatar token; anything else is the generic agent glyph. */
 private fun avatarIcon(avatar: String) = when (avatar.lowercase()) {

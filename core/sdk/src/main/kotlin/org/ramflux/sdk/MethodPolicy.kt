@@ -263,6 +263,6 @@ object ContactVerifyCas {
     const val CONTRACT = "CONTACT-VERIFY-CAS-01"
     const val REQUEST_TYPE = "ramflux.message.v1.ContactSafetyVerifyRequest"
     const val RESPONSE_TYPE = "ramflux.message.v1.ContactSafetyVerifyResult"
-    const val MESSAGE_DESCRIPTOR = "50108989877d6e1601743d5d242862d4e130155bf3bd1b3fd28b213426b42686"
-    const val PRODUCT_PIN = "36cf7b76679c625c0bc9a31fe20d8ce95b35523f"
+    const val MESSAGE_DESCRIPTOR = "424943ce9bcc6b1b629366deed741bd9dbd2c9bd154643346cd8ced5051ee78d"
+    const val PRODUCT_PIN = "4ac17e2eebee3cdcafe5b7e5748da00a08c8cb1c"
 }

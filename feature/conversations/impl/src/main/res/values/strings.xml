@@ -21,7 +21,7 @@
     <string name="ui_set_up_your_account">Set up your account</string>
     <string name="ui_the_active_account_changed_refresh_the_list">The active account changed. Refresh the list.</string>
     <string name="ui_time_unavailable">Time unavailable</string>
-    <string name="ui_value_could_not_be_read_code_value">%1$s could not be read (code %2$s).</string>
+    <string name="ui_value_could_not_be_read_code_value">%1$s could not be read (%2$s).</string>
     <string name="ui_value_is_not_available_in_this_version">%1$s is not available in this version.</string>
     <string name="ui_value_is_not_included_in_this_build_yet">%1$s is not included in this build yet.</string>
     <string name="ui_value_requires_secure_account_access_on_this_device">%1$s requires secure account access on this device.</string>

@@ -12,11 +12,11 @@ internal interface ClientLifecycleDriver {
     /** Suspends the open client for the background (files and network released, accounts kept unlocked). */
     suspend fun suspend(): ClientResult<Unit>
 }
-internal class AndroidClientLifecycleDriver(private val context: Context, private val descriptor: String) : ClientLifecycleDriver {
+internal class AndroidClientLifecycleDriver(private val context: Context, private val descriptor: String, private val openConfig: CoreOpenConfig = CoreOpenConfig()) : ClientLifecycleDriver {
     @Volatile private var host: AndroidCoreHost? = null
     val transport: RepositoryTransport = SdkRepositoryTransport { (host?.state?.value as? HostState.Running)?.client }
     override suspend fun open(): ClientResult<Unit> {
-        if (host == null) when (val created = AndroidCoreHost.create(context, descriptor)) {
+        if (host == null) when (val created = AndroidCoreHost.create(context, descriptor, openConfig)) {
             is CoreResult.Failure -> return ClientResult.Failed(created.error.appProblem())
             is CoreResult.Success -> host = created.value
         }

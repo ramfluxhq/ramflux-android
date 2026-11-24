@@ -26,8 +26,34 @@ interface AccountStoreBindings {
 @InstallIn(SingletonComponent::class)
 object ClientModule {
     @Provides @Singleton
-    fun data(@ApplicationContext context: Context) =
-        AndroidClientData(context, BuildConfig.MESSAGE_DESCRIPTOR, appLanguages(context.resources, R.xml._generated_res_locale_config))
+    fun data(@ApplicationContext context: Context) = AndroidClientData(
+        context,
+        BuildConfig.MESSAGE_DESCRIPTOR,
+        appLanguages(context.resources, R.xml._generated_res_locale_config),
+        openConfig()
+    )
+
+    /**
+     * The open-config fields the host provisions: the username directory pin (build properties; absent leaves
+     * usernames refused) and the SDK diagnostic log. Debug builds ask for `debug`, the real-run build also names
+     * itself so the SDK may keep free text; the SDK lowers both unless the library carries its real-run feature.
+     * Release builds keep the SDK defaults (`info`, `release`).
+     */
+    internal fun openConfig(): ClientOpenConfig = ClientOpenConfig(
+        usernameDirectory = BuildConfig.USERNAME_DIRECTORY_URL.takeIf { it.isNotEmpty() }?.let {
+            ClientDirectoryPin(
+                it,
+                BuildConfig.USERNAME_DIRECTORY_ID,
+                BuildConfig.USERNAME_DIRECTORY_KEY,
+                BuildConfig.USERNAME_DIRECTORY_GENERATION
+            )
+        },
+        diagnostics = when (BuildConfig.BUILD_TYPE) {
+            "realrun" -> ClientDiagnostics(level = "debug", buildClass = "realrun")
+            "debug" -> ClientDiagnostics(level = "debug", buildClass = "beta")
+            else -> null
+        }
+    )
 
     @Provides fun session(data: AndroidClientData): ClientSessionRepository = data.session
 

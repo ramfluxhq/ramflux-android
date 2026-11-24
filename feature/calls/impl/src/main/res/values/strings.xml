@@ -32,8 +32,8 @@
     <string name="calls_account_changed">The active account changed. Reopen calls.</string>
     <string name="calls_pending">Outcome unresolved for operation %1$s. Refresh to read authoritative call state.</string>
     <string name="calls_invalid">Invalid call records were returned.</string>
-    <string name="calls_unknown_outcome">Outcome unknown (code %1$s). Refresh before another signal.</string>
-    <string name="calls_error_code">Call operation failed (code %1$s).</string>
+    <string name="calls_unknown_outcome">Outcome unknown (%1$s). Refresh before another signal.</string>
+    <string name="calls_error_code">Call operation failed (%1$s).</string>
     <string name="calls_incoming">Incoming</string>
     <string name="calls_outgoing">Outgoing</string>
     <string name="calls_unknown">State unavailable</string>
@@ -100,7 +100,7 @@
     <!-- Shown when calls are not available on this device. -->
     <string name="call_unavailable">Calls are not available here.</string>
     <!-- Call failure with a numeric code; %1$s is the code. -->
-    <string name="call_failed_code">The call failed (code %1$s).</string>
+    <string name="call_failed_code">The call failed (%1$s).</string>
     <!-- Call failure with the SDK reason name; %1$s is the reason, shown as received. -->
     <string name="call_failed_reason">The call failed: %1$s</string>
     <!-- Name of the app in the phone's system call screens. -->

@@ -23,7 +23,9 @@ internal object ReplyCodec {
         effect: Effect,
         statusName: String? = null,
         reasonCode: String? = null,
-    ): CoreError = when (code) {
+    ): CoreError = named(code, effect, statusName ?: SdkStatus.of(code)?.wireName, reasonCode)
+
+    private fun named(code: Int, effect: Effect, statusName: String?, reasonCode: String?): CoreError = when (code) {
         1 -> CoreError.InvalidArgument(effect, statusName, reasonCode)
         3 -> CoreError.UnsupportedVersion(effect, statusName, reasonCode)
         12 -> CoreError.PermissionDenied(effect, statusName, reasonCode)
@@ -163,7 +165,8 @@ internal object ReplyCodec {
     const val RETRY_AFTER_SECS = "retry_after_secs"
 
     private fun statusName(parser: ByteJson, envelope: ByteJson.Node): String? {
-        return namedErrorField(parser, envelope, "code")
+        // A token `code` (a business refusal) wins; a numeric status falls back to its typed `name`.
+        return namedErrorField(parser, envelope, "code") ?: namedErrorField(parser, envelope, "name")
     }
 
     private fun reasonCode(parser: ByteJson, envelope: ByteJson.Node): String? {
@@ -185,7 +188,7 @@ internal object ReplyCodec {
         }
     }
 
-    private fun statusName(body: JsonObject): String? = identifierField(body, "code")
+    private fun statusName(body: JsonObject): String? = identifierField(body, "code") ?: identifierField(body, "name")
 
     private fun reasonCode(body: JsonObject): String? = identifierField(body, "reason_code")
 

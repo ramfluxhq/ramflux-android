@@ -25,7 +25,7 @@
     <!-- Shown when the active account changed during a read -->
     <string name="agents_account_changed">当前账号已更改，请重新打开 Agent。</string>
     <!-- Generic failure; %1$s is a numeric error code -->
-    <string name="agents_read_failure">无法读取 Agent（代码 %1$s）。</string>
+    <string name="agents_read_failure">无法读取 Agent（%1$s）。</string>
     <!-- Outcome of a change is unknown -->
     <string name="agents_unknown">结果未知。请先刷新再重试。</string>
     <!-- Empty state title of the agent directory (board MOB-D20) -->
