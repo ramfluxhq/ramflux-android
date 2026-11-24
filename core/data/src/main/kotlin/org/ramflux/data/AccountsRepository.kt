@@ -10,6 +10,8 @@ import org.ramflux.sdk.SecretBody
 import org.ramflux.sdk.SecretReply
 
 interface AccountsRepository {
+    suspend fun accountApp_lockConfigure(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun accountApp_lockState(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun accountBackupCancel(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountBackupCreate(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountBackupExport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -45,6 +47,12 @@ interface AccountsRepository {
 }
 
 class DefaultAccountsRepository(transport: RepositoryTransport) : SdkRepository(transport), AccountsRepository {
+    override suspend fun accountApp_lockConfigure(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("account.app_lock.configure", "account", context, body)
+
+    override suspend fun accountApp_lockState(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("account.app_lock.state", "account", context, body)
+
     override suspend fun accountBackupCancel(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("account.backup.cancel", "account", context, body)
 

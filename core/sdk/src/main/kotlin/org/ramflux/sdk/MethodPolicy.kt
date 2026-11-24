@@ -14,6 +14,8 @@ object SdkMethodPolicy {
         "a2i.append" to MethodPolicy(true, true, false, false, true, "a2i"),
         "a2i.list" to MethodPolicy(false, true, false, false, true, "a2i"),
         "a2i.list_pending" to MethodPolicy(false, true, false, false, true, "a2i"),
+        "account.app_lock.configure" to MethodPolicy(false, false, false, false, true, "account"),
+        "account.app_lock.state" to MethodPolicy(false, false, false, false, true, "account"),
         "account.backup.cancel" to MethodPolicy(true, false, false, false, true, "account"),
         "account.backup.create" to MethodPolicy(true, false, false, false, true, "account"),
         "account.backup.export" to MethodPolicy(true, true, false, true, true, "account"),
