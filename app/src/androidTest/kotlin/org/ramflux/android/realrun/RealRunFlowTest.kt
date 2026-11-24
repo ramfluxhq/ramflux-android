@@ -1074,9 +1074,11 @@ class RealRunFlowTest {
             ?: fail("Share on My contact card handed over no card text: ${ui.screen()}")
     }
 
-    private fun bobMembers(group: String): String {
-        val result = control.rf("bob", "group", "members", "--group", group)
-        return result.optJSONObject("json")?.toString() ?: result.optString("stdout")
+    /** The device ids in bob's roster of [group] (`member_roster`; excluded devices are not members). */
+    private fun bobMembers(group: String): List<String> {
+        val roster = control.rf("bob", "group", "members", "--group", group).optJSONObject("json")?.optJSONArray("member_roster")
+            ?: return emptyList()
+        return (0 until roster.length()).mapNotNull { roster.optJSONObject(it)?.optJSONObject("identity")?.optString("device_id") }
     }
 
     /** Accepts [peer]'s pending contact request on the phone, when there is one (Contacts, Strangers). */
