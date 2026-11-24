@@ -4,13 +4,14 @@
 package org.ramflux.data
 
 import android.content.Context
+import org.ramflux.sdk.CoreOpenConfig
 
 /**
  * One composition-root instance owns the one native writer and the app preference store. [languages] are
  * the host languages the app offers (see [appLanguages]).
  */
-class AndroidClientData(context: Context, expectedDescriptor: String, languages: List<AppLanguage>) {
-    private val driver = AndroidClientLifecycleDriver(context.applicationContext, expectedDescriptor)
+class AndroidClientData(context: Context, expectedDescriptor: String, languages: List<AppLanguage>, openConfig: CoreOpenConfig = CoreOpenConfig()) {
+    private val driver = AndroidClientLifecycleDriver(context.applicationContext, expectedDescriptor, openConfig)
 
     /** Account-scoped host stores (drafts, media) register here; see [AccountScopedStores]. */
     val accountStores = AccountScopedStores()

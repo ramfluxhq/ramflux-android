@@ -927,7 +927,8 @@ class ChatViewModel @Inject constructor(
 
     private fun syncTyping(active: Boolean) {
         val current = target ?: return
-        if (typingRefused || typingActive == active) return
+        // Group typing is outside the beta scope: the SDK refuses message.focus for a group (unsupported_for_group).
+        if (current.group != null || typingRefused || typingActive == active) return
         typingActive = active
         typingJob?.cancel()
         typingJob = viewModelScope.launch {
@@ -935,6 +936,12 @@ class ChatViewModel @Inject constructor(
             if (target != current || session.status.value.phase != ClientPhase.OPEN) return@launch
             val denied = result is ClientResult.Failed &&
                 result.problem.kind == ClientFailureKind.AUTHORIZATION
+            // A refusal for a group scope is tolerated silently: no notice, and typing stays off for this chat.
+            if (result is ClientResult.Failed && result.problem.check == UNSUPPORTED_FOR_GROUP) {
+                typingRefused = true
+                typingActive = false
+                return@launch
+            }
             if (result !is ClientResult.Ready && !denied) {
                 typingRefused = true
                 typingActive = false
@@ -950,7 +957,7 @@ class ChatViewModel @Inject constructor(
         typingActive = false
         typingJob?.cancel()
         typingJob = null
-        if (wasActive && current != null && !typingRefused) {
+        if (wasActive && current != null && current.group == null && !typingRefused) {
             val account = current.account
             val conversation = current.conversation
             viewModelScope.launch { history.setTyping(account, conversation, false) }
@@ -1701,6 +1708,7 @@ private fun failedNotice(problem: ClientProblem): UiText? = when {
 }
 
 private const val AUTHORITY_UNAVAILABLE = "authority_unavailable"
+private const val UNSUPPORTED_FOR_GROUP = "unsupported_for_group"
 
 private fun typingNotice(result: ClientResult<Unit>): UiText? = when (result) {
     is ClientResult.Ready -> null

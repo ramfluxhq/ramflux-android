@@ -53,6 +53,13 @@ No placeholder library, skipped native build or emulator software vault is used.
 `AndroidCoreHost.create(context, expectedDescriptorFingerprint)` derives a path below credential-protected
 `noBackupFilesDir`. The fingerprint must come from the host binding built against the SDK descriptor,
 not from a runtime negotiation echo. A mismatch fails before opening a data root.
+The open config also carries the optional `username_directory` trust pin (`url`, `id`, `public_key`, `generation`),
+provisioned by the build through the Gradle properties `ramflux.usernameDirectory.url`, `.id`, `.publicKey` and
+`.generation` (all four or none; no environment variable is read on a phone, and without a pin usernames are refused with
+`directory_unavailable`), and the `diag` object of the SDK diagnostic log (`<data root>/diag/`): debug builds ask for level
+`debug`, the realrun build also names its build class `realrun`, release builds keep the SDK defaults. `SdkStatus` and its
+typed names are generated from the pinned C header by `scripts/sync-sdk-policy.py`; a refusal carries the SDK's `name` and
+`reason_code`, and a bare status falls back to the table's name.
 Negotiation also compares the complete method policy (version, method names,
 capabilities and all secret flags) with the pinned generated table. A missing or
 changed policy returns typed `MethodPolicyMismatch` before opening a writer.

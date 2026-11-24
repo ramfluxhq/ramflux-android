@@ -25,6 +25,13 @@ class AndroidAppPlugin : Plugin<Project> {
             buildFeatures.buildConfig = true
             val descriptor = JsonSlurper().parse(rootProject.file("sdk-contract/descriptor.json")) as Map<*, *>
             defaultConfig.buildConfigField("String", "MESSAGE_DESCRIPTOR", "\"${descriptor["blake3"]}\"")
+            // The username directory trust pin is provisioned by the build, never learned at run time (c-abi-v2.md,
+            // "Phone provisioning"). All four Gradle properties together provision it; none leaves usernames refused.
+            val pin = listOf("url", "id", "publicKey", "generation").map { providers.gradleProperty("ramflux.usernameDirectory.$it").orNull.orEmpty() }
+            check(pin.all { it.isEmpty() } || pin.none { it.isEmpty() }) { "set all of ramflux.usernameDirectory.url, .id, .publicKey and .generation, or none" }
+            check(pin[3].isEmpty() || pin[3].toLongOrNull()?.let { it > 0 } == true) { "ramflux.usernameDirectory.generation must be a positive integer" }
+            listOf("URL", "ID", "KEY").forEachIndexed { i, name -> defaultConfig.buildConfigField("String", "USERNAME_DIRECTORY_$name", "\"${pin[i]}\"") }
+            defaultConfig.buildConfigField("long", "USERNAME_DIRECTORY_GENERATION", "${pin[3].ifEmpty { "0" }}L")
             compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
             buildTypes.getByName("release") { isMinifyEnabled = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt")) }
             buildTypes.getByName("debug").isPseudoLocalesEnabled = true
