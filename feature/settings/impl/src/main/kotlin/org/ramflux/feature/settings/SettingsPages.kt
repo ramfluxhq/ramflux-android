@@ -145,7 +145,7 @@ internal fun LazyListScope.accountPage(state: SettingsState, onAction: (Settings
                 { onAction(SettingsAction.Lock) },
                 icon = "lock",
                 value = stringResource(R.string.settings_lock_account_help),
-                enabled = state.accountLabel != null && !state.loading,
+                enabled = state.accountLabel != null,
                 divider = false,
                 testTag = "lock-account"
             )
@@ -164,7 +164,7 @@ internal fun LazyListScope.accountPage(state: SettingsState, onAction: (Settings
                 { onAction(SettingsAction.AccountExit(SettingsAccountExit.SIGN_OUT)) },
                 icon = "user-minus",
                 value = stringResource(R.string.settings_sign_out_help),
-                enabled = state.accountLabel != null && !state.loading,
+                enabled = state.accountLabel != null,
                 testTag = "sign-out"
             )
             KitRow(
@@ -172,7 +172,7 @@ internal fun LazyListScope.accountPage(state: SettingsState, onAction: (Settings
                 { onAction(SettingsAction.AccountExit(SettingsAccountExit.REMOVE)) },
                 icon = "trash-2",
                 value = stringResource(R.string.settings_remove_account_help),
-                enabled = state.accountLabel != null && !state.loading,
+                enabled = state.accountLabel != null,
                 divider = false,
                 testTag = "remove-account"
             )

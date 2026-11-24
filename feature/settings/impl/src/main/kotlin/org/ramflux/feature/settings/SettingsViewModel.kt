@@ -72,6 +72,7 @@ class SettingsViewModel @Inject constructor(
     private var capability: Job? = null
     private var languageJob: Job? = null
     private var ticket = 0L
+    private var reads = 0L
     private var activeAccount: String? = null
     private val lifecycle = viewModelScope.launch {
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect { (phase, _) ->
@@ -167,9 +168,15 @@ class SettingsViewModel @Inject constructor(
                 }
             }
             SettingsAction.Lock -> {
-                val account = activeAccount ?: return
+                val account = activeAccount
+                clientDebugEvent("settings.lock.tap account:" + (account != null) + ".loading:" + local.value.loading + ".ticket:" + ticket)
+                if (account == null) return
                 capability {
-                    accounts.lock(account).also { if (it is ClientResult.Ready) event(SettingsEvent.OpenAccount) }
+                    clientDebugEvent("settings.lock.call")
+                    accounts.lock(account).also {
+                        clientDebugEvent("settings.lock.result:" + it.javaClass.simpleName + ".ticket:" + ticket)
+                        if (it is ClientResult.Ready) event(SettingsEvent.OpenAccount)
+                    }
                 }
             }
             is SettingsAction.AccountExit -> if (activeAccount != null) local.update { it.copy(confirmExit = action.exit) }
@@ -560,12 +567,19 @@ class SettingsViewModel @Inject constructor(
             )
         }
     }
+    /**
+     * Reads the account, its status and its devices. A refresh keeps what the screen shows (and its actions usable)
+     * until the new answer replaces it: the screen refreshes on every resume, and blanking the account there disabled
+     * Lock, Sign out and Remove for the length of a read, so a tap in that window was silently dropped. A refresh
+     * does not retire a running account action either; only leaving the page or a new session does ([ticket]).
+     */
     private fun read() {
         if (session.status.value.phase != ClientPhase.OPEN) return
-        val expected = ++ticket
+        val expected = ticket
+        val serial = ++reads
+        clientDebugEvent("settings.read ticket:" + expected + ".serial:" + serial)
         val generation = session.status.value.generation
-        clear()
-        local.update { it.copy(loading = true) }
+        local.update { it.copy(loading = true, problem = null, unavailable = null) }
         request = viewModelScope.launch {
             try {
                 val selected = account(expected, generation) ?: return@launch
@@ -574,6 +588,7 @@ class SettingsViewModel @Inject constructor(
                 val rows = devices.list(selected.id)
                 current(expected, generation)
                 val confirmed = account(expected, generation, selected.id) ?: return@launch
+                if (serial != reads) return@launch
                 activeAccount = confirmed.id
                 local.update {
                     it.copy(
@@ -597,13 +612,17 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
             } finally {
-                if (expected == ticket) local.update { it.copy(loading = false) }
+                if (expected == ticket && serial == reads) local.update { it.copy(loading = false) }
             }
         }
     }
     private suspend fun current(expected: Long, generation: Long) {
         currentCoroutineContext().ensureActive()
         if (ticket != expected || generation != session.status.value.generation || session.status.value.phase != ClientPhase.OPEN) {
+            clientDebugEvent(
+                "settings.retired ticket:" + expected + "->" + ticket + ".generation:" + generation + "->" +
+                    session.status.value.generation + ".phase:" + session.status.value.phase
+            )
             throw CancellationException("retired settings")
         }
     }
