@@ -1279,9 +1279,14 @@ class RealRunFlowTest {
                 )
             }
         }
-        // The add page stays open after the request; the list is one back away.
-        // Back may first close the keyboard, so press until the add page is gone.
-        repeat(3) { if (ui.find("contacts-send", 1_000) != null) ui.device.pressBack() }
+        // The add page stays open after the request; the list is one back away. Back may first close the keyboard, so
+        // back is pressed while the add page is the screen; once the list's add button shows (also while the add page
+        // is still leaving) no further back is pressed, which would leave Contacts.
+        repeat(3) {
+            if (ui.first("contacts-add", "contacts-send", timeout = 3_000) != "contacts-send") return@repeat
+            ui.device.pressBack()
+            ui.device.waitForIdle()
+        }
         if (!ui.eventually(90_000, 3_000) {
                 if (ui.hasText(peerName(peer))) {
                     true
