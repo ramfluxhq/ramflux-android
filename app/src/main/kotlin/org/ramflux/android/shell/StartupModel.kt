@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.ramflux.data.AccountAccessRepository
@@ -20,6 +22,7 @@ import org.ramflux.data.ClientResult
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.NodeSetupRepository
 import org.ramflux.data.SavedNode
+import org.ramflux.data.clientDebugEvent
 
 data class StartupUi(
     val place: StartupPlace,
@@ -42,6 +45,8 @@ class StartupModel @Inject constructor(
         val decided = decideStartup(status.phase, current)
         val place = if (decided == StartupPlace.SHELL || decided == StartupPlace.SPLASH) decided else chosen ?: decided
         StartupUi(place, lockedLabel(current), lockedId(current), nodeUrl(current.nodes), activeId(current))
+    }.distinctUntilChanged().onEach {
+        clientDebugEvent("startup.place:" + it.place)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StartupUi(StartupPlace.SPLASH, "", "", ""))
 
     init {

@@ -24,6 +24,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import org.ramflux.android.R
+import org.ramflux.data.clientDebugEvent
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitEmpty
 import org.ramflux.designsystem.kit.KitNavigationRail
@@ -99,7 +100,12 @@ fun RamfluxShell(
         entryProvider = provider,
         metrics = PaneMetrics(dimensionResource(R.dimen.shell_list_pane_width), theme.column_max.dp),
         insets = insets,
-        bottomBar = { inset -> KitTabBar(shellTabs(), navigator.selected, navigator::select, bottomInset = inset, tag = "shell-tabs") },
+        bottomBar = { inset ->
+            KitTabBar(shellTabs(), navigator.selected, { tab ->
+                clientDebugEvent("shell.tab:$tab")
+                navigator.select(tab)
+            }, bottomInset = inset, tag = "shell-tabs")
+        },
         rail = { inset ->
             KitNavigationRail(shellTabs(), navigator.selected, navigator::select, bottomInset = inset, tag = "shell-rail-tabs")
         },
