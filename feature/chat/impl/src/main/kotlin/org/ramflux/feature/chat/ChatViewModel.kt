@@ -185,7 +185,11 @@ class ChatViewModel @Inject constructor(
             ChatAction.Send -> if (local.value.draft.isNotBlank()) {
                 if (local.value.composer == ComposerMode.SEND) {
                     enqueue()
-                } else if (request?.isActive != true) {
+                } else if (!local.value.sending) {
+                    // A timeline refresh still running (events arrive often) must not swallow a reply or an edit: it
+                    // is cancelled and read again after the change.
+                    if (request?.isActive == true) needsRefresh = true
+                    request?.cancel()
                     compose(local.value.composer)
                 }
             }
