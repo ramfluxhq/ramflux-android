@@ -48,7 +48,17 @@ data class PairingState(
  * request policy and the account-code change. The joining side (`device.pair.join`) is not here: it needs
  * the SDK credential channel the in-process C ABI lacks (request R32, docs/bridge.md).
  */
+/** This account's username as the directory reports it (`username.status`); [name] is null when none is claimed. */
+data class UsernameState(val name: String?)
+
 interface AccountSecurityRepository {
+    /**
+     * `username.status`. On a node without a provisioned username directory the SDK refuses with its typed
+     * directory code (for example `directory_unavailable`), which the settings screen shows as it is.
+     */
+    suspend fun usernameStatus(account: String): ClientResult<UsernameState> =
+        ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
     /** `device.pair.begin` with every linked-device capability for [leaseSeconds]; [displayName] names this phone. */
     suspend fun beginPairing(account: String, displayName: String, leaseSeconds: Long = DEFAULT_LEASE_SECONDS): ClientResult<PairingInvitation>
     suspend fun pairingStatus(account: String, operationId: String, generation: ULong): ClientResult<PairingState>

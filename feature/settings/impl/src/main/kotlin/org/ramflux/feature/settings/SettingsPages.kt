@@ -299,13 +299,12 @@ internal fun LazyListScope.privacyPage(state: SettingsState, onAction: (Settings
                 trailing = KitRowTrailing.None,
                 testTag = "open-account"
             )
+            // The directory's answer for this account (`username.status`), or its typed refusal. Claiming or changing a
+            // name needs the recovery-phrase ceremony, which this phone does not offer; contacts are added by @name.
             KitRow(
                 stringResource(R.string.settings_username),
-                {
-                },
-                value = stringResource(
-                    R.string.settings_blocked_by_sdk
-                ),
+                {},
+                value = state.username?.render(),
                 locked = true,
                 trailing = KitRowTrailing.None,
                 divider = false,

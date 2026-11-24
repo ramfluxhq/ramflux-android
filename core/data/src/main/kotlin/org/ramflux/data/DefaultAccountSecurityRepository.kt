@@ -16,6 +16,16 @@ internal class DefaultAccountSecurityRepository(
     private val devices = DefaultDevicesRepository(transport)
     private val contacts = DefaultContactsRepository(transport)
     private val accounts = DefaultAccountsRepository(transport)
+    private val usernames = DefaultUsernamesRepository(transport)
+
+    override suspend fun usernameStatus(account: String): ClientResult<UsernameState> {
+        if (account.isBlank() || account.length > 4096) return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
+        val body = kotlinx.serialization.json.buildJsonObject { put("operation_id", kotlinx.serialization.json.JsonNull) }
+        return when (val reply = usernames.status(RepositoryContext(account), body)) {
+            is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
+            is CoreResult.Success -> ClientResult.Ready(UsernameState(UsernameStatusReader.name(reply.value)))
+        }
+    }
 
     override suspend fun beginPairing(account: String, displayName: String, leaseSeconds: Long): ClientResult<PairingInvitation> {
         if (!valid(account) || displayName.isBlank() || displayName.length > 128 || leaseSeconds !in 3600L..MAX_LEASE_SECONDS) return invalid()

@@ -68,6 +68,8 @@ enum class PairingEnd { COMPLETED, CANCELLED, EXPIRED, REJECTED, FAILED }
 @Immutable data class SettingsState(
     val page: SettingsPage = SettingsPage.GENERAL,
     val accountLabel: String? = null,
+    /** This account's username, or why the directory cannot say (`username.status`); null until read. */
+    val username: UiText? = null,
     val accountRequired: Boolean = false,
     val loading: Boolean = false,
     val selectedTheme: String? = null,
