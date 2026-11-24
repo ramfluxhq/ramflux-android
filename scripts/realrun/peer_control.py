@@ -37,6 +37,7 @@ ALLOWED = {
     ("contact", "verification"), ("conversation", "send"), ("conversation", "reply"), ("conversation", "edit"),
     ("conversation", "delete"), ("conversation", "typing"), ("dm", "read"), ("dm", "list"), ("dm", "send"),
     ("dm", "receipt"), ("group", "list"), ("group", "read"), ("group", "send"), ("group", "accept"), ("group", "show"),
+    ("group", "create"), ("group", "members"),
     ("group", "invitation"), ("group", "member"), ("attachment", "import"), ("attachment", "enable"), ("account", "status"),
 }
 SAFE_NAME = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
