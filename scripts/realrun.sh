@@ -141,9 +141,10 @@ dev() {
 }
 
 # Installs one APK already copied to $REMOTE_DIR on the phone. MIUI answers `adb install` with a "USB install"
-# confirmation that has a countdown; its confirm button only takes a tap a little after the dialog appears.
-# The install runs in the background of this function while the screen is dumped until the button shows,
-# then the button is tapped about INSTALL_TAP_DELAY seconds after it was first seen. One retry on refusal.
+# confirmation that has a countdown; its confirm button only takes a tap a little after the dialog appears. Play
+# Protect may first ask to send the app for a check, which is declined. The install runs in the background of this
+# function while the screen is dumped; each dialog is tapped about INSTALL_TAP_DELAY seconds after it was seen.
+# One retry on refusal.
 INSTALL_TAP_DELAY=${RAMFLUX_REALRUN_TAP_DELAY:-2.5}
 install_on_phone() {
   local apk=$1 log=$2 attempt status pid seen bounds now
@@ -155,20 +156,26 @@ install_on_phone() {
       bounds=$(dev exec-out uiautomator dump /dev/tty 2> /dev/null | "$PYTHON" -I -c '
 import re, sys
 xml = sys.stdin.read()
-for node in re.finditer(r"<node [^>]*>", xml):
-    n = node.group(0)
-    if "com.miui.securitycenter" in n and re.search(r"text=\"(继续安装|Continue installation|Install)\"", n):
-        m = re.search(r"bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"", n)
-        if m:
-            a, b, c, d = map(int, m.groups()); print((a + c) // 2, (b + d) // 2); break
+# MIUI asks to confirm a USB install; Play Protect may ask whether to send the app for a check (the app is not sent)
+# or warn before installing it. Only those dialogs, raised by the install of our own package, are answered.
+WANTED = [("com.miui.securitycenter", r"继续安装|Continue installation|Install"),
+          ("com.android.vending", r"不发送|Don.t send|仍然安装|仍要安装|Install anyway")]
+for package, label in WANTED:
+    for node in re.finditer(r"<node [^>]*>", xml):
+        n = node.group(0)
+        if package in n and re.search(r"text=\"(" + label + r")\"", n):
+            m = re.search(r"bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"", n)
+            if m:
+                a, b, c, d = map(int, m.groups()); print((a + c) // 2, (b + d) // 2); sys.exit(0)
 ' || true)
-      if [ -n "$bounds" ] && [ -z "$seen" ]; then
+      # Up to three dialogs per install (Play Protect, then MIUI); each is tapped once it has settled.
+      if [ -n "$bounds" ] && [ "${#seen}" -lt 3 ]; then
         sleep "$INSTALL_TAP_DELAY"
         # shellcheck disable=SC2086
         dev shell input tap $bounds > /dev/null 2>&1 || true
         echo "realrun: tapped the install confirmation at $bounds" >> "$log"
-        seen=tapped
-        break
+        seen="${seen}x"
+        sleep 1
       fi
       sleep 0.3
     done
@@ -324,6 +331,8 @@ if [ -n "$TESTS" ]; then
   done
 fi
 say "running ${TESTS:-the whole suite} (log: $OUT/instrument.log)"
+# Every invocation starts from a terminated app: its first flow is a cold start (terminate and relaunch).
+dev shell am force-stop "$APP_ID" > /dev/null 2>&1 || true
 # The phone's log is shared with other apps: it is never cleared; only lines since this start are read.
 LOG_SINCE=$(dev shell date "+%m-%d\ %H:%M:%S.000" 2> /dev/null | tr -d '\r' || true)
 # The results of earlier invocations in this folder, so this invocation's exit code covers only its own flows.
