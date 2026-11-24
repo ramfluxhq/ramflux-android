@@ -19,6 +19,7 @@ import org.ramflux.data.ClientResult
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.NodeSetupRepository
 import org.ramflux.data.SavedNode
+import org.ramflux.data.clientDebugEvent
 
 data class StartupUi(
     val place: StartupPlace,
@@ -67,6 +68,7 @@ class StartupModel @Inject constructor(
         val listed = (accountResult as? ClientResult.Ready)?.value
         val saved = (nodeResult as? ClientResult.Ready)?.value
         facts.value = StartupFacts(listed, saved, failed = listed == null || saved == null)
+        clientDebugEvent("startup.facts unlocked:" + listed?.accounts?.count { it.unlocked } + ".locked:" + listed?.accounts?.count { !it.unlocked })
     }
 
     fun showWelcome() {

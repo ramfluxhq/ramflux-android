@@ -11,6 +11,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.ramflux.data.clientDebugEvent
 
 @Composable
 fun SettingsNavigation(
@@ -38,7 +39,10 @@ fun SettingsNavigation(
         vm.events.collect { event ->
             when (event) {
                 SettingsEvent.Back -> back()
-                SettingsEvent.OpenAccount -> account()
+                SettingsEvent.OpenAccount -> {
+                    clientDebugEvent("settings.event.open-account")
+                    account()
+                }
                 SettingsEvent.Connections -> connections()
                 SettingsEvent.Permissions -> permissions()
                 SettingsEvent.Backup -> backup()
