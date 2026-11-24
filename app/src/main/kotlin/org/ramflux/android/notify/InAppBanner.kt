@@ -13,6 +13,7 @@ import org.ramflux.data.ClientResult
 import org.ramflux.data.ConversationSummary
 import org.ramflux.data.MessageHistoryRepository
 import org.ramflux.data.MessageSummary
+import org.ramflux.data.clientDebugEvent
 
 /**
  * What the one-line preview of a banner shows. Only a user text message carries its text; every other kind of
@@ -109,13 +110,19 @@ class InAppBanners @Inject constructor(
 
     /** Shows a banner for [row] unless that conversation is muted or open, or the newest message is the user's own. */
     suspend fun announce(account: String, row: ConversationSummary) {
-        if (row.muted || openChat.value == account to row.id) return
+        if (row.muted || openChat.value == account to row.id) {
+            clientDebugEvent("banner.skip." + (if (row.muted) "muted" else "open"))
+            return
+        }
         val newest = (history.page(account, row.id) as? ClientResult.Ready)?.value?.rows?.lastOrNull()
         val preview = when (newest) {
             null -> BannerPreview.Generic
             is CallSummary -> BannerPreview.Call
             is MessageSummary -> when {
-                newest.own -> return
+                newest.own -> {
+                    clientDebugEvent("banner.skip.own")
+                    return
+                }
                 newest.service -> BannerPreview.Update
                 newest.deleted || newest.placeholder -> BannerPreview.Generic
                 else -> newest.text?.let(BannerText::line)?.takeIf { it.isNotEmpty() }?.let { BannerPreview.Text(it) }
@@ -125,6 +132,7 @@ class InAppBanners @Inject constructor(
         val author = (newest as? MessageSummary)?.senderName?.takeIf { row.group && it.isNotBlank() } ?: row.title
         // A conversation that became open while the newest row was read gets no banner.
         if (openChat.value == account to row.id) return
+        clientDebugEvent("banner.shown")
         shown.value = InAppBanner(serial.incrementAndGet(), account, row.id, row.groupId, BannerText.line(author), preview)
     }
 
