@@ -49,4 +49,16 @@
     <string name="delivery_hibernation_body">Turn this off for Ramflux, otherwise Android may stop it and remove its permissions.</string>
     <string name="delivery_battery_saver_title">Battery saver</string>
     <string name="delivery_battery_saver_body">Battery saver is on. It can delay messages while it is on.</string>
+    <string name="delivery_banner_fix">Fix</string>
+    <string name="delivery_banner_messages">Message notifications are turned off.</string>
+    <string name="delivery_banner_calls">Call notifications are off or silent, so calls may not ring.</string>
+    <string name="delivery_banner_full_screen">Calls can\'t take over the lock screen.</string>
+    <string name="delivery_banner_background">Background use is restricted for Ramflux, so messages may be late.</string>
+    <string name="delivery_banner_standby">Android has put Ramflux in its most restricted standby group, so messages may be late.</string>
+    <string name="delivery_banner_play">Background delivery is unavailable on this phone.</string>
+    <string name="delivery_banner_force_stop">Ramflux was stopped. Messages that arrived meanwhile were not announced.</string>
+    <string name="delivery_sheet_title">Make sure messages arrive on this phone</string>
+    <string name="delivery_sheet_body">These settings decide whether messages and calls reach you when Ramflux is closed:</string>
+    <string name="delivery_sheet_set_up">Set up</string>
+    <string name="delivery_sheet_not_now">Not now</string>
 </resources>

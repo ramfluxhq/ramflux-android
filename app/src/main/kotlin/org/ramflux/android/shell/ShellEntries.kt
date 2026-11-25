@@ -43,7 +43,9 @@ import org.ramflux.navigation.PaneRole
 import org.ramflux.navigation.RoutePolicy
 import org.ramflux.navigation.pane
 import org.ramflux.push.api.DeliveryRoute
+import org.ramflux.push.ui.DeliveryBannerNavigation
 import org.ramflux.push.ui.DeliveryNavigation
+import org.ramflux.push.ui.rememberPermissionFlowFinished
 
 private const val TAB_GROUPS = 1
 private const val TAB_AGENTS = 2
@@ -62,7 +64,10 @@ fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
             onBack = shell::back,
             onSetupAccount = setup,
             onOpenChat = { account, conversation, title, group -> shell.openDetail(ChatRoute(account, conversation, group, title)) },
-            permissionBanner = { NotificationPermissionBannerNavigation({ shell.navigate(PermissionsRoute()) }) },
+            permissionBanner = {
+                NotificationPermissionBannerNavigation({ shell.navigate(PermissionsRoute()) })
+                DeliveryBannerNavigation({ shell.navigate(DeliveryRoute) })
+            },
             rooted = true,
             onCompose = { shell.navigate(ContactsRoute) },
             onRequests = { shell.navigate(ContactsRoute) }
@@ -138,7 +143,13 @@ fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
         CallsNavigation(shell::back, setup, onOpenCall = { account, call -> shell.navigate(CallRoute(account, callId = call)) })
     }
     entry<CardsRoute> { CardsNavigation(shell::back) }
-    entry<PermissionsRoute> { route -> PermissionsNavigation(route, shell::back) }
+    entry<PermissionsRoute> { route ->
+        val finished = rememberPermissionFlowFinished()
+        PermissionsNavigation(route, {
+            finished()
+            shell.back()
+        })
+    }
     entry<DeliveryRoute> { DeliveryNavigation(shell::back) }
     entry<SettingsRoute> {
         SettingsNavigation(
