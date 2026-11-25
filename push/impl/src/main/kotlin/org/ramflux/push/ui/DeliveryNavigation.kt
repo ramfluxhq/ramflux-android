@@ -27,6 +27,7 @@ fun DeliveryNavigation(onBack: () -> Unit, modifier: Modifier = Modifier, vm: De
         onConfirm = vm::confirm,
         onUndo = vm::undo,
         onOpenAppSettings = { vm.openAppSettings(context) },
+        selfTest = SelfTestActions(vm::startMessageTest, vm::answerMessageTest, vm::startCallTest, vm::answerCallTest),
         modifier = modifier
     )
 }

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Lets an incoming-call notification take over a locked screen (API 34+ makes it a special access the person can revoke). -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <!-- Package visibility (Android 11+): the standard settings screens SafeSettingsLauncher resolves before it starts them. -->
     <queries>
         <intent>

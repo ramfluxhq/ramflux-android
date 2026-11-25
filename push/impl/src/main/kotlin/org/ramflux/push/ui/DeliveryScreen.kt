@@ -40,8 +40,8 @@ fun DeliveryScreen(
     onConfirm: (String) -> Unit,
     onUndo: (String) -> Unit,
     onOpenAppSettings: () -> Unit,
-    modifier: Modifier = Modifier,
-    selfTest: @Composable () -> Unit = {}
+    selfTest: SelfTestActions,
+    modifier: Modifier = Modifier
 ) {
     val theme = LocalRFTheme.current
     Column(modifier.fillMaxSize()) {
@@ -67,7 +67,8 @@ fun DeliveryScreen(
                 Section(R.string.delivery_section_brand)
                 Entries(state, EntryGroup.BRAND, onOpen, onConfirm, onUndo, onOpenAppSettings)
             }
-            selfTest()
+            Section(R.string.delivery_section_selftest)
+            SelfTest(state, selfTest)
         }
     }
 }
@@ -180,4 +181,86 @@ private fun lastWakeText(lastWakeMs: Long): String = if (lastWakeMs <= 0L) {
         R.string.delivery_last_wake,
         DateUtils.getRelativeTimeSpanString(lastWakeMs, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
     )
+}
+
+/** What the self-test section can do. */
+class SelfTestActions(
+    val startMessage: () -> Unit,
+    val answerMessage: (Boolean) -> Unit,
+    val startCall: () -> Unit,
+    val answerCall: (Boolean) -> Unit
+)
+
+@Composable
+private fun SelfTest(state: DeliveryState, actions: SelfTestActions) {
+    val theme = LocalRFTheme.current
+    val needsAttention = state.entries.any { it.required && it.label == EntryLabel.OFF_LATE }
+    Text(
+        stringResource(if (needsAttention) R.string.delivery_selftest_settings_attention else R.string.delivery_selftest_settings_ok),
+        color = theme.text
+    )
+    TestBlock(
+        state.messageTest,
+        R.string.delivery_selftest_message_title,
+        R.string.delivery_selftest_message_waiting,
+        R.string.delivery_selftest_message_ask,
+        actions.startMessage,
+        actions.answerMessage,
+        "message"
+    )
+    TestBlock(
+        state.callTest,
+        R.string.delivery_selftest_call_title,
+        R.string.delivery_selftest_call_waiting,
+        R.string.delivery_selftest_call_ask,
+        actions.startCall,
+        actions.answerCall,
+        "call"
+    )
+}
+
+@Composable
+private fun TestBlock(phase: TestPhase, title: Int, waiting: Int, ask: Int, start: () -> Unit, answer: (Boolean) -> Unit, tag: String) {
+    val theme = LocalRFTheme.current
+    Column(Modifier.fillMaxWidth().testTag("delivery-test-" + tag), verticalArrangement = Arrangement.spacedBy((theme.gap / 2).dp)) {
+        Text(stringResource(title), color = theme.text)
+        when (phase) {
+            TestPhase.IDLE -> KitButton(
+                stringResource(R.string.delivery_selftest_start),
+                start,
+                kind = KitButtonKind.Secondary,
+                size = KitButtonSize.Compact,
+                tag = "delivery-test-start-" + tag
+            )
+            TestPhase.WAITING -> Text(stringResource(waiting), color = theme.text)
+            TestPhase.ASK -> {
+                Text(stringResource(ask), color = theme.text)
+                Row(horizontalArrangement = Arrangement.spacedBy((theme.gap / 2).dp)) {
+                    KitButton(
+                        stringResource(R.string.delivery_selftest_yes),
+                        { answer(true) },
+                        kind = KitButtonKind.Secondary,
+                        size = KitButtonSize.Compact,
+                        tag = "delivery-test-yes-" + tag
+                    )
+                    KitButton(
+                        stringResource(R.string.delivery_selftest_no),
+                        { answer(false) },
+                        kind = KitButtonKind.Secondary,
+                        size = KitButtonSize.Compact,
+                        tag = "delivery-test-no-" + tag
+                    )
+                }
+            }
+            TestPhase.PASSED -> TestResult(R.string.delivery_selftest_passed, R.string.delivery_selftest_again, start, tag)
+            TestPhase.FAILED -> TestResult(R.string.delivery_selftest_failed, R.string.delivery_selftest_again, start, tag)
+            TestPhase.BLOCKED -> TestResult(R.string.delivery_selftest_blocked, R.string.delivery_selftest_again, start, tag)
+        }
+    }
+}
+
+@Composable
+private fun TestResult(text: Int, again: Int, start: () -> Unit, tag: String) {
+    Text(stringResource(text), color = LocalRFTheme.current.text)
+    KitButton(stringResource(again), start, kind = KitButtonKind.Text, tag = "delivery-test-again-" + tag)
 }
