@@ -15,12 +15,18 @@ object SdkMethodPolicy {
         "a2i.list" to MethodPolicy(false, true, false, false, true, "a2i"),
         "a2i.list_pending" to MethodPolicy(false, true, false, false, true, "a2i"),
         "account.app_lock.configure" to MethodPolicy(false, false, false, false, true, "account"),
+        "account.app_lock.lifecycle" to MethodPolicy(false, false, false, false, true, "account"),
+        "account.app_lock.lock" to MethodPolicy(false, false, false, false, true, "account"),
         "account.app_lock.state" to MethodPolicy(false, false, false, false, true, "account"),
         "account.backup.cancel" to MethodPolicy(true, false, false, false, true, "account"),
         "account.backup.create" to MethodPolicy(true, false, false, false, true, "account"),
         "account.backup.export" to MethodPolicy(true, true, false, true, true, "account"),
         "account.backup.import" to MethodPolicy(true, true, false, false, true, "account"),
         "account.backup.jobs" to MethodPolicy(true, false, false, false, true, "account"),
+        "conversation.start" to MethodPolicy(true, true, false, false, true, "conversation"),
+        "contact.requests.reply" to MethodPolicy(true, true, false, false, true, "contact"),
+        "account.reach.get" to MethodPolicy(false, true, false, false, true, "account"),
+        "account.reach.set" to MethodPolicy(true, true, false, false, true, "account"),
         "account.config.get" to MethodPolicy(false, true, false, false, true, "account"),
         "account.config.set" to MethodPolicy(true, true, false, false, true, "account"),
         "account.create" to MethodPolicy(true, true, false, false, true, "account"),
@@ -91,7 +97,7 @@ object SdkMethodPolicy {
         "call.hangup" to MethodPolicy(true, true, false, false, true, "call"),
         "call.invite" to MethodPolicy(true, true, false, false, true, "call"),
         "call.list" to MethodPolicy(false, true, false, false, true, "call"),
-        "call.media.session" to MethodPolicy(true, true, false, false, true, "call"),
+        "call.media.session" to MethodPolicy(true, true, false, false, false, "call"),
         "call.reject" to MethodPolicy(true, true, false, false, true, "call"),
         "card.session.dispose" to MethodPolicy(false, true, false, false, true, "card"),
         "card.session.event" to MethodPolicy(true, true, false, false, true, "card"),
@@ -264,5 +270,5 @@ object ContactVerifyCas {
     const val REQUEST_TYPE = "ramflux.message.v1.ContactSafetyVerifyRequest"
     const val RESPONSE_TYPE = "ramflux.message.v1.ContactSafetyVerifyResult"
     const val MESSAGE_DESCRIPTOR = "424943ce9bcc6b1b629366deed741bd9dbd2c9bd154643346cd8ced5051ee78d"
-    const val PRODUCT_PIN = "4ac17e2eebee3cdcafe5b7e5748da00a08c8cb1c"
+    const val PRODUCT_PIN = "dd18e6794fb5477f687e4818c1c2d081ce684ffa"
 }

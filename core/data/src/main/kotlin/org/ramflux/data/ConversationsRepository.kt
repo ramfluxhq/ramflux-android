@@ -10,6 +10,7 @@ import org.ramflux.sdk.SecretBody
 import org.ramflux.sdk.SecretReply
 
 interface ConversationsRepository {
+    suspend fun conversationStart(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun conversationDirectory(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun conversationDisappearingExpire(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun conversationDisappearingSet(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -52,6 +53,9 @@ interface ConversationsRepository {
 }
 
 class DefaultConversationsRepository(transport: RepositoryTransport) : SdkRepository(transport), ConversationsRepository {
+    override suspend fun conversationStart(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("conversation.start", "conversation", context, body)
+
     override suspend fun conversationDirectory(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("conversation.directory", "conversation", context, SecretBody.publicJson("conversation.directory", body))
 
