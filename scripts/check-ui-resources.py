@@ -86,8 +86,8 @@ def check_source(root, source):
         if not quoted.startswith('"'):
             continue
         value = quoted[1:-1]
-        if not value or re.fullmatch(r'[a-z0-9_:/.$-]+|S\d+', value):
-            continue  # Stable ids, token/schema names and empty text, never human labels.
+        if not value or re.fullmatch(r'[a-z0-9_:/.$-]+|S\d+|[a-z][a-z0-9_]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+', value):
+            continue  # Stable ids, token/schema names, dotted class names (vendor screens) and empty text, never human labels.
         prefix = text[max(0, match.start() - 80):match.start()]
         if re.search(r'(?:CancellationException|@SuppressLint)\(\s*$', prefix) or value.endswith('(<redacted>)'):
             continue  # Non-user diagnostics have no UI rendering path.

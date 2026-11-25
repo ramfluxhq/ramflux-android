@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <!-- Brand names, shown as "<brand> · Android <version>" on the delivery page. -->
+    <string name="compat_brand_android">Android</string>
+    <string name="compat_brand_samsung">Samsung</string>
+    <string name="compat_brand_xiaomi">Xiaomi</string>
+    <string name="compat_brand_redmi">Redmi</string>
+    <string name="compat_brand_poco">POCO</string>
+    <string name="compat_brand_huawei">Huawei</string>
+    <string name="compat_brand_honor">Honor</string>
+    <string name="compat_brand_oppo">OPPO</string>
+    <string name="compat_brand_realme">realme</string>
+    <string name="compat_brand_oneplus">OnePlus</string>
+    <string name="compat_brand_vivo">vivo</string>
+    <string name="compat_brand_iqoo">iQOO</string>
+    <string name="compat_brand_motorola">Motorola</string>
+    <string name="compat_brand_sony">Sony</string>
+    <string name="compat_brand_nothing">Nothing</string>
+    <string name="compat_brand_tecno">Tecno</string>
+    <string name="compat_brand_infinix">Infinix</string>
+    <string name="compat_brand_itel">itel</string>
+    <string name="compat_brand_asus">ASUS</string>
+    <!-- Vendor skin hints derived from the Android version. -->
+    <string name="compat_skin_one_ui_6">One UI 6</string>
+    <string name="compat_skin_one_ui_7">One UI 7</string>
+    <string name="compat_skin_one_ui_8">One UI 8</string>
+    <!-- Vendor settings steps: what the person is asked to switch on. -->
+    <string name="compat_samsung_sleeping_title">Keep Ramflux out of sleeping apps</string>
+    <string name="compat_samsung_sleeping_body">In Settings, open Battery, then Background usage limits. Make sure Ramflux is not in Sleeping apps or Deep sleeping apps, and add it to Never sleeping apps.</string>
+    <string name="compat_xiaomi_autostart_title">Allow autostart</string>
+    <string name="compat_xiaomi_autostart_body">Turn on Autostart for Ramflux so that it can start in the background when a message or call arrives.</string>
+    <string name="compat_xiaomi_permissions_title">Allow lock screen and background pop-ups</string>
+    <string name="compat_xiaomi_permissions_body">In the app\'s other permissions, allow Show on lock screen, Display pop-up windows while running in the background and Start in background. Also turn on lock screen and floating notifications for Messages and Calls.</string>
+    <string name="compat_xiaomi_battery_title">Remove battery restrictions</string>
+    <string name="compat_xiaomi_battery_body">Set the battery saver for Ramflux to No restrictions.</string>
+    <string name="compat_lock_recents_title">Lock Ramflux in recent apps</string>
+    <string name="compat_lock_recents_body">Open the recent apps screen and lock the Ramflux card (touch and hold it, or use the lock icon), so that clearing the list does not stop it.</string>
+    <string name="compat_huawei_app_launch_title">Manage app launch manually</string>
+    <string name="compat_huawei_app_launch_body">Open App launch, switch Ramflux to Manage manually, then turn on Auto-launch, Secondary launch and Run in background.</string>
+    <string name="compat_honor_app_launch_title">Manage app launch manually</string>
+    <string name="compat_honor_app_launch_body">Open App launch, switch Ramflux to Manage manually, then turn on Auto-launch, Secondary launch and Run in background.</string>
+    <string name="compat_oplus_auto_launch_title">Allow auto launch</string>
+    <string name="compat_oplus_auto_launch_body">Turn on Auto launch for Ramflux so that it can start in the background when a message or call arrives.</string>
+    <string name="compat_oplus_background_title">Allow background activity</string>
+    <string name="compat_oplus_background_body">In the app\'s Battery usage page, allow Background activity, Auto launch and Foreground activity.</string>
+    <string name="compat_vivo_background_start_title">Allow background startup</string>
+    <string name="compat_vivo_background_start_body">Turn on Autostart (background startup) for Ramflux.</string>
+    <string name="compat_vivo_high_power_title">Allow high background power use</string>
+    <string name="compat_vivo_high_power_body">Under Background power consumption management, allow Ramflux to use high background power.</string>
+    <string name="compat_sony_stamina_title">Check STAMINA mode</string>
+    <string name="compat_sony_stamina_body">If STAMINA mode is on, exclude Ramflux from it when offered, or turn it off while you expect calls.</string>
+    <string name="compat_transsion_autostart_title">Allow autostart</string>
+    <string name="compat_transsion_autostart_body">In Phone Master, allow Autostart for Ramflux.</string>
+    <string name="compat_transsion_power_title">Exclude Ramflux from power saving</string>
+    <string name="compat_transsion_power_body">In Phone Master, remove Ramflux from app power saving and background limits.</string>
+    <string name="compat_asus_autostart_title">Allow auto-start</string>
+    <string name="compat_asus_autostart_body">In Mobile Manager, allow Ramflux in the Auto-start manager.</string>
+</resources>
