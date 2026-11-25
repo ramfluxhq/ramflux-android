@@ -72,8 +72,11 @@ Resolved release runtime classpath of `:app` (from `:app:dependencies`):
 Not present: `firebase-analytics`, any `play-services-measurement*`, `play-services-ads-identifier`. The
 `firebase-measurement-connector` library is only an interface for an analytics SDK that is not linked. The merged
 manifest gains the permission `com.google.android.c2dm.permission.RECEIVE` (brought by the messaging service, listed
-in `scripts/os-service-allowlist.json`); the `WAKE_LOCK` and `ACCESS_NETWORK_STATE` permissions that Firebase also
-declares are removed by the removal markers of `:core:media`. The licence texts and the Google terms notice are in the
+in `scripts/os-service-allowlist.json`) and `ACCESS_NETWORK_STATE` (declared by `:push:impl` for the data saver
+reading; Firebase messaging expects it too). `WAKE_LOCK`, which Firebase also declares, is still removed by the removal
+marker in `:core:media`. **T10 must check whether handling a wake needs `WAKE_LOCK`** (the Firebase receiver and an
+inline wake fetch may); if it does, narrow or drop that marker and add the permission to the guard's allowed list
+then, not before. The licence texts and the Google terms notice are in the
 app's open-source notices (`app/src/main/assets/notices/`).
 
 ### Network capture still to do (needs a device)

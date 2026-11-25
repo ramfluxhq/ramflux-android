@@ -13,7 +13,8 @@ guard = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(guard)
 
 BASE = ['android.permission.INTERNET', 'android.permission.POST_NOTIFICATIONS',
-        'android.permission.CAMERA', 'android.permission.RECORD_AUDIO', 'android.permission.USE_FULL_SCREEN_INTENT']
+        'android.permission.CAMERA', 'android.permission.RECORD_AUDIO', 'android.permission.USE_FULL_SCREEN_INTENT',
+        'android.permission.ACCESS_NETWORK_STATE']
 CALL = 'org.ramflux.feature.calls.CallService'
 CALL_PERMISSIONS = ['android.permission.FOREGROUND_SERVICE', 'android.permission.FOREGROUND_SERVICE_PHONE_CALL']
 
@@ -84,11 +85,9 @@ class OsPermissionGuardTest(unittest.TestCase):
         tools = 'xmlns:tools="http://schemas.android.com/tools"'
         removal = ('<manifest xmlns:android="http://schemas.android.com/apk/res/android" ' + tools + '>'
                    '<uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove"/>'
-                   '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove"/>'
                    '</manifest>')
         found, _ = self.run_guard(manifest(BASE), removal)
         self.assertNotIn('android.permission.WAKE_LOCK', found)
-        self.assertNotIn('android.permission.ACCESS_NETWORK_STATE', found)
         # Any other tools:node value still declares the permission.
         merge = removal.replace('tools:node="remove"', 'tools:node="merge"')
         with self.assertRaisesRegex(ValueError, 'Unapproved permission'):
