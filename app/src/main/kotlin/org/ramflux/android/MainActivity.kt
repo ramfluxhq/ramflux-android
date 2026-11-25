@@ -47,6 +47,10 @@ import org.ramflux.feature.permissions.PermissionsNavigation
 import org.ramflux.feature.permissions.api.PermissionEntry
 import org.ramflux.feature.permissions.api.PermissionsRoute
 import org.ramflux.navigation.rememberTopLevelNavigator
+import org.ramflux.push.api.DeliveryRoute
+import org.ramflux.push.ui.DeliveryNavigation
+import org.ramflux.push.ui.DeliverySheetHost
+import org.ramflux.push.ui.rememberPermissionFlowFinished
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -92,11 +96,21 @@ class MainActivity : ComponentActivity() {
                                 // Shown only for an unlocked session: a tapped notification waits here behind the unlock.
                                 NotificationOpener(notificationRoutes, tabs)
                                 RamfluxShell(tabs, SHELL_ROUTE_POLICY, navigate)
+                                DeliverySheetHost(onSetUp = { navigate(DeliveryRoute) })
                             })
                         }
                     ) { onBack, navigate ->
                         // Root-stack pages: ShellPage applies the window insets and the width cap the screens no longer own.
-                        entry<PermissionsRoute> { route -> ShellPage { PermissionsNavigation(route, onBack, modifier = it) } }
+                        entry<PermissionsRoute> { route ->
+                            val finished = rememberPermissionFlowFinished()
+                            ShellPage {
+                                PermissionsNavigation(route, {
+                                    finished()
+                                    onBack()
+                                }, modifier = it)
+                            }
+                        }
+                        entry<DeliveryRoute> { ShellPage { DeliveryNavigation(onBack, modifier = it) } }
                         entry<BackupRoute> { route -> ShellPage { BackupNavigation(route.freshInstall, onBack, modifier = it) } }
                         entry<OnboardingRoute> { route ->
                             ShellPage {

@@ -49,4 +49,16 @@
     <string name="delivery_hibernation_body">请为 Ramflux 关闭此项，否则 Android 可能停止它并移除其权限。</string>
     <string name="delivery_battery_saver_title">省电模式</string>
     <string name="delivery_battery_saver_body">省电模式已开启。开启期间消息可能延迟。</string>
+    <string name="delivery_banner_fix">处理</string>
+    <string name="delivery_banner_messages">消息通知已关闭。</string>
+    <string name="delivery_banner_calls">来电通知已关闭或静音，来电可能不会响铃。</string>
+    <string name="delivery_banner_full_screen">来电无法在锁屏上全屏显示。</string>
+    <string name="delivery_banner_background">Ramflux 的后台使用受限，消息可能延迟。</string>
+    <string name="delivery_banner_standby">Android 已把 Ramflux 放入限制最严格的待机分组，消息可能延迟。</string>
+    <string name="delivery_banner_play">本机无法使用后台送达。</string>
+    <string name="delivery_banner_force_stop">Ramflux 曾被停止。期间到达的消息没有提醒。</string>
+    <string name="delivery_sheet_title">确保本机能收到消息</string>
+    <string name="delivery_sheet_body">这些设置决定 Ramflux 关闭时能否收到消息和来电：</string>
+    <string name="delivery_sheet_set_up">去设置</string>
+    <string name="delivery_sheet_not_now">暂不</string>
 </resources>
