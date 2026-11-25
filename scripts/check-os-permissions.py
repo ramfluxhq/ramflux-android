@@ -4,7 +4,8 @@
 """Guard the production manifest permission boundary, including transitive feature manifests.
 
 Services are forbidden except the exact classes in os-service-allowlist.json, each with its declared
-foreground service type, not exported, and only then with the permissions that entry brings.
+foreground service type, not exported, and only then with the permissions that entry brings. The type value
+`none` is for a service that is not a foreground service and must declare no foregroundServiceType.
 A uses-permission element marked tools:node="remove" takes a library permission out of the merged
 manifest; it declares nothing and is not counted.
 """
@@ -18,7 +19,7 @@ KEY = ANDROID + 'name'
 ALLOWED = {'android.permission.INTERNET', 'android.permission.POST_NOTIFICATIONS',
            'android.permission.CAMERA', 'android.permission.RECORD_AUDIO'}
 FOREGROUND_TYPES = {'phoneCall', 'dataSync', 'mediaPlayback', 'microphone', 'camera', 'shortService',
-                    'mediaProcessing', 'remoteMessaging'}
+                    'mediaProcessing', 'remoteMessaging', 'none'}
 
 
 def load_allowlist(path):
@@ -29,11 +30,13 @@ def load_allowlist(path):
         if not name or '*' in name or name.startswith('.'):
             raise ValueError(f'Allowlisted service needs a fully qualified class: {name!r}')
         kinds = set(kind.split('|'))
+        if 'none' in kinds and kinds != {'none'}:
+            raise ValueError(f'Foreground service type none cannot be combined with another type: {name}')
         if not kinds <= FOREGROUND_TYPES:
             raise ValueError(f'Unknown foreground service type {kind!r} for {name}')
         if name in services:
             raise ValueError(f'Duplicate allowlisted service {name}')
-        services[name] = (kinds, set(permissions))
+        services[name] = (set() if kinds == {'none'} else kinds, set(permissions))
     return services
 
 
@@ -62,7 +65,7 @@ def check_manifest(path, services):
 def validate(root, allowlist):
     services = load_allowlist(allowlist)
     found, declared = set(), set()
-    for base in ('app', 'core', 'feature'):
+    for base in ('app', 'core', 'feature', 'push'):
         for path in sorted((Path(root) / base).glob('**/src/main/AndroidManifest.xml')):
             permissions, names = check_manifest(path, services)
             found |= permissions

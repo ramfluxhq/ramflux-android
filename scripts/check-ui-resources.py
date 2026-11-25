@@ -34,7 +34,9 @@ def validate(root):
     provider = root / 'core/designsystem/src/main/kotlin/org/ramflux/designsystem/AppLanguageProvider.kt'
     if provider.exists() and not re.search(r'enableSplit\s*=\s*false', (root / 'app/build.gradle.kts').read_text()):
         raise ValueError('Runtime language switching requires all locale resources in the application bundle')
-    modules = [root / 'app', root / 'core/designsystem', *[p for p in sorted((root / 'feature').glob('*/impl')) if (p / 'build.gradle.kts').exists()]]
+    push = [root / 'push' / name for name in ('api', 'impl', 'international/compat', 'international/fcm')]
+    modules = [root / 'app', root / 'core/designsystem', *[p for p in sorted((root / 'feature').glob('*/impl')) if (p / 'build.gradle.kts').exists()],
+               *[p for p in push if (p / 'build.gradle.kts').exists()]]
     default = default_locale(root)
     locales = set().union(*(resource_locales(module / 'src/main/res') for module in modules))
     validate_theme_names(root, default, locales)
