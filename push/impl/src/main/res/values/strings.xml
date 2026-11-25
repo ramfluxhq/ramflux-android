@@ -78,4 +78,5 @@
     <string name="delivery_selftest_failed">Not seen. Check the notification and lock screen settings above, then try again.</string>
     <string name="delivery_selftest_blocked">The test could not be posted because notifications are off.</string>
     <string name="delivery_selftest_again">Test again</string>
+    <string name="delivery_selftest_close">Close</string>
 </resources>

@@ -7,6 +7,7 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.graphics.drawable.Icon
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -37,7 +38,6 @@ class LocalSelfTest @Inject constructor(@ApplicationContext private val context:
     /** A ringing call notification on the calls channel; it takes over a locked screen where the system allows it. */
     fun postCall(): Boolean {
         val builder = builder(AndroidDeliverySignals.CHANNEL_CALLS) ?: return false
-        val launch = launchIntent()
         val notification = builder
             .setContentTitle(context.getString(R.string.delivery_selftest_call_title))
             .setContentText(context.getString(R.string.delivery_selftest_text))
@@ -45,7 +45,7 @@ class LocalSelfTest @Inject constructor(@ApplicationContext private val context:
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
             .setTimeoutAfter(RING_TIMEOUT_MS)
-            .apply { launch?.let { setFullScreenIntent(it, true) } }
+            .apply { ringIntent()?.let { setFullScreenIntent(it, true) } }
             .build()
         notification.flags = notification.flags or Notification.FLAG_INSISTENT
         return notify(CALL_ID, notification)
@@ -55,8 +55,16 @@ class LocalSelfTest @Inject constructor(@ApplicationContext private val context:
         val manager = context.getSystemService(NotificationManager::class.java)
         if (!manager.areNotificationsEnabled() || manager.getNotificationChannel(channel) == null) return null
         return Notification.Builder(context, channel)
-            .setSmallIcon(Icon.createWithResource(context, context.applicationInfo.icon))
+            .setSmallIcon(Icon.createWithResource(context, R.drawable.ic_push_notification))
             .apply { launchIntent()?.let { setContentIntent(it) } }
+    }
+
+    private fun ringIntent(): PendingIntent? {
+        val intent = Intent(
+            context,
+            RingTestActivity::class.java
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION)
+        return PendingIntent.getActivity(context, 1, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
     private fun launchIntent(): PendingIntent? {
@@ -72,9 +80,9 @@ class LocalSelfTest @Inject constructor(@ApplicationContext private val context:
         false
     }
 
-    private companion object {
+    internal companion object {
         const val MESSAGE_ID = 0x5253
         const val CALL_ID = 0x5254
-        const val RING_TIMEOUT_MS = 15_000L
+        private const val RING_TIMEOUT_MS = 15_000L
     }
 }

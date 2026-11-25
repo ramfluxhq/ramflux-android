@@ -4,6 +4,16 @@
     <!-- Lets an incoming-call notification take over a locked screen (API 34+ makes it a special access the person can revoke). -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <!-- Package visibility (Android 11+): the standard settings screens SafeSettingsLauncher resolves before it starts them. -->
+    <application>
+        <!-- The full-screen target of the test ring: shows over the lock screen and holds only the test line. -->
+        <activity
+            android:name="org.ramflux.push.selftest.RingTestActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:turnScreenOn="true" />
+    </application>
     <queries>
         <intent>
             <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />

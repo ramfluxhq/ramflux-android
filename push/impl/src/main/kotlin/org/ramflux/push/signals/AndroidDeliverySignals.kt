@@ -183,7 +183,7 @@ class AndroidDeliverySignals @Inject constructor(@ApplicationContext private val
 
     companion object {
         const val CHANNEL_MESSAGES = "messages"
-        private const val TRACE_TAG = "RamfluxPush"
+        private const val TRACE_TAG = "ramflux.push"
         const val CHANNEL_CALLS = "calls"
     }
 }
