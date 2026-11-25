@@ -176,7 +176,7 @@ class AndroidDeliverySignals @Inject constructor(@ApplicationContext private val
     /** Debug builds only: which reading could not be taken and why (the exception type), nothing else. */
     private fun traceUnavailable(item: StandardItem, cause: Exception): StandardReading? {
         if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-            Log.d(TRACE_TAG, "push.signal.unavailable" + ' ' + item.id + ' ' + cause.javaClass.simpleName)
+            Log.i(TRACE_TAG, "push.signal.unavailable" + ' ' + item.id + ' ' + cause.javaClass.simpleName)
         }
         return null
     }

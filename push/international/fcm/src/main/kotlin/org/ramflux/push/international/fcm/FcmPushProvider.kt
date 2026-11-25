@@ -112,7 +112,7 @@ class FcmPushProvider @Inject constructor(@ApplicationContext private val contex
             append('=')
             append(length)
         }
-        Log.d(TRACE_TAG, line)
+        Log.i(TRACE_TAG, line)
     }
 
     private fun tokenKeepsFailing(): Boolean {
