@@ -237,7 +237,7 @@ A production manifest may declare a `<service>` only when `scripts/os-service-al
 class, foreground service type and the permissions it brings; `scripts/check-os-permissions.py` enforces this for
 every `src/main` manifest and the merged debug manifest (`scripts/test-os-permissions.py` holds its tests). A
 `uses-permission` marked `tools:node="remove"` removes a library permission from the merged manifest and is not
-counted as a declaration, so such removals (Media3's network-state and wake-lock permissions in `:core:media`)
+counted as a declaration, so such a removal (Media3's wake-lock permission in `:core:media`)
 live in `src/main`.
 
 Declared today: `org.ramflux.feature.chat.MediaTransferService` (`dataSync`, not exported, with
