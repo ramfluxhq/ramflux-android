@@ -725,7 +725,11 @@ class RealRunFlowTest {
         ui.tap("language")
         // The id list is cut at 700 characters, so a row far down the screen never showed in it: ask for the row itself.
         val languages = ui.eventually(10_000) { ui.find("language:system", 500) != null }
-        notes += if (languages) "language screen lists languages" else "language screen shows no language rows"
+        notes += if (languages) {
+            "language screen lists the system-language row"
+        } else {
+            "language screen did not show the system-language row within 10 s"
+        }
         ui.shot("10-language")
         ensureShell()
         openSettings()
