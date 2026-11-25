@@ -98,7 +98,8 @@ private fun Entries(
                 enabled = entry.canOpen,
                 testTag = "delivery-row-" + entry.id
             )
-            Text(stringResource(entry.body), color = theme.text)
+            // A setting that is fine needs no explanation; a vendor step always keeps its instruction.
+            if (entry.group == EntryGroup.BRAND || entry.label != EntryLabel.ON) Text(stringResource(entry.body), color = theme.text)
             if (entry.id in state.cannotOpen) {
                 Text(stringResource(R.string.delivery_cannot_open), color = theme.text)
                 KitButton(
