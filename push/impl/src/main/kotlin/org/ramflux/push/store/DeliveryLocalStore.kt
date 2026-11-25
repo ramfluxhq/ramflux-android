@@ -59,11 +59,11 @@ class DeliveryLocalStore @Inject constructor(@ApplicationContext context: Contex
         preferences.edit { putLong("banner.$problem.last", nowMs) }
     }
 
-    /** The last process exit this install has already announced (force-stop notice), by exit timestamp. */
-    fun handledExitMs(): Long = preferences.getLong("exit.handled", 0L)
+    /** The start identity of the last force stop this install has already announced. */
+    fun handledStart(): Long = preferences.getLong("exit.handled", 0L)
 
-    fun markExitHandled(timestampMs: Long) {
-        preferences.edit { putLong("exit.handled", timestampMs) }
+    fun markStartHandled(identity: Long) {
+        preferences.edit { putLong("exit.handled", identity) }
     }
 
     private fun confirmedKey(stepId: String) = "step.$stepId.confirmed"
