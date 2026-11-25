@@ -26,12 +26,14 @@ import org.ramflux.designsystem.kit.KitPageHeader
 
 private const val NOTICE_CAP = 16384
 
-/** Licence texts that must travel with the app: the bundled fonts, the Kit icons and Bouncy Castle (BLAKE3). */
+/** Licence texts that must travel with the app: the bundled fonts, the Kit icons, Bouncy Castle (BLAKE3) and the push libraries. */
 private val NOTICES = listOf(
     "notices/hanken-grotesk-ofl.txt",
     "notices/jetbrains-mono-ofl.txt",
     "notices/lucide-isc.txt",
-    "notices/bouncycastle-mit.txt"
+    "notices/bouncycastle-mit.txt",
+    "notices/firebase-apache-2.0.txt",
+    "notices/google-play-services.txt"
 )
 
 @Composable

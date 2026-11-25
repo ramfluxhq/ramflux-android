@@ -33,7 +33,7 @@ class DeliveryViewModel @Inject constructor(
     private val launcher: SafeSettingsLauncher,
     private val store: DeliveryLocalStore,
     private val selfTest: LocalSelfTest,
-    provider: PushProvider
+    private val provider: PushProvider
 ) : ViewModel() {
     private val local = MutableStateFlow(DeliveryState(provider = provider.state.value))
     val state: StateFlow<DeliveryState> = local.asStateFlow()
@@ -45,6 +45,7 @@ class DeliveryViewModel @Inject constructor(
 
     /** Re-reads every setting; the page calls it each time it comes back to the front. */
     fun refresh() {
+        provider.refreshState()
         viewModelScope.launch {
             val page: DeliveryPage = withContext(Dispatchers.Default) { guidance.read() }
             candidates = page.candidates

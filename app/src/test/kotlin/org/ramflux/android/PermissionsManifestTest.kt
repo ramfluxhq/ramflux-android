@@ -28,18 +28,25 @@ class PermissionsManifestTest {
                 Manifest.permission.USE_FULL_SCREEN_INTENT,
                 // Brought by the allowlisted media transfer service (scripts/os-service-allowlist.json).
                 Manifest.permission.FOREGROUND_SERVICE,
-                FOREGROUND_SERVICE_DATA_SYNC
+                FOREGROUND_SERVICE_DATA_SYNC,
+                // Brought by the allowlisted messaging service of the Firebase module.
+                "com.google.android.c2dm.permission.RECEIVE"
             ),
             requireNotNull(info.requestedPermissions).toSet() - privateReceiver
         )
     }
 
-    @Test fun theMediaTransferServiceIsDeclaredAndNotExported() {
+    @Test fun theAppsOwnServicesAreDeclaredAndNotExported() {
         val app = ApplicationProvider.getApplicationContext<RamfluxApplication>()
         val info = app.packageManager.getPackageInfo(app.packageName, PackageManager.GET_SERVICES)
-        val services = requireNotNull(info.services).associateBy { it.name }
-        assertEquals(setOf("org.ramflux.feature.chat.MediaTransferService"), services.keys)
+        // Libraries add services of their own (Firebase); the app's own are the allowlisted ones.
+        val services = requireNotNull(info.services).filter { it.name.startsWith("org.ramflux.") }.associateBy { it.name }
+        assertEquals(
+            setOf("org.ramflux.feature.chat.MediaTransferService", "org.ramflux.push.international.fcm.RamfluxMessagingService"),
+            services.keys
+        )
         assertEquals(false, services.getValue("org.ramflux.feature.chat.MediaTransferService").exported)
+        assertEquals(false, services.getValue("org.ramflux.push.international.fcm.RamfluxMessagingService").exported)
     }
 
     private companion object {

@@ -28,6 +28,8 @@ zxing = "3.5.4"
 media3 = "1.11.1"
 # Bouncy Castle (MIT-style licence): BLAKE3 for attachment digests and the direct-conversation scope.
 bouncycastle = "1.78.1"
+# Firebase BOM (Apache-2.0): firebase-messaging only, in :push:international:fcm (client libraries are proprietary Google terms).
+firebaseBom = "35.1.0"
 
 [libraries]
 collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version = "0.4.0" }
@@ -45,6 +47,8 @@ media3-transformer = { module = "androidx.media3:media3-transformer", version.re
 media3-effect = { module = "androidx.media3:media3-effect", version.ref = "media3" }
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3" }
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 emoji2-picker = { module = "androidx.emoji2:emoji2-emojipicker", version = "1.4.0" }
 
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose" }

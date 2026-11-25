@@ -34,6 +34,9 @@ interface PushProvider {
     val channel: DeliveryChannel
     val state: StateFlow<ProviderState>
 
+    /** Re-checks what can change while the app runs, such as Google Play services being updated. */
+    fun refreshState()
+
     /** The current token, or null when none can be had. Never persisted or logged. */
     suspend fun token(): PushToken?
 
