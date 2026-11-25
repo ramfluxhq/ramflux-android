@@ -94,3 +94,4 @@ device: the model, the OS build, the candidate that resolved and the screen it r
 
 | Model | OS build | Candidate that resolved | Screen reached |
 |---|---|---|---|
+| Redmi (international ROM) | HyperOS 3, Android 16 (2026-11-25) | Autostart: `com.miui.securitycenter/com.miui.permcenter.autostart.AutoStartManagementActivity` (first candidate). Other permissions: `com.miui.securitycenter/com.miui.permcenter.permissions.PermissionsEditorActivity` (first candidate). Battery saver per app (`com.miui.powerkeeper/...HiddenAppsConfigActivity`): did not resolve, so the step is not offered. | Autostart management list; the app's "other permissions" page. Standard battery row: `com.android.settings/Settings$AppBatteryUsageActivity`; hibernation row: `com.miui.securitycenter/com.miui.appmanager.ApplicationsDetailsActivity`. |
