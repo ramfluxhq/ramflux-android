@@ -4,9 +4,11 @@
 package org.ramflux.push.ui
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentSet
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.ramflux.push.api.IntentCandidate
+import org.ramflux.push.api.ProviderState
 import org.ramflux.push.api.PushProvider
 import org.ramflux.push.guidance.DeliveryGuidance
 import org.ramflux.push.guidance.DeliveryPage
@@ -33,6 +36,7 @@ class DeliveryViewModel @Inject constructor(
     private val launcher: SafeSettingsLauncher,
     private val store: DeliveryLocalStore,
     private val selfTest: LocalSelfTest,
+    @ApplicationContext private val context: Context,
     private val provider: PushProvider
 ) : ViewModel() {
     private val local = MutableStateFlow(DeliveryState(provider = provider.state.value))
@@ -46,6 +50,7 @@ class DeliveryViewModel @Inject constructor(
     /** Re-reads every setting; the page calls it each time it comes back to the front. */
     fun refresh() {
         provider.refreshState()
+        probeToken()
         viewModelScope.launch {
             val page: DeliveryPage = withContext(Dispatchers.Default) { guidance.read() }
             candidates = page.candidates
@@ -60,6 +65,16 @@ class DeliveryViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    /**
+     * Debug builds only: asks the provider for its token so that the provider logs that one was obtained (its length,
+     * never the value). The token is dropped here. Registration with the node comes with the route work.
+     */
+    private fun probeToken() {
+        val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        if (!debuggable || provider.state.value != ProviderState.Ready) return
+        viewModelScope.launch { provider.token() }
     }
 
     fun confirm(id: String) {
