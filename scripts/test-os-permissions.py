@@ -13,7 +13,7 @@ guard = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(guard)
 
 BASE = ['android.permission.INTERNET', 'android.permission.POST_NOTIFICATIONS',
-        'android.permission.CAMERA', 'android.permission.RECORD_AUDIO']
+        'android.permission.CAMERA', 'android.permission.RECORD_AUDIO', 'android.permission.USE_FULL_SCREEN_INTENT']
 CALL = 'org.ramflux.feature.calls.CallService'
 CALL_PERMISSIONS = ['android.permission.FOREGROUND_SERVICE', 'android.permission.FOREGROUND_SERVICE_PHONE_CALL']
 

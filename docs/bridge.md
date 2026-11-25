@@ -256,6 +256,14 @@ only when notifications and the message channel are already allowed; release bui
 `FLAG_SECURE`) hide it on the lock screen (`VISIBILITY_SECRET`), debug builds post it private with an
 equally generic public version. Only conversations on the first directory page (100 rows) are compared.
 
+The app creates four notification channels (`OsPermissionsRepository.createChannels`): `messages` (high importance,
+private on the lock screen), `calls` (high importance with the default ringtone, `USAGE_NOTIFICATION_RINGTONE`
+and vibration, public on the lock screen so a generic incoming call can ring there), `missed_calls` (default
+importance, private) and `system` (low importance, silent, private). A channel keeps the importance it was
+created with, so an install that predates these settings keeps its old channels; each application id has its
+own. The permission `USE_FULL_SCREEN_INTENT` is declared in `:feature:permissions:impl` so that the incoming-call
+row of the permissions page can read and offer the special access on API 34 and later.
+
 Known beta limitation: the client is suspended while the app is in the background (no network or open files;
 the unlocked accounts stay in memory), so no event reaches the app after it stopped and nothing is posted then. Real background
 delivery needs the node's push and background-delivery design (request R21: what the node sends, what a

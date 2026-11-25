@@ -25,6 +25,7 @@ class PermissionsManifestTest {
                 Manifest.permission.POST_NOTIFICATIONS,
                 Manifest.permission.CAMERA,
                 Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.USE_FULL_SCREEN_INTENT,
                 // Brought by the allowlisted media transfer service (scripts/os-service-allowlist.json).
                 Manifest.permission.FOREGROUND_SERVICE,
                 FOREGROUND_SERVICE_DATA_SYNC

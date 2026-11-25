@@ -17,7 +17,8 @@ ANDROID = '{http://schemas.android.com/apk/res/android}'
 TOOLS = '{http://schemas.android.com/tools}'
 KEY = ANDROID + 'name'
 ALLOWED = {'android.permission.INTERNET', 'android.permission.POST_NOTIFICATIONS',
-           'android.permission.CAMERA', 'android.permission.RECORD_AUDIO'}
+           'android.permission.CAMERA', 'android.permission.RECORD_AUDIO',
+           'android.permission.USE_FULL_SCREEN_INTENT'}
 FOREGROUND_TYPES = {'phoneCall', 'dataSync', 'mediaPlayback', 'microphone', 'camera', 'shortService',
                     'mediaProcessing', 'remoteMessaging', 'none'}
 
@@ -104,6 +105,6 @@ if __name__ == '__main__':
     root = Path(__file__).resolve().parent.parent
     allowlist = Path(__file__).with_name('os-service-allowlist.json')
     _, declared = validate(root, allowlist)
-    print('OS_PERMISSIONS_OK: only network, notifications, camera and dormant microphone; '
+    print('OS_PERMISSIONS_OK: only network, notifications, full-screen call notifications, camera and dormant microphone; '
           f'no broad storage; services only from the allowlist ({len(declared)} declared)')
     validate_merged(root, load_allowlist(allowlist))

@@ -7,7 +7,7 @@ object OsPickerMimeTypes { const val FILES = "*/*" }
 enum class OsPermission { NOTIFICATIONS, MICROPHONE, CAMERA, INCOMING_CALL, BATTERY, SAVE_PHOTO, PHOTOS_FILES }
 enum class OsPermissionStatus { ALLOWED, DENIED, NOT_ASKED, NOT_REQUIRED, UNAVAILABLE }
 data class OsPermissionRow(val permission: OsPermission, val status: OsPermissionStatus)
-data class NotificationChannelLabels(val messages: String, val calls: String, val system: String)
+data class NotificationChannelLabels(val messages: String, val calls: String, val system: String, val missedCalls: String)
 sealed interface OsPermissionResult<out T> {
     data class Ready<T>(val value: T) : OsPermissionResult<T>
     data object Failed : OsPermissionResult<Nothing>

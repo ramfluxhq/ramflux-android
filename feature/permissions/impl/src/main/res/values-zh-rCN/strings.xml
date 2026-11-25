@@ -50,6 +50,7 @@
     <string name="permissions_messages_channel">消息</string>
     <string name="permissions_calls_channel">来电</string>
     <string name="permissions_system_channel">系统</string>
+    <string name="permissions_missed_calls_channel">未接来电</string>
     <string name="permissions_notifications_off">通知已关闭，将不会提醒新消息。</string>
     <string name="permissions_attachments">添加附件</string>
     <string name="permissions_photos">照片</string>
