@@ -39,6 +39,19 @@ core repository (`RAMFLUX_CORE_DIR`). The revision of the core that this client 
 python3 scripts/run-ci-steps.py kotlin --list                                    # the CI steps, runnable locally
 ```
 
+### Application ids
+
+The three build types install side by side on one phone, each with its own Keystore keys, notification channels
+and data:
+
+| Build type | Application id | Launcher label |
+|---|---|---|
+| `release` | `org.ramflux.android` | Ramflux |
+| `debug` | `org.ramflux.android.dev` (instrumentation package `org.ramflux.android.dev.test`) | Ramflux Dev |
+| `realrun` | `org.ramflux.android.realrun` | Ramflux Real Run |
+
+The Kotlin namespace stays `org.ramflux.android` in every build type.
+
 `scripts/run-ci-steps.py <job>` runs the commands of a job in `.github/workflows/ci.yml` as CI does. The guard
 scripts under `scripts/` (secret boundary, architecture, permissions, tokens, board references) are part of CI.
 

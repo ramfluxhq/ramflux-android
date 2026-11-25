@@ -37,7 +37,7 @@ run('install-app', ['install', '-r', str(a.app)], timeout=180)
 run('install-test', ['install', '-r', str(a.test)], timeout=180)
 def instrument(name, classname):
     output = run(name, ['shell', 'am', 'instrument', '-w', '-r', '-e', 'class', classname,
-        'org.ramflux.android.test/androidx.test.runner.AndroidJUnitRunner'], timeout=180)
+        'org.ramflux.android.dev.test/androidx.test.runner.AndroidJUnitRunner'], timeout=180)
     if not re.search(r'OK\s*\(1 test\)', output) or 'FAILURES' in output or 'INSTRUMENTATION_FAILED' in output:
         raise SystemExit(f'NATIVE_SMOKE_FAILED: {classname} did not pass; see {name}.txt')
     return output
@@ -45,7 +45,7 @@ try:
     instrument('instrumentation', 'org.ramflux.android.NativeRuntimeSmokeTest')
     instrument('custody', 'org.ramflux.android.CustodyEmulatorTest')
     instrument('custody-reinstall-seed', 'org.ramflux.android.CustodyReinstallSeedTest')
-    run('uninstall', ['uninstall', 'org.ramflux.android'])
+    run('uninstall', ['uninstall', 'org.ramflux.android.dev'])
     run('install-app-again', ['install', '-r', str(a.app)], timeout=180)
     run('install-test-again', ['install', '-r', str(a.test)], timeout=180)
     instrument('custody-reinstall-absent', 'org.ramflux.android.CustodyReinstallAbsentTest')

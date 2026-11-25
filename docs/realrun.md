@@ -89,7 +89,8 @@ appears (with retries); replacing an installed package shows no prompt.
 
 - **Build type `realrun`** (`AndroidAppPlugin`): debug under `org.ramflux.android.realrun` with the
   label "Ramflux Real Run", so it installs beside any other build on a shared phone. The script installs
-  and uninstalls only this package. Nothing in the app hard-codes the package name (the file provider uses
+  and uninstalls only this package; the debug build type is `org.ramflux.android.dev` and release is
+  `org.ramflux.android`, so all three coexist. Nothing in the app hard-codes the package name (the file provider uses
   `${applicationId}`; Keystore keys and notification channels are per application).
 - **Suite** `app/src/androidTest/.../realrun/RealRunFlowTest` (UiAutomator), skipped unless the
   instrumentation argument `rf_realrun=1` is given; the native smoke run selects its own classes only.
