@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <!-- Launcher label of the debug build (application id org.ramflux.android.dev), told apart from the release app on a shared phone. -->
+    <string name="app_name">Ramflux Dev</string>
+</resources>

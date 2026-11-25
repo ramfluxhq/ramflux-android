@@ -34,7 +34,9 @@ class AndroidAppPlugin : Plugin<Project> {
             defaultConfig.buildConfigField("long", "USERNAME_DIRECTORY_GENERATION", "${pin[3].ifEmpty { "0" }}L")
             compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
             buildTypes.getByName("release") { isMinifyEnabled = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt")) }
-            buildTypes.getByName("debug").isPseudoLocalesEnabled = true
+            // Debug installs beside the release app under its own application id (and so its own Keystore keys,
+            // notification channels and push registration); `realrun` below replaces the suffix.
+            buildTypes.getByName("debug") { isPseudoLocalesEnabled = true; applicationIdSuffix = ".dev" }
             // Opt-in real runs (scripts/realrun.sh): the debug build under its own application id and
             // launcher label, so it installs beside another build of the app on a shared device.
             buildTypes.create("realrun") {
