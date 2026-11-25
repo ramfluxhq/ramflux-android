@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -28,15 +29,14 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import org.ramflux.android.BuildConfig
@@ -55,7 +55,8 @@ import org.ramflux.designsystem.kit.KitConversationRow
 /** How long a banner stays before it dismisses itself. */
 internal const val BANNER_VISIBLE_MS = 4_000L
 
-private val SWIPE_UP_DISMISS = 24.dp
+/** Upward travel that dismisses a banner, in units of the theme's gap token (24 dp at the shipped 16 dp gap). */
+private const val SWIPE_UP_DISMISS_GAPS = 1.5f
 
 /**
  * Adds the banner's own [ComposeView] to [activity]'s window, above the app content. The host view keeps the
@@ -107,7 +108,7 @@ internal fun InAppBannerOverlay(banners: InAppBanners) {
         banners.dismiss(shown)
     }
     val theme = LocalRFTheme.current
-    val threshold = with(LocalDensity.current) { SWIPE_UP_DISMISS.toPx() }
+    val threshold = with(LocalDensity.current) { (theme.gap * SWIPE_UP_DISMISS_GAPS).dp.toPx() }
     val preview = when (val kind = shown.preview) {
         is BannerPreview.Text -> kind.line
         BannerPreview.Call -> stringResource(R.string.banner_preview_call)
@@ -122,8 +123,8 @@ internal fun InAppBannerOverlay(banners: InAppBanners) {
         Box(
             Modifier
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                .padding(horizontal = 8.dp, vertical = 8.dp)
-                .shadow(4.dp, shape)
+                .padding(horizontal = (theme.gap / 2).dp, vertical = (theme.gap / 2).dp)
+                .shadow((theme.gap / 4).dp, shape)
                 .clip(shape)
                 .background(theme.surface_white)
                 .pointerInput(shown) {
