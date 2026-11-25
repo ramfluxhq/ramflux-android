@@ -61,4 +61,21 @@
     <string name="delivery_sheet_body">These settings decide whether messages and calls reach you when Ramflux is closed:</string>
     <string name="delivery_sheet_set_up">Set up</string>
     <string name="delivery_sheet_not_now">Not now</string>
+    <string name="delivery_section_selftest">Self-test</string>
+    <string name="delivery_selftest_settings_ok">The settings above that Ramflux can read are in order.</string>
+    <string name="delivery_selftest_settings_attention">Some settings above need attention before messages are sure to arrive.</string>
+    <string name="delivery_selftest_message_title">Test message notification</string>
+    <string name="delivery_selftest_call_title">Test incoming call</string>
+    <string name="delivery_selftest_text">This is a test from Ramflux.</string>
+    <string name="delivery_selftest_start">Start test</string>
+    <string name="delivery_selftest_message_waiting">Lock your phone now. A test notification arrives in 5 seconds.</string>
+    <string name="delivery_selftest_call_waiting">Lock your phone now. A test call rings in 10 seconds.</string>
+    <string name="delivery_selftest_message_ask">Did the notification appear on the lock screen?</string>
+    <string name="delivery_selftest_call_ask">Did the call ring and show on the lock screen?</string>
+    <string name="delivery_selftest_yes">Yes</string>
+    <string name="delivery_selftest_no">No</string>
+    <string name="delivery_selftest_passed">You confirmed it worked.</string>
+    <string name="delivery_selftest_failed">Not seen. Check the notification and lock screen settings above, then try again.</string>
+    <string name="delivery_selftest_blocked">The test could not be posted because notifications are off.</string>
+    <string name="delivery_selftest_again">Test again</string>
 </resources>

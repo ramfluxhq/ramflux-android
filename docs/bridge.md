@@ -261,7 +261,7 @@ private on the lock screen), `calls` (high importance with the default ringtone,
 and vibration, public on the lock screen so a generic incoming call can ring there), `missed_calls` (default
 importance, private) and `system` (low importance, silent, private). A channel keeps the importance it was
 created with, so an install that predates these settings keeps its old channels; each application id has its
-own. The permission `USE_FULL_SCREEN_INTENT` is declared in `:feature:permissions:impl` so that the incoming-call
+own. The permission `USE_FULL_SCREEN_INTENT` is declared in `:push:impl` (which also posts the test ring with it) so that the incoming-call
 row of the permissions page can read and offer the special access on API 34 and later.
 
 Known beta limitation: the client is suspended while the app is in the background (no network or open files;

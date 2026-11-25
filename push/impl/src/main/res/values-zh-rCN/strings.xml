@@ -61,4 +61,21 @@
     <string name="delivery_sheet_body">这些设置决定 Ramflux 关闭时能否收到消息和来电：</string>
     <string name="delivery_sheet_set_up">去设置</string>
     <string name="delivery_sheet_not_now">暂不</string>
+    <string name="delivery_section_selftest">自检</string>
+    <string name="delivery_selftest_settings_ok">上面 Ramflux 能读取的设置均正常。</string>
+    <string name="delivery_selftest_settings_attention">上面有些设置需要处理，才能确保消息送达。</string>
+    <string name="delivery_selftest_message_title">测试消息通知</string>
+    <string name="delivery_selftest_call_title">测试来电</string>
+    <string name="delivery_selftest_text">这是来自 Ramflux 的测试。</string>
+    <string name="delivery_selftest_start">开始测试</string>
+    <string name="delivery_selftest_message_waiting">请现在锁定手机。5 秒后会收到一条测试通知。</string>
+    <string name="delivery_selftest_call_waiting">请现在锁定手机。10 秒后测试来电会响铃。</string>
+    <string name="delivery_selftest_message_ask">通知是否显示在锁屏上？</string>
+    <string name="delivery_selftest_call_ask">来电是否响铃并显示在锁屏上？</string>
+    <string name="delivery_selftest_yes">是</string>
+    <string name="delivery_selftest_no">否</string>
+    <string name="delivery_selftest_passed">你已确认正常。</string>
+    <string name="delivery_selftest_failed">未看到。请检查上面的通知和锁屏设置，然后重试。</string>
+    <string name="delivery_selftest_blocked">由于通知已关闭，无法发出测试。</string>
+    <string name="delivery_selftest_again">再测一次</string>
 </resources>
