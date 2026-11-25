@@ -9,6 +9,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import org.ramflux.push.api.BrandCompat
+import org.ramflux.push.api.DeviceGuidance
 import org.ramflux.push.international.compat.brand.AospCompat
 import org.ramflux.push.international.compat.brand.AsusCompat
 import org.ramflux.push.international.compat.brand.HonorCompat
@@ -25,6 +26,9 @@ import org.ramflux.push.international.compat.brand.XiaomiCompat
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class InternationalCompatModule {
+    @Binds
+    abstract fun deviceGuidance(registry: BrandRegistry): DeviceGuidance
+
     @Binds
     @IntoSet
     abstract fun aosp(compat: AospCompat): BrandCompat

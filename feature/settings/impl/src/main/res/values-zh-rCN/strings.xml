@@ -46,6 +46,8 @@
     <string name="settings_apply_language">应用语言</string>
     <string name="settings_permissions">系统权限</string>
     <string name="settings_permissions_help">查看系统权限实时状态与设置</string>
+    <string name="settings_delivery">消息送达</string>
+    <string name="settings_delivery_help">决定消息和来电能否送达的手机设置</string>
     <string name="settings_about">关于</string>
     <string name="settings_version">版本 %1$s（构建 %2$d）</string>
     <!-- Settings row that locks the account on this phone. -->

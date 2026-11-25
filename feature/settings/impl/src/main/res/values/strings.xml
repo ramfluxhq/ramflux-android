@@ -46,6 +46,8 @@
     <string name="settings_apply_language">Apply language</string>
     <string name="settings_permissions">Permissions</string>
     <string name="settings_permissions_help">Live system status and permission settings</string>
+    <string name="settings_delivery">Message delivery</string>
+    <string name="settings_delivery_help">Phone settings that decide whether messages and calls arrive</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version %1$s (build %2$d)</string>
     <!-- Settings row that locks the account on this phone. -->
