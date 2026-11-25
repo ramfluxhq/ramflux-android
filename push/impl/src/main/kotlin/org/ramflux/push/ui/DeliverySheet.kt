@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -72,7 +74,8 @@ fun DeliverySheetHost(onSetUp: () -> Unit, vm: DeliverySheetViewModel = hiltView
     val theme = LocalRFTheme.current
     ModalBottomSheet(onDismissRequest = vm::close) {
         Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = theme.gap.dp).testTag("delivery-sheet"),
+            Modifier.fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = theme.gap.dp)
+                .testTag("delivery-sheet"),
             verticalArrangement = Arrangement.spacedBy((theme.gap / 2).dp)
         ) {
             Text(stringResource(R.string.delivery_sheet_title), color = theme.text)
