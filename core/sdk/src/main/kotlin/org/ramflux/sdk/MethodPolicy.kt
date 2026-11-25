@@ -88,6 +88,9 @@ object SdkMethodPolicy {
         "attachment.prepare.renew" to MethodPolicy(true, true, false, false, true, "account"),
         "attachment.prepare.status" to MethodPolicy(false, true, false, false, true, "account"),
         "attachment.revoke" to MethodPolicy(true, true, false, false, true, "account"),
+        "attachment.transfer.list" to MethodPolicy(false, false, false, false, true, "account"),
+        "attachment.transfer.pause" to MethodPolicy(false, false, false, false, true, "account"),
+        "attachment.transfer.resume" to MethodPolicy(false, false, false, false, true, "account"),
         "bot.install" to MethodPolicy(true, true, false, false, true, "bot"),
         "bot.list" to MethodPolicy(false, true, false, false, true, "bot"),
         "bot.revoke" to MethodPolicy(true, true, false, false, true, "bot"),
@@ -269,6 +272,6 @@ object ContactVerifyCas {
     const val CONTRACT = "CONTACT-VERIFY-CAS-01"
     const val REQUEST_TYPE = "ramflux.message.v1.ContactSafetyVerifyRequest"
     const val RESPONSE_TYPE = "ramflux.message.v1.ContactSafetyVerifyResult"
-    const val MESSAGE_DESCRIPTOR = "424943ce9bcc6b1b629366deed741bd9dbd2c9bd154643346cd8ced5051ee78d"
-    const val PRODUCT_PIN = "dd18e6794fb5477f687e4818c1c2d081ce684ffa"
+    const val MESSAGE_DESCRIPTOR = "4592908138d7d8c4663410190eb494c646b94994b579388f4bff8b4a41bc1546"
+    const val PRODUCT_PIN = "9434d71db5b24728720a3762303fa467b7b99284"
 }
