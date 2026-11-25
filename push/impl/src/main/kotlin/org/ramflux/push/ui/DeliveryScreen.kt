@@ -95,7 +95,6 @@ private fun Entries(
                 onClick = { if (entry.canOpen) onOpen(entry.id) },
                 value = stringResource(labelText(entry.label)),
                 trailing = KitRowTrailing.None,
-                enabled = entry.canOpen,
                 testTag = "delivery-row-" + entry.id
             )
             // A setting that is fine needs no explanation; a vendor step always keeps its instruction.

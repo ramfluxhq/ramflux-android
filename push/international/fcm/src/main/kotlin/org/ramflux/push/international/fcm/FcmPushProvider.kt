@@ -139,7 +139,7 @@ class FcmPushProvider @Inject constructor(@ApplicationContext private val contex
 
     private companion object {
         const val APP_NAME = "ramflux"
-        const val TRACE_TAG = "RamfluxPush"
+        const val TRACE_TAG = "ramflux.push"
         const val PREFERENCES = "push-fcm"
         const val KEY_FAIL_COUNT = "token.fail.count"
         const val KEY_FAIL_FIRST = "token.fail.first"
