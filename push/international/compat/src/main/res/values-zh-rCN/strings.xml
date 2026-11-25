@@ -2,7 +2,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <resources>
     <!-- Brand names, shown as "<brand> · Android <version>" on the delivery page. -->
-    <string name="compat_brand_android">Android</string>
+    <string name="compat_brand_android">Android 设备</string>
     <string name="compat_brand_samsung">三星</string>
     <string name="compat_brand_xiaomi">小米</string>
     <string name="compat_brand_redmi">红米</string>

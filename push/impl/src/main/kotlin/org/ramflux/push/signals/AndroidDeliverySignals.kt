@@ -8,10 +8,12 @@ import android.app.NotificationManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.net.ConnectivityManager
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -59,7 +61,7 @@ class AndroidDeliverySignals @Inject constructor(@ApplicationContext private val
         batterySaver()
     )
 
-    private fun notifications(): StandardReading? = guarded {
+    private fun notifications(): StandardReading? = guarded(StandardItem.NOTIFICATIONS) {
         val enabled = context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
         StandardReading(
             StandardItem.NOTIFICATIONS,
@@ -75,7 +77,9 @@ class AndroidDeliverySignals @Inject constructor(@ApplicationContext private val
         )
     }
 
-    private fun channel(item: StandardItem, id: String, ok: (android.app.NotificationChannel) -> Boolean): StandardReading? = guarded {
+    private fun channel(item: StandardItem, id: String, ok: (android.app.NotificationChannel) -> Boolean): StandardReading? = guarded(
+        item
+    ) {
         // A channel that does not exist yet is not a problem the person can fix.
         val channel = context.getSystemService(NotificationManager::class.java).getNotificationChannel(id) ?: return@guarded null
         StandardReading(
@@ -92,7 +96,7 @@ class AndroidDeliverySignals @Inject constructor(@ApplicationContext private val
         )
     }
 
-    private fun fullScreen(): StandardReading? = guarded {
+    private fun fullScreen(): StandardReading? = guarded(StandardItem.FULL_SCREEN) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return@guarded null
         val allowed = context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
         StandardReading(
@@ -104,7 +108,7 @@ class AndroidDeliverySignals @Inject constructor(@ApplicationContext private val
     }
 
     /** Opens the system list of battery-optimised apps: the direct request is not used (design decision D3). */
-    private fun battery(): StandardReading? = guarded {
+    private fun battery(): StandardReading? = guarded(StandardItem.BATTERY) {
         val exempt = context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
         StandardReading(
             StandardItem.BATTERY,
@@ -114,18 +118,18 @@ class AndroidDeliverySignals @Inject constructor(@ApplicationContext private val
         )
     }
 
-    private fun background(): StandardReading? = guarded {
+    private fun background(): StandardReading? = guarded(StandardItem.BACKGROUND) {
         val restricted = context.getSystemService(ActivityManager::class.java).isBackgroundRestricted
         StandardReading(StandardItem.BACKGROUND, StepWeight.REQUIRED, detection(!restricted), listOf(appDetails()))
     }
 
-    private fun standby(): StandardReading? = guarded {
+    private fun standby(): StandardReading? = guarded(StandardItem.STANDBY) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return@guarded null
         val bucket = context.getSystemService(UsageStatsManager::class.java).appStandbyBucket
         StandardReading(StandardItem.STANDBY, null, detection(bucket < UsageStatsManager.STANDBY_BUCKET_RESTRICTED), emptyList())
     }
 
-    private fun dataSaver(): StandardReading? = guarded {
+    private fun dataSaver(): StandardReading? = guarded(StandardItem.DATA_SAVER) {
         val status = context.getSystemService(ConnectivityManager::class.java).restrictBackgroundStatus
         StandardReading(
             StandardItem.DATA_SAVER,
@@ -135,7 +139,7 @@ class AndroidDeliverySignals @Inject constructor(@ApplicationContext private val
         )
     }
 
-    private fun hibernation(): StandardReading? = guarded {
+    private fun hibernation(): StandardReading? = guarded(StandardItem.HIBERNATION) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return@guarded null
         val exempt = context.packageManager.isAutoRevokeWhitelisted
         StandardReading(
@@ -146,7 +150,7 @@ class AndroidDeliverySignals @Inject constructor(@ApplicationContext private val
         )
     }
 
-    private fun batterySaver(): StandardReading? = guarded {
+    private fun batterySaver(): StandardReading? = guarded(StandardItem.BATTERY_SAVER) {
         val saving = context.getSystemService(PowerManager::class.java).isPowerSaveMode
         StandardReading(
             StandardItem.BATTERY_SAVER,
@@ -161,16 +165,25 @@ class AndroidDeliverySignals @Inject constructor(@ApplicationContext private val
     private fun detection(ok: Boolean) = if (ok) Detection.OK else Detection.PROBLEM
 
     /** A system service that refuses or is missing leaves the item out instead of failing the page. */
-    private inline fun guarded(block: () -> StandardReading?): StandardReading? = try {
+    private inline fun guarded(item: StandardItem, block: () -> StandardReading?): StandardReading? = try {
         block()
-    } catch (_: SecurityException) {
-        null
-    } catch (_: RuntimeException) {
-        null
+    } catch (refused: SecurityException) {
+        traceUnavailable(item, refused)
+    } catch (failed: RuntimeException) {
+        traceUnavailable(item, failed)
+    }
+
+    /** Debug builds only: which reading could not be taken and why (the exception type), nothing else. */
+    private fun traceUnavailable(item: StandardItem, cause: Exception): StandardReading? {
+        if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            Log.d(TRACE_TAG, "push.signal.unavailable" + ' ' + item.id + ' ' + cause.javaClass.simpleName)
+        }
+        return null
     }
 
     companion object {
         const val CHANNEL_MESSAGES = "messages"
+        private const val TRACE_TAG = "RamfluxPush"
         const val CHANNEL_CALLS = "calls"
     }
 }
