@@ -30,7 +30,13 @@ data class GuidanceStep(
  * launcher replaces them with this app's package name and launcher label.
  */
 sealed interface IntentCandidate {
-    data class Component(val pkg: String, val cls: String, val extras: Map<String, String> = emptyMap()) : IntentCandidate
+    /** An explicit screen, optionally with an intent [action] that the screen is declared for. */
+    data class Component(
+        val pkg: String,
+        val cls: String,
+        val extras: Map<String, String> = emptyMap(),
+        val action: String? = null
+    ) : IntentCandidate
 
     data class Action(val action: String, val packageUri: Boolean, val extras: Map<String, String> = emptyMap()) : IntentCandidate
 
@@ -42,12 +48,15 @@ sealed interface IntentCandidate {
 
 interface BrandCompat {
     val family: BrandFamily
-    val brandLabel: Int
 
     fun matches(id: DeviceIdentity): Boolean
+
+    /** The name of the detected brand, a string resource (several brands share one family). */
+    @StringRes fun brandLabel(id: DeviceIdentity): Int
 
     /** Vendor steps only; the standard Android steps come from the edition-neutral module. */
     fun steps(id: DeviceIdentity): List<GuidanceStep>
 
-    fun skinHint(id: DeviceIdentity): Int?
+    /** A hint about the vendor skin from the Android version alone (system properties are never read), or null. */
+    @StringRes fun skinHint(id: DeviceIdentity): Int?
 }
