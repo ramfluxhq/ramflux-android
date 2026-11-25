@@ -12,7 +12,17 @@ android {
     sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/fixtures/conversations/kotlin"))
     sourceSets.getByName("test").java.srcDir(rootProject.file("test-support/fixtures/chat/kotlin"))
 }
+// The edition selects the push modules the app links (push/README.md); only `international` exists so far.
+val edition = providers.gradleProperty("ramflux.edition").orElse("international").get()
 dependencies {
+    implementation(project(":push:impl"))
+    when (edition) {
+        "international" -> {
+            implementation(project(":push:international:compat"))
+            implementation(project(":push:international:fcm"))
+        }
+        else -> throw GradleException("edition not implemented: $edition (ramflux.edition must be international)")
+    }
     implementation(project(":feature:permissions:impl"))
     implementation(project(":feature:cards:impl"))
     implementation(project(":feature:tasks:impl"))

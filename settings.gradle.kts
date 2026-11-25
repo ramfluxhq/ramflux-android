@@ -37,3 +37,5 @@ include(":feature:tasks:api", ":feature:tasks:impl", ":feature:tasks:test")
 include(":feature:cards:api", ":feature:cards:impl", ":feature:cards:test")
 
 include(":core:media")
+
+include(":push:api", ":push:impl", ":push:international:compat", ":push:international:fcm")
