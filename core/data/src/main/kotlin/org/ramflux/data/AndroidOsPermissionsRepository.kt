@@ -4,10 +4,13 @@
 package org.ramflux.data
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.os.Build
 import android.os.PowerManager
 import kotlinx.coroutines.Dispatchers
@@ -52,11 +55,33 @@ class AndroidOsPermissionsRepository(context: Context) : OsPermissionsRepository
         }
     }
     override suspend fun createChannels(labels: NotificationChannelLabels) = local {
-        require(listOf(labels.messages, labels.calls, labels.system).all { it.isNotBlank() && it.length <= 256 })
+        require(listOf(labels.messages, labels.calls, labels.system, labels.missedCalls).all { it.isNotBlank() && it.length <= 256 })
+        // Importance is fixed when a channel is first created; an existing channel keeps what the user or an earlier build set.
         app.getSystemService(NotificationManager::class.java).createNotificationChannels(
-            listOf("messages" to labels.messages, "calls" to labels.calls, "system" to labels.system).map { (id, label) ->
-                NotificationChannel(id, label, NotificationManager.IMPORTANCE_DEFAULT).apply { lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE }
-            }
+            listOf(
+                NotificationChannel("messages", labels.messages, NotificationManager.IMPORTANCE_HIGH).apply {
+                    lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+                },
+                // The incoming-call ring: ringtone sound and vibration, shown on the lock screen as a generic call.
+                NotificationChannel("calls", labels.calls, NotificationManager.IMPORTANCE_HIGH).apply {
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    setSound(
+                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
+                    enableVibration(true)
+                },
+                NotificationChannel("missed_calls", labels.missedCalls, NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+                },
+                NotificationChannel("system", labels.system, NotificationManager.IMPORTANCE_LOW).apply {
+                    lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+                    setSound(null, null)
+                }
+            )
         )
     }
     override suspend fun claimPrompt(permission: OsPermission) = local {

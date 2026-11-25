@@ -37,7 +37,8 @@ fun NotificationPermissionBannerNavigation(onSettings: () -> Unit, vm: Permissio
     val labels = NotificationChannelLabels(
         stringResource(R.string.permissions_messages_channel),
         stringResource(R.string.permissions_calls_channel),
-        stringResource(R.string.permissions_system_channel)
+        stringResource(R.string.permissions_system_channel),
+        stringResource(R.string.permissions_missed_calls_channel)
     )
     LaunchedEffect(vm, labels) { vm.onAction(PermissionsAction.Channels(labels)) }
     NotificationPermissionBanner(

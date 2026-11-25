@@ -55,10 +55,10 @@ class OsPermissionsPlatformTest {
         )
         assertEquals(true, (repo.claimCreatedAccountExplanation("other") as OsPermissionResult.Ready).value)
         assertTrue(repo.claimCreatedAccountExplanation("") is OsPermissionResult.Failed)
-        assertTrue(repo.createChannels(NotificationChannelLabels("Messages", "Calls", "System")) is OsPermissionResult.Ready)
-        assertTrue(repo.createChannels(NotificationChannelLabels("消息", "来电", "系统")) is OsPermissionResult.Ready)
+        assertTrue(repo.createChannels(NotificationChannelLabels("Messages", "Calls", "System", "Missed calls")) is OsPermissionResult.Ready)
+        assertTrue(repo.createChannels(NotificationChannelLabels("消息", "来电", "系统", "未接来电")) is OsPermissionResult.Ready)
         val manager = app.getSystemService(NotificationManager::class.java)
-        assertEquals(setOf("messages", "calls", "system"), manager.notificationChannels.map { it.id }.toSet())
+        assertEquals(setOf("messages", "calls", "missed_calls", "system"), manager.notificationChannels.map { it.id }.toSet())
         assertEquals("消息", manager.getNotificationChannel("messages").name.toString())
         assertEquals(0, manager.activeNotifications.size)
     }

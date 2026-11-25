@@ -50,6 +50,7 @@
     <string name="permissions_messages_channel">Messages</string>
     <string name="permissions_calls_channel">Calls</string>
     <string name="permissions_system_channel">System</string>
+    <string name="permissions_missed_calls_channel">Missed calls</string>
     <string name="permissions_notifications_off">Notifications are off. You will not be alerted to new messages.</string>
     <string name="permissions_attachments">Add attachment</string>
     <string name="permissions_photos">Photos</string>

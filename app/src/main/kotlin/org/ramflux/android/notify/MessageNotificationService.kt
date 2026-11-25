@@ -43,7 +43,8 @@ class MessageNotificationService @Inject constructor(
                 NotificationChannelLabels(
                     context.getString(PermissionsR.string.permissions_messages_channel),
                     context.getString(PermissionsR.string.permissions_calls_channel),
-                    context.getString(PermissionsR.string.permissions_system_channel)
+                    context.getString(PermissionsR.string.permissions_system_channel),
+                    context.getString(PermissionsR.string.permissions_missed_calls_channel)
                 )
             )
         }
