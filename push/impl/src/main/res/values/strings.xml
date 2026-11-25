@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="delivery_title">Message delivery</string>
+    <string name="delivery_intro">Whether messages and calls reach this phone while Ramflux is closed depends on these settings.</string>
+    <string name="delivery_section_status">Background delivery</string>
+    <string name="delivery_section_phone">This phone</string>
+    <string name="delivery_section_calls">Calls</string>
+    <string name="delivery_section_brand">Settings for your phone brand</string>
+    <string name="delivery_phone_summary">%1$s · Android %2$s</string>
+    <string name="delivery_status_ready">Ready</string>
+    <string name="delivery_status_not_configured">Not configured in this build</string>
+    <string name="delivery_status_play_missing">Background delivery is unavailable: this phone has no Google Play services. New messages appear when you open Ramflux.</string>
+    <string name="delivery_status_play_update">Update Google Play services to receive messages in the background.</string>
+    <string name="delivery_status_play_disabled">Google Play services is turned off on this phone.</string>
+    <string name="delivery_status_play_invalid">Google Play services on this phone can\'t be used for notifications.</string>
+    <string name="delivery_status_token_failed">Ramflux can\'t register for notifications right now.</string>
+    <string name="delivery_status_node_refused">Your server does not send push.</string>
+    <string name="delivery_status_centre_unavailable">The push service is not reachable right now.</string>
+    <string name="delivery_no_wake">No wake received yet.</string>
+    <string name="delivery_last_wake">Last wake received: %1$s</string>
+    <string name="delivery_label_on">On</string>
+    <string name="delivery_label_off_late">Off — messages may be late</string>
+    <string name="delivery_label_not_checked">Not checked by Ramflux</string>
+    <string name="delivery_label_marked_done">You marked this as done</string>
+    <string name="delivery_label_evidence">Active — may delay messages</string>
+    <string name="delivery_open_settings">Open settings</string>
+    <string name="delivery_done">I\'ve done this</string>
+    <string name="delivery_undo">Undo</string>
+    <string name="delivery_cannot_open">Ramflux can\'t open this screen on your phone. Open the app settings and follow the instruction above.</string>
+    <string name="delivery_open_app_settings">Open app settings</string>
+    <string name="delivery_notifications_title">Notifications</string>
+    <string name="delivery_notifications_body">Ramflux needs notifications to tell you about messages and calls.</string>
+    <string name="delivery_messages_title">Message notifications</string>
+    <string name="delivery_messages_body">Messages need a notification channel that is not turned off.</string>
+    <string name="delivery_calls_title">Call notifications</string>
+    <string name="delivery_calls_body">Calls need the Calls channel set to high importance with a sound.</string>
+    <string name="delivery_full_screen_title">Calls over the lock screen</string>
+    <string name="delivery_full_screen_body">Allow Ramflux to show an incoming call over the lock screen.</string>
+    <string name="delivery_battery_title">Battery optimisation</string>
+    <string name="delivery_battery_body">Let Ramflux run without battery optimisation so that wakes are not held back.</string>
+    <string name="delivery_background_title">Background use</string>
+    <string name="delivery_background_body">Background use is restricted for Ramflux. Open the app\'s battery page and choose Unrestricted.</string>
+    <string name="delivery_standby_title">App standby</string>
+    <string name="delivery_standby_body">Android has put Ramflux in its most restricted standby group. Opening the app moves it back.</string>
+    <string name="delivery_data_saver_title">Data saver</string>
+    <string name="delivery_data_saver_body">Data saver can stop Ramflux from using the network in the background. Allow unrestricted data for Ramflux.</string>
+    <string name="delivery_hibernation_title">Pause app activity if unused</string>
+    <string name="delivery_hibernation_body">Turn this off for Ramflux, otherwise Android may stop it and remove its permissions.</string>
+    <string name="delivery_battery_saver_title">Battery saver</string>
+    <string name="delivery_battery_saver_body">Battery saver is on. It can delay messages while it is on.</string>
+</resources>

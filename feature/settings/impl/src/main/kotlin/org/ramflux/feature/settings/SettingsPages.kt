@@ -107,8 +107,15 @@ internal fun LazyListScope.generalPage(state: SettingsState, onAction: (Settings
                 stringResource(R.string.settings_permissions),
                 { onAction(SettingsAction.Permissions) },
                 icon = "sliders-horizontal",
-                divider = false,
                 testTag = "permissions"
+            )
+            KitRow(
+                stringResource(R.string.settings_delivery),
+                { onAction(SettingsAction.Delivery) },
+                icon = "bell",
+                value = stringResource(R.string.settings_delivery_help),
+                divider = false,
+                testTag = "delivery"
             )
         }
     }

@@ -20,6 +20,7 @@ fun SettingsNavigation(
     onConnections: () -> Unit,
     modifier: Modifier = Modifier,
     onPermissions: () -> Unit = {},
+    onDelivery: () -> Unit = {},
     onBackup: () -> Unit = {},
     onStorage: (account: String) -> Unit = {},
     vm: SettingsViewModel = hiltViewModel(),
@@ -31,6 +32,7 @@ fun SettingsNavigation(
     val account by rememberUpdatedState(onAccount)
     val connections by rememberUpdatedState(onConnections)
     val permissions by rememberUpdatedState(onPermissions)
+    val delivery by rememberUpdatedState(onDelivery)
     val backup by rememberUpdatedState(onBackup)
     val storage by rememberUpdatedState(onStorage)
     BackHandler { vm.onAction(SettingsAction.Back) }
@@ -45,6 +47,7 @@ fun SettingsNavigation(
                 }
                 SettingsEvent.Connections -> connections()
                 SettingsEvent.Permissions -> permissions()
+                SettingsEvent.Delivery -> delivery()
                 SettingsEvent.Backup -> backup()
                 is SettingsEvent.Storage -> storage(event.accountId)
                 SettingsEvent.MyCard -> {

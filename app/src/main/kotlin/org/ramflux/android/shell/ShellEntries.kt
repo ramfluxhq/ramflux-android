@@ -42,6 +42,8 @@ import org.ramflux.navigation.LocalShellBottomInset
 import org.ramflux.navigation.PaneRole
 import org.ramflux.navigation.RoutePolicy
 import org.ramflux.navigation.pane
+import org.ramflux.push.api.DeliveryRoute
+import org.ramflux.push.ui.DeliveryNavigation
 
 private const val TAB_GROUPS = 1
 private const val TAB_AGENTS = 2
@@ -137,12 +139,14 @@ fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
     }
     entry<CardsRoute> { CardsNavigation(shell::back) }
     entry<PermissionsRoute> { route -> PermissionsNavigation(route, shell::back) }
+    entry<DeliveryRoute> { DeliveryNavigation(shell::back) }
     entry<SettingsRoute> {
         SettingsNavigation(
             shell::back,
             setup,
             setup,
             onPermissions = { shell.navigate(PermissionsRoute()) },
+            onDelivery = { shell.navigate(DeliveryRoute) },
             onBackup = { shell.navigate(BackupRoute()) },
             onStorage = { account -> shell.navigate(MediaStorageRoute(account)) }
         )

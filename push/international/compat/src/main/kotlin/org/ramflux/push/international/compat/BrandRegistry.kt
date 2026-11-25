@@ -8,6 +8,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import org.ramflux.push.api.BrandCompat
 import org.ramflux.push.api.BrandFamily
+import org.ramflux.push.api.DeviceGuidance
 import org.ramflux.push.api.DeviceIdentity
 import org.ramflux.push.api.IntentCandidate
 
@@ -20,7 +21,7 @@ import org.ramflux.push.api.IntentCandidate
  * confidence of each is in the design document, section 3.3.
  */
 @Singleton
-class BrandRegistry @Inject constructor(compats: Set<@JvmSuppressWildcards BrandCompat>) {
+class BrandRegistry @Inject constructor(compats: Set<@JvmSuppressWildcards BrandCompat>) : DeviceGuidance {
     private val fallback = compats.firstOrNull { it.family == BrandFamily.AOSP }
     private val ordered = compats.filter { it.family != BrandFamily.AOSP }.sortedBy { PRIORITY.indexOf(it.family) }
 
@@ -30,6 +31,10 @@ class BrandRegistry @Inject constructor(compats: Set<@JvmSuppressWildcards Brand
 
     /** The first specific brand that matches, else the fallback for stock and unknown phones. */
     fun compatFor(id: DeviceIdentity): BrandCompat = ordered.firstOrNull { it.matches(id) } ?: checkNotNull(fallback)
+
+    override fun identity(): DeviceIdentity = currentDeviceIdentity()
+
+    override fun compat(): BrandCompat = compatFor(identity())
 
     private companion object {
         /** HONOR before HUAWEI, every specific brand before the fallback. */

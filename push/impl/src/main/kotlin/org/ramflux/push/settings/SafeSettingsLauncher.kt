@@ -42,6 +42,21 @@ class SafeSettingsLauncher @Inject constructor() {
         }
     }
 
+    /**
+     * False when the candidates name vendor screens and none of them exists on this phone, so a step that can only
+     * point there is not offered. Candidates with no vendor screen (standard actions, none at all) always count.
+     */
+    fun resolvable(context: Context, candidates: List<IntentCandidate>): Boolean {
+        val vendor = candidates.filterIsInstance<IntentCandidate.Component>()
+        return vendor.isEmpty() || vendor.any { candidate ->
+            val intent = build(context, candidate)
+            intent != null && resolves(context, intent, explicit = true)
+        }
+    }
+
+    /** True when at least one of the candidates is a vendor screen. */
+    fun hasVendorScreen(candidates: List<IntentCandidate>): Boolean = candidates.any { it is IntentCandidate.Component }
+
     private fun build(context: Context, candidate: IntentCandidate): Intent? = try {
         val intent = when (candidate) {
             is IntentCandidate.Component -> Intent(candidate.action).setComponent(ComponentName(candidate.pkg, candidate.cls))

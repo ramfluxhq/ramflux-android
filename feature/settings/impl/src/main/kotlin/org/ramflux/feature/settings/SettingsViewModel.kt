@@ -123,6 +123,7 @@ class SettingsViewModel @Inject constructor(
             }
             SettingsAction.OpenAccount -> event(SettingsEvent.OpenAccount)
             SettingsAction.Permissions -> event(SettingsEvent.Permissions)
+            SettingsAction.Delivery -> event(SettingsEvent.Delivery)
             SettingsAction.MyCard -> event(SettingsEvent.MyCard)
             SettingsAction.Connections -> event(SettingsEvent.Connections)
             SettingsAction.Backup -> event(SettingsEvent.Backup)

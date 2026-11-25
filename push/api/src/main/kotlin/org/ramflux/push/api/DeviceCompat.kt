@@ -60,3 +60,10 @@ interface BrandCompat {
     /** A hint about the vendor skin from the Android version alone (system properties are never read), or null. */
     @StringRes fun skinHint(id: DeviceIdentity): Int?
 }
+
+/** What the edition knows about this phone: its identity and the guidance that fits it. */
+interface DeviceGuidance {
+    fun identity(): DeviceIdentity
+
+    fun compat(): BrandCompat
+}

@@ -8,4 +8,5 @@ dependencies {
     api(project(":push:api"))
     implementation(project(":core:data"))
     implementation(project(":core:designsystem"))
+    implementation(libs.collections.immutable)
 }
