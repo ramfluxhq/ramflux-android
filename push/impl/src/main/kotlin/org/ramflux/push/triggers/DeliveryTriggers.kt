@@ -93,10 +93,10 @@ class DeliveryTriggers @Inject constructor(
     /** Records that the banner for [problem] was shown. */
     fun markBannerShown(problem: DeliveryProblem, nowMs: Long) {
         store.markBanner(problem.id, nowMs)
-        if (problem == DeliveryProblem.FORCE_STOP) forceStops.latestMs()?.let { store.markExitHandled(it) }
+        if (problem == DeliveryProblem.FORCE_STOP) forceStops.currentStartAfterForceStop()?.let { store.markStartHandled(it) }
     }
 
-    private fun forceStopPending(): Boolean = (forceStops.latestMs() ?: 0L) > store.handledExitMs()
+    private fun forceStopPending(): Boolean = forceStops.currentStartAfterForceStop().let { it != null && it != store.handledStart() }
 
     private fun playServicesProblem(): Boolean {
         val state = provider.state.value as? ProviderState.Unavailable ?: return false
