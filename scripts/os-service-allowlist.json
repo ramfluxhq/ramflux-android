@@ -9,6 +9,14 @@
         "android.permission.FOREGROUND_SERVICE_DATA_SYNC"
       ],
       "reason": "Keeps the process in the foreground with a visible notification while media imports and uploads the person started run inside the unlocked session; it opens nothing and stops when the queue is idle or the session closes (docs/media.md, Background transfer)."
+    },
+    {
+      "name": "org.ramflux.push.international.fcm.RamfluxMessagingService",
+      "foregroundServiceType": "none",
+      "permissions": [
+        "com.google.android.c2dm.permission.RECEIVE"
+      ],
+      "reason": "Receives Firebase callbacks (a rotated token, a data message) for the wake path. It is not a foreground service, is not exported, and brings only the permission that lets the Firebase receiver accept messages from Google Play services."
     }
   ]
 }

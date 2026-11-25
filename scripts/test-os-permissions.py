@@ -99,9 +99,10 @@ class OsPermissionGuardTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Missing expected'):
             self.run_guard(missing)
 
-    def test_repository_allowlist_admits_only_the_media_transfer_service(self):
+    def test_repository_allowlist_admits_only_the_media_transfer_and_messaging_services(self):
         services = guard.load_allowlist(Path(__file__).with_name('os-service-allowlist.json'))
-        self.assertEqual({'org.ramflux.feature.chat.MediaTransferService'}, set(services))
+        self.assertEqual({'org.ramflux.feature.chat.MediaTransferService', 'org.ramflux.push.international.fcm.RamfluxMessagingService'}, set(services))
+        self.assertEqual((set(), {'com.google.android.c2dm.permission.RECEIVE'}), services['org.ramflux.push.international.fcm.RamfluxMessagingService'])
         kinds, permissions = services['org.ramflux.feature.chat.MediaTransferService']
         self.assertEqual({'dataSync'}, kinds)
         self.assertEqual({'android.permission.FOREGROUND_SERVICE', 'android.permission.FOREGROUND_SERVICE_DATA_SYNC'}, permissions)

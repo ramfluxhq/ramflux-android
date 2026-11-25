@@ -1,0 +1,9 @@
+Google Play services client libraries (Android Software Development Kit License)
+
+Used by the international edition for push messaging: play-services-base, play-services-basement,
+play-services-tasks, play-services-cloud-messaging and play-services-stats, and the Firebase interface libraries
+firebase-iid-interop and firebase-measurement-connector. They are distributed by Google under the Android
+Software Development Kit License, whose terms are published at https://developer.android.com/studio/terms.
+
+These libraries are proprietary to Google and are not part of Ramflux's own AGPL-3.0-or-later source. Ramflux
+does not use Firebase Analytics, Google advertising identifiers or Google sign-in.
