@@ -24,9 +24,9 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import org.ramflux.android.notify.AndroidMessageNotifier
 import org.ramflux.android.notify.InAppBanners
-import org.ramflux.android.notify.installInAppBannerHost
 import org.ramflux.android.notify.NotificationOpener
 import org.ramflux.android.notify.NotificationRoutes
+import org.ramflux.android.notify.installInAppBannerHost
 import org.ramflux.android.shell.RamfluxShell
 import org.ramflux.android.shell.SHELL_ROUTE_POLICY
 import org.ramflux.android.shell.SHELL_TAB_ROOTS

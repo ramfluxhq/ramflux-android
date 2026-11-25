@@ -89,7 +89,10 @@ class StartupModel @Inject constructor(
  * that restore ends and publishes no event when it does, so the wait is bounded and shared by everything that needs
  * the unlocked account right after the session opens (the startup gate, the message driver).
  */
-internal suspend fun settledAccounts(accounts: AccountAccessRepository, session: ClientSessionRepository): ClientResult<org.ramflux.data.AccountCatalog> {
+internal suspend fun settledAccounts(
+    accounts: AccountAccessRepository,
+    session: ClientSessionRepository
+): ClientResult<org.ramflux.data.AccountCatalog> {
     var result = accounts.list()
     var waited = 0L
     while (restoring(result) && waited < RESTORE_WAIT_MS && session.status.value.phase == ClientPhase.OPEN) {
