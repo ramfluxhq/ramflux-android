@@ -4,6 +4,7 @@
 package org.ramflux.push.international.fcm
 
 import android.content.Context
+import android.util.Log
 import androidx.core.content.edit
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
@@ -34,9 +35,11 @@ import org.ramflux.push.api.UnavailableReason
 class FcmPushProvider @Inject constructor(@ApplicationContext private val context: Context) : PushProvider {
     override val channel: DeliveryChannel = DeliveryChannel.FCM
     private val client = FcmConfig.find(context.packageName)
+
+    // Declared before the state, which reads it while it is computed.
+    private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
     private val local = MutableStateFlow(evaluate())
     override val state: StateFlow<ProviderState> = local.asStateFlow()
-    private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
     override fun refreshState() {
         local.value = evaluate()
@@ -49,7 +52,7 @@ class FcmPushProvider @Inject constructor(@ApplicationContext private val contex
         return try {
             val value = messaging.token.await()
             recordSuccess()
-            if (value.isNullOrEmpty()) null else PushToken(value)
+            if (value.isNullOrEmpty()) null else PushToken(value).also { traceObtained(value.length) }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
@@ -99,6 +102,19 @@ class FcmPushProvider @Inject constructor(@ApplicationContext private val contex
         }
     }
 
+    /** Debug builds only: that a token was obtained and how long it is, never the token itself. */
+    private fun traceObtained(length: Int) {
+        if (!BuildConfig.DEBUG) return
+        val line = buildString {
+            append("push.token.obtained")
+            append(' ')
+            append("len")
+            append('=')
+            append(length)
+        }
+        Log.d(TRACE_TAG, line)
+    }
+
     private fun tokenKeepsFailing(): Boolean {
         val count = preferences.getInt(KEY_FAIL_COUNT, 0)
         val first = preferences.getLong(KEY_FAIL_FIRST, 0L)
@@ -123,6 +139,7 @@ class FcmPushProvider @Inject constructor(@ApplicationContext private val contex
 
     private companion object {
         const val APP_NAME = "ramflux"
+        const val TRACE_TAG = "RamfluxPush"
         const val PREFERENCES = "push-fcm"
         const val KEY_FAIL_COUNT = "token.fail.count"
         const val KEY_FAIL_FIRST = "token.fail.first"
