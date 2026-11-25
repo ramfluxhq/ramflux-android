@@ -11,12 +11,16 @@ import org.ramflux.sdk.SecretReply
 
 interface AccountsRepository {
     suspend fun accountApp_lockConfigure(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun accountApp_lockLifecycle(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun accountApp_lockLock(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun accountApp_lockState(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun accountBackupCancel(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountBackupCreate(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountBackupExport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountBackupImport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountBackupJobs(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun accountReachGet(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
+    suspend fun accountReachSet(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountConfigGet(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun accountConfigSet(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountCreateBegin(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -50,6 +54,12 @@ class DefaultAccountsRepository(transport: RepositoryTransport) : SdkRepository(
     override suspend fun accountApp_lockConfigure(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
         execute("account.app_lock.configure", "account", context, body)
 
+    override suspend fun accountApp_lockLifecycle(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("account.app_lock.lifecycle", "account", context, body)
+
+    override suspend fun accountApp_lockLock(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("account.app_lock.lock", "account", context, body)
+
     override suspend fun accountApp_lockState(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
         execute("account.app_lock.state", "account", context, body)
 
@@ -67,6 +77,12 @@ class DefaultAccountsRepository(transport: RepositoryTransport) : SdkRepository(
 
     override suspend fun accountBackupJobs(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("account.backup.jobs", "account", context, body)
+
+    override suspend fun accountReachGet(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
+        executeSecret("account.reach.get", "account", context, SecretBody.publicJson("account.reach.get", body))
+
+    override suspend fun accountReachSet(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("account.reach.set", "account", context, body)
 
     override suspend fun accountConfigGet(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("account.config.get", "account", context, SecretBody.publicJson("account.config.get", body))

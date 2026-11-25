@@ -10,6 +10,7 @@ import org.ramflux.sdk.SecretBody
 import org.ramflux.sdk.SecretReply
 
 interface ContactsRepository {
+    suspend fun requestsReply(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accept(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun add(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun block(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -32,6 +33,9 @@ interface ContactsRepository {
 }
 
 class DefaultContactsRepository(transport: RepositoryTransport) : SdkRepository(transport), ContactsRepository {
+    override suspend fun requestsReply(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("contact.requests.reply", "contact", context, body)
+
     override suspend fun accept(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("contact.accept", "contact", context, body)
 
