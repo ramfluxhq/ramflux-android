@@ -47,11 +47,11 @@ class AndroidMessageNotifier(private val context: Context, private val secret: B
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val public = Notification.Builder(context, CHANNEL)
-            .setSmallIcon(R.drawable.ic_ramflux)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .build()
         val notification = Notification.Builder(context, CHANNEL)
-            .setSmallIcon(R.drawable.ic_ramflux)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentIntent(tap)
             .setAutoCancel(true)
