@@ -1085,13 +1085,15 @@ class RealRunFlowTest {
         ensureShell()
         openConversation(conversation)
         // 1. Lock off by default: background, relaunch, no lock form, the same chat.
+        // The header names the peer before HOME, so a failure after the relaunch means the name was lost on resume.
+        if (!ui.hasText(alice)) fail("before HOME the chat header does not show $alice (never named): ${ui.screen()}")
         ui.device.pressHome()
         Thread.sleep(BACKGROUND_WAIT)
         ui.launch()
         ui.need("composer", Ui.LONG, "chat after relaunch")
         Thread.sleep(2_000)
         if (ui.find("app-lock-code", 1_000) != null) fail("the app lock is on before it was switched on: ${ui.screen()}")
-        if (!ui.hasText(alice)) fail("after relaunch the chat header does not show $alice: ${ui.screen()}")
+        if (!ui.hasText(alice)) fail("after relaunch the chat header does not show $alice (lost on resume): ${ui.screen()}")
         notes += "lock off by default: relaunch opened the chat with no lock form"
         // 2. Settings > Privacy > App lock: on, timeout Immediately; the biometric row is disabled.
         ensureShell()
