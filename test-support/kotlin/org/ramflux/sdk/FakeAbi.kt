@@ -33,6 +33,8 @@ class FakeAbi : NativeCore {
     var onOpened: (() -> Unit)? = null
     var onSubscription: ((Long, Long) -> Unit)? = null
     var completionBody = buildJsonObject { put("result", "ok") }
+    /** Optional per-method reply body; null falls back to [completionBody]. */
+    var bodyFor: ((String) -> JsonObject?)? = null
 
     fun newClient(root: String = "/test/no_backup"): Long = open(buildJsonObject { put("data_root", root) }.toString().toByteArray()).handle
     fun client(core: Long) = clients.getValue(core)
@@ -172,7 +174,7 @@ class FakeAbi : NativeCore {
         put("response", buildJsonObject {
             generation?.let { put("subscription_generation", it.toString()) }
             put("ok", code == 0); put("method", method); account?.let { put("account_id", it) }
-            put("body", completionBody)
+            put("body", bodyFor?.invoke(method) ?: completionBody)
         })
     }.toString().toByteArray()
     override fun operationPoll(core: Long, operation: Long): NativeReply {

@@ -87,13 +87,14 @@ internal class DefaultClientSessionRepository(
         }
     }
     /**
-     * Reads the app lock of the open account. Only an unlocked answer is followed by the foreground lifecycle call, and
+     * Reads the app lock of the open account. Only an unlocked account read is followed by the foreground lifecycle call, and
      * the state that reply carries decides the phase; a failed call, or any state that is not readable, leaves the cover up.
      */
     private suspend fun readAppLock() {
         val reading = driver.appLockRead()
         val phase = when (reading.phase) {
-            AppLockPhase.OPEN -> driver.appLockLifecycle(APP_LOCK_FOREGROUND).phase(reading.enabled)
+            AppLockPhase.OPEN ->
+                if (reading.foreground) driver.appLockLifecycle(APP_LOCK_FOREGROUND).phase(reading.enabled) else AppLockPhase.OPEN
             else -> reading.phase
         }
         mutable.update {

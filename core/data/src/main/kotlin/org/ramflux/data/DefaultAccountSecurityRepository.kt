@@ -112,14 +112,14 @@ internal class DefaultAccountSecurityRepository(
         val body = buildJsonObject { put("state", state) }
         return when (val reply = accounts.accountApp_lockLifecycle(RepositoryContext(account), body)) {
             is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
-            is CoreResult.Success -> AppLockState.parse((reply.value["state"] as? JsonPrimitive)?.contentOrNull)
+            is CoreResult.Success -> AppLockState.parse((((reply.value["body"] as? JsonObject)?.get("state")) as? JsonPrimitive)?.contentOrNull)
                 ?.let { ClientResult.Ready(it) } ?: invalid()
         }
     }
 
     private fun appLock(reply: CoreResult<JsonObject>): ClientResult<AppLockStatus> = when (reply) {
         is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
-        is CoreResult.Success -> AppLockStatus.read(reply.value)?.let { ClientResult.Ready(it) } ?: invalid()
+        is CoreResult.Success -> (reply.value["body"] as? JsonObject)?.let { AppLockStatus.read(it) }?.let { ClientResult.Ready(it) } ?: invalid()
     }
 
     override suspend fun requestPolicy(account: String): ClientResult<ContactRequestPolicy> {

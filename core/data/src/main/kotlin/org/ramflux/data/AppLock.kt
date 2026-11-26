@@ -54,7 +54,13 @@ data class AppLockStatus(val enabled: Boolean, val timeoutMs: Long, val state: A
  * account the cover unlocks. [account] is set only while LOCKED: a locked account is not the active one, so the id
  * comes from the account list row or from the last read, never from the active account.
  */
-data class AppLockReading(val phase: AppLockPhase, val enabled: Boolean, val account: String? = null)
+data class AppLockReading(
+    val phase: AppLockPhase,
+    val enabled: Boolean,
+    val account: String? = null,
+    /** True only when an unlocked account was read: only then does the foreground lifecycle call have a target. */
+    val foreground: Boolean = false,
+)
 
 /** A read that failed or a state nobody can interpret: the cover stays up and the lock counts as on. */
 internal val UNKNOWN_APP_LOCK = AppLockReading(AppLockPhase.UNKNOWN, enabled = true)
@@ -92,8 +98,8 @@ private fun AccountCatalog.restoring(): Boolean = accounts.any { it.state == RES
 
 /**
  * Reads the app lock for the session. A failed account list is an unknown state, not "no account". An empty catalog is
- * the only "nothing to lock" answer. A closed (locked) account row means LOCKED, whatever its lock state says; an open
- * row is read for its own app lock; any other state fails closed.
+ * the only "nothing to lock" answer. Every row is read for its own app lock: a closed or restoring row covers only when
+ * its lock is on (or the call fails); a disabled lock leaves the device as before G05.
  */
 internal class AppLockReader(transport: RepositoryTransport) {
     private val accounts = DefaultAccountAccessRepository(transport)
@@ -111,19 +117,31 @@ internal class AppLockReader(transport: RepositoryTransport) {
             waited += RESTORE_POLL_MS
             catalog = listed() ?: return UNKNOWN_APP_LOCK
         }
-        // A restore that never ends is not "no account": the cover stays up.
-        if (catalog.restoring()) return UNKNOWN_APP_LOCK
+        // Rows still restoring after the wait are read below like any other row: covered only when their lock is on.
         if (catalog.accounts.isEmpty()) return AppLockReading(AppLockPhase.OPEN, enabled = false)
         val locked = mutableListOf<String>()
         var enabled = false
+        var unlockedRead = false
         for (row in catalog.accounts) {
             when (row.state) {
-                LISTED_LOCKED -> {
-                    locked += row.id
-                    enabled = true
+                // A closed account is covered only when its lock is on; a disabled lock keeps the normal account-locked route.
+                LISTED_LOCKED -> when (val status = security.appLockState(row.id)) {
+                    is ClientResult.Ready -> {
+                        val reading = status.value.reading()
+                        enabled = enabled || reading.enabled
+                        if (reading.enabled) {
+                            when (reading.phase) {
+                                AppLockPhase.LOCKED -> locked += row.id
+                                AppLockPhase.UNKNOWN -> return UNKNOWN_APP_LOCK
+                                AppLockPhase.OPEN -> Unit
+                            }
+                        }
+                    }
+                    else -> return UNKNOWN_APP_LOCK
                 }
                 LISTED_UNLOCKED -> when (val status = security.appLockState(row.id)) {
                     is ClientResult.Ready -> {
+                        unlockedRead = true
                         val reading = status.value.reading()
                         enabled = enabled || reading.enabled
                         when (reading.phase) {
@@ -141,7 +159,7 @@ internal class AppLockReader(transport: RepositoryTransport) {
                 }
             }
         }
-        if (locked.isEmpty()) return AppLockReading(AppLockPhase.OPEN, enabled)
+        if (locked.isEmpty()) return AppLockReading(AppLockPhase.OPEN, enabled, foreground = unlockedRead)
         // The cover needs one account to unlock. Several locked rows and no remembered one: fail closed.
         val target = locked.singleOrNull() ?: locked.firstOrNull { it == remembered } ?: return UNKNOWN_APP_LOCK
         remembered = target
