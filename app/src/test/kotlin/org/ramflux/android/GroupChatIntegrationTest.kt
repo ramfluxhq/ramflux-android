@@ -46,7 +46,7 @@ class GroupChatIntegrationTest {
                 return ClientResult.Ready(
                     listOf(
                         MessageSummary("own", "Self identity", true, false, "Own body"),
-                        MessageSummary("peer", "Peer identity", false, false, "Peer body")
+                        MessageSummary("peer", "Peer identity", false, false, "Peer body", senderName = "Peer identity")
                     )
                 )
             }
