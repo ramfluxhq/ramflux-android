@@ -44,4 +44,26 @@ class ClientSessionRepositoryTest {
         assertEquals(ClientPhase.FAILED, repository.status.value.phase); assertEquals(problem, repository.status.value.problem)
         assertTrue(repository.availability(ClientFeature.ONBOARDING) is ClientResult.Failed)
     }
+    @Test fun releasingTheAppLockStartsANewGenerationSoOpenScreensReadAgain() = runTest(timeout = 5.seconds) {
+        val readings = ArrayDeque(listOf(
+            AppLockReading(AppLockPhase.LOCKED, enabled = true, account = "acct"),
+            AppLockReading(AppLockPhase.OPEN, enabled = true, foreground = false),
+            AppLockReading(AppLockPhase.OPEN, enabled = true, foreground = false),
+        ))
+        val driver = object : ClientLifecycleDriver {
+            override suspend fun open(): ClientResult<Unit> = ClientResult.Ready(Unit)
+            override suspend fun suspend(): ClientResult<Unit> = ClientResult.Ready(Unit)
+            override suspend fun appLockRead(): AppLockReading = readings.removeFirst()
+        }
+        val repository = DefaultClientSessionRepository(driver, StandardTestDispatcher(testScheduler))
+        repository.foreground()
+        assertEquals(AppLockPhase.LOCKED, repository.status.value.appLock)
+        val locked = repository.status.value.generation
+        repository.recheckAppLock()
+        assertEquals(AppLockPhase.OPEN, repository.status.value.appLock)
+        assertEquals(locked + 1, repository.status.value.generation)
+        // A later read that finds the lock open changes nothing.
+        repository.recheckAppLock()
+        assertEquals(locked + 1, repository.status.value.generation)
+    }
 }

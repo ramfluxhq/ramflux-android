@@ -141,10 +141,11 @@ private fun ClientSnapshot.coverPhase(): AppLockPhase = if (phase == ClientPhase
 fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
     val theme = LocalRFTheme.current
     val ui by vm.state.collectAsStateWithLifecycle()
-    // While the cover is up, back does not pop the shell's stack underneath it.
-    BackHandler(enabled = ui.phase != AppLockPhase.OPEN) {}
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
+    // While the cover is up, back does not pop the shell's stack underneath it. It only hides the keyboard: the typed
+    // code stays in the entry.
+    BackHandler(enabled = ui.phase != AppLockPhase.OPEN) { keyboard?.hide() }
     val code = remember { ErasableBuffer() }
     LaunchedEffect(ui.phase) {
         if (ui.phase != AppLockPhase.OPEN) {

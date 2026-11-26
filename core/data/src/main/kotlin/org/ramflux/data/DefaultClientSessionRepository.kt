@@ -14,11 +14,16 @@ internal class DefaultClientSessionRepository(
 ) : ClientSessionRepository {
     private val transitions = Mutex()
     private val mutable = MutableStateFlow(ClientSnapshot())
+    /** The lock covered the screens since the last release: their reads failed behind the cover and must be redone. */
+    private var lockEngaged = false
     override val status = mutable.asStateFlow()
 
     init {
         // A refusal that names the app lock covers the screens at once; the next read decides what follows.
-        driver.onAppLockRefused { mutable.update { if (it.phase == ClientPhase.OPEN) it.copy(appLock = AppLockPhase.LOCKED) else it } }
+        driver.onAppLockRefused {
+            mutable.update { if (it.phase == ClientPhase.OPEN) it.copy(appLock = AppLockPhase.LOCKED) else it }
+            lockEngaged = true
+        }
     }
 
     // Acquire in caller order before dispatching IO, so a late foreground cannot overtake background.
@@ -97,9 +102,19 @@ internal class DefaultClientSessionRepository(
                 if (reading.foreground) driver.appLockLifecycle(APP_LOCK_FOREGROUND).phase(reading.enabled) else AppLockPhase.OPEN
             else -> reading.phase
         }
+        if (phase == AppLockPhase.LOCKED) lockEngaged = true
+        // The lock closed the account in the SDK, so every screen read behind the cover failed or saw no active account.
+        // The release is a new generation: open screens clear and read again, and the navigation stack stays as it was.
+        val released = phase == AppLockPhase.OPEN && lockEngaged
+        if (released) lockEngaged = false
         mutable.update {
             if (it.phase == ClientPhase.OPEN) {
-                it.copy(appLock = phase, appLockEnabled = reading.enabled, appLockAccount = reading.account.takeIf { phase == AppLockPhase.LOCKED })
+                it.copy(
+                    appLock = phase,
+                    appLockEnabled = reading.enabled,
+                    appLockAccount = reading.account.takeIf { phase == AppLockPhase.LOCKED },
+                    generation = if (released) it.generation + 1 else it.generation,
+                )
             } else {
                 it
             }
