@@ -280,9 +280,16 @@ so a join cannot be exercised against it.
 
 Card sessions (`card.session.open/update/present/event/slot/submit/suspend/resume/dispose`)
 are in the pinned policy and cross the bridge through the ordinary execute and secret
-transports (`event`, `slot` and `submit` take secret bodies). The native build does not
-enable the SDK's `card-runtime` feature, so they answer as unavailable until the card
-renderer is linked; `ramflux_v2_card_trust_package` is exported but not bound.
+transports (`event`, `slot` and `submit` take secret bodies). The native build enables the
+SDK's `card-runtime` feature (`scripts/build-native.sh` builds with `--features card-runtime`),
+so `negotiate` advertises `card_runtime` (ABI 5) and cards are available. The client reads
+that object into `CoreCapabilities.cardRuntime`; without it cards are unavailable. Surface
+discovery uses `surface.list`; the card state machine lives in `core/data` (`cards/`):
+`CardSessionClient` makes the typed bus calls, `CardTree` applies mutation batches atomically,
+`CardSessionPool` keeps at most 2 resumed and 24 held cards per account and suspends every
+resumed card on background (or app lock), resuming the most recent ones on foreground.
+`ramflux_v2_card_trust_package` is exported but not bound: the trust package belongs to the
+test-build gallery only.
 Unified edit/reaction/reply operations follow the SDK message-unification contract. Deferred video, group calls, screen sharing, channel/thread/post
 flows remain outside this module's acceptance.
 

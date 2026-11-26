@@ -4,6 +4,8 @@
 package org.ramflux.feature.chat
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
+import org.ramflux.data.cards.CardLifecycle
+import org.ramflux.data.cards.CardTree
 import org.ramflux.designsystem.UiText
 /** Timeline entries carry typed values; the screen formats times and dates for the current locale. */
 @Immutable sealed interface TimelineItem {
@@ -15,35 +17,18 @@ import org.ramflux.designsystem.UiText
 
 @Immutable data class CallItem(override val id: String, override val sentAt: Long?) : TimelineItem
 
-/** An input value the person has entered on a card, before it is sent with a button. */
-sealed interface CardValue {
-    data class Text(val value: String) : CardValue {
-        override fun toString() = "Text(<redacted>)"
-    }
-    data class Flag(val value: Boolean) : CardValue
-    data class Choices(val values: List<String>) : CardValue {
-        override fun toString() = "Choices(<redacted>)"
-    }
-}
-
 /**
- * An agent surface in the timeline (beta flow 13). [root] is present only when the SDK allows rendering
- * (the author is one of this account's own agents); otherwise [fallback] shows as plain text. Controls
- * are active only while [actionable]: current, open and in sync.
+ * An agent surface in the timeline (beta flow 13). [lifecycle] and [tree] come from the card runtime; [fallback] is the
+ * author's plain text, shown whenever the card does not render.
  */
 @Immutable data class CardItem(
     override val id: String,
     override val sentAt: Long?,
     val ref: String,
-    val root: org.ramflux.data.CardNode?,
+    val lifecycle: CardLifecycle,
     val fallback: String,
-    val actionable: Boolean,
-    val closed: Boolean,
-    val outOfSync: Boolean,
-    val values: ImmutableMap<String, CardValue> = persistentMapOf(),
-    val sending: Boolean = false,
-    val sent: Boolean = false,
-    val problem: UiText? = null
+    val renderAllowed: Boolean,
+    val tree: CardTree?,
 ) : TimelineItem {
     override fun toString() = "CardItem(<redacted>)"
 }

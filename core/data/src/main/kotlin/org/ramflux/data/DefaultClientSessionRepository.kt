@@ -7,10 +7,13 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.ramflux.data.cards.CardLifecycleHooks
 
 internal class DefaultClientSessionRepository(
     private val driver: ClientLifecycleDriver,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    /** Cards are suspended before the client goes to the background or the app lock engages, and resumed after. */
+    private val cards: CardLifecycleHooks = NoCardLifecycle,
 ) : ClientSessionRepository {
     private val transitions = Mutex()
     private val mutable = MutableStateFlow(ClientSnapshot())
@@ -42,6 +45,7 @@ internal class DefaultClientSessionRepository(
                             problem = ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE))
                     }
                     if (mutable.value.phase == ClientPhase.OPEN) readAppLock()
+                    if (mutable.value.phase == ClientPhase.OPEN) cards.foreground()
                     clientDebugEvent("session.resume:" + mutable.value.phase)
                     return@withContext
                 }
@@ -51,6 +55,7 @@ internal class DefaultClientSessionRepository(
                         mutable.value = ClientSnapshot(ClientPhase.OPEN, mutable.value.generation + 1)
                         clientDebugEvent("session.open")
                         readAppLock()
+                        if (mutable.value.phase == ClientPhase.OPEN) cards.foreground()
                     }
                     is ClientResult.Failed -> mutable.value = mutable.value.copy(phase = ClientPhase.FAILED, problem = result.problem)
                     is ClientResult.Unavailable -> mutable.value = mutable.value.copy(phase = ClientPhase.FAILED,
@@ -70,6 +75,7 @@ internal class DefaultClientSessionRepository(
                 if (current.phase != ClientPhase.OPEN || current.suspended) return@withContext
                 val held = holdsLock(current)
                 mutable.value = current.copy(appLock = AppLockPhase.UNKNOWN)
+                cards.background()
                 // Best effort: the SDK arms the deadline on suspend as well.
                 driver.appLockLifecycle(APP_LOCK_BACKGROUND)
                 val suspended = driver.suspend()
@@ -108,11 +114,15 @@ internal class DefaultClientSessionRepository(
                 if (reading.foreground) driver.appLockLifecycle(APP_LOCK_FOREGROUND).phase(reading.enabled) else AppLockPhase.OPEN
             else -> reading.phase
         }
-        if (phase == AppLockPhase.LOCKED) lockEngaged = true
+        if (phase == AppLockPhase.LOCKED) {
+            lockEngaged = true
+            cards.background()
+        }
         // The lock closed the account in the SDK, so every screen read behind the cover failed or saw no active account.
         // The release is a new generation: open screens clear and read again, and the navigation stack stays as it was.
         val released = phase == AppLockPhase.OPEN && lockEngaged
         if (released) lockEngaged = false
+        if (released) cards.foreground()
         mutable.update {
             if (it.phase == ClientPhase.OPEN) {
                 it.copy(
@@ -131,4 +141,10 @@ internal class DefaultClientSessionRepository(
         if (status.value.phase != ClientPhase.OPEN) ClientResult.Failed(ClientProblem(ClientFailureKind.UNAVAILABLE, 9, ClientOutcome.NONE))
         else if (feature in setOf(ClientFeature.ONBOARDING, ClientFeature.CONVERSATIONS, ClientFeature.SETTINGS, ClientFeature.CONTACTS, ClientFeature.GROUPS, ClientFeature.CALLS, ClientFeature.AGENTS, ClientFeature.TASKS, ClientFeature.CARDS)) ClientResult.Ready(Unit)
         else ClientResult.Unavailable(feature)
+}
+
+/** Hosts without card sessions: nothing to suspend or resume. */
+private object NoCardLifecycle : CardLifecycleHooks {
+    override suspend fun background() = Unit
+    override suspend fun foreground() = Unit
 }

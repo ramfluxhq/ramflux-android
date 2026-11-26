@@ -30,6 +30,9 @@ interface RepositoryTransport {
     suspend fun executeSecret(request: SecretRequest): CoreResult<SecretReply>
     fun updates(filter: SubscriptionFilter): Flow<CoreUpdate>
     suspend fun resetEvents(generation: ULong): CoreResult<JsonObject> = CoreResult.Failure(CoreError.Closed())
+
+    /** True when the open core negotiated the card runtime (`card_runtime`); false without a client. */
+    fun cardRuntimeAvailable(): Boolean = false
 }
 
 /** Resolve the current host generation for every call and every new collection. */
@@ -57,6 +60,8 @@ class SdkRepositoryTransport internal constructor(private val currentClient: () 
         if (client == null) emit(CoreUpdate.Failure(CoreError.Closed()))
         else emitAll(client.events.subscribe(filter))
     }
+
+    override fun cardRuntimeAvailable(): Boolean = currentClient()?.capabilities?.cardRuntime != null
 
     /** The shared event hub resets the native queue itself before it reports a resync. */
     override suspend fun resetEvents(generation: ULong): CoreResult<JsonObject> =

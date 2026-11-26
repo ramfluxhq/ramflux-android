@@ -4,7 +4,9 @@
 package org.ramflux.feature.cards
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.ramflux.data.*
-class FakeCardHost : CardHostAvailabilityRepository {
+import org.ramflux.data.cards.CardSessionRepository
+import org.ramflux.data.cards.UnavailableCardSessionRepository
+class FakeCardHost : CardSessionRepository by UnavailableCardSessionRepository() {
     var calls = 0
     var checking: suspend () -> ClientResult<Unit> = { ClientResult.Unavailable(ClientFeature.CARDS) }
     override suspend fun availability(): ClientResult<Unit> {

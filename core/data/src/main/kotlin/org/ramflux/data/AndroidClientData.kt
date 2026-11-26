@@ -4,6 +4,8 @@
 package org.ramflux.data
 
 import android.content.Context
+import org.ramflux.data.cards.CardSessionPool
+import org.ramflux.data.cards.CardSessionRepository
 
 /**
  * One composition-root instance owns the one native writer and the app preference store. [languages] are
@@ -14,7 +16,10 @@ class AndroidClientData(context: Context, expectedDescriptor: String, languages:
 
     /** Account-scoped host stores (drafts, media) register here; see [AccountScopedStores]. */
     val accountStores = AccountScopedStores()
-    val session: ClientSessionRepository = DefaultClientSessionRepository(driver)
+    private val cardPool = CardSessionPool(driver.transport)
+    /** The card runtime: sessions shared by every chat screen, suspended and resumed with the client. */
+    val cardSessions: CardSessionRepository = cardPool
+    val session: ClientSessionRepository = DefaultClientSessionRepository(driver, cards = cardPool)
 
     val nodes: NodeSetupRepository = DefaultNodeSetupRepository(driver.transport)
     val accounts: AccountAccessRepository = DefaultAccountAccessRepository(driver.transport, accountStores)
@@ -22,7 +27,6 @@ class AndroidClientData(context: Context, expectedDescriptor: String, languages:
     val conversations: ConversationDirectoryRepository = DefaultConversationDirectoryRepository(driver.transport)
     val history: MessageHistoryRepository = DefaultMessageHistoryRepository(driver.transport)
     val calls: CallDirectoryRepository = DefaultCallDirectoryRepository(driver.transport)
-    val cards: CardHostAvailabilityRepository = SurfaceCardHostAvailabilityRepository()
     val taskDirectory: TaskDirectoryRepository = DefaultTaskDirectoryRepository(driver.transport)
     val agents: AgentDirectoryRepository = DefaultAgentDirectoryRepository(driver.transport)
     val groups: GroupDirectoryRepository = DefaultGroupDirectoryRepository(driver.transport)

@@ -4,12 +4,20 @@
 package org.ramflux.sdk
 
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 
-/** Negotiated against the host's build-time descriptor, never the core's self-reported value alone. */
-data class CoreCapabilities(val descriptorFingerprint: String, val methods: Set<String>) {
+/** The card renderer the core linked (`card_runtime` in negotiate); null when the build has none. */
+data class CardRuntime(val abiMajor: Int, val catalogSha256: String, val trustManifestBlake3: String)
+
+/**
+ * Negotiated against the host's build-time descriptor, never the core's self-reported value alone.
+ * [cardRuntime] is null unless the core advertises the card runtime at the ABI this client reads (5).
+ */
+data class CoreCapabilities(val descriptorFingerprint: String, val methods: Set<String>, val cardRuntime: CardRuntime? = null) {
     companion object {
         private val policyKeys = setOf(
             "name", "capability", "bridge_allowed", "secret_input", "secret_output", "show_once", "key_export",
@@ -71,7 +79,19 @@ data class CoreCapabilities(val descriptorFingerprint: String, val methods: Set<
                 if (!methods.add(method)) return null
             }
             if (methods != SdkMethodPolicy.methods.filterValues { it.bridgeAllowed }.keys) return null
-            return CoreCapabilities(fingerprint, methods.toSet())
+            return CoreCapabilities(fingerprint, methods.toSet(), cardRuntime(body["card_runtime"]))
+        }
+
+        private const val CARD_HOST_ABI = 5
+
+        /** Only the ABI this client was built against enables cards; any other shape leaves them unavailable. */
+        private fun cardRuntime(value: JsonElement?): CardRuntime? {
+            val row = value as? JsonObject ?: return null
+            val abi = (row["abi_major"] as? JsonPrimitive)?.intOrNull ?: return null
+            val catalog = (row["catalog_sha256"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
+            val manifest = (row["trust_manifest_blake3"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
+            if (abi != CARD_HOST_ABI || catalog.isEmpty() || manifest.isEmpty()) return null
+            return CardRuntime(abi, catalog, manifest)
         }
     }
 }

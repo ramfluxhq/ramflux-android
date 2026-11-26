@@ -59,7 +59,7 @@ ndk_args=(-t arm64-v8a --platform 28)
 if [[ "$action" == build ]]; then ndk_args+=(-o "$out/jniLibs"); fi
 echo "native cargo jobs=${CARGO_BUILD_JOBS} incremental=${CARGO_INCREMENTAL:-1} profile=${profile} codegen-units=${CARGO_PROFILE_FFI_RELEASE_CODEGEN_UNITS:-default}"
 # The ${array[@]+...} form keeps an empty profile_args (dev profile) valid under bash 3.2 with set -u.
-(cd "$core" && cargo ndk "${ndk_args[@]}" "$action" --jobs "$CARGO_BUILD_JOBS" -p ramflux-sdk --lib --features c-abi --locked ${profile_args[@]+"${profile_args[@]}"})
+(cd "$core" && cargo ndk "${ndk_args[@]}" "$action" --jobs "$CARGO_BUILD_JOBS" -p ramflux-sdk --lib --features card-runtime --locked ${profile_args[@]+"${profile_args[@]}"})
 if [[ "$action" == check ]]; then exit 0; fi
 cp "$CARGO_TARGET_DIR/include/ramflux_sdk.h" "$out/include/ramflux_sdk.h"
 cmake_bin="${ANDROID_HOME:?Set ANDROID_HOME}/cmake/3.22.1/bin/cmake"

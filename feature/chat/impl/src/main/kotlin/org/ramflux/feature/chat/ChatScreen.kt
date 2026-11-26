@@ -365,7 +365,7 @@ private fun TimelineList(
                     } else {
                         Message(row, state, stamps, cap, padded, actionsLabel, anchors, onAction)
                     }
-                    is CardItem -> CardView(row, cap, padded, onAction)
+                    is CardItem -> CardView(row, cap, padded)
                 }
             }
         }

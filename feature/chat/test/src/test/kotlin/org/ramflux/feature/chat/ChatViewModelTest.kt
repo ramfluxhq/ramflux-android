@@ -784,65 +784,6 @@ class ChatViewModelTest {
         assertNull(vm.state.value.gallery)
     }
 
-    @Test fun agentCardsJoinTheTimelineByTimeAndActionsCarryTheShownInputs() = runTest(timeout = 5.seconds) {
-        val history = FakeChatHistory().apply {
-            capability = ClientResult.Ready(Unit)
-            reading = {
-                ClientResult.Ready(
-                    listOf(
-                        MessageSummary("m1", "agent", false, false, "first", 10),
-                        MessageSummary("m2", "agent", false, false, "later", 30)
-                    )
-                )
-            }
-        }
-        val cards = FakeChatCards().apply {
-            card("r1", at = 20)
-            card("r2", at = 40, outOfSync = true)
-        }
-        val media = FakeChatMedia()
-        val session = FakeChatSession()
-        val vm = ChatViewModel(
-            history,
-            FakeChatAccounts(),
-            session,
-            FakeChatDrafts(),
-            media,
-            FakeChatStager(),
-            MediaTransfers(media, session, backgroundScope),
-            cards
-        )
-        observe(vm)
-        runCurrent()
-        load(vm)
-        assertEquals(listOf("m1", "card:r1", "m2", "card:r2"), vm.state.value.rows.map { it.id })
-        val stale = vm.state.value.rows.last() as CardItem
-        assertFalse(stale.actionable)
-        vm.onAction(ChatAction.CardPress("r2", "go"))
-        vm.onAction(ChatAction.CardInput("r1", "/note", CardValue.Text("hi")))
-        vm.onAction(ChatAction.CardPress("r1", "go"))
-        runCurrent()
-        // Only the current card acted, with the typed value and the version it showed.
-        val press = cards.presses.single()
-        assertEquals("r1", press.surface.ref)
-        assertEquals(kotlinx.serialization.json.JsonPrimitive("hi"), press.values["/note"])
-        assertTrue((vm.state.value.rows[1] as CardItem).sent)
-        // A refresh fetches only surfaces whose version or hash changed.
-        val gets = cards.gets.size
-        cards.card("r1", at = 20, version = 2)
-        vm.onAction(ChatAction.Refresh)
-        runCurrent()
-        assertEquals(gets + 1, cards.gets.size)
-        cards.actResult = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.UNKNOWN))
-        vm.onAction(ChatAction.CardPress("r1", "go"))
-        runCurrent()
-        vm.onAction(ChatAction.CardPress("r1", "go"))
-        runCurrent()
-        // An uncertain press is retried with the same message id.
-        assertEquals(cards.presses[1].messageId, cards.presses[2].messageId)
-        assertEquals(uiText(R.string.card_outcome_unknown), (vm.state.value.rows[1] as CardItem).problem)
-    }
-
     private fun syntheticPages(total: Int): suspend (String?) -> ClientResult<TimelinePage> = { before ->
         val end = before?.toInt() ?: total
         val start = (end - 100).coerceAtLeast(0)
