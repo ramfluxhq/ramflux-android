@@ -1069,11 +1069,68 @@ class RealRunFlowTest {
             )
         }
         when (phase) {
-            null -> appLockOnSteps()
-            APP_LOCK_LOCKED -> appLockAfterRestart()
+            null -> leaveAppLockOffOnFailure { appLockOnSteps() }
+            APP_LOCK_LOCKED -> leaveAppLockOffOnFailure { appLockAfterRestart() }
             APP_LOCK_OFF -> appLockOffAfterRestart()
             else -> fail("unknown app lock phase '$phase'")
         }
+    }
+
+    /**
+     * Runs [steps]; when they fail (a stop that is not the planned hand-over to the next invocation), the app lock is turned
+     * off with the run's code before the failure is reported, so a failed phase never leaves a lock on for the flows after it.
+     * The state of the screen at the failure is kept as evidence first, and the phase starts over.
+     */
+    private fun leaveAppLockOffOnFailure(steps: () -> Nothing): Nothing {
+        try {
+            steps()
+        } catch (stop: FlowStop) {
+            if (stop.status != "NOT RUN") appLockOffAfterFailure("20-app-lock-failed")
+            throw stop
+        } catch (error: Throwable) {
+            appLockOffAfterFailure("20-app-lock-failed")
+            throw error
+        }
+    }
+
+    private fun appLockOffAfterFailure(evidenceName: String) {
+        evidence(evidenceName)
+        runCatching { turnAppLockOffWithRunCode() }
+        RunState[APP_LOCK_PHASE] = ""
+        RunState[APP_LOCK_NOTES] = ""
+    }
+
+    /**
+     * The lock may be on from an earlier phase that failed: when the launched app shows the lock form, opens it with the run's
+     * code and turns the lock off. Returns the note for the flow detail, or null when the app opened with no cover.
+     */
+    private fun clearStaleAppLock(): String? {
+        ui.launch()
+        if (!ui.eventually(6_000, 500) { ui.find("app-lock-code", 300) != null || ui.find("app-lock-retry", 300) != null }) return null
+        lockForm()
+        enterAppLockCode()
+        turnAppLockOffWithRunCode()
+        return "a stale app lock from an earlier phase was opened with the run's code and turned off"
+    }
+
+    /** Settings > Privacy > App lock: switches the lock off when it is on, with the run's code when it is asked. */
+    private fun turnAppLockOffWithRunCode(): Boolean {
+        if (ui.find("app-lock-code", 1_000) != null) enterAppLockCode()
+        ensureShell()
+        openSettings()
+        ui.tap("account-security")
+        ui.tap("privacy")
+        ui.tap("app-lock")
+        val timeout = ui.need("app-lock-timeout:0", Ui.LONG, "app lock page")
+        if (!timeout.isEnabled) {
+            ensureShell()
+            return false
+        }
+        ui.tap("app-lock-switch", Ui.LONG)
+        if (ui.find("app-lock-code", 4_000) != null) enterAppLockCode()
+        ui.eventually(Ui.LONG) { ui.find("app-lock-timeout:0", 300)?.isEnabled == false }
+        ensureShell()
+        return true
     }
 
     /** Steps 1 to 6: the lock is off by default; then on with timeout Immediately; the lock form; back; relocks; a menu. */
@@ -1082,6 +1139,7 @@ class RealRunFlowTest {
         val alice = peerName("alice")
         val name = RunState["name"].orEmpty()
         val notes = mutableListOf<String>()
+        clearStaleAppLock()?.let { notes += it }
         ensureShell()
         openConversation(conversation)
         // 1. Lock off by default: background, relaunch, no lock form, the same chat.
@@ -1209,12 +1267,11 @@ class RealRunFlowTest {
 
     /** Step 8, part 2: after the force-stop the app opens with no cover. */
     private fun appLockOffAfterRestart(): String {
-        ui.launch()
-        if (ui.eventually(3_000) { ui.find("app-lock-code", 300) != null }) {
-            fail("the lock form came back after the app lock was turned off: ${ui.screen()}")
-        }
+        // A lock that is on here was not turned off by the phase before (it failed): open it, turn it off, note it, go on.
+        val stale = clearStaleAppLock()
         ensureShell()
-        val notes = RunState[APP_LOCK_NOTES].orEmpty() + "; after a force-stop and relaunch the app opened with no cover"
+        val notes = RunState[APP_LOCK_NOTES].orEmpty() +
+            (stale?.let { "; $it" } ?: "; after a force-stop and relaunch the app opened with no cover")
         RunState[APP_LOCK_PHASE] = ""
         RunState[APP_LOCK_NOTES] = ""
         return notes

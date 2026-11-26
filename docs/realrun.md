@@ -158,7 +158,10 @@ non-contact accepted and the group left (`f17`), and usernames (`f18`: BLOCKED w
 The app lock (`f20`) runs on the lock cover: off by default, on with timeout Immediately, the lock form with no account
 text, a wrong code refused, BACK keeps the form, relocks, a message menu under the cover. Its steps 7 and 8 start from a
 process the script killed (the suite cannot force-stop its own app process), so `f20` runs alone in two more invocations;
-between them the lock stays on, and the flows that expect no lock run after `f20` has passed.
+between them the lock stays on, and the flows that expect no lock run after `f20` has passed. When a phase fails, it
+turns the lock off with the run's code before it reports (and starts the phases over), and a phase that finds a lock left on by an
+earlier failed phase opens it with the run's code, turns it off, records a note in the flow detail and goes on. While the
+cover is up the shell under it is not in the accessibility tree, so only the lock form is found.
 Restore is not run: it needs the archive passphrase to reach another install. Each flow ends PASS, FAIL, BLOCKED
 (a precondition such as the QUIC relay is missing) or NOT RUN in `flow-table.md`, which covers every invocation in
 the output folder. The table and the instrumentation agree: a FAIL fails its JUnit test (BLOCKED and NOT RUN are
