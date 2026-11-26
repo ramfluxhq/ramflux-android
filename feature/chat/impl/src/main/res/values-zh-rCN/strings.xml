@@ -38,7 +38,8 @@
     <string name="ui_delete_for_me">仅为我删除</string>
     <string name="ui_delete_for_everyone">为所有人删除</string>
     <string name="ui_message_placeholder">无法显示此消息。</string>
-    <string name="ui_service_message">服务消息</string>
+    <string name="ui_service_message">群组已更新</string>
+    <string name="chat_member_fallback">成员</string>
     <string name="ui_peer_typing">对方正在输入。</string>
     <string name="ui_typing_unavailable">输入状态不可用。</string>
     <string name="ui_action_failed_code_value">操作失败（%1$s）。</string>

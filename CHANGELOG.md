@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Group system events are centred, named lines: a service row the client cannot display no longer draws an own bubble with the "cannot be displayed" text, and a peer without a resolved name is shown as "Member", never its device id (RFGUI-72). The fallback line for a service row reads "Group updated".
+
 - SDK pin moved to core release v0.2.9 (`30d0f9a7`): the method policy gains `attachment.transfer.list`, `attachment.transfer.pause` and `attachment.transfer.resume` (generated repository methods, not used by the app yet). No method was removed and the contact verify CAS descriptor is regenerated from the pinned commit.
 - SDK pin moved to core release v0.2.8 (`731de8bf`): the app lock lifecycle and fences, the phone call media engine lifecycle, unconfirmed group invitations, idempotent repeated read receipts, the diagnostic support key catalogue and the signed reach record methods. The method policy gains `account.app_lock.lifecycle`, `account.app_lock.lock`, `conversation.start`, `contact.requests.reply`, `account.reach.get` and `account.reach.set` (generated repository methods, not used by the app yet), and `call.media.session` is no longer allowed across the bridge (the app never requested it: the call engine refuses first). The real-run flow 10 note now states what the flow observes on the language screen (the system-language row is listed or did not appear within 10 s).
 - The data saver line appears on the delivery page: `ACCESS_NETWORK_STATE` is declared (by `:push:impl`; Firebase messaging expects it too), the removal marker in `:core:media` now covers only `WAKE_LOCK`, and the permission guard lists the new permission. `WAKE_LOCK` stays removed until the wake path shows it is needed.
