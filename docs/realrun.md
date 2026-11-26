@@ -148,13 +148,15 @@ vault by design. Flows from account creation on need a real phone.
 
 ## What the suite does and does not do
 
-It runs twenty flows (`f01` to `f20`, with `f19` the group system lines): onboarding and account creation, lock and unlock, terminate and relaunch
+It runs twenty-one flows (`f01` to `f21`, with `f19` the group system lines): onboarding and account creation, lock and unlock, terminate and relaunch
 without a prompt, contacts, the conversation list, direct chat, background and return without a prompt (screen
 and draft kept), media (including a group image), groups, settings, backup, the honest states of the app when the
 node or a peer is unavailable, the group invitation list, signing out and back in, removing the account from the
 phone (`f15` erases the account: run it last), a read receipt seen by the peer (`f16`), an invitation from a
 non-contact accepted and the group left (`f17`), and usernames (`f18`: BLOCKED with the directory's refusal when the build has no username directory pin, that is when
 `node-facts.json` has no `username_directory`).
+The card gallery (`f21`) opens the test-only card gallery (`CardGalleryActivity`, realrun source set; not in the debug or release build) and runs Run conformance: checks A (opened tree equals the core's expected tree; refused rows refuse), B (no placeholder node, every host slot drawn) and C (each interactive fixture's event is answered and the held tree equals a fresh runtime read) over every host fixture. The flow fails on any FAIL and keeps `artifacts/card-conformance.json` (one object per check) plus screenshots `21-gallery-*`. The realrun build needs the card fixture library first: `RAMFLUX_CARD_FIXTURE=1 scripts/build-native.sh core/sdk/build/generated/native build`, which adds `libramflux_card_fixture.so` for the realrun build type only (the release library never carries it). The fixtures come from `card-fixtures/` (synced from the pinned core with `scripts/sync-card-fixtures.py`).
+
 The app lock (`f20`) runs on the lock cover: off by default, on with timeout Immediately, the lock form with no account
 text, a wrong code refused, BACK keeps the form, relocks, a message menu under the cover. Its steps 7 and 8 start from a
 process the script killed (the suite cannot force-stop its own app process), so `f20` runs alone in two more invocations;

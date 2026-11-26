@@ -82,6 +82,11 @@ class PeerControl(private val base: String) {
 
     fun fileInfo(path: String): JSONObject = post("/file-info", JSONObject().put("path", path))
 
+    /** A file the flow produced on the phone (the card conformance report); kept under artifacts/ with its name. */
+    fun artifact(name: String, bytes: ByteArray) {
+        runCatching { raw("/artifact/$name", bytes, "application/json", 30) }
+    }
+
     fun screenshot(name: String, png: ByteArray) {
         runCatching { raw("/screenshot/$name", png, "image/png", 30) }
     }
