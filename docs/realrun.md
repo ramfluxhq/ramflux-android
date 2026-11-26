@@ -79,6 +79,7 @@ scripts/realrun.sh --skip-build --no-install --tests "f09" --out $O           # 
 scripts/realrun.sh --skip-build --no-install --tests "f10 f11 f12" --out $O   # settings, backup, honest states
 scripts/realrun.sh --skip-build --no-install --tests "f13 f14 f18" --out $O   # invitation list, sign out and back in, usernames
 scripts/realrun.sh --skip-build --no-install --tests "f15" --out $O           # remove the account from this phone: last
+scripts/realrun.sh --skip-build --no-install --tests "f20" --out $O           # app lock: steps 1-6, then 7 and 8 in the next two invocations (each runs f20 alone, the script stops the app first)
 ```
 
 `--test-apk-only` replaces only the suite APK (the app and its data stay); `--keep-app` reinstalls both
@@ -147,13 +148,17 @@ vault by design. Flows from account creation on need a real phone.
 
 ## What the suite does and does not do
 
-It runs eighteen flows (`f01` to `f18`): onboarding and account creation, lock and unlock, terminate and relaunch
+It runs nineteen flows (`f01` to `f18` and `f20`): onboarding and account creation, lock and unlock, terminate and relaunch
 without a prompt, contacts, the conversation list, direct chat, background and return without a prompt (screen
 and draft kept), media (including a group image), groups, settings, backup, the honest states of the app when the
 node or a peer is unavailable, the group invitation list, signing out and back in, removing the account from the
 phone (`f15` erases the account: run it last), a read receipt seen by the peer (`f16`), an invitation from a
 non-contact accepted and the group left (`f17`), and usernames (`f18`: BLOCKED with the directory's refusal when the build has no username directory pin, that is when
 `node-facts.json` has no `username_directory`).
+The app lock (`f20`) runs on the lock cover: off by default, on with timeout Immediately, the lock form with no account
+text, a wrong code refused, BACK keeps the form, relocks, a message menu under the cover. Its steps 7 and 8 start from a
+process the script killed (the suite cannot force-stop its own app process), so `f20` runs alone in two more invocations;
+between them the lock stays on, and the flows that expect no lock run after `f20` has passed.
 Restore is not run: it needs the archive passphrase to reach another install. Each flow ends PASS, FAIL, BLOCKED
 (a precondition such as the QUIC relay is missing) or NOT RUN in `flow-table.md`, which covers every invocation in
 the output folder. The table and the instrumentation agree: a FAIL fails its JUnit test (BLOCKED and NOT RUN are
