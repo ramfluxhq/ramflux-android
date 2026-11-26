@@ -29,6 +29,7 @@ FLOWS = [
     ("16-read-receipt", "4 Read receipt: the phone reads alice's message, alice sees it read"),
     ("17-invitation-leave", "5 Invitation from a non-contact accepted, then leave the group"),
     ("18-usernames", "15 Username in settings and adding a contact by @name"),
+    ("19-group-system-lines", "5 RFGUI-72: group system events are centred named lines, no undisplayable bubble, peers show names not device ids"),
 ]
 
 

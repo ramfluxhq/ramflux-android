@@ -38,7 +38,8 @@
     <string name="ui_delete_for_me">Delete for me</string>
     <string name="ui_delete_for_everyone">Delete for everyone</string>
     <string name="ui_message_placeholder">This message cannot be displayed.</string>
-    <string name="ui_service_message">Service message</string>
+    <string name="ui_service_message">Group updated</string>
+    <string name="chat_member_fallback">Member</string>
     <string name="ui_peer_typing">The other person is typing.</string>
     <string name="ui_typing_unavailable">Typing is unavailable.</string>
     <string name="ui_action_failed_code_value">Action failed (%1$s).</string>

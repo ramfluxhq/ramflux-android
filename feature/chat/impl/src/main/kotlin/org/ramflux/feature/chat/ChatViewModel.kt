@@ -978,16 +978,19 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun messageItem(row: MessageSummary): MessageItem {
+        // A service row, and a row this client cannot display, are centred lines (never an own bubble). The device id
+        // of the sender is never a name: a peer without a resolved name is shown as a neutral member.
+        val centred = row.service || (row.placeholder && !row.deleted)
         val content = when {
             row.deleted -> uiText(R.string.ui_message_deleted)
-            row.placeholder -> uiText(R.string.ui_message_placeholder)
             row.service && row.text == null -> uiText(serviceLine(row.serviceAction))
+            row.placeholder -> uiText(R.string.ui_message_placeholder)
             else -> row.text?.let { UiText.Data(it) } ?: uiText(R.string.ui_message_content_is_unavailable)
         }
         return MessageItem(
             row.id,
-            if (row.deleted) "" else row.senderName ?: row.sender ?: "",
-            row.own,
+            if (row.deleted) "" else row.senderName.orEmpty(),
+            row.own && !centred,
             row.deleted,
             content,
             row.createdAt,
@@ -995,7 +998,7 @@ class ChatViewModel @Inject constructor(
             row.edited,
             row.replyPreview?.let { UiText.Data(it) },
             row.placeholder,
-            row.service,
+            centred,
             receiptLabel(row.receipts),
             row.reactions.map { ReactionCount(it.token, it.count) }.toPersistentList(),
             attachments = if (row.deleted) persistentListOf() else row.attachments.map { attachmentItem(it, row.own) }.toPersistentList(),

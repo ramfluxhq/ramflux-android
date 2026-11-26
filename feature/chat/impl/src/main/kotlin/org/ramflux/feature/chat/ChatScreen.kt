@@ -477,7 +477,7 @@ private fun Bubble(row: MessageItem, own: Boolean, group: Boolean, stamps: Stamp
         kind = if (own) KitBubbleKind.Own else KitBubbleKind.Incoming,
         time = status,
         edited = if (row.edited) stringResource(R.string.ui_edited) else null,
-        sender = if (group && !own) row.sender else null,
+        sender = if (group && !own) row.sender.ifBlank { stringResource(R.string.chat_member_fallback) } else null,
         agentTag = if (group && !own && row.senderAi) stringResource(org.ramflux.core.designsystem.R.string.kit_ai_marker) else null,
         pending = row.delivery == LocalDelivery.QUEUED || row.delivery == LocalDelivery.SENDING,
         read = row.receipt == Receipt.READ,
