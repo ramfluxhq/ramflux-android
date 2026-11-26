@@ -14,6 +14,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,6 +38,9 @@ import org.ramflux.android.shell.StartupHost
 import org.ramflux.android.shell.StartupModel
 import org.ramflux.android.shell.StartupPlace
 import org.ramflux.data.AppearanceRepository
+import org.ramflux.data.ClientSessionRepository
+import org.ramflux.data.appLockCovers
+import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
 import org.ramflux.feature.appshell.AppShellNavigation
@@ -66,6 +70,8 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var appearance: AppearanceRepository
 
+    @Inject lateinit var session: ClientSessionRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -78,6 +84,10 @@ class MainActivity : ComponentActivity() {
                 // Debuggable builds expose the Compose test tags as view ids so the opt-in real-run suite
                 // (UiAutomator, across processes) can find stable handles. Nothing else changes.
                 TestTagsAsIds(BuildConfig.DEBUG) {
+                    // The app-lock cover is up while the lock is on or unread: windows hide, and FLAG_SECURE hides the recents preview.
+                    val status by session.status.collectAsStateWithLifecycle()
+                    val covered = status.appLockCovers()
+                    LaunchedEffect(covered) { applyCoverCapturePolicy(window, BuildConfig.DEBUG, covered) }
                     val startup: StartupModel = hiltViewModel()
                     val startupUi by startup.ui.collectAsStateWithLifecycle()
                     // The tab stacks live here, above the startup gate, so a locked session can drop
@@ -90,6 +100,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     DisposableEffect(Unit) { onDispose { banners.chatOpened(null, null) } }
+                    CompositionLocalProvider(LocalAppLockCovered provides covered) {
                     Box(Modifier.fillMaxSize()) {
                         AppShellNavigation(
                             shellReady = startupUi.place == StartupPlace.SHELL,
@@ -138,6 +149,7 @@ class MainActivity : ComponentActivity() {
                         // The app-lock cover draws above every shell page; it keeps the shell state underneath.
                         AppLockCover()
                     }
+                    }
                 }
             }
         }
@@ -154,6 +166,19 @@ class MainActivity : ComponentActivity() {
     private fun openNotification(intent: Intent?) {
         notificationRoutes.open(intent?.getStringExtra(AndroidMessageNotifier.EXTRA_TOKEN))
         intent?.removeExtra(AndroidMessageNotifier.EXTRA_TOKEN)
+    }
+}
+
+/**
+ * While the app-lock cover is up, every build refuses capture of the window (the recents preview included). Release
+ * builds stay secure at all times, as [applySecureCapturePolicy] sets them; debug builds clear the flag once the
+ * cover is down, so they stay capturable as before.
+ */
+internal fun applyCoverCapturePolicy(window: Window, debugBuild: Boolean, covered: Boolean) {
+    if (!debugBuild || covered) {
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    } else {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 }
 

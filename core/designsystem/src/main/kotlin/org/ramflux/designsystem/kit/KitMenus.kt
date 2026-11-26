@@ -4,6 +4,7 @@
 package org.ramflux.designsystem.kit
 
 import androidx.compose.foundation.background
+import org.ramflux.designsystem.LocalAppLockCovered
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -42,6 +43,8 @@ data class KitMenuEntry(val label: String, val icon: String, val danger: Boolean
 
 @Composable
 fun KitContextMenu(entries: List<KitMenuEntry>, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, tag: String? = null) {
+    // Not shown under the app-lock cover.
+    if (LocalAppLockCovered.current) return
     val theme = LocalRFTheme.current
     val shape = shapeOf(theme.radius_menu)
     Column(

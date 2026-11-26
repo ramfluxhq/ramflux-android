@@ -35,6 +35,9 @@ data class ClientSnapshot(
     /** Whether the account has the app lock switched on; notifications stay generic while it is on. */
     val appLockEnabled: Boolean = false,
 )
+/** Whether the app-lock cover is up: the session is open and its lock is on or its state is unread. */
+fun ClientSnapshot.appLockCovers(): Boolean = phase == ClientPhase.OPEN && appLock != AppLockPhase.OPEN
+
 enum class UnavailableReason { FEATURE_NOT_INSTALLED, UNSUPPORTED_BY_CORE, CUSTODY_PROVIDER_REQUIRED }
 sealed interface ClientResult<out T> {
     data class Ready<T>(val value: T) : ClientResult<T>
