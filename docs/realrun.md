@@ -148,7 +148,7 @@ vault by design. Flows from account creation on need a real phone.
 
 ## What the suite does and does not do
 
-It runs nineteen flows (`f01` to `f18` and `f20`): onboarding and account creation, lock and unlock, terminate and relaunch
+It runs twenty flows (`f01` to `f20`, with `f19` the group system lines): onboarding and account creation, lock and unlock, terminate and relaunch
 without a prompt, contacts, the conversation list, direct chat, background and return without a prompt (screen
 and draft kept), media (including a group image), groups, settings, backup, the honest states of the app when the
 node or a peer is unavailable, the group invitation list, signing out and back in, removing the account from the
