@@ -3,6 +3,7 @@
 
 package org.ramflux.feature.onboarding
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.ramflux.data.AccountAccessRepository
 import org.ramflux.data.AccountCode
+import org.ramflux.data.AccountCodeRefusal
 import org.ramflux.data.AppLockPhase
 import org.ramflux.data.ClientPhase
 import org.ramflux.data.ClientResult
@@ -104,12 +106,11 @@ class AppLockViewModel @Inject constructor(
         local.update { it.copy(busy = true, notice = null) }
         viewModelScope.launch {
             try {
-                val account = when (val listed = accounts.list()) {
-                    is ClientResult.Ready -> listed.value.activeId
-                    else -> null
-                }
+                // The locked account is not the active one: its id comes from the lock read, never from the active account.
+                val account = session.status.value.appLockAccount
                 if (account == null) {
-                    local.update { it.copy(notice = uiText(R.string.ui_this_setup_operation_is_unavailable)) }
+                    // No known locked account: read the lock again rather than guess; the cover follows that read.
+                    session.recheckAppLock()
                     return@launch
                 }
                 when (val result = accounts.unlock(account, digits)) {
@@ -127,9 +128,10 @@ class AppLockViewModel @Inject constructor(
         }
     }
 
+    /** A failed unlock is a wrong code unless the SDK named another refusal: it never reads as a generic failure. */
     private fun failureNotice(problem: org.ramflux.data.ClientProblem): UiText =
         problem.accountCodeRefusal(unlock = true)?.let { codeText(it, problem.retryAfterSecs) }
-            ?: uiText(R.string.ui_this_setup_operation_is_unavailable)
+            ?: codeText(AccountCodeRefusal.WRONG_CODE, null)
 }
 
 private fun ClientSnapshot.coverPhase(): AppLockPhase = if (phase == ClientPhase.OPEN) appLock else AppLockPhase.OPEN
@@ -139,6 +141,8 @@ private fun ClientSnapshot.coverPhase(): AppLockPhase = if (phase == ClientPhase
 fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
     val theme = LocalRFTheme.current
     val ui by vm.state.collectAsStateWithLifecycle()
+    // While the cover is up, back does not pop the shell's stack underneath it.
+    BackHandler(enabled = ui.phase != AppLockPhase.OPEN) {}
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val code = remember { ErasableBuffer() }

@@ -34,9 +34,17 @@ data class ClientSnapshot(
     val appLock: AppLockPhase = AppLockPhase.UNKNOWN,
     /** Whether the account has the app lock switched on; notifications stay generic while it is on. */
     val appLockEnabled: Boolean = false,
+    /** The account the cover unlocks while LOCKED (never the active account: a locked account is not active). */
+    val appLockAccount: String? = null,
 )
 /** Whether the app-lock cover is up: the session is open and its lock is on or its state is unread. */
 fun ClientSnapshot.appLockCovers(): Boolean = phase == ClientPhase.OPEN && appLock != AppLockPhase.OPEN
+
+/**
+ * Whether the window must refuse capture right now, readable synchronously from a lifecycle callback: the lock was
+ * read as on, or the session is open and its state is not read yet.
+ */
+fun ClientSnapshot.appLockGuarded(): Boolean = appLockEnabled || appLockCovers()
 
 enum class UnavailableReason { FEATURE_NOT_INSTALLED, UNSUPPORTED_BY_CORE, CUSTODY_PROVIDER_REQUIRED }
 sealed interface ClientResult<out T> {

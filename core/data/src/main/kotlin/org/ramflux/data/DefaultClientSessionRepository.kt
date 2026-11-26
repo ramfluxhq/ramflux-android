@@ -97,7 +97,11 @@ internal class DefaultClientSessionRepository(
             else -> reading.phase
         }
         mutable.update {
-            if (it.phase == ClientPhase.OPEN) it.copy(appLock = phase, appLockEnabled = reading.enabled) else it
+            if (it.phase == ClientPhase.OPEN) {
+                it.copy(appLock = phase, appLockEnabled = reading.enabled, appLockAccount = reading.account.takeIf { phase == AppLockPhase.LOCKED })
+            } else {
+                it
+            }
         }
         clientDebugEvent("session.app_lock:$phase")
     }

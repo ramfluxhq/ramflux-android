@@ -17,15 +17,19 @@ import org.ramflux.sdk.CoreResult
  */
 enum class AppLockPhase { UNKNOWN, OPEN, LOCKED }
 
-/** The SDK's `account.app_lock.state` value, as far as this client reads it. */
+/**
+ * The SDK's `account.app_lock.state` value, as far as this client reads it. [ARMED] is an unlocked account whose
+ * timeout is running: the return from the background has not yet been confirmed by the foreground call.
+ */
 enum class AppLockState {
-    UNLOCKED, LOCKED, UNAVAILABLE;
+    UNLOCKED, LOCKED, ARMED, UNAVAILABLE;
 
     companion object {
         /** The SDK's state word; anything else is no state at all (null), which the caller treats as unknown. */
         fun parse(word: String?): AppLockState? = when (word) {
             "unlocked" -> UNLOCKED
             "locked" -> LOCKED
+            "armed" -> ARMED
             "unavailable" -> UNAVAILABLE
             else -> null
         }
@@ -45,22 +49,23 @@ data class AppLockStatus(val enabled: Boolean, val timeoutMs: Long, val state: A
     }
 }
 
-/** What the session needs after a read: the cover phase, and whether the lock is on (notifications stay generic). */
-data class AppLockReading(val phase: AppLockPhase, val enabled: Boolean)
+/**
+ * What the session needs after a read: the cover phase, whether the lock is on (notifications stay generic), and the
+ * account the cover unlocks. [account] is set only while LOCKED: a locked account is not the active one, so the id
+ * comes from the account list row or from the last read, never from the active account.
+ */
+data class AppLockReading(val phase: AppLockPhase, val enabled: Boolean, val account: String? = null)
 
 /** A read that failed or a state nobody can interpret: the cover stays up and the lock counts as on. */
 internal val UNKNOWN_APP_LOCK = AppLockReading(AppLockPhase.UNKNOWN, enabled = true)
 
-/** The reading for one decoded status. */
-internal fun AppLockStatus.reading(): AppLockReading = AppLockReading(state.phase(enabled), enabled)
-
 /**
- * The cover phase for one SDK state. An unavailable lock only blocks when it is switched on; no state at all (a failed
- * call, or a reply without a state) is unknown and keeps the cover up.
+ * The cover phase for one SDK state. An unavailable lock only blocks when it is switched on; an armed timeout is an
+ * open account; no state at all (a failed call, or a reply without a state) is unknown and keeps the cover up.
  */
 internal fun AppLockState?.phase(enabled: Boolean): AppLockPhase = when (this) {
     AppLockState.LOCKED -> AppLockPhase.LOCKED
-    AppLockState.UNLOCKED -> AppLockPhase.OPEN
+    AppLockState.UNLOCKED, AppLockState.ARMED -> AppLockPhase.OPEN
     AppLockState.UNAVAILABLE -> if (enabled) AppLockPhase.UNKNOWN else AppLockPhase.OPEN
     null -> AppLockPhase.UNKNOWN
 }
@@ -74,16 +79,28 @@ internal const val APP_LOCK_BACKGROUND = "background"
 
 internal fun ClientProblem.isAppLocked(): Boolean = check == APP_LOCKED_REASON || statusName == APP_LOCKED_REASON
 
-/** The unlocked active account, or null when no account is open on this phone. */
-internal fun AccountCatalog.openAccount(): String? = activeId?.takeIf { id -> accounts.any { it.id == id && it.unlocked } }
+/** `account.list` state words this client knows; anything else makes the lock state unknown. */
+private const val LISTED_UNLOCKED = "unlocked"
+private const val LISTED_LOCKED = "locked"
+
+/** The `account.list` state of an account the SDK is still reopening through its device key. */
+private const val RESTORE_PENDING_STATE = "restore_pending"
+private const val RESTORE_POLL_MS = 250L
+private const val RESTORE_WAIT_MS = 30_000L
+
+private fun AccountCatalog.restoring(): Boolean = accounts.any { it.state == RESTORE_PENDING_STATE }
 
 /**
- * Reads the app lock of the open account for the session. A failed account list is an unknown state, not "no
- * account": only a listed catalog without an open account means there is nothing to lock.
+ * Reads the app lock for the session. A failed account list is an unknown state, not "no account". An empty catalog is
+ * the only "nothing to lock" answer. A closed (locked) account row means LOCKED, whatever its lock state says; an open
+ * row is read for its own app lock; any other state fails closed.
  */
 internal class AppLockReader(transport: RepositoryTransport) {
     private val accounts = DefaultAccountAccessRepository(transport)
     private val security = DefaultAccountSecurityRepository(transport)
+
+    /** The locked account the last read named, used only when the catalog names several locked accounts. Not persisted. */
+    @Volatile private var remembered: String? = null
 
     suspend fun read(): AppLockReading {
         // After a cold start the SDK reopens accounts by itself and publishes no event when it ends: wait for it, bounded.
@@ -96,32 +113,54 @@ internal class AppLockReader(transport: RepositoryTransport) {
         }
         // A restore that never ends is not "no account": the cover stays up.
         if (catalog.restoring()) return UNKNOWN_APP_LOCK
-        val account = catalog.openAccount() ?: return AppLockReading(AppLockPhase.OPEN, enabled = false)
-        return when (val status = security.appLockState(account)) {
-            is ClientResult.Ready -> status.value.reading()
-            else -> UNKNOWN_APP_LOCK
+        if (catalog.accounts.isEmpty()) return AppLockReading(AppLockPhase.OPEN, enabled = false)
+        val locked = mutableListOf<String>()
+        var enabled = false
+        for (row in catalog.accounts) {
+            when (row.state) {
+                LISTED_LOCKED -> {
+                    locked += row.id
+                    enabled = true
+                }
+                LISTED_UNLOCKED -> when (val status = security.appLockState(row.id)) {
+                    is ClientResult.Ready -> {
+                        val reading = status.value.reading()
+                        enabled = enabled || reading.enabled
+                        when (reading.phase) {
+                            AppLockPhase.LOCKED -> locked += row.id
+                            AppLockPhase.UNKNOWN -> return UNKNOWN_APP_LOCK
+                            AppLockPhase.OPEN -> Unit
+                        }
+                    }
+                    else -> return UNKNOWN_APP_LOCK
+                }
+                else -> return UNKNOWN_APP_LOCK
+            }
         }
+        if (locked.isEmpty()) return AppLockReading(AppLockPhase.OPEN, enabled)
+        // The cover needs one account to unlock. Several locked rows and no remembered one: fail closed.
+        val target = locked.singleOrNull() ?: locked.firstOrNull { it == remembered } ?: return UNKNOWN_APP_LOCK
+        remembered = target
+        return AppLockReading(AppLockPhase.LOCKED, enabled = true, account = target)
     }
+
+    private fun AppLockStatus.reading(): AppLockReading = AppLockReading(state.phase(enabled), enabled)
 
     private suspend fun listed(): AccountCatalog? = (accounts.list() as? ClientResult.Ready)?.value
 
     /**
-     * Sends the lifecycle state and returns the state the reply carries. With no open account there is nothing to
-     * lock, so the answer is unlocked; a failed call or a reply without a state returns null.
+     * Sends the lifecycle state to the unlocked account and returns the state its reply carries. With no account on
+     * the phone there is nothing to lock, so the answer is unlocked; with accounts but none unlocked, it is unknown.
      */
     suspend fun lifecycle(state: String): AppLockState? {
-        val catalog = (accounts.list() as? ClientResult.Ready)?.value ?: return null
-        val account = catalog.openAccount() ?: return AppLockState.UNLOCKED
+        val catalog = listed() ?: return null
+        if (catalog.accounts.isEmpty()) return AppLockState.UNLOCKED
+        val account = catalog.accounts.firstOrNull { it.unlocked && it.id == catalog.activeId }?.id
+            ?: catalog.accounts.firstOrNull { it.unlocked }?.id
+            ?: return null
         return (security.appLockLifecycle(account, state) as? ClientResult.Ready)?.value
     }
 }
-
-/** The `account.list` state of an account the SDK is still reopening through its device key. */
-private const val RESTORE_PENDING_STATE = "restore_pending"
-private const val RESTORE_POLL_MS = 250L
-private const val RESTORE_WAIT_MS = 30_000L
-
-private fun AccountCatalog.restoring(): Boolean = accounts.any { it.state == RESTORE_PENDING_STATE }
 
 /** Every SDK call passes here, so a refusal that names the app lock reaches the session once, whichever repository asked. */
 internal class AppLockRefusalTransport(

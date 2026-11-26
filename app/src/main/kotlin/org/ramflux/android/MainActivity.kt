@@ -40,6 +40,7 @@ import org.ramflux.android.shell.StartupPlace
 import org.ramflux.data.AppearanceRepository
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.appLockCovers
+import org.ramflux.data.appLockGuarded
 import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
@@ -155,6 +156,20 @@ class MainActivity : ComponentActivity() {
         }
         // The banner's own view, added after the content so it draws above every screen of this window.
         installInAppBannerHost(this, banners, language, appearance)
+    }
+
+    /**
+     * The recents preview is taken as the activity leaves the foreground, so capture is refused here, synchronously,
+     * whenever the lock is on or unread. The composition's cover policy clears the flag again in debug builds.
+     */
+    override fun onPause() {
+        if (session.status.value.appLockGuarded()) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        super.onPause()
+    }
+
+    override fun onStop() {
+        if (session.status.value.appLockGuarded()) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        super.onStop()
     }
 
     override fun onNewIntent(intent: Intent) {
