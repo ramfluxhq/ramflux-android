@@ -61,6 +61,9 @@ echo "native cargo jobs=${CARGO_BUILD_JOBS} incremental=${CARGO_INCREMENTAL:-1} 
 # The ${array[@]+...} form keeps an empty profile_args (dev profile) valid under bash 3.2 with set -u.
 (cd "$core" && cargo ndk "${ndk_args[@]}" "$action" --jobs "$CARGO_BUILD_JOBS" -p ramflux-sdk --lib --features card-runtime --locked ${profile_args[@]+"${profile_args[@]}"})
 if [[ "$action" == check ]]; then exit 0; fi
+# cargo-ndk also copies the ramflux-card cdylib, whose SONAME is libramflux_sdk.so and whose card ABI the SDK already
+# exports. Packaging keeps only the SDK library (and the fixture library in the realrun build); a stale copy is removed.
+rm -f "$out/jniLibs/arm64-v8a/libramflux_card.so" "$out/symbols/arm64-v8a/libramflux_card.so.dbg"
 cp "$CARGO_TARGET_DIR/include/ramflux_sdk.h" "$out/include/ramflux_sdk.h"
 # The standalone card header is included by ramflux_sdk.h when RAMFLUX_WITH_CARD_RUNTIME is defined (realrun card gallery).
 cp "$core/crates/ramflux-card/include/ramflux_card.h" "$out/include/ramflux_card.h"
