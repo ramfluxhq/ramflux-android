@@ -175,7 +175,10 @@ class DefaultMessageHistoryRepository(private val transport: RepositoryTransport
             }
             page.rows.firstOrNull { it.id == conversation && !it.hidden }?.let {
                 val unread = it.unread.coerceAtMost(Long.MAX_VALUE.toULong()).toLong()
-                val known = it.peer?.let { peer -> directory.peers(account, setOf(peer))[peer] }
+                // The same peer keys the conversation list resolves a direct row's name through.
+                val keys = it.directPeerKeys()
+                val peers = directory.peers(account, keys.toSet())
+                val known = keys.firstNotNullOfOrNull { key -> peers[key] }
                 return ClientResult.Ready(
                     ConversationHeader(it.title ?: it.peerName ?: known?.name, unread = unread, peer = it.peer, muted = it.muted, ai = known?.ai == true)
                 )

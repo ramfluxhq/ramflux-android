@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.ramflux.sdk.ConversationDirectoryEntry
 
 /** A person as the contact list knows them: display name and the SDK-verified AI marker. */
 data class Peer(val name: String?, val ai: Boolean) {
@@ -84,3 +85,13 @@ internal class PeerDirectory(
         private const val SHORT_LENGTH = 10
     }
 }
+
+/** A conversation row that is not a group. */
+internal fun ConversationDirectoryEntry.isDirect(): Boolean = kind != "group" && groupId == null
+
+/**
+ * The peer keys the conversation list and the chat header resolve a direct row's name through (see
+ * [PeerDirectory.peers]); empty for a group, whose names come from the group directory.
+ */
+internal fun ConversationDirectoryEntry.directPeerKeys(): List<String> =
+    if (isDirect()) PeerDirectory.peers(peer, participants) else emptyList()
