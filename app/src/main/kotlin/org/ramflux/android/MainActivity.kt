@@ -42,6 +42,7 @@ import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.appLockCovers
 import org.ramflux.data.appLockGuarded
 import org.ramflux.designsystem.LocalAppLockCovered
+import org.ramflux.designsystem.hiddenWhileCovered
 import org.ramflux.data.LanguageRepository
 import org.ramflux.designsystem.AppLanguageProvider
 import org.ramflux.feature.appshell.AppShellNavigation
@@ -103,6 +104,8 @@ class MainActivity : ComponentActivity() {
                     DisposableEffect(Unit) { onDispose { banners.chatOpened(null, null) } }
                     CompositionLocalProvider(LocalAppLockCovered provides covered) {
                     Box(Modifier.fillMaxSize()) {
+                        // The shell under the cover is hidden from accessibility services and UI automation.
+                        Box(Modifier.fillMaxSize().hiddenWhileCovered(covered)) {
                         AppShellNavigation(
                             shellReady = startupUi.place == StartupPlace.SHELL,
                             policy = SHELL_ROUTE_POLICY,
@@ -146,6 +149,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             }
+                        }
                         }
                         // The app-lock cover draws above every shell page; it keeps the shell state underneath.
                         AppLockCover()

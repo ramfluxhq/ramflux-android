@@ -136,6 +136,17 @@ class AppLockViewModel @Inject constructor(
 
 private fun ClientSnapshot.coverPhase(): AppLockPhase = if (phase == ClientPhase.OPEN) appLock else AppLockPhase.OPEN
 
+/**
+ * Takes the system back while the cover is up. The dispatcher calls the callback registered last first, and a handler
+ * that is composed once (enabled or not) keeps its first place in that order, so a chat opened after the app started
+ * would win over it and pop its own stack under the cover. The handler therefore enters the composition only while the
+ * cover is up: it registers when the cover rises, after every handler the shell composed before.
+ */
+@Composable
+fun CoverBackGuard(covered: Boolean, onBack: () -> Unit) {
+    if (covered) BackHandler(enabled = true, onBack = onBack)
+}
+
 /** The cover for the app lock. Callers draw it above the shell, so the shell keeps its navigation state underneath. */
 @Composable
 fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
@@ -145,7 +156,7 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
     val keyboard = LocalSoftwareKeyboardController.current
     // While the cover is up, back does not pop the shell's stack underneath it. It only hides the keyboard: the typed
     // code stays in the entry.
-    BackHandler(enabled = ui.phase != AppLockPhase.OPEN) { keyboard?.hide() }
+    CoverBackGuard(covered = ui.phase != AppLockPhase.OPEN) { keyboard?.hide() }
     val code = remember { ErasableBuffer() }
     LaunchedEffect(ui.phase) {
         if (ui.phase != AppLockPhase.OPEN) {
