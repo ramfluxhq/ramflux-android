@@ -106,7 +106,10 @@ class SettingsViewModel @Inject constructor(
                     }
                 }
             }
-            SettingsAction.Refresh -> if (request?.isActive != true) read()
+            SettingsAction.Refresh -> if (request?.isActive != true) {
+                read()
+                if (local.value.page == SettingsPage.APP_LOCK) readAppLock()
+            }
             SettingsAction.Back -> {
                 request?.cancel()
                 capability?.cancel()
@@ -132,6 +135,7 @@ class SettingsViewModel @Inject constructor(
                 capability?.cancel()
                 local.update { it.copy(page = action.page, problem = null, unavailable = null) }
                 if (action.page == SettingsPage.PRIVACY) readPolicy()
+                if (action.page == SettingsPage.APP_LOCK) readAppLock()
             }
             is SettingsAction.Theme -> if (preferenceJob?.isActive != true && (action.id == null || ThemeCatalog.find(action.id) != null)) {
                 capability?.cancel()
@@ -207,6 +211,8 @@ class SettingsViewModel @Inject constructor(
             ) { account, state -> security.approvePairing(account, state, false) }
             SettingsAction.CancelPairing -> cancelPairing()
             is SettingsAction.RequestPolicy -> writePolicy(action.policy)
+            is SettingsAction.SetAppLock -> writeAppLock(action.enabled, local.value.appLock.timeoutMs)
+            is SettingsAction.AppLockTimeout -> writeAppLock(local.value.appLock.enabled, action.timeoutMs)
             SettingsAction.OpenCodeChange -> if (activeAccount != null) {
                 closeCodeChange()
                 local.update { it.copy(codeChange = SettingsCodeChange(open = true)) }
@@ -219,6 +225,7 @@ class SettingsViewModel @Inject constructor(
 
     private fun parent(page: SettingsPage) = when (page) {
         SettingsPage.PRIVACY -> SettingsPage.ACCOUNT
+        SettingsPage.APP_LOCK -> SettingsPage.PRIVACY
         SettingsPage.PAIRING -> SettingsPage.DEVICES
         SettingsPage.LANGUAGE -> SettingsPage.APPEARANCE
         else -> SettingsPage.GENERAL
@@ -438,6 +445,47 @@ class SettingsViewModel @Inject constructor(
                 is ClientResult.Failed -> it.privacy.copy(loading = false, problem = result.problem.message())
                 is ClientResult.Unavailable -> it.privacy.copy(loading = false, problem = result.reason.message())
             }
+        )
+    }
+
+    private var appLockJob: Job? = null
+
+    /** Reads the app lock of the active account. A refresh keeps what the page shows until the answer arrives. */
+    private fun readAppLock() {
+        val account = activeAccount ?: return
+        appLockJob?.cancel()
+        local.update { it.copy(appLock = it.appLock.copy(loading = true, problem = null)) }
+        appLockJob = viewModelScope.launch { showAppLock(security.appLockState(account)) }
+    }
+
+    /** Changes the lock, then reads it again so the page shows what the SDK now holds. */
+    private fun writeAppLock(enabled: Boolean, timeoutMs: Long) {
+        val account = activeAccount ?: return
+        if (appLockJob?.isActive == true) return
+        local.update { it.copy(appLock = it.appLock.copy(loading = true, problem = null)) }
+        appLockJob = viewModelScope.launch {
+            when (val written = security.configureAppLock(account, enabled, timeoutMs)) {
+                is ClientResult.Ready -> showAppLock(security.appLockState(account))
+                is ClientResult.Failed -> local.update { it.copy(appLock = it.appLock.copy(loading = false, problem = written.problem.message())) }
+                is ClientResult.Unavailable -> local.update {
+                    it.copy(appLock = it.appLock.copy(loading = false, problem = written.reason.message()))
+                }
+            }
+        }
+    }
+
+    private fun showAppLock(result: ClientResult<AppLockStatus>) = local.update {
+        it.copy(
+            appLock = when (result) {
+                is ClientResult.Ready -> SettingsAppLock(
+                    loaded = true,
+                    enabled = result.value.enabled,
+                    timeoutMs = result.value.timeoutMs,
+                    unavailable = if (result.value.state == AppLockState.UNAVAILABLE) uiText(R.string.settings_app_lock_unavailable) else null,
+                )
+                is ClientResult.Failed -> it.appLock.copy(loading = false, problem = result.problem.message())
+                is ClientResult.Unavailable -> it.appLock.copy(loading = false, problem = result.reason.message())
+            }.copy(loading = false)
         )
     }
 

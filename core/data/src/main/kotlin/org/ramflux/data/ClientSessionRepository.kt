@@ -29,7 +29,11 @@ data class ClientSnapshot(
     val phase: ClientPhase = ClientPhase.CLOSED,
     val generation: Long = 0,
     val problem: ClientProblem? = null,
-    val suspended: Boolean = false
+    val suspended: Boolean = false,
+    /** Read after every open and resume; UNKNOWN until then, and whenever the read fails. Only meaningful while OPEN. */
+    val appLock: AppLockPhase = AppLockPhase.UNKNOWN,
+    /** Whether the account has the app lock switched on; notifications stay generic while it is on. */
+    val appLockEnabled: Boolean = false,
 )
 enum class UnavailableReason { FEATURE_NOT_INSTALLED, UNSUPPORTED_BY_CORE, CUSTODY_PROVIDER_REQUIRED }
 sealed interface ClientResult<out T> {
@@ -44,4 +48,7 @@ interface ClientSessionRepository {
     suspend fun foreground()
     suspend fun background()
     suspend fun availability(feature: ClientFeature): ClientResult<Unit>
+
+    /** Reads the app lock again, for example after the account code opened it. Serialized with foreground and background. */
+    suspend fun recheckAppLock() {}
 }

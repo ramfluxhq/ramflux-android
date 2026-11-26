@@ -8,7 +8,7 @@ import org.ramflux.data.AppLanguage
 import org.ramflux.data.ContactRequestPolicy
 import org.ramflux.designsystem.*
 
-enum class SettingsPage { GENERAL, ACCOUNT, PRIVACY, DEVICES, PAIRING, APPEARANCE, LANGUAGE, DIAGNOSTICS }
+enum class SettingsPage { GENERAL, ACCOUNT, PRIVACY, APP_LOCK, DEVICES, PAIRING, APPEARANCE, LANGUAGE, DIAGNOSTICS }
 
 /** Where linking a new device stands on this phone (the inviting side). */
 enum class PairingStep { IDLE, STARTING, INVITED, COMPARE, REVIEW, WORKING, ENDED }
@@ -48,6 +48,22 @@ enum class PairingEnd { COMPLETED, CANCELLED, EXPIRED, REJECTED, FAILED }
     val loading: Boolean = false,
     val problem: UiText? = null
 )
+
+/**
+ * The app lock of the active account. [enabled] and [timeoutMs] are what the SDK last reported; [unavailable] disables
+ * the page when the SDK cannot enforce the lock on this device, [problem] shows a refused change inline.
+ */
+@Immutable data class SettingsAppLock(
+    val loaded: Boolean = false,
+    val loading: Boolean = false,
+    val enabled: Boolean = false,
+    val timeoutMs: Long = APP_LOCK_TIMEOUTS.first(),
+    val unavailable: UiText? = null,
+    val problem: UiText? = null
+)
+
+/** The timeouts the app lock page offers, in milliseconds: zero is "immediately". */
+val APP_LOCK_TIMEOUTS: List<Long> = listOf(0L, 60_000L, 300_000L, 900_000L, 3_600_000L)
 
 /** The account-code change form; digits stay in the view model, the state only counts them. */
 @Immutable data class SettingsCodeChange(
@@ -93,6 +109,7 @@ enum class PairingEnd { COMPLETED, CANCELLED, EXPIRED, REJECTED, FAILED }
     val status: SettingsStatus? = null,
     val pairing: SettingsPairing = SettingsPairing(),
     val privacy: SettingsPrivacy = SettingsPrivacy(),
+    val appLock: SettingsAppLock = SettingsAppLock(),
     val codeChange: SettingsCodeChange = SettingsCodeChange(),
     val statusProblem: UiText? = null,
     val problem: UiText? = null,

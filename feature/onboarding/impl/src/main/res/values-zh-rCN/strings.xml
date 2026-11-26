@@ -236,4 +236,7 @@
     <string name="ui_created_network_connected">已连接网络</string>
     <!-- Account created step: the network session did not become live while the step was shown. -->
     <string name="ui_created_network_not_confirmed">网络连接尚未确认。账户在本机可用，连接后消息会发出。</string>
+    <string name="app_lock_app_name">Ramflux</string>
+    <string name="app_lock_body">请输入账户码以继续。</string>
+    <string name="app_lock_retry">重试</string>
 </resources>

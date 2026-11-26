@@ -12,10 +12,13 @@ import android.view.contentcapture.ContentCaptureManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -41,6 +44,7 @@ import org.ramflux.feature.appshell.ShellPage
 import org.ramflux.feature.chat.api.ChatRoute
 import org.ramflux.feature.onboarding.BackupNavigation
 import org.ramflux.feature.onboarding.OnboardingNavigation
+import org.ramflux.feature.onboarding.AppLockCover
 import org.ramflux.feature.onboarding.api.BackupRoute
 import org.ramflux.feature.onboarding.api.OnboardingRoute
 import org.ramflux.feature.permissions.PermissionsNavigation
@@ -86,49 +90,53 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     DisposableEffect(Unit) { onDispose { banners.chatOpened(null, null) } }
-                    AppShellNavigation(
-                        shellReady = startupUi.place == StartupPlace.SHELL,
-                        policy = SHELL_ROUTE_POLICY,
-                        tabs = tabs,
-                        sessionAccount = startupUi.activeAccount,
-                        home = { navigate ->
-                            StartupHost(navigate, shell = {
-                                // Shown only for an unlocked session: a tapped notification waits here behind the unlock.
-                                NotificationOpener(notificationRoutes, tabs)
-                                RamfluxShell(tabs, SHELL_ROUTE_POLICY, navigate)
-                                DeliverySheetHost(onSetUp = { navigate(DeliveryRoute) })
-                            })
-                        }
-                    ) { onBack, navigate ->
-                        // Root-stack pages: ShellPage applies the window insets and the width cap the screens no longer own.
-                        entry<PermissionsRoute> { route ->
-                            val finished = rememberPermissionFlowFinished()
-                            ShellPage {
-                                PermissionsNavigation(route, {
-                                    finished()
-                                    onBack()
-                                }, modifier = it)
+                    Box(Modifier.fillMaxSize()) {
+                        AppShellNavigation(
+                            shellReady = startupUi.place == StartupPlace.SHELL,
+                            policy = SHELL_ROUTE_POLICY,
+                            tabs = tabs,
+                            sessionAccount = startupUi.activeAccount,
+                            home = { navigate ->
+                                StartupHost(navigate, shell = {
+                                    // Shown only for an unlocked session: a tapped notification waits here behind the unlock.
+                                    NotificationOpener(notificationRoutes, tabs)
+                                    RamfluxShell(tabs, SHELL_ROUTE_POLICY, navigate)
+                                    DeliverySheetHost(onSetUp = { navigate(DeliveryRoute) })
+                                })
                             }
-                        }
-                        entry<DeliveryRoute> { ShellPage { DeliveryNavigation(onBack, modifier = it) } }
-                        entry<BackupRoute> { route -> ShellPage { BackupNavigation(route.freshInstall, onBack, modifier = it) } }
-                        entry<OnboardingRoute> { route ->
-                            ShellPage {
-                                OnboardingNavigation(
-                                    onBack = onBack,
-                                    onAccountSelected = { onBack() },
-                                    // The finished ceremony leaves the stack, so back from the permission step goes into the account.
-                                    onAccountCreated = {
+                        ) { onBack, navigate ->
+                            // Root-stack pages: ShellPage applies the window insets and the width cap the screens no longer own.
+                            entry<PermissionsRoute> { route ->
+                                val finished = rememberPermissionFlowFinished()
+                                ShellPage {
+                                    PermissionsNavigation(route, {
+                                        finished()
                                         onBack()
-                                        navigate(PermissionsRoute(PermissionEntry.AFTER_ACCOUNT_CREATION, it))
-                                    },
-                                    onRestoreBackup = { navigate(BackupRoute(freshInstall = true)) },
-                                    openCreate = route.openCreate,
-                                    unlockId = route.unlockId,
-                                    modifier = it
-                                )
+                                    }, modifier = it)
+                                }
+                            }
+                            entry<DeliveryRoute> { ShellPage { DeliveryNavigation(onBack, modifier = it) } }
+                            entry<BackupRoute> { route -> ShellPage { BackupNavigation(route.freshInstall, onBack, modifier = it) } }
+                            entry<OnboardingRoute> { route ->
+                                ShellPage {
+                                    OnboardingNavigation(
+                                        onBack = onBack,
+                                        onAccountSelected = { onBack() },
+                                        // The finished ceremony leaves the stack, so back from the permission step goes into the account.
+                                        onAccountCreated = {
+                                            onBack()
+                                            navigate(PermissionsRoute(PermissionEntry.AFTER_ACCOUNT_CREATION, it))
+                                        },
+                                        onRestoreBackup = { navigate(BackupRoute(freshInstall = true)) },
+                                        openCreate = route.openCreate,
+                                        unlockId = route.unlockId,
+                                        modifier = it
+                                    )
+                                }
                             }
                         }
+                        // The app-lock cover draws above every shell page; it keeps the shell state underneath.
+                        AppLockCover()
                     }
                 }
             }

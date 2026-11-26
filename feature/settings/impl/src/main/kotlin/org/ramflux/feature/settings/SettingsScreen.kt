@@ -37,6 +37,7 @@ fun SettingsScreen(
             SettingsPage.GENERAL -> R.string.settings_settings
             SettingsPage.ACCOUNT -> R.string.settings_account_security
             SettingsPage.PRIVACY -> R.string.settings_privacy
+            SettingsPage.APP_LOCK -> R.string.settings_app_lock_title
             SettingsPage.PAIRING -> R.string.settings_pairing_title
             SettingsPage.DIAGNOSTICS -> R.string.settings_diagnostics_about
             SettingsPage.APPEARANCE -> R.string.settings_appearance_language
@@ -88,6 +89,7 @@ fun SettingsScreen(
                         SettingsPage.GENERAL -> generalPage(state, onAction)
                         SettingsPage.ACCOUNT -> accountPage(state, onAction)
                         SettingsPage.PRIVACY -> privacyPage(state, onAction)
+                        SettingsPage.APP_LOCK -> appLockPage(state, onAction)
                         SettingsPage.PAIRING -> pairingPage(state, onAction, drawInvitation, drawInvitationQr)
                         SettingsPage.DIAGNOSTICS -> diagnosticsPage(state, { AboutVersion() }) { label, value -> StatusRow(label, value) }
                         SettingsPage.LANGUAGE -> languagePage(state, onAction) { id, label, selected, enabled, select ->

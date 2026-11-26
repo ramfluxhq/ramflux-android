@@ -101,7 +101,7 @@ fun installInAppBannerHost(
 /** The banner on screen, if any. Its state is plain composition state: nothing here is saved. */
 @Composable
 internal fun InAppBannerOverlay(banners: InAppBanners) {
-    val banner by banners.current.collectAsStateWithLifecycle()
+    val banner by banners.current.collectAsStateWithLifecycle(initialValue = null)
     val shown = banner ?: return
     LaunchedEffect(shown) {
         delay(BANNER_VISIBLE_MS)

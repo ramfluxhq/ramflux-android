@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -293,6 +294,17 @@ internal fun LazyListScope.privacyPage(state: SettingsState, onAction: (Settings
         }
     }
     privacy.problem?.let { problem -> item("privacy-error") { Text(problem.render()) } }
+    item("app-lock-entry") {
+        SettingsGroup(stringResource(R.string.settings_app_lock)) {
+            KitRow(
+                stringResource(R.string.settings_app_lock),
+                { onAction(SettingsAction.Page(SettingsPage.APP_LOCK)) },
+                value = stringResource(if (state.appLock.enabled) R.string.settings_app_lock_on else R.string.settings_app_lock_off),
+                divider = false,
+                testTag = "app-lock"
+            )
+        }
+    }
     item("open-account") {
         SettingsGroup(stringResource(R.string.settings_open_account_mode)) {
             KitRow(
@@ -319,6 +331,73 @@ internal fun LazyListScope.privacyPage(state: SettingsState, onAction: (Settings
             )
         }
     }
+}
+
+/**
+ * The app lock page. The switch and the timeouts wait for the first read and stay off while the SDK reports the lock
+ * unavailable on this device; the biometric row is shown disabled until the core offers presence unlock.
+ */
+internal fun LazyListScope.appLockPage(state: SettingsState, onAction: (SettingsAction) -> Unit) {
+    val lock = state.appLock
+    val usable = lock.loaded && !lock.loading && lock.unavailable == null
+    item("app-lock-switch") {
+        val theme = LocalRFTheme.current
+        SettingsGroup(stringResource(R.string.settings_app_lock_title)) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = theme.gap.dp, vertical = (theme.gap / 2).dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(stringResource(R.string.settings_app_lock_switch), Modifier.weight(1f))
+                KitSwitch(
+                    checked = lock.enabled,
+                    onChecked = { onAction(SettingsAction.SetAppLock(it)) },
+                    enabled = usable,
+                    label = stringResource(R.string.settings_app_lock_switch),
+                    tag = "app-lock-switch"
+                )
+            }
+        }
+    }
+    item("app-lock-timeouts") {
+        SettingsGroup(stringResource(R.string.settings_app_lock_timeout)) {
+            APP_LOCK_TIMEOUTS.forEachIndexed { index, timeout ->
+                KitRow(
+                    stringResource(appLockTimeoutLabel(timeout)),
+                    { onAction(SettingsAction.AppLockTimeout(timeout)) },
+                    trailing = if (lock.timeoutMs == timeout) KitRowTrailing.Check else KitRowTrailing.None,
+                    enabled = usable && lock.enabled,
+                    divider = index != APP_LOCK_TIMEOUTS.lastIndex,
+                    testTag = "app-lock-timeout:$timeout"
+                )
+            }
+        }
+    }
+    item("app-lock-biometric") {
+        SettingsGroup(stringResource(R.string.settings_app_lock_biometric_group)) {
+            KitRow(
+                stringResource(R.string.settings_app_lock_biometric),
+                {},
+                value = stringResource(R.string.settings_app_lock_not_available),
+                enabled = false,
+                trailing = KitRowTrailing.None,
+                divider = false,
+                testTag = "app-lock-biometric"
+            )
+        }
+    }
+    item("app-lock-explain") {
+        Text(stringResource(R.string.settings_app_lock_explain), style = MaterialTheme.typography.bodyMedium)
+    }
+    lock.unavailable?.let { message -> item("app-lock-unavailable") { Text(message.render()) } }
+    lock.problem?.let { message -> item("app-lock-error") { Text(message.render()) } }
+}
+
+private fun appLockTimeoutLabel(timeoutMs: Long): Int = when (timeoutMs) {
+    0L -> R.string.settings_app_lock_immediately
+    60_000L -> R.string.settings_app_lock_1min
+    300_000L -> R.string.settings_app_lock_5min
+    900_000L -> R.string.settings_app_lock_15min
+    else -> R.string.settings_app_lock_1h
 }
 
 internal fun LazyListScope.pairingPage(
