@@ -14,3 +14,16 @@ target_compile_options(ramflux_android PRIVATE -Wall -Wextra -Werror)
 target_include_directories(ramflux_android PRIVATE "${RAMFLUX_HEADER_DIR}")
 target_link_libraries(ramflux_android PRIVATE ramflux_sdk)
 target_link_options(ramflux_android PRIVATE "-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384")
+
+# The realrun card gallery binding. Off unless build-native.sh runs with RAMFLUX_CARD_FIXTURE=1; the release library never
+# carries it.
+option(RAMFLUX_CARD_FIXTURE "Build the test-only card fixture library" OFF)
+if(RAMFLUX_CARD_FIXTURE)
+    add_library(ramflux_card_fixture SHARED card_fixture_jni.cpp)
+    target_compile_features(ramflux_card_fixture PRIVATE cxx_std_17)
+    target_compile_definitions(ramflux_card_fixture PRIVATE RAMFLUX_WITH_CARD_RUNTIME)
+    target_compile_options(ramflux_card_fixture PRIVATE -Wall -Wextra -Werror)
+    target_include_directories(ramflux_card_fixture PRIVATE "${RAMFLUX_HEADER_DIR}")
+    target_link_libraries(ramflux_card_fixture PRIVATE ramflux_sdk)
+    target_link_options(ramflux_card_fixture PRIVATE "-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384")
+endif()

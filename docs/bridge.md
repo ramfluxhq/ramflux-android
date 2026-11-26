@@ -288,6 +288,13 @@ discovery uses `surface.list`; the card state machine lives in `core/data` (`car
 `CardSessionClient` makes the typed bus calls, `CardTree` applies mutation batches atomically,
 `CardSessionPool` keeps at most 2 resumed and 24 held cards per account and suspends every
 resumed card on background (or app lock), resuming the most recent ones on foreground.
+
+The test-only card gallery binds the standalone card runtime (`ramflux_card_*`, ABI 5) and the bundled trust
+package (`ramflux_v2_card_trust_package`) through `libramflux_card_fixture.so`, built only with
+`RAMFLUX_CARD_FIXTURE=1 scripts/build-native.sh <out> build` (`core/sdk/src/main/cpp/card_fixture_jni.cpp`,
+CMake option `RAMFLUX_CARD_FIXTURE`). The realrun build type packages it from `<out>/card-fixture/`; the release
+library and APK never contain it. Every card call runs on one renderer thread, and the callback JSON is copied
+before the call returns.
 `ramflux_v2_card_trust_package` is exported but not bound: the trust package belongs to the
 test-build gallery only.
 Unified edit/reaction/reply operations follow the SDK message-unification contract. Deferred video, group calls, screen sharing, channel/thread/post
