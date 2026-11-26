@@ -23,6 +23,9 @@ interface AttachmentsRepository {
     suspend fun prepareRenew(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun prepareStatus(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun revoke(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun transferList(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun transferPause(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
+    suspend fun transferResume(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
 }
 
 class DefaultAttachmentsRepository(transport: RepositoryTransport) : SdkRepository(transport), AttachmentsRepository {
@@ -64,4 +67,13 @@ class DefaultAttachmentsRepository(transport: RepositoryTransport) : SdkReposito
 
     override suspend fun revoke(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("attachment.revoke", "account", context, body)
+
+    override suspend fun transferList(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("attachment.transfer.list", "account", context, body)
+
+    override suspend fun transferPause(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("attachment.transfer.pause", "account", context, body)
+
+    override suspend fun transferResume(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject> =
+        execute("attachment.transfer.resume", "account", context, body)
 }

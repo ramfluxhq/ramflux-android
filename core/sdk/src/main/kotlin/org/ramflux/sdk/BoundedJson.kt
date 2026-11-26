@@ -13,7 +13,8 @@ import kotlinx.serialization.json.JsonPrimitive
 internal object BoundedJson {
     private const val MAX_BYTES = 1 shl 20
     private const val MAX_DEPTH = 32
-    private const val MAX_VALUES = 4096
+    // The cap counts delimiters in replies from the linked core; the negotiate reply grows with the method table, and MAX_BYTES bounds memory.
+    private const val MAX_VALUES = 16384
 
     fun parseObject(bytes: ByteArray): JsonObject? {
         require(bytes.size <= MAX_BYTES)
