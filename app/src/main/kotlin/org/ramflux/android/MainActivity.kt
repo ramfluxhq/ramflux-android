@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -105,7 +106,7 @@ class MainActivity : ComponentActivity() {
                     CompositionLocalProvider(LocalAppLockCovered provides covered) {
                     Box(Modifier.fillMaxSize()) {
                         // The shell under the cover is hidden from accessibility services and UI automation.
-                        Box(Modifier.fillMaxSize().hiddenWhileCovered(covered)) {
+                        Box(Modifier.fillMaxSize().hiddenWhileCovered(covered).focusProperties { canFocus = !covered }) {
                         AppShellNavigation(
                             shellReady = startupUi.place == StartupPlace.SHELL,
                             policy = SHELL_ROUTE_POLICY,

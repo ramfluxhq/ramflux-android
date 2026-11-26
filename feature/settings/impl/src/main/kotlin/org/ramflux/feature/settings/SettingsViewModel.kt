@@ -465,7 +465,11 @@ class SettingsViewModel @Inject constructor(
         local.update { it.copy(appLock = it.appLock.copy(loading = true, problem = null)) }
         appLockJob = viewModelScope.launch {
             when (val written = security.configureAppLock(account, enabled, timeoutMs)) {
-                is ClientResult.Ready -> showAppLock(security.appLockState(account))
+                is ClientResult.Ready -> {
+                    // The session's appLockEnabled (banners, capture policy) is current at once.
+                    session.recheckAppLock()
+                    showAppLock(security.appLockState(account))
+                }
                 is ClientResult.Failed -> local.update { it.copy(appLock = it.appLock.copy(loading = false, problem = written.problem.message())) }
                 is ClientResult.Unavailable -> local.update {
                     it.copy(appLock = it.appLock.copy(loading = false, problem = written.reason.message()))

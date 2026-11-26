@@ -49,6 +49,7 @@ import org.ramflux.data.ClientResult
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.ClientSnapshot
 import org.ramflux.data.accountCodeRefusal
+import org.ramflux.data.appLockCovers
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.kit.KitButton
@@ -85,9 +86,11 @@ class AppLockViewModel @Inject constructor(
         screen.copy(phase = status.coverPhase())
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppLockCoverState(phase = session.status.value.coverPhase(), notice = null))
 
-    /** Reads the lock again: an UNKNOWN cover answers with the next state read. */
+    /** Reads the lock again, or reopens the session when it failed: an UNKNOWN cover answers with the next state read. */
     fun retry() {
-        viewModelScope.launch { session.recheckAppLock() }
+        viewModelScope.launch {
+            if (session.status.value.phase == ClientPhase.FAILED) session.foreground() else session.recheckAppLock()
+        }
     }
 
     /** The typed code is wiped on every path; the SDK wipes the copy it receives. */
@@ -107,11 +110,16 @@ class AppLockViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 // The locked account is not the active one: its id comes from the lock read, never from the active account.
-                val account = session.status.value.appLockAccount
+                var account = session.status.value.appLockAccount
                 if (account == null) {
-                    // No known locked account: read the lock again rather than guess; the cover follows that read.
+                    // No known locked account: read the lock again rather than guess, then unlock once with the code
+                    // still held here. If the read names no account the code is gone and the user types it again.
                     session.recheckAppLock()
-                    return@launch
+                    account = session.status.value.appLockAccount
+                    if (account == null) {
+                        local.update { it.copy(notice = uiText(R.string.ui_enter_the_account_code)) }
+                        return@launch
+                    }
                 }
                 when (val result = accounts.unlock(account, digits)) {
                     is ClientResult.Ready -> {
@@ -134,7 +142,11 @@ class AppLockViewModel @Inject constructor(
             ?: codeText(AccountCodeRefusal.WRONG_CODE, null)
 }
 
-private fun ClientSnapshot.coverPhase(): AppLockPhase = if (phase == ClientPhase.OPEN) appLock else AppLockPhase.OPEN
+private fun ClientSnapshot.coverPhase(): AppLockPhase = when {
+    phase == ClientPhase.OPEN -> appLock
+    appLockCovers() -> AppLockPhase.UNKNOWN
+    else -> AppLockPhase.OPEN
+}
 
 /**
  * Takes the system back while the cover is up. The dispatcher calls the callback registered last first, and a handler

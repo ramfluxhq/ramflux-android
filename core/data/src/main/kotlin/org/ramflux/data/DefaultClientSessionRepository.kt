@@ -15,7 +15,7 @@ internal class DefaultClientSessionRepository(
     private val transitions = Mutex()
     private val mutable = MutableStateFlow(ClientSnapshot())
     /** The lock covered the screens since the last release: their reads failed behind the cover and must be redone. */
-    private var lockEngaged = false
+    @Volatile private var lockEngaged = false
     override val status = mutable.asStateFlow()
 
     init {
@@ -34,10 +34,11 @@ internal class DefaultClientSessionRepository(
                 if (current.phase == ClientPhase.OPEN && current.suspended) {
                     // Return from the background: the same client resumes; no new generation, no account code.
                     mutable.value = current.copy(appLock = AppLockPhase.UNKNOWN)
+                    val held = holdsLock(current)
                     mutable.value = when (val result = driver.open()) {
                         is ClientResult.Ready -> current.copy(appLock = AppLockPhase.UNKNOWN, suspended = false, problem = null)
-                        is ClientResult.Failed -> current.copy(phase = ClientPhase.FAILED, problem = result.problem, suspended = false)
-                        is ClientResult.Unavailable -> current.copy(phase = ClientPhase.FAILED, suspended = false,
+                        is ClientResult.Failed -> current.copy(phase = ClientPhase.FAILED, problem = result.problem, suspended = false, lockHeld = held)
+                        is ClientResult.Unavailable -> current.copy(phase = ClientPhase.FAILED, suspended = false, lockHeld = held,
                             problem = ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE))
                     }
                     if (mutable.value.phase == ClientPhase.OPEN) readAppLock()
@@ -67,6 +68,7 @@ internal class DefaultClientSessionRepository(
             withContext(io + NonCancellable) {
                 val current = mutable.value
                 if (current.phase != ClientPhase.OPEN || current.suspended) return@withContext
+                val held = holdsLock(current)
                 mutable.value = current.copy(appLock = AppLockPhase.UNKNOWN)
                 // Best effort: the SDK arms the deadline on suspend as well.
                 driver.appLockLifecycle(APP_LOCK_BACKGROUND)
@@ -74,8 +76,8 @@ internal class DefaultClientSessionRepository(
                 mutable.update {
                     when (suspended) {
                         is ClientResult.Ready -> it.copy(suspended = true)
-                        is ClientResult.Failed -> it.copy(phase = ClientPhase.FAILED, problem = suspended.problem)
-                        is ClientResult.Unavailable -> it.copy(phase = ClientPhase.FAILED,
+                        is ClientResult.Failed -> it.copy(phase = ClientPhase.FAILED, problem = suspended.problem, lockHeld = held)
+                        is ClientResult.Unavailable -> it.copy(phase = ClientPhase.FAILED, lockHeld = held,
                             problem = ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE))
                     }
                 }
@@ -83,6 +85,10 @@ internal class DefaultClientSessionRepository(
             }
         }
     }
+    /** Whether the lock was on, engaged or unread before the session left OPEN: a later failure keeps the cover up. */
+    private fun holdsLock(current: ClientSnapshot): Boolean =
+        current.appLockEnabled || lockEngaged || current.appLock != AppLockPhase.OPEN
+
     override suspend fun recheckAppLock() {
         transitions.withLock {
             withContext(io + NonCancellable) {
