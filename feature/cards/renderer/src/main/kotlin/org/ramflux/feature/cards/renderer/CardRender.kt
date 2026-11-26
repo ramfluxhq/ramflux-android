@@ -225,6 +225,15 @@ private fun CardFooter(ctx: CardContext) {
     )
 }
 
+/**
+ * The 20 kinds [RenderNode] draws with their own view. Any other kind draws the neutral line of [RenderNode]; the realrun
+ * card gallery counts such nodes as placeholders (conformance check B). Keep this list in step with the `when` below.
+ */
+val CARD_RENDERED_KINDS: Set<String> = setOf(
+    "Text", "Icon", "Row", "Column", "List", "Card", "Tabs", "Modal", "Divider", "Button", "TextField", "CheckBox",
+    "ChoicePicker", "Slider", "DateTimeInput", "Image", "Approval", "Task", "Chart", "Table"
+)
+
 /** Dispatches one node of the tree by kind. Unknown kinds draw a neutral line, never nothing. */
 @Composable
 internal fun RenderNode(key: String, ctx: CardContext) {

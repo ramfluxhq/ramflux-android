@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (c) 2026 Span Brain -->
+<resources>
+    <string name="card_gallery_title">卡片图库（测试构建）</string>
+    <string name="card_gallery_runtime_missing">此构建未打包卡片运行时测试库。</string>
+    <string name="card_gallery_dark">深色</string>
+    <string name="card_gallery_run">运行一致性检查</string>
+    <string name="card_gallery_not_run">尚未运行一致性检查</string>
+    <string name="card_gallery_fixtures">夹具</string>
+    <string name="card_gallery_scenarios">场景</string>
+</resources>
