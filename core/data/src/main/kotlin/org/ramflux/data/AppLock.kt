@@ -134,7 +134,11 @@ internal class AppLockReader(transport: RepositoryTransport) {
                     }
                     else -> return UNKNOWN_APP_LOCK
                 }
-                else -> return UNKNOWN_APP_LOCK
+                // An account in another state covers only when its lock may be on: a disabled lock on it is as before G05.
+                else -> when (val status = security.appLockState(row.id)) {
+                    is ClientResult.Ready -> if (status.value.enabled) return UNKNOWN_APP_LOCK
+                    else -> return UNKNOWN_APP_LOCK
+                }
             }
         }
         if (locked.isEmpty()) return AppLockReading(AppLockPhase.OPEN, enabled)
