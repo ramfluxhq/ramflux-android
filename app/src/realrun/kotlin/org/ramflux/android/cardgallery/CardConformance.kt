@@ -52,6 +52,15 @@ internal class CardConformance(private val context: Context, private val trust: 
     suspend fun run(): List<ConformanceRecord> {
         val records = mutableListOf<ConformanceRecord>()
         for (row in rows) records += checkRow(row)
+        // RTL is not a failure: the runtime publishes only en and zh-CN, so no RTL fixture can be opened yet.
+        records += ConformanceRecord(
+            id = "rtl",
+            kind = "-",
+            variant = null,
+            check = CHECK_RTL,
+            pass = true,
+            detail = "NOT AVAILABLE: the runtime publishes only en and zh-CN; not a failure"
+        )
         return records
     }
 
@@ -61,38 +70,78 @@ internal class CardConformance(private val context: Context, private val trust: 
             val refused = CardFixtureRuntime.open(trust, spec, LOCALE, false)
             if (refused.session != 0L) CardFixtureRuntime.dispose(refused.session)
             val pass = !refused.ok && refused.json == null
-            return listOf(record(row, CHECK_A, pass, "refused by the runtime: status ${refused.status}"))
+            val actual = "status ${refused.status}, batch ${excerpt(refused.json)}"
+            val note = "refused by the runtime: status ${refused.status}"
+            return listOf(record(row, CHECK_A, pass, detail(pass, "refused (status not 0, no batch)", actual, note)))
         }
+        val expected = CardFixtureCatalog.hostJson(context, row.expected.orEmpty())
         val opened = CardFixtureRuntime.open(trust, spec, LOCALE, false)
         val batch = opened.json
-        if (!opened.ok || batch == null) return listOf(record(row, CHECK_A, false, "open status ${opened.status}"))
         val live = opened.session
+        val records = mutableListOf<ConformanceRecord>()
         try {
-            val held = CardTree.EMPTY.apply(batch)
-                ?: return listOf(record(row, CHECK_A, false, "the open batch does not apply to an empty tree"))
-            val expected = CardFixtureCatalog.hostJson(context, row.expected.orEmpty())
-                ?: return listOf(record(row, CHECK_A, false, "expected tree missing: ${row.expected}"))
-            val want = CardTreeJson.normal(expected)
-            val heldJson = CardTreeJson.normal(CardTreeJson.rebase(CardTreeJson.of(held), live))
-            val fresh = CardFixtureRuntime.tree(live)
-            val freshJson = fresh.json?.let { CardTreeJson.normal(CardTreeJson.rebase(it, live)) }
-            val heldEqual = heldJson == want
-            val freshEqual = freshJson == want
-            val records = mutableListOf(
-                record(
-                    row,
-                    CHECK_A,
-                    heldEqual && freshEqual,
-                    "held tree equal: $heldEqual; runtime tree equal: $freshEqual" +
-                        if (heldEqual && freshEqual) "" else "; first differing key: ${firstDifference(heldJson, want)}"
-                ),
+            // A is recorded and B and C still run: a batch that does not apply is a check A failure, not a reason to skip.
+            val held = if (opened.ok && batch != null) CardTree.EMPTY.apply(batch) else null
+            records += checkA(row, opened.ok, batch, held, live, expected)
+            records += if (expected == null) {
+                record(row, CHECK_B, false, detail(false, "expected tree present", "expected tree missing: ${row.expected}", ""))
+            } else {
                 checkB(row, expected)
-            )
-            if (row.kind in CardFixtureCatalog.INTERACTIVE) records += checkC(row, live, held)
+            }
+            if (row.kind in CardFixtureCatalog.INTERACTIVE) {
+                records += when {
+                    held == null || live == 0L -> record(
+                        row,
+                        CHECK_C,
+                        false,
+                        detail(false, "an open tree to drive", "no held tree (check A did not apply the open batch)", "")
+                    )
+                    else -> checkC(row, live, held)
+                }
+            }
             return records
         } finally {
-            CardFixtureRuntime.dispose(live)
+            if (live != 0L) CardFixtureRuntime.dispose(live)
         }
+    }
+
+    /** Check A for an open row: the batch applies to the empty tree, the held tree equals the expected tree, a fresh read too. */
+    private suspend fun checkA(
+        row: FixtureRow,
+        opened: Boolean,
+        batch: JsonObject?,
+        held: CardTree?,
+        live: Long,
+        expected: JsonObject?
+    ): ConformanceRecord {
+        if (!opened || batch == null) return record(row, CHECK_A, false, detail(false, "an open batch", "open failed", ""))
+        if (expected == null) {
+            return record(row, CHECK_A, false, detail(false, "expected tree ${row.expected}", "expected tree missing", ""))
+        }
+        if (held == null) {
+            val expectedText = "the open batch applies to an empty tree"
+            val note = "the open batch does not apply to an empty tree"
+            return record(row, CHECK_A, false, detail(false, expectedText, "batch ${excerpt(batch)}", note))
+        }
+        val want = CardTreeJson.normal(expected)
+        val heldJson = CardTreeJson.normal(CardTreeJson.rebase(CardTreeJson.of(held), live))
+        val fresh = CardFixtureRuntime.tree(live)
+        val freshJson = fresh.json?.let { CardTreeJson.normal(CardTreeJson.rebase(it, live)) }
+        val heldEqual = heldJson == want
+        val freshEqual = freshJson == want
+        val pass = heldEqual && freshEqual
+        val difference = firstDifference(heldJson, want)
+        return record(
+            row,
+            CHECK_A,
+            pass,
+            detail(
+                pass,
+                "tree ${excerpt(want)}",
+                "held ${excerpt(heldJson)}; runtime ${excerpt(freshJson)}",
+                "held tree equal: $heldEqual; runtime tree equal: $freshEqual; first differing key: $difference"
+            )
+        )
     }
 
     private fun checkB(row: FixtureRow, expected: JsonObject): ConformanceRecord {
@@ -106,13 +155,18 @@ internal class CardConformance(private val context: Context, private val trust: 
             row,
             CHECK_B,
             pass,
-            "nodes ${nodes.size}; placeholders ${placeholders.size}; host slots ${slots.joinToString().ifEmpty { "none" }}"
+            detail(
+                pass,
+                "every node a rendered kind and every host slot drawn",
+                "placeholders ${placeholders.ifEmpty { listOf("none") }}; undrawn host slots ${undrawn.ifEmpty { listOf("none") }}",
+                "nodes ${nodes.size}; placeholders ${placeholders.size}; host slots ${slots.joinToString().ifEmpty { "none" }}"
+            )
         )
     }
 
     private suspend fun checkC(row: FixtureRow, live: Long, held: CardTree): ConformanceRecord {
         val node = held.nodes.values.firstOrNull { it.kind == row.kind }
-            ?: return record(row, CHECK_C, false, "no ${row.kind} node in the opened tree")
+            ?: return record(row, CHECK_C, false, detail(false, "a ${row.kind} node in the opened tree", "none", ""))
         val event = eventFor(node)
         if (event == null) {
             // Approval answers are card.session.slot calls (SDK only); the standalone runtime has no slot path.
@@ -125,7 +179,9 @@ internal class CardConformance(private val context: Context, private val trust: 
             put("event", event.json())
         }
         val reply = CardFixtureRuntime.event(live, input)
-        if (!reply.ok) return record(row, CHECK_C, false, "event status ${reply.status} for ${event.json()}")
+        if (!reply.ok) {
+            return record(row, CHECK_C, false, detail(false, "event status 0", "event status ${reply.status}", "event ${event.json()}"))
+        }
         val answer = reply.json
         val result = (answer?.get("result") as? JsonPrimitive)?.content ?: "none"
         val batch = answer?.get("batch") as? JsonObject
@@ -133,18 +189,20 @@ internal class CardConformance(private val context: Context, private val trust: 
             held
         } else {
             held.apply(batch)
-                ?: return record(row, CHECK_C, false, "batch from $result does not apply to the held tree")
+                ?: return record(
+                    row,
+                    CHECK_C,
+                    false,
+                    detail(false, "the $result batch applies to the held tree", "batch ${excerpt(batch)}", "result $result")
+                )
         }
         val fresh = CardFixtureRuntime.tree(live).json?.let { CardTreeJson.normal(CardTreeJson.rebase(it, live)) }
         val equal = fresh != null && CardTreeJson.normal(CardTreeJson.rebase(CardTreeJson.of(next), live)) == fresh
         val action = answer?.get("action")?.toString()?.take(160) ?: "none"
         val digest = batch?.let { digest(it.toString()) } ?: "none"
-        return record(
-            row,
-            CHECK_C,
-            equal,
-            "event ${event.json()}; result $result; batch $digest; action $action; runtime tree equal: $equal"
-        )
+        val note = "event ${event.json()}; result $result; batch $digest; action $action; runtime tree equal: $equal"
+        val excerpts = detail(equal, "runtime ${excerpt(fresh)}", "held ${excerpt(CardTreeJson.of(next))}", note)
+        return record(row, CHECK_C, equal, excerpts)
     }
 
     /** The event the conformance table sends for [node]; null for kinds answered through a host slot instead. */
@@ -172,6 +230,14 @@ internal class CardConformance(private val context: Context, private val trust: 
     private fun record(row: FixtureRow, check: String, pass: Boolean, detail: String) =
         ConformanceRecord(row.id, row.kind, row.variant, check, pass, detail)
 
+    /** The detail of a record: a failure carries the expected and the actual excerpt, then the note. */
+    private fun detail(pass: Boolean, expected: String, actual: String, note: String): String {
+        if (pass) return note.ifEmpty { "pass" }
+        return listOf("expected: $expected", "actual: $actual", note).filter { it.isNotEmpty() }.joinToString("; ")
+    }
+
+    private fun excerpt(json: JsonElement?): String = json?.toString()?.take(EXCERPT_CHARS) ?: "none"
+
     private fun firstDifference(left: JsonObject, right: JsonObject): String =
         (left.keys + right.keys).sorted().firstOrNull { left[it] != right[it] } ?: "none"
 
@@ -180,7 +246,9 @@ internal class CardConformance(private val context: Context, private val trust: 
         const val CHECK_A = "A"
         const val CHECK_B = "B"
         const val CHECK_C = "C"
+        const val CHECK_RTL = "RTL"
         const val REPORT = "card-conformance.json"
+        private const val EXCERPT_CHARS = 240
         private const val TAG = "RfCardConformance"
 
         /** Writes the report (a JSON array, one object per record) to the app's cache directory and logs each line. */

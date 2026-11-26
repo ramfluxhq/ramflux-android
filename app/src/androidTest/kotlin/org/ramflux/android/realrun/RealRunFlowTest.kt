@@ -1717,6 +1717,14 @@ class RealRunFlowTest {
             Thread.sleep(600)
             ui.shot("21-gallery-${page + 1}")
         }
+        // Dark: the same gallery with the Dark switch on; the runtime presents the dark theme to every held card.
+        ui.tap("card-gallery-dark", 10_000)
+        Thread.sleep(600)
+        repeat(DARK_PAGES) { page ->
+            ui.shot("21-gallery-dark-${page + 1}")
+            device.swipe(x, device.displayHeight * 4 / 5, x, device.displayHeight / 5, 25)
+            Thread.sleep(600)
+        }
         device.pressBack()
         if (failed.isNotEmpty()) {
             fail(
@@ -1733,6 +1741,7 @@ class RealRunFlowTest {
         /** The card gallery activity (realrun source set; not in any other build type). */
         private const val CARD_GALLERY = "org.ramflux.android.cardgallery.CardGalleryActivity"
         private const val GALLERY_PAGES = 14
+        private const val DARK_PAGES = 5
 
         /** Flow 20's phase in [RunState]: steps 7 and 8 wait for a new app process; the notes of the steps passed so far. */
         private const val APP_LOCK_PHASE = "app-lock-phase"

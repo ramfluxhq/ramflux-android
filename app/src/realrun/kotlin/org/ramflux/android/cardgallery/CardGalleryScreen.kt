@@ -49,7 +49,7 @@ internal fun CardGalleryScreen(model: CardGalleryModel) {
         }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = model.dark, onCheckedChange = model::applyDark)
+                Switch(checked = model.dark, onCheckedChange = model::applyDark, modifier = Modifier.testTag("card-gallery-dark"))
                 Text(stringResource(R.string.card_gallery_dark), modifier = Modifier.padding(start = 8.dp))
                 Spacer(Modifier.width(16.dp))
                 Button(

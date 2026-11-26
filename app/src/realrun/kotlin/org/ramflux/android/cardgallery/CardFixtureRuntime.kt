@@ -94,6 +94,11 @@ internal object CardFixtureRuntime {
         return CardCall(reply.status, reply.session, reply.json?.let(::parseObject))
     }
 
-    private fun parseObject(bytes: ByteArray): JsonObject? =
-        runCatching { Json.parseToJsonElement(bytes.decodeToString()) as? JsonObject }.getOrNull()
+    /**
+     * Every callback is `{"session": id, "payload": value}` (the runtime's `emit`); the value is the tree, the batch or the
+     * event answer, so the payload is what the caller reads. Returning the envelope made every batch fail to apply.
+     */
+    private fun parseObject(bytes: ByteArray): JsonObject? = runCatching {
+        ((Json.parseToJsonElement(bytes.decodeToString()) as? JsonObject)?.get("payload")) as? JsonObject
+    }.getOrNull()
 }
