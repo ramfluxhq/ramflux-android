@@ -73,6 +73,18 @@ interface AccountSecurityRepository {
     suspend fun requestPolicy(account: String): ClientResult<ContactRequestPolicy>
     suspend fun setRequestPolicy(account: String, policy: ContactRequestPolicy): ClientResult<ContactRequestPolicy>
 
+    /** `account.app_lock.state` for [account]; an unknown state or a missing field is a failure, never a guess. */
+    suspend fun appLockState(account: String): ClientResult<AppLockStatus> =
+        ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
+    /** `account.app_lock.configure`: [timeoutMs] is 0..86_400_000, zero meaning immediately. The caller reads the state again. */
+    suspend fun configureAppLock(account: String, enabled: Boolean, timeoutMs: Long): ClientResult<Unit> =
+        ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
+    /** `account.app_lock.lifecycle` with `background`, `foreground` or `device_locked`; the reply carries the state now in force. */
+    suspend fun appLockLifecycle(account: String, state: String): ClientResult<AppLockState> =
+        ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
     /**
      * `account.passphrase.rotate`: the SDK verifies [current] before it rekeys to [next]. Both arrays are
      * wiped before return; refusals carry the SDK's names as in [AccountAccessRepository.unlock].
@@ -82,5 +94,8 @@ interface AccountSecurityRepository {
     companion object {
         /** Seven days; the SDK admits at most thirty (`MAX_BRANCH_LEASE_SECONDS`). */
         const val DEFAULT_LEASE_SECONDS = 7L * 24 * 3600
+
+        /** The longest app lock timeout the SDK accepts: one day. */
+        const val MAX_APP_LOCK_TIMEOUT_MS = 86_400_000L
     }
 }

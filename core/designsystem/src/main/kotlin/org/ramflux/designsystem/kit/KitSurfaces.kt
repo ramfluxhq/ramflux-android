@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
 
 enum class KitWarningTone { Warning, Danger }
@@ -36,6 +37,8 @@ fun KitSheet(
     showClose: Boolean = true,
     tag: String? = null
 ) {
+    // Not shown under the app-lock cover.
+    if (LocalAppLockCovered.current) return
     val theme = LocalRFTheme.current
     val shape = RoundedCornerShape(topStart = dp(theme.radius_sheet), topEnd = dp(theme.radius_sheet))
     Column(

@@ -41,6 +41,12 @@ sealed interface SettingsAction {
 
     data class RequestPolicy(val policy: org.ramflux.data.ContactRequestPolicy) : SettingsAction
 
+    /** Switches the app lock on or off for the active account; only the account code opens it again. */
+    data class SetAppLock(val enabled: Boolean) : SettingsAction
+
+    /** The time away after which the app lock applies (one of [APP_LOCK_TIMEOUTS]). */
+    data class AppLockTimeout(val timeoutMs: Long) : SettingsAction
+
     data object OpenCodeChange : SettingsAction
 
     /** One typed digit (or deletion with null) of the current or the new account code. */

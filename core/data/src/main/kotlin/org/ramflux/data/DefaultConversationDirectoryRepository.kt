@@ -25,7 +25,7 @@ internal class DefaultConversationDirectoryRepository(
                 is CoreResult.Success -> {
                     val visible = decoded.value.rows.filterNot { it.hidden }
                     // Names come from the SDK; the AI marker of direct peers from one contact lookup per page.
-                    val wanted = visible.filter { it.direct() }.flatMapTo(HashSet()) { it.peerKeys() }
+                    val wanted = visible.filter { it.isDirect() }.flatMapTo(HashSet()) { it.directPeerKeys() }
                     val peers = directory.peers(account, wanted)
                     ClientResult.Ready(ConversationPage(visible.map { it.summary(peers) }, decoded.value.nextCursor))
                 }
@@ -67,7 +67,7 @@ internal class DefaultConversationDirectoryRepository(
         if (row.hidden) return ConversationChange.Remove(row.id)
         synchronized(pendingPeers) {
             pendingPeers.remove(row.id)
-            if (row.direct()) pendingPeers[row.id] = row.peerKeys()
+            if (row.isDirect()) pendingPeers[row.id] = row.directPeerKeys()
         }
         return ConversationChange.Upsert(row.summary(emptyMap()), row.title != null || row.peerName != null)
     }
@@ -95,15 +95,11 @@ internal class DefaultConversationDirectoryRepository(
         if (account.isNotBlank() && conversation.isNotBlank()) ClientResult.Ready(Unit)
         else ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
 
-    private fun ConversationDirectoryEntry.direct() = kind != "group" && groupId == null
-
-    private fun ConversationDirectoryEntry.peerKeys() = PeerDirectory.peers(peer, participants)
-
     /** The SDK's title, else its name of the direct peer; a contact name only when the SDK has none; else a short id. */
     private fun ConversationDirectoryEntry.summary(peers: Map<String, Peer>): ConversationSummary {
         val group = kind == "group"
-        val known = if (direct()) peerKeys().firstNotNullOfOrNull { peers[it] } else null
-        val sdkTitle = title?.takeIf { it.isNotBlank() } ?: peerName.takeIf { direct() }
+        val known = directPeerKeys().firstNotNullOfOrNull { peers[it] }
+        val sdkTitle = title?.takeIf { it.isNotBlank() } ?: peerName.takeIf { isDirect() }
         val named = if (sdkTitle == null) known?.name else null
         val identifier = sdkTitle == null && named == null && !group
         val shown = sdkTitle ?: named ?: if (identifier) PeerDirectory.shortIdentifier(peer, id) else id

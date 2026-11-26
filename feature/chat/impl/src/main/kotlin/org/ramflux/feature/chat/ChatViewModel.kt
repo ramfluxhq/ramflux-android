@@ -126,6 +126,12 @@ class ChatViewModel @Inject constructor(
     private var typingRefused = false
     private var needsRefresh = false
     private var ticket = 0L
+
+    /**
+     * The peer's header title as last read for [Target]. A session phase change resets [local], and the re-read
+     * after it keeps this title until the header names the conversation again, so the generic title never flashes.
+     */
+    private var namedHeader: Pair<Target, UiText>? = null
     private val lifecycle = viewModelScope.launch {
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect { (phase, _) ->
             // Lock or session loss: seal the draft before the in-memory state is dropped.
@@ -142,7 +148,10 @@ class ChatViewModel @Inject constructor(
             local.value = ChatState()
             val openTarget = target
             if (phase == ClientPhase.OPEN && openTarget != null) {
-                local.value = ChatState(conversationId = openTarget.conversation)
+                local.value = ChatState(
+                    conversationId = openTarget.conversation,
+                    title = namedHeader?.takeIf { it.first == openTarget }?.second
+                )
                 ensureWatch(openTarget)
                 restoreDraft(openTarget)
                 restoreOutbox(openTarget)
@@ -380,12 +389,14 @@ class ChatViewModel @Inject constructor(
                 current(expected, generation, currentTarget)
                 if (!validate(expected, generation, currentTarget)) return@launch
                 if (!dividerPlaced) unreadAtOpen = (header as? ClientResult.Ready)?.value?.unread ?: 0L
+                val named = (header as? ClientResult.Ready)?.value?.title?.takeIf { title -> title.isNotBlank() }?.let { title ->
+                    UiText.Data(title)
+                }
+                named?.let { namedHeader = currentTarget to it }
                 local.update {
                     it.copy(
                         groupId = (groupHeader as? ClientResult.Ready)?.value?.groupId,
-                        title = (header as? ClientResult.Ready)?.value?.title?.takeIf { title -> title.isNotBlank() }?.let { title ->
-                            UiText.Data(title)
-                        } ?: it.title,
+                        title = named ?: it.title,
                         titleAi = (header as? ClientResult.Ready)?.value?.ai == true,
                         headerProblem = when (header) {
                             is ClientResult.Ready -> null

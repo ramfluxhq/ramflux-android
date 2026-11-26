@@ -65,7 +65,7 @@ fun ClientProblem.accountCodeRefusal(unlock: Boolean = false): AccountCodeRefusa
     "UnlockAttemptsExhausted" -> AccountCodeRefusal.ATTEMPTS_EXHAUSTED
     "DeviceUnlockUnavailable" -> AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE
     "AccountCodeRequired" -> AccountCodeRefusal.CODE_REQUIRED
-    "ValidationFailed" -> if (unlock) AccountCodeRefusal.WRONG_CODE else null
+    "ValidationFailed", "AuthFailed" -> if (unlock) AccountCodeRefusal.WRONG_CODE else null
     else -> when (check) {
         "unlock_retry_later" -> AccountCodeRefusal.RETRY_LATER
         "unlock_attempts_exhausted" -> AccountCodeRefusal.ATTEMPTS_EXHAUSTED

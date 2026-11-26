@@ -6,10 +6,14 @@ package org.ramflux.android.notify
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import org.ramflux.data.AppLockPhase
 import org.ramflux.data.CallSummary
+import org.ramflux.data.ClientPhase
 import org.ramflux.data.ClientResult
+import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.ConversationSummary
 import org.ramflux.data.MessageHistoryRepository
 import org.ramflux.data.MessageSummary
@@ -95,14 +99,22 @@ object BannerText {
 @Singleton
 class InAppBanners @Inject constructor(
     private val history: MessageHistoryRepository,
-    private val routes: NotificationRoutes
+    private val routes: NotificationRoutes,
+    private val session: ClientSessionRepository,
 ) {
     private val shown = MutableStateFlow<InAppBanner?>(null)
     private val serial = AtomicLong()
     private val openChat = MutableStateFlow<Pair<String, String>?>(null)
 
-    /** The banner on screen; a newer one replaces it. */
-    val current: StateFlow<InAppBanner?> = shown
+    /**
+     * The banner on screen; a newer one replaces it. Nothing shows while the app lock is on or unread: a banner names
+     * the sender and its text, and the cover must not carry them.
+     */
+    val current: Flow<InAppBanner?> = combine(shown, session.status) { banner, status ->
+        banner.takeIf { status.phase == ClientPhase.OPEN && status.appLock == AppLockPhase.OPEN }
+    }
+
+    private fun visibleToUser(): Boolean = session.status.value.let { it.phase == ClientPhase.OPEN && it.appLock == AppLockPhase.OPEN }
 
     /** The conversation the user is looking at, or null on any other screen. */
     fun chatOpened(account: String?, conversation: String?) {
@@ -111,6 +123,10 @@ class InAppBanners @Inject constructor(
 
     /** Shows a banner for [row] unless that conversation is muted or open, or the newest message is the user's own. */
     suspend fun announce(account: String, row: ConversationSummary) {
+        if (!visibleToUser()) {
+            clientDebugEvent("banner.skip.locked")
+            return
+        }
         if (row.muted || openChat.value == account to row.id) {
             clientDebugEvent("banner.skip." + (if (row.muted) "muted" else "open"))
             return
@@ -132,7 +148,7 @@ class InAppBanners @Inject constructor(
         }
         val author = (newest as? MessageSummary)?.senderName?.takeIf { row.group && it.isNotBlank() } ?: row.title
         // A conversation that became open while the newest row was read gets no banner.
-        if (openChat.value == account to row.id) return
+        if (openChat.value == account to row.id || !visibleToUser()) return
         clientDebugEvent("banner.shown")
         shown.value = InAppBanner(serial.incrementAndGet(), account, row.id, row.groupId, BannerText.line(author), preview)
     }

@@ -1052,6 +1052,278 @@ class RealRunFlowTest {
         "settings shows '$shown'; adding @name answered: $answer"
     }
 
+    // Flow 20: the app lock (G05) on its cover. Steps 1 to 6 run in this process with the lock switched on. Steps 7 and 8
+    // start with a process that was killed: am force-stop cannot run inside the suite (the suite runs in the app's own
+    // process), so the script stops the app before each invocation and these steps run as the first flow of the next
+    // invocations. The phase is kept in RunState: none, then APP_LOCK_LOCKED (step 7 next), then APP_LOCK_OFF (step 8
+    // next), then none again when the flow has passed. Between the invocations the lock stays on: run f20 to the end
+    // before the flows that expect no lock.
+
+    @Test fun f20_appLock() = flow("20-app-lock") {
+        val phase = RunState[APP_LOCK_PHASE]
+        if (phase != null && !coldProcess) {
+            throw FlowStop(
+                "NOT RUN",
+                "the app lock steps resume in a new app process (phase '$phase'): run f20 alone in its own invocation " +
+                    "(scripts/realrun.sh --skip-build --no-install --tests \"f20\"); ${RunState[APP_LOCK_NOTES].orEmpty()}"
+            )
+        }
+        when (phase) {
+            null -> leaveAppLockOffOnFailure { appLockOnSteps() }
+            APP_LOCK_LOCKED -> leaveAppLockOffOnFailure { appLockAfterRestart() }
+            APP_LOCK_OFF -> appLockOffAfterRestart()
+            else -> fail("unknown app lock phase '$phase'")
+        }
+    }
+
+    /**
+     * Runs [steps]; when they fail (a stop that is not the planned hand-over to the next invocation), the app lock is turned
+     * off with the run's code before the failure is reported, so a failed phase never leaves a lock on for the flows after it.
+     * The state of the screen at the failure is kept as evidence first, and the phase starts over.
+     */
+    private fun leaveAppLockOffOnFailure(steps: () -> Nothing): Nothing {
+        try {
+            steps()
+        } catch (stop: FlowStop) {
+            if (stop.status != "NOT RUN") appLockOffAfterFailure("20-app-lock-failed")
+            throw stop
+        } catch (error: Throwable) {
+            appLockOffAfterFailure("20-app-lock-failed")
+            throw error
+        }
+    }
+
+    private fun appLockOffAfterFailure(evidenceName: String) {
+        evidence(evidenceName)
+        runCatching { turnAppLockOffWithRunCode() }
+        RunState[APP_LOCK_PHASE] = ""
+        RunState[APP_LOCK_NOTES] = ""
+    }
+
+    /**
+     * The lock may be on from an earlier phase that failed: when the launched app shows the lock form, opens it with the run's
+     * code and turns the lock off. Returns the note for the flow detail, or null when the app opened with no cover.
+     */
+    private fun clearStaleAppLock(): String? {
+        ui.launch()
+        if (!ui.eventually(6_000, 500) { ui.find("app-lock-code", 300) != null || ui.find("app-lock-retry", 300) != null }) return null
+        lockForm()
+        enterAppLockCode()
+        turnAppLockOffWithRunCode()
+        return "a stale app lock from an earlier phase was opened with the run's code and turned off"
+    }
+
+    /** Settings > Privacy > App lock: switches the lock off when it is on, with the run's code when it is asked. */
+    private fun turnAppLockOffWithRunCode(): Boolean {
+        if (ui.find("app-lock-code", 1_000) != null) enterAppLockCode()
+        ensureShell()
+        openSettings()
+        ui.tap("account-security")
+        ui.tap("privacy")
+        ui.tap("app-lock")
+        val timeout = ui.need("app-lock-timeout:0", Ui.LONG, "app lock page")
+        if (!timeout.isEnabled) {
+            ensureShell()
+            return false
+        }
+        ui.tap("app-lock-switch", Ui.LONG)
+        if (ui.find("app-lock-code", 4_000) != null) enterAppLockCode()
+        ui.eventually(Ui.LONG) { ui.find("app-lock-timeout:0", 300)?.isEnabled == false }
+        ensureShell()
+        return true
+    }
+
+    /** Steps 1 to 6: the lock is off by default; then on with timeout Immediately; the lock form; back; relocks; a menu. */
+    private fun appLockOnSteps(): Nothing {
+        val conversation = aliceConversation()
+        val alice = peerName("alice")
+        val name = RunState["name"].orEmpty()
+        val notes = mutableListOf<String>()
+        clearStaleAppLock()?.let { notes += it }
+        ensureShell()
+        openConversation(conversation)
+        // 1. Lock off by default: background, relaunch, no lock form, the same chat.
+        // The header names the peer before HOME, so a failure after the relaunch means the name was lost on resume.
+        if (!ui.hasText(alice)) fail("before HOME the chat header does not show $alice (never named): ${ui.screen()}")
+        ui.device.pressHome()
+        Thread.sleep(BACKGROUND_WAIT)
+        ui.launch()
+        ui.need("composer", Ui.LONG, "chat after relaunch")
+        Thread.sleep(2_000)
+        if (ui.find("app-lock-code", 1_000) != null) fail("the app lock is on before it was switched on: ${ui.screen()}")
+        if (!ui.hasText(alice)) fail("after relaunch the chat header does not show $alice (lost on resume): ${ui.screen()}")
+        notes += "lock off by default: relaunch opened the chat with no lock form"
+        // 2. Settings > Privacy > App lock: on, timeout Immediately; the biometric row is disabled.
+        ensureShell()
+        openSettings()
+        ui.tap("account-security")
+        ui.tap("privacy")
+        ui.tap("app-lock")
+        ui.tap("app-lock-switch", Ui.LONG)
+        ui.tap("app-lock-timeout:0", Ui.LONG)
+        val biometric = ui.need("app-lock-biometric", Ui.LONG, "biometric row")
+        if (biometric.isEnabled) fail("the biometric unlock row is enabled; it must be disabled until the core offers it")
+        notes += "app lock on with timeout Immediately; biometric row disabled"
+        ensureShell()
+        openConversation(conversation)
+        // 3. Background, return: the lock form only, no account or chat text; a wrong code is refused.
+        ui.device.pressHome()
+        Thread.sleep(BACKGROUND_WAIT)
+        ui.launch()
+        lockForm()
+        ui.shot("20-locked")
+        val leaked = listOf(alice, name).filter { it.isNotEmpty() && ui.hasText(it) }
+        if (leaked.isNotEmpty()) fail("the lock form shows account text: ${leaked.size} item(s) of the account or peer name")
+        val old = RunCode.load() ?: blocked("no saved run code on this install")
+        val wrong = RunCode.next(old)
+        old.fill('\u0000')
+        try {
+            ui.keys("app-lock-code", wrong)
+        } finally {
+            wrong.fill('\u0000')
+        }
+        ui.tap("app-lock-unlock")
+        if (!ui.eventually(Ui.LONG) { ui.find("app-lock-notice", 300)?.text == ui.str("ui_code_wrong") }) {
+            fail("a wrong code was not refused with the wrong-code text: ${ui.screen()}")
+        }
+        notes += "lock form shows no account text; a wrong code is refused"
+        // 4. BACK with the keyboard up: the form keeps its content and stays; the run's code then opens the same chat.
+        val right = RunCode.load() ?: blocked("no saved run code on this install")
+        try {
+            ui.keys("app-lock-code", right)
+        } finally {
+            right.fill('\u0000')
+        }
+        ui.device.pressBack()
+        Thread.sleep(1_000)
+        if (ui.find("app-lock-code", 2_000) == null) fail("BACK on the lock form left it: ${ui.screen()}")
+        ui.tap("app-lock-unlock")
+        appLockOpened()
+        sameChat(alice)
+        notes += "BACK kept the lock form and its code; the run's code opened the same chat"
+        // 5. Lock and unlock twice more, each time the same chat.
+        repeat(2) { round ->
+            relockAndUnlock(alice)
+            notes += "relock ${round + 2}: the same chat"
+        }
+        // 6. A message menu open when the app is backgrounded: only the lock form, and the menu is gone after the unlock.
+        openConversation(conversation)
+        val marker = "rr-lock-" + token()
+        send(marker)
+        openActions(marker)
+        ui.device.pressHome()
+        Thread.sleep(BACKGROUND_WAIT)
+        ui.launch()
+        lockForm()
+        if (ui.find("message-menu", 1_000) != null) fail("the message menu shows on the lock form: ${ui.screen()}")
+        if (ui.hasText(marker)) fail("a message text shows on the lock form: ${ui.screen()}")
+        enterAppLockCode()
+        if (ui.find("message-menu", 2_000) != null) fail("the message menu is still open after the unlock: ${ui.screen()}")
+        sameChat(alice)
+        notes += "menu open on background: only the lock form shown; the menu is gone after the unlock"
+        RunState[APP_LOCK_NOTES] = notes.joinToString("; ")
+        RunState[APP_LOCK_PHASE] = APP_LOCK_LOCKED
+        throw FlowStop(
+            "NOT RUN",
+            "steps 1 to 6 PASS (${notes.joinToString("; ")}); steps 7 and 8 need a new app process: run f20 alone in its own " +
+                "invocation (scripts/realrun.sh --skip-build --no-install --tests \"f20\")"
+        )
+    }
+
+    /** Step 7: the killed app opens on the lock form; the run's code opens the shell with the account's data. */
+    private fun appLockAfterRestart(): Nothing {
+        val conversation = aliceConversation()
+        val alice = peerName("alice")
+        ui.launch()
+        lockForm()
+        ui.shot("20-restart-locked")
+        if (ui.hasText(alice)) fail("after a force-stop the lock form shows $alice: ${ui.screen()}")
+        enterAppLockCode()
+        ensureShell()
+        ui.tap("shell-tabs-0")
+        ui.need("conversation-$conversation", Ui.LONG, "conversation row after the unlock")
+        val notes = RunState[APP_LOCK_NOTES].orEmpty() +
+            "; after a force-stop the lock form came first; the run's code opened the shell with the account's conversation"
+        // Step 8, part 1: turn the lock off; the code is asked or not, and both are recorded.
+        openSettings()
+        ui.tap("account-security")
+        ui.tap("privacy")
+        ui.tap("app-lock")
+        ui.tap("app-lock-switch", Ui.LONG)
+        val asked = ui.find("app-lock-code", 4_000) != null
+        if (asked) enterAppLockCode()
+        if (!ui.eventually(Ui.LONG) { ui.find("app-lock-timeout:0", 300)?.isEnabled == false }) {
+            fail("the app lock timeouts stay enabled after the lock was turned off: ${ui.screen()}")
+        }
+        ensureShell()
+        RunState[APP_LOCK_NOTES] = notes + "; turned off: the code was ${if (asked) "asked" else "not asked"}"
+        RunState[APP_LOCK_PHASE] = APP_LOCK_OFF
+        throw FlowStop(
+            "NOT RUN",
+            "step 7 PASS and the lock is off (${RunState[APP_LOCK_NOTES]}); step 8 needs a new app process: run f20 alone " +
+                "in its own invocation (scripts/realrun.sh --skip-build --no-install --tests \"f20\")"
+        )
+    }
+
+    /** Step 8, part 2: after the force-stop the app opens with no cover. */
+    private fun appLockOffAfterRestart(): String {
+        // A lock that is on here was not turned off by the phase before (it failed): open it, turn it off, note it, go on.
+        val stale = clearStaleAppLock()
+        ensureShell()
+        val notes = RunState[APP_LOCK_NOTES].orEmpty() +
+            (stale?.let { "; $it" } ?: "; after a force-stop and relaunch the app opened with no cover")
+        RunState[APP_LOCK_PHASE] = ""
+        RunState[APP_LOCK_NOTES] = ""
+        return notes
+    }
+
+    /** The lock form once it is up; the cover may first show its retry action while the lock state is read. */
+    private fun lockForm(): UiObject2 {
+        val end = System.currentTimeMillis() + Ui.LONG
+        while (System.currentTimeMillis() < end) {
+            ui.find("app-lock-code", 300)?.let { return it }
+            if (ui.find("app-lock-retry", 300) != null) ui.tap("app-lock-retry")
+            Thread.sleep(300)
+        }
+        fail("the app lock form did not show: ${ui.screen()}")
+    }
+
+    /** Types the run's code into the lock form and taps unlock. The caller checks the result. */
+    private fun enterAppLockCode() {
+        val code = RunCode.load() ?: blocked("no saved run code on this install")
+        try {
+            ui.keys("app-lock-code", code)
+        } finally {
+            code.fill('\u0000')
+        }
+        ui.tap("app-lock-unlock")
+        appLockOpened()
+    }
+
+    /** The lock form is gone: the cover released the app. */
+    private fun appLockOpened() {
+        if (!ui.eventually(Ui.LONG) { ui.find("app-lock-code", 300) == null }) {
+            fail("the app lock did not open with the run's code: ${ui.screen()}")
+        }
+    }
+
+    /** The chat with [alice] is open again after an unlock (the composer and the chat header). */
+    private fun sameChat(alice: String) {
+        if (ui.find("composer", Ui.LONG) == null || !ui.hasText(alice)) {
+            fail("after the unlock the app did not show the chat with $alice: ${ui.screen()}")
+        }
+    }
+
+    /** Background for the timeout, return to the lock form, and unlock with the run's code. */
+    private fun relockAndUnlock(alice: String) {
+        ui.device.pressHome()
+        Thread.sleep(BACKGROUND_WAIT)
+        ui.launch()
+        lockForm()
+        enterAppLockCode()
+        sameChat(alice)
+    }
+
     /** This phone's device id, from My devices (public). */
     private fun phoneDevice(): String {
         RunState["device"]?.let { return it }
@@ -1109,6 +1381,8 @@ class RealRunFlowTest {
         repeat(6) {
             when (
                 ui.first(
+                    "app-lock-code",
+                    "app-lock-retry",
                     "shell-tabs",
                     "startup-unlock-header",
                     "startup-details-header",
@@ -1135,6 +1409,9 @@ class RealRunFlowTest {
             // The locked screens by their headers: A01 (account offered), its details, the unlock information.
             when (
                 ui.first(
+                    // The app lock cover first: the shell stays composed under it.
+                    "app-lock-code",
+                    "app-lock-retry",
                     "shell-tabs",
                     "composer",
                     "unlock-account-name",
@@ -1146,6 +1423,8 @@ class RealRunFlowTest {
                     timeout = Ui.SHORT
                 )
             ) {
+                "app-lock-code" -> enterAppLockCode()
+                "app-lock-retry" -> ui.tap("app-lock-retry")
                 "shell-tabs", "composer" -> return
                 "startup-unlock-header" -> ui.tap("startup-unlock-continue")
                 "shell-locked" -> ui.tap("shell-locked-unlock")
@@ -1165,6 +1444,7 @@ class RealRunFlowTest {
                     // no locked screen is left.
                     val locked =
                         listOf(
+                            "app-lock-code",
                             "unlock-account-name",
                             "onboarding-header",
                             "startup-unlock-header",
@@ -1410,6 +1690,12 @@ class RealRunFlowTest {
 
     companion object {
         private const val BACKGROUND_WAIT = 8_000L
+
+        /** Flow 20's phase in [RunState]: steps 7 and 8 wait for a new app process; the notes of the steps passed so far. */
+        private const val APP_LOCK_PHASE = "app-lock-phase"
+        private const val APP_LOCK_NOTES = "app-lock-notes"
+        private const val APP_LOCK_LOCKED = "locked"
+        private const val APP_LOCK_OFF = "off"
 
         /** An account exists on this install when flow 01 saved its code (flows run in separate processes). */
         private val accountReady get() = RunCode.exists()

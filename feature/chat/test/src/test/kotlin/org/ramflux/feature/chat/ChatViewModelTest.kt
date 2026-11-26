@@ -185,6 +185,22 @@ class ChatViewModelTest {
         assertNotNull(vm.state.value.problem)
     }
 
+    @Test fun aResumeKeepsTheNamedTitleUntilTheReadNamesTheConversationAgain() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply { heading = ClientResult.Ready(ConversationHeader("Actual title")) }
+        val session = FakeChatSession()
+        val vm = ChatViewModel(history, FakeChatAccounts(), session)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        assertEquals(UiText.Data("Actual title"), vm.state.value.title)
+        session.background()
+        runCurrent()
+        history.heading = ClientResult.Ready(ConversationHeader(null))
+        session.status.value = ClientSnapshot(ClientPhase.OPEN, 2)
+        runCurrent()
+        assertEquals(UiText.Data("Actual title"), vm.state.value.title)
+    }
+
     @Test fun newerConversationAndSessionCloseFenceLateRows() = runTest(timeout = 5.seconds) {
         val barrier = CompletableDeferred<Unit>()
         val session = FakeChatSession()

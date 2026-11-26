@@ -4,6 +4,9 @@
 package org.ramflux.data
 
 import java.util.UUID
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.ramflux.sdk.*
@@ -90,6 +93,35 @@ internal class DefaultAccountSecurityRepository(
         return update(devices.pairCancel(context(account), body), operationId)
     }
 
+    override suspend fun appLockState(account: String): ClientResult<AppLockStatus> {
+        if (!valid(account)) return invalid()
+        return appLock(accounts.accountApp_lockState(RepositoryContext(account), JsonObject(emptyMap())))
+    }
+
+    override suspend fun configureAppLock(account: String, enabled: Boolean, timeoutMs: Long): ClientResult<Unit> {
+        if (!valid(account) || timeoutMs !in 0L..AccountSecurityRepository.MAX_APP_LOCK_TIMEOUT_MS) return invalid()
+        val body = buildJsonObject { put("enabled", enabled); put("timeout_ms", timeoutMs) }
+        return when (val reply = accounts.accountApp_lockConfigure(RepositoryContext(account), body)) {
+            is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
+            is CoreResult.Success -> ClientResult.Ready(Unit)
+        }
+    }
+
+    override suspend fun appLockLifecycle(account: String, state: String): ClientResult<AppLockState> {
+        if (!valid(account) || state !in APP_LOCK_STATES) return invalid()
+        val body = buildJsonObject { put("state", state) }
+        return when (val reply = accounts.accountApp_lockLifecycle(RepositoryContext(account), body)) {
+            is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
+            is CoreResult.Success -> AppLockState.parse((((reply.value["body"] as? JsonObject)?.get("state")) as? JsonPrimitive)?.contentOrNull)
+                ?.let { ClientResult.Ready(it) } ?: invalid()
+        }
+    }
+
+    private fun appLock(reply: CoreResult<JsonObject>): ClientResult<AppLockStatus> = when (reply) {
+        is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
+        is CoreResult.Success -> (reply.value["body"] as? JsonObject)?.let { AppLockStatus.read(it) }?.let { ClientResult.Ready(it) } ?: invalid()
+    }
+
     override suspend fun requestPolicy(account: String): ClientResult<ContactRequestPolicy> {
         if (!valid(account)) return invalid()
         return policy(contacts.requestsPolicyGet(RepositoryContext(account), buildJsonObject {}))
@@ -172,6 +204,7 @@ internal class DefaultAccountSecurityRepository(
         /** Sorted, as the SDK normalises them (`rights` in `local_dto.rs`). */
         val CAPABILITIES = listOf("call", "group", "message", "register", "sync")
         const val MAX_LEASE_SECONDS = 2_592_000L
+        val APP_LOCK_STATES = setOf(APP_LOCK_FOREGROUND, APP_LOCK_BACKGROUND, "device_locked")
     }
 }
 

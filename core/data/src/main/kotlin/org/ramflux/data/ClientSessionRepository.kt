@@ -29,8 +29,29 @@ data class ClientSnapshot(
     val phase: ClientPhase = ClientPhase.CLOSED,
     val generation: Long = 0,
     val problem: ClientProblem? = null,
-    val suspended: Boolean = false
+    val suspended: Boolean = false,
+    /** Read after every open and resume; UNKNOWN until then, and whenever the read fails. Only meaningful while OPEN. */
+    val appLock: AppLockPhase = AppLockPhase.UNKNOWN,
+    /** Whether the account has the app lock switched on; notifications stay generic while it is on. */
+    val appLockEnabled: Boolean = false,
+    /** The account the cover unlocks while LOCKED (never the active account: a locked account is not active). */
+    val appLockAccount: String? = null,
+    /** Set when an open session failed (resume or suspend) while the lock was on, engaged or unread: the cover stays up. */
+    val lockHeld: Boolean = false,
 )
+/**
+ * Whether the app-lock cover is up: the session is open and its lock is on or its state is unread, or the session failed
+ * after the lock was on, engaged or unread (a failed resume or suspend must not drop the cover).
+ */
+fun ClientSnapshot.appLockCovers(): Boolean =
+    (phase == ClientPhase.OPEN && appLock != AppLockPhase.OPEN) || ((phase == ClientPhase.FAILED || phase == ClientPhase.OPENING) && lockHeld)
+
+/**
+ * Whether the window must refuse capture right now, readable synchronously from a lifecycle callback: the lock was
+ * read as on, or the session is open and its state is not read yet.
+ */
+fun ClientSnapshot.appLockGuarded(): Boolean = appLockEnabled || appLockCovers()
+
 enum class UnavailableReason { FEATURE_NOT_INSTALLED, UNSUPPORTED_BY_CORE, CUSTODY_PROVIDER_REQUIRED }
 sealed interface ClientResult<out T> {
     data class Ready<T>(val value: T) : ClientResult<T>
@@ -44,4 +65,7 @@ interface ClientSessionRepository {
     suspend fun foreground()
     suspend fun background()
     suspend fun availability(feature: ClientFeature): ClientResult<Unit>
+
+    /** Reads the app lock again, for example after the account code opened it. Serialized with foreground and background. */
+    suspend fun recheckAppLock() {}
 }

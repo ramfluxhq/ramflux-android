@@ -5,6 +5,9 @@ package org.ramflux.designsystem
 import android.content.pm.ApplicationInfo
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -22,6 +25,11 @@ import androidx.compose.ui.window.Dialog
  */
 @Composable
 fun HostConfirmationDialog(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
+    val covered = LocalAppLockCovered.current
+    val dismiss by rememberUpdatedState(onDismissRequest)
+    // Under the app-lock cover no dialog window exists; an open one is dismissed, so it does not come back on unlock.
+    LaunchedEffect(covered) { if (covered) dismiss() }
+    if (covered) return
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val resources = LocalResources.current

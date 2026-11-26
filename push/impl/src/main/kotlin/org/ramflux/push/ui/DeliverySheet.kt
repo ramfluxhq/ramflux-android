@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
@@ -70,6 +71,10 @@ fun DeliverySheetHost(onSetUp: () -> Unit, vm: DeliverySheetViewModel = hiltView
     val requested by vm.requested.collectAsStateWithLifecycle()
     val steps by vm.steps.collectAsStateWithLifecycle()
     LaunchedEffect(requested) { if (requested) vm.decide() }
+    val covered = LocalAppLockCovered.current
+    // Under the app-lock cover the sheet is not shown, and an open one is closed so it does not come back on unlock.
+    LaunchedEffect(covered) { if (covered) vm.close() }
+    if (covered) return
     val shown = steps ?: return
     val theme = LocalRFTheme.current
     ModalBottomSheet(onDismissRequest = vm::close) {

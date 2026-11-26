@@ -243,4 +243,20 @@
     <string name="settings_username_none">尚未认领用户名</string>
     <!-- %1$s is the directory's typed refusal code, shown as it is. -->
     <string name="settings_username_unavailable">用户名目录不可用（%1$s）</string>
+    <string name="settings_app_lock">应用锁</string>
+    <string name="settings_app_lock_on">开启</string>
+    <string name="settings_app_lock_off">关闭</string>
+    <string name="settings_app_lock_title">应用锁</string>
+    <string name="settings_app_lock_switch">离开一段时间后锁定</string>
+    <string name="settings_app_lock_timeout">锁定时机</string>
+    <string name="settings_app_lock_immediately">立即</string>
+    <string name="settings_app_lock_1min">1 分钟</string>
+    <string name="settings_app_lock_5min">5 分钟</string>
+    <string name="settings_app_lock_15min">15 分钟</string>
+    <string name="settings_app_lock_1h">1 小时</string>
+    <string name="settings_app_lock_biometric_group">生物识别</string>
+    <string name="settings_app_lock_biometric">使用生物识别解锁</string>
+    <string name="settings_app_lock_not_available">暂不可用</string>
+    <string name="settings_app_lock_explain">开启后，离开一段时间，Ramflux 会在返回时要求输入账户码。</string>
+    <string name="settings_app_lock_unavailable">此设备无法使用应用锁</string>
 </resources>

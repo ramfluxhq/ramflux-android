@@ -237,4 +237,7 @@
     <string name="ui_created_network_connected">Connected to the network</string>
     <!-- Account created step: the network session did not become live while the step was shown. -->
     <string name="ui_created_network_not_confirmed">The network connection is not confirmed yet. The account works on this phone; messages go out once it connects.</string>
+    <string name="app_lock_app_name">Ramflux</string>
+    <string name="app_lock_body">Enter your account code to continue.</string>
+    <string name="app_lock_retry">Try again</string>
 </resources>
