@@ -16,6 +16,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -28,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.ramflux.data.MediaAttachment
+import org.ramflux.designsystem.LocalRFDark
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.kit.KitConfirmDialog
@@ -127,6 +129,10 @@ fun ChatNavigation(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(ChatAction.Refresh) }
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { vm.onAction(ChatAction.Pause) }
     LaunchedEffect(vm, accountId, conversationId, groupId) { vm.onAction(ChatAction.Load(accountId, conversationId, groupId, title)) }
+    // Agent cards draw in the app's locale and theme; a change is sent to the card runtime (present).
+    val cardLocale = LocalConfiguration.current.locales[0].toLanguageTag()
+    val cardDark = LocalRFDark.current
+    LaunchedEffect(vm, cardLocale, cardDark) { vm.onAction(ChatAction.CardAppearance(cardLocale, cardDark)) }
     LaunchedEffect(vm) {
         vm.events.collect { event ->
             when (event) {
@@ -142,6 +148,9 @@ fun ChatNavigation(
                 ChatEvent.Call -> call?.invoke()
                 ChatEvent.Storage -> openStorage?.invoke()
                 is ChatEvent.Copy -> clipboard.setText(AnnotatedString(event.text))
+                is ChatEvent.OpenUrl -> runCatching {
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(event.url)))
+                }
             }
         }
     }

@@ -99,7 +99,7 @@ private const val DESIGN_LINE_SLACK = 0.25f
  * would let stacked texts overlap (a row's label and value) or a title overhang its header.
  */
 @Composable
-internal fun KitText(
+fun KitText(
     text: String,
     modifier: Modifier = Modifier,
     style: TextStyle,

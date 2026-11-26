@@ -19,6 +19,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.ramflux.data.cards.CardLifecycle
+import org.ramflux.data.cards.CardState
 import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.kit.KitHomeIndicator
@@ -168,10 +169,7 @@ class ChatScreenshotTest(
                         "card:plan",
                         at(10, 21),
                         "plan",
-                        CardLifecycle.READY,
-                        "Publish the release notes?",
-                        renderAllowed = false,
-                        tree = null,
+                        CardState("plan", CardLifecycle.READY, "Publish the release notes?", renderAllowed = false, tree = null, resumed = false, hostRequest = null, awaitingDecision = false, draftConflict = false),
                     )
                 )
             )

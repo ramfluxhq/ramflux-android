@@ -17,6 +17,9 @@ import org.ramflux.generated.*
 val LocalRFLayout = staticCompositionLocalOf { requireNotNull(ThemeCatalog.find("light")).layout }
 val LocalRFTheme = staticCompositionLocalOf { RFDesign.light }
 
+/** Whether the active theme is a dark one; card renderers send it to the card runtime. */
+val LocalRFDark = staticCompositionLocalOf { false }
+
 @Composable
 fun RamfluxTheme(dark: Boolean = isSystemInDarkTheme(), themeId: String? = null, content: @Composable () -> Unit) {
     val named = ThemeCatalog.find(themeId) ?: ThemeCatalog.find(if (dark) "dark" else "light")
@@ -47,7 +50,11 @@ fun RamfluxTheme(dark: Boolean = isSystemInDarkTheme(), themeId: String? = null,
         tertiaryFixed = theme.accent, tertiaryFixedDim = theme.accent,
         onTertiaryFixed = theme.on_accent, onTertiaryFixedVariant = theme.on_accent
     )
-    CompositionLocalProvider(LocalRFTheme provides theme, LocalRFLayout provides requireNotNull(named).layout) {
+    CompositionLocalProvider(
+        LocalRFTheme provides theme,
+        LocalRFLayout provides requireNotNull(named).layout,
+        LocalRFDark provides isDark
+    ) {
         MaterialTheme(
             colorScheme = scheme,
             shapes = Shapes(

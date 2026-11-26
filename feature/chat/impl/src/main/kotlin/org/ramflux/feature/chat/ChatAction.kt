@@ -2,7 +2,35 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.chat
+
+import kotlinx.serialization.json.JsonObject
+import org.ramflux.data.cards.CardEvent
+import org.ramflux.data.cards.CardSlotOutcome
 sealed interface ChatAction {
+    /** A host event for the control at [key] of agent card [ref] (`input`, `activate`, `select_tab`, modal events). */
+    data class CardInteract(val ref: String, val key: String, val event: CardEvent) : ChatAction
+
+    /** The answer to a card's link or approval slot. [url] is the link the sheet showed; null for approvals. */
+    data class CardAnswer(
+        val ref: String,
+        val slotId: String,
+        val requestId: String,
+        val token: JsonObject,
+        val outcome: CardSlotOutcome,
+        val url: String?
+    ) : ChatAction {
+        override fun toString() = "CardAnswer(<redacted>)"
+    }
+
+    /** First tap on a suspended card: resume it. */
+    data class CardShow(val ref: String) : ChatAction
+
+    /** Out of sync: re-read the card from the latest surface. */
+    data class CardResync(val ref: String) : ChatAction
+
+    /** The app locale and theme the cards draw with; changes are sent to the card runtime. */
+    data class CardAppearance(val locale: String, val dark: Boolean) : ChatAction
+
     data class Load(val accountId: String, val conversationId: String, val groupId: String? = null, val title: String? = null) : ChatAction
     data object Refresh : ChatAction
     data class Draft(val text: String) : ChatAction

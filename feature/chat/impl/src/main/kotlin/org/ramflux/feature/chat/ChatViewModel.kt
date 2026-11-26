@@ -10,12 +10,12 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
-import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.JsonPrimitive
 import org.ramflux.data.*
 import org.ramflux.data.cards.CardSessionRepository
 import org.ramflux.data.cards.CardState
@@ -104,6 +104,12 @@ class ChatViewModel @Inject constructor(
     /** Agent surfaces of the conversation by reference, in page order; each card's state is held by the card runtime. */
     private val cardRefs = LinkedHashMap<String, CardSurfaceRef>()
     private var cardJob: Job? = null
+
+    /** The last control per card whose event the runtime dropped as stale; the renderer reverts that field. */
+    private val cardStale = HashMap<String, Pair<String, Long>>()
+
+    /** The locale and theme the cards draw with, as the screen reports them. */
+    private var cardLook = CardLook("en", false)
 
     init {
         // A card that changed (signed update, lifecycle, sync) redraws the timeline.
@@ -289,6 +295,11 @@ class ChatViewModel @Inject constructor(
             is ChatAction.Discard -> if (outbox.remove(action.id) != null) publish()
             ChatAction.Details -> if (target != null) viewModelScope.launch { channel.send(ChatEvent.Details) }
             ChatAction.Call -> if (target != null && local.value.groupId == null) viewModelScope.launch { channel.send(ChatEvent.Call) }
+            is ChatAction.CardInteract -> cardInteract(action)
+            is ChatAction.CardAnswer -> cardAnswer(action)
+            is ChatAction.CardShow -> cardShow(action.ref)
+            is ChatAction.CardResync -> cardResync(action.ref)
+            is ChatAction.CardAppearance -> cardLookChanged(action.locale, action.dark)
             ChatAction.Pause -> sealDraft()
             is ChatAction.OpenAttachment -> openAttachment(action.key)
             ChatAction.CloseViewer -> local.update { it.copy(viewer = null, viewerPosition = null) }
@@ -787,6 +798,7 @@ class ChatViewModel @Inject constructor(
         previewCancel()
         cardJob?.cancel()
         cardRefs.clear()
+        cardStale.clear()
         olderJob?.cancel()
         forwardJob?.cancel()
         forwarding = null
@@ -1371,7 +1383,8 @@ class ChatViewModel @Inject constructor(
             var cursor: String? = null
             var changed = false
             repeat(CARD_PAGES) {
-                val page = (cards.page(currentTarget.account, currentTarget.conversation, cursor) as? ClientResult.Ready)?.value ?: return@repeat
+                val listed = cards.page(currentTarget.account, currentTarget.conversation, cursor)
+                val page = (listed as? ClientResult.Ready)?.value ?: return@repeat
                 for (meta in page.rows) {
                     if (cardRefs[meta.ref] != meta) {
                         cardRefs[meta.ref] = meta
@@ -1379,7 +1392,7 @@ class ChatViewModel @Inject constructor(
                     }
                     if (cards.state(currentTarget.account, meta.ref) == null) {
                         if (target != currentTarget) return@launch
-                        cards.show(currentTarget.account, meta.ref)
+                        cards.show(currentTarget.account, meta.ref, cardLook.locale, cardLook.dark)
                     }
                 }
                 cursor = page.next ?: return@repeat
@@ -1409,15 +1422,59 @@ class ChatViewModel @Inject constructor(
         return out
     }
 
-    private fun cardItem(meta: CardSurfaceRef, state: CardState): CardItem = CardItem(
-        "card:" + meta.ref,
-        meta.createdAt,
-        meta.ref,
-        state.lifecycle,
-        state.fallback,
-        state.renderAllowed,
-        state.tree,
-    )
+    private fun cardItem(meta: CardSurfaceRef, state: CardState): CardItem {
+        val stale = cardStale[meta.ref]
+        return CardItem("card:" + meta.ref, meta.createdAt, meta.ref, state, stale?.first, stale?.second ?: 0)
+    }
+
+    /** A control event from the timeline. A `pending_submit` is submitted once; a stale answer reverts the field. */
+    private fun cardInteract(action: ChatAction.CardInteract) {
+        val account = target?.account ?: return
+        viewModelScope.launch {
+            val reply = (cards.event(account, action.ref, action.key, action.event) as? ClientResult.Ready)?.value ?: return@launch
+            when (reply.result) {
+                "pending_submit" -> cards.submit(account, action.ref)
+                "stale_dropped" -> {
+                    cardStale[action.ref] = action.key to ((cardStale[action.ref]?.second ?: 0L) + 1)
+                    publish()
+                }
+                else -> Unit
+            }
+        }
+    }
+
+    /** A link or approval answer. A link opens only after the runtime answers `opened`, and only if it is the link the sheet showed. */
+    private fun cardAnswer(action: ChatAction.CardAnswer) {
+        val account = target?.account ?: return
+        viewModelScope.launch {
+            val url = action.url
+            if (url != null && (cards.state(account, action.ref)?.hostRequest?.get("url") as? JsonPrimitive)?.content != url) return@launch
+            val answered = cards.slot(account, action.ref, action.slotId, action.requestId, action.token, action.outcome)
+            val reply = (answered as? ClientResult.Ready)?.value ?: return@launch
+            if (url != null && reply.result == "opened") channel.send(ChatEvent.OpenUrl(url))
+        }
+    }
+
+    private fun cardShow(ref: String) {
+        val account = target?.account ?: return
+        viewModelScope.launch { cards.show(account, ref, cardLook.locale, cardLook.dark) }
+    }
+
+    /** Out of sync: the held card is released and opened again from the latest surface. */
+    private fun cardResync(ref: String) {
+        val account = target?.account ?: return
+        viewModelScope.launch {
+            cards.dispose(account, ref)
+            cards.show(account, ref, cardLook.locale, cardLook.dark)
+        }
+    }
+
+    private fun cardLookChanged(locale: String, dark: Boolean) {
+        if (cardLook.locale == locale && cardLook.dark == dark) return
+        cardLook = CardLook(locale, dark)
+        val account = target?.account ?: return
+        viewModelScope.launch { cards.present(account, locale, dark) }
+    }
 
     /** Steps the viewer through the ready pictures and videos of the same message. */
     private fun viewerStep(delta: Int) {
@@ -1592,6 +1649,8 @@ private fun kindOf(mime: String) = when (MediaAttachment.kindOf(mime)) {
 private const val OUTBOX_LIMIT = 64
 private const val CARD_PAGES = 4
 private const val CARD_WINDOW = 200
+
+private data class CardLook(val locale: String, val dark: Boolean)
 
 private fun localQueue(media: MediaRepository, session: ClientSessionRepository) =
     MediaTransfers(media, session, CoroutineScope(SupervisorJob() + Dispatchers.Main))

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (c) 2026 Span Brain -->
+<resources>
+    <!-- Accessible label of the control that resumes a suspended card on first tap. -->
+    <string name="card_resume_label">Show this card</string>
+    <!-- Shown for a card with no tree and no text version. -->
+    <string name="card_fallback_empty">This card has no text version.</string>
+    <!-- Notice after the runtime discarded a draft edit that conflicted with a newer version (spec 4.20). -->
+    <string name="card_draft_replaced">Your edit was replaced by a newer version.</string>
+    <!-- Lifecycle chips (spec 3.4). -->
+    <string name="card_status_generating">Generating</string>
+    <string name="card_status_waiting">Waiting for confirmation</string>
+    <string name="card_status_closed">Closed</string>
+    <string name="card_status_updated">Updated</string>
+    <string name="card_status_out_of_sync">Out of sync</string>
+    <string name="card_status_over_limit">Over limit</string>
+    <!-- Lifecycle lines under the header (spec 3.4). -->
+    <string name="card_over_limit_body">This content exceeds display limits. Readable content is kept; actions are disabled.</string>
+    <string name="card_superseded_body">The version you saw has changed. Review the new version before deciding.</string>
+    <string name="card_out_of_sync_body">This card is behind the agent. Resync to see the latest version.</string>
+    <!-- Resync action of an out-of-sync card. -->
+    <string name="card_resync">Resync</string>
+    <!-- Shown for a node kind this build does not draw. -->
+    <string name="card_component_unsupported">Not supported on this phone</string>
+    <!-- Link sheet (README "Host-only requests", spec 5.4). -->
+    <string name="card_link_title">Open this link?</string>
+    <string name="card_link_author_note">Sent by an agent in this conversation. Check the address before you open it.</string>
+    <string name="card_link_privacy">Opening the link leaves Ramflux and loads the page from its website. Ramflux does not open it before you confirm.</string>
+    <string name="card_link_open">Open</string>
+    <string name="card_cancel">Cancel</string>
+    <string name="card_ok">OK</string>
+    <!-- Lists and modal (spec 4.4, 4.7). -->
+    <string name="card_nothing_to_show">Nothing to show</string>
+    <string name="card_show_all">Show all (%1$d)</string>
+    <string name="card_modal_open">Open</string>
+    <string name="card_modal_close">Close</string>
+    <!-- Controls (spec 4.9 to 4.14). -->
+    <string name="card_submitting">Submitting...</string>
+    <string name="card_stale_value">This content changed. Check it and try again.</string>
+    <string name="card_date_placeholder">Select a date</string>
+    <!-- Image (spec 4.15): no bytes are delivered yet. -->
+    <string name="card_image_unavailable">Image unavailable</string>
+    <!-- Chart and table (spec 4.18, 4.19). -->
+    <string name="card_no_data">No data for this period</string>
+    <string name="card_no_rows">No rows</string>
+    <string name="card_chart_show_table">Table</string>
+    <string name="card_chart_show_chart">Chart</string>
+    <string name="card_chart_column_label">Label</string>
+    <!-- Task (spec 4.17). -->
+    <string name="card_task_pending">Waiting to start</string>
+    <string name="card_task_delivered">Delivered</string>
+    <string name="card_task_running">Running</string>
+    <string name="card_task_completed">Completed</string>
+    <string name="card_task_refused">Refused</string>
+    <string name="card_task_cancelled">Cancelled</string>
+    <string name="card_task_refused_body">The task ended. Steps are kept.</string>
+    <string name="card_task_requested">Requested by %1$s</string>
+    <string name="card_task_steps">Steps (%1$d of %2$d)</string>
+    <!-- Approval (spec 4.16). -->
+    <string name="card_approval_title">Approval request</string>
+    <string name="card_approval_agent_says">The agent says</string>
+    <string name="card_approval_facts_missing">Verified details are not available. Decide in Tasks.</string>
+    <string name="card_approval_requester">Requested by</string>
+    <string name="card_approval_risk">Risk: %1$s</string>
+    <string name="card_approval_expires">Expires at %1$s</string>
+    <string name="card_approval_allow">Allow</string>
+    <string name="card_approval_deny">Deny</string>
+    <string name="card_approval_confirm_title">Confirm approval</string>
+    <string name="card_approval_confirm_note">Confirming sends your decision for this verified request.</string>
+    <string name="card_approval_confirm">Confirm</string>
+</resources>

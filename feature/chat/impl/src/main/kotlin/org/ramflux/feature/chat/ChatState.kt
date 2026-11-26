@@ -4,8 +4,7 @@
 package org.ramflux.feature.chat
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
-import org.ramflux.data.cards.CardLifecycle
-import org.ramflux.data.cards.CardTree
+import org.ramflux.data.cards.CardState
 import org.ramflux.designsystem.UiText
 /** Timeline entries carry typed values; the screen formats times and dates for the current locale. */
 @Immutable sealed interface TimelineItem {
@@ -18,17 +17,16 @@ import org.ramflux.designsystem.UiText
 @Immutable data class CallItem(override val id: String, override val sentAt: Long?) : TimelineItem
 
 /**
- * An agent surface in the timeline (beta flow 13). [lifecycle] and [tree] come from the card runtime; [fallback] is the
- * author's plain text, shown whenever the card does not render.
+ * An agent surface in the timeline (beta flow 13). [state] is the card runtime's view of the card; the renderer draws its
+ * tree, lifecycle and host requests. [staleKey] and [staleSeq] report the last control whose event came back stale.
  */
 @Immutable data class CardItem(
     override val id: String,
     override val sentAt: Long?,
     val ref: String,
-    val lifecycle: CardLifecycle,
-    val fallback: String,
-    val renderAllowed: Boolean,
-    val tree: CardTree?,
+    val state: CardState,
+    val staleKey: String? = null,
+    val staleSeq: Long = 0
 ) : TimelineItem {
     override fun toString() = "CardItem(<redacted>)"
 }

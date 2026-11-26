@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
-internal fun kitStyle(
+fun kitStyle(
     size: Float,
     weight: FontWeight,
     color: Color,
@@ -91,7 +91,7 @@ internal fun agentGlyph(size: Float): Float = when (size) {
 }
 
 @Composable
-internal fun KitIcon(name: String, size: Float, tint: Color, modifier: Modifier = Modifier, description: String? = null) {
+fun KitIcon(name: String, size: Float, tint: Color, modifier: Modifier = Modifier, description: String? = null) {
     val id = KitIcons.ids[name]
     if (id == null) {
         Box(modifier.size(dp(size)))
@@ -101,7 +101,7 @@ internal fun KitIcon(name: String, size: Float, tint: Color, modifier: Modifier 
 }
 
 @Composable
-internal fun KitSpinner(size: Float, tint: Color, modifier: Modifier = Modifier) {
+fun KitSpinner(size: Float, tint: Color, modifier: Modifier = Modifier) {
     val angle by rememberInfiniteTransition(label = "kit-spin").animateFloat(
         initialValue = 0f,
         targetValue = RfMetrics.fullTurn,
@@ -191,4 +191,4 @@ internal fun ChipSurface(
     )
 }
 
-internal fun shapeOf(radius: Float): Shape = androidx.compose.foundation.shape.RoundedCornerShape(dp(radius))
+fun shapeOf(radius: Float): Shape = androidx.compose.foundation.shape.RoundedCornerShape(dp(radius))
