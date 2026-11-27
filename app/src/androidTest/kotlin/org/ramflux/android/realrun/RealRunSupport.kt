@@ -8,11 +8,13 @@ import android.app.Instrumentation
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.view.View
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.inputmethod.EditorInfo
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
@@ -397,6 +399,46 @@ class Ui(private val control: PeerControl) {
     fun removeMonitor(monitor: Instrumentation.ActivityMonitor) = instrumentation.removeMonitor(monitor)
 
     fun find(tag: String, timeout: Long = SHORT): UiObject2? = device.wait(Until.findObject(By.res(tag)), timeout)
+
+    /**
+     * The node with test tag [tag] in any window of the app, or null. [find] searches the active window only, and a dialog
+     * (such as the account-code sheet of the app lock) is a window of its own, so this looks through every window.
+     */
+    fun windowNode(tag: String): AccessibilityNodeInfo? {
+        for (window in instrumentation.uiAutomation.windows) {
+            val root = window.root ?: continue
+            if (root.packageName != packageName) continue
+            findNode(root, tag)?.let { return it }
+        }
+        return null
+    }
+
+    private fun findNode(node: AccessibilityNodeInfo, tag: String): AccessibilityNodeInfo? {
+        // The resource name is the test tag, possibly behind a package and type prefix ("pkg:id/tag").
+        if (node.viewIdResourceName?.substringAfterLast('/') == tag) return node
+        for (index in 0 until node.childCount) {
+            val child = node.getChild(index) ?: continue
+            findNode(child, tag)?.let { return it }
+        }
+        return null
+    }
+
+    /** Taps [tag] in any window once it is shown and enabled; false when it is not there within [timeout]. */
+    fun tapWindowNode(tag: String, timeout: Long = SHORT): Boolean {
+        val end = System.currentTimeMillis() + timeout
+        while (true) {
+            val node = windowNode(tag)
+            if (node != null && node.isEnabled) {
+                val bounds = Rect()
+                node.getBoundsInScreen(bounds)
+                device.click(bounds.centerX(), bounds.centerY())
+                device.waitForIdle()
+                return true
+            }
+            if (System.currentTimeMillis() >= end) return false
+            Thread.sleep(POLL)
+        }
+    }
 
     fun need(tag: String, timeout: Long = SHORT, step: String = tag): UiObject2 = find(tag, timeout) ?: throw FlowStop(
         "FAIL",
