@@ -1707,6 +1707,9 @@ class RealRunFlowTest {
         val summary = ui.find("card-gallery-summary")?.text.orEmpty()
         val report = File(context.cacheDir, "card-conformance.json").readBytes()
         control.artifact("card-conformance.json", report)
+        File(context.cacheDir, "card-host-slots.json").takeIf { it.isFile }?.let {
+            control.artifact("card-host-slots.json", it.readBytes())
+        }
         val records = JSONArray(report.decodeToString())
         val failed = (0 until records.length()).map { records.getJSONObject(it) }.filter { !it.getBoolean("pass") }
         ui.shot("21-gallery-conformance")
@@ -1717,7 +1720,10 @@ class RealRunFlowTest {
             Thread.sleep(600)
             ui.shot("21-gallery-${page + 1}")
         }
-        // Dark: the same gallery with the Dark switch on; the runtime presents the dark theme to every held card.
+        // Dark: the same gallery with the Dark switch on; the runtime presents the dark theme to every held card. The
+        // list is left on the Image cards by the pages above, so it goes back to the top before the switch is looked for.
+        ui.scrollToTop()
+        if (!ui.scrollToTag("card-gallery-dark")) fail("the card gallery has no Dark switch: ${ui.screen()}")
         ui.tap("card-gallery-dark", 10_000)
         Thread.sleep(600)
         repeat(DARK_PAGES) { page ->

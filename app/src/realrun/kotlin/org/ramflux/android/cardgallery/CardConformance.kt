@@ -7,6 +7,8 @@ import android.content.Context
 import android.util.Log
 import java.io.File
 import java.security.MessageDigest
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -19,6 +21,7 @@ import kotlinx.serialization.json.put
 import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardNode
 import org.ramflux.data.cards.CardTree
+import org.ramflux.data.cards.CardTreeCanonical
 import org.ramflux.feature.cards.renderer.CARD_RENDERED_KINDS
 
 /** One line of the conformance report: a check of one fixture. */
@@ -48,6 +51,9 @@ internal class ConformanceRecord(
  *    held tree, and the held tree then equals a fresh runtime read (self-consistency).
  */
 internal class CardConformance(private val context: Context, private val trust: CardTrust, private val rows: List<FixtureRow>) {
+
+    /** Host slots of every failed check A row, written in full to `card-host-slots.json` (the record detail is cut). */
+    val hostSlotDumps = mutableListOf<JsonObject>()
 
     suspend fun run(): List<ConformanceRecord> {
         val records = mutableListOf<ConformanceRecord>()
@@ -123,14 +129,24 @@ internal class CardConformance(private val context: Context, private val trust: 
             val note = "the open batch does not apply to an empty tree"
             return record(row, CHECK_A, false, detail(false, expectedText, "batch ${excerpt(batch)}", note))
         }
-        val want = CardTreeJson.normal(expected)
-        val heldJson = CardTreeJson.normal(CardTreeJson.rebase(CardTreeJson.of(held), live))
+        val want = CardTreeCanonical.of(expected, 1L)
+        val heldJson = CardTreeCanonical.of(CardTreeJson.of(held), live)
         val fresh = CardFixtureRuntime.tree(live)
-        val freshJson = fresh.json?.let { CardTreeJson.normal(CardTreeJson.rebase(it, live)) }
+        val freshJson = fresh.json?.let { CardTreeCanonical.of(it, live) }
         val heldEqual = heldJson == want
         val freshEqual = freshJson == want
         val pass = heldEqual && freshEqual
         val difference = firstDifference(heldJson, want)
+        if (!pass) {
+            hostSlotDumps += buildJsonObject {
+                put("id", row.id)
+                put("check", CHECK_A)
+                put("first_differing_key", difference)
+                put("expected_host_slots", expected["host_slots"] ?: JsonArray(emptyList()))
+                put("held_host_slots", JsonArray(held.hostSlots))
+                put("runtime_host_slots", fresh.json?.get("host_slots") ?: JsonNull)
+            }
+        }
         return record(
             row,
             CHECK_A,
@@ -170,8 +186,8 @@ internal class CardConformance(private val context: Context, private val trust: 
         val event = eventFor(node)
         if (event == null) {
             // Approval answers are card.session.slot calls (SDK only); the standalone runtime has no slot path.
-            val fresh = CardFixtureRuntime.tree(live).json?.let { CardTreeJson.normal(CardTreeJson.rebase(it, live)) }
-            val heldEqual = fresh != null && CardTreeJson.normal(CardTreeJson.rebase(CardTreeJson.of(held), live)) == fresh
+            val fresh = CardFixtureRuntime.tree(live).json?.let { CardTreeCanonical.of(it, live) }
+            val heldEqual = fresh != null && CardTreeCanonical.of(CardTreeJson.of(held), live) == fresh
             return record(row, CHECK_C, heldEqual, "no standalone event: slot answers are SDK-only; runtime tree equal: $heldEqual")
         }
         val input = buildJsonObject {
@@ -196,8 +212,8 @@ internal class CardConformance(private val context: Context, private val trust: 
                     detail(false, "the $result batch applies to the held tree", "batch ${excerpt(batch)}", "result $result")
                 )
         }
-        val fresh = CardFixtureRuntime.tree(live).json?.let { CardTreeJson.normal(CardTreeJson.rebase(it, live)) }
-        val equal = fresh != null && CardTreeJson.normal(CardTreeJson.rebase(CardTreeJson.of(next), live)) == fresh
+        val fresh = CardFixtureRuntime.tree(live).json?.let { CardTreeCanonical.of(it, live) }
+        val equal = fresh != null && CardTreeCanonical.of(CardTreeJson.of(next), live) == fresh
         val action = answer?.get("action")?.toString()?.take(160) ?: "none"
         val digest = batch?.let { digest(it.toString()) } ?: "none"
         val note = "event ${event.json()}; result $result; batch $digest; action $action; runtime tree equal: $equal"
@@ -210,11 +226,7 @@ internal class CardConformance(private val context: Context, private val trust: 
         "TextField" -> CardEvent.Input(JsonPrimitive("conformance"))
         "CheckBox" -> CardEvent.Input(JsonPrimitive(!((node.attrs["value"] as? JsonPrimitive)?.booleanOrNull ?: false)))
         "ChoicePicker" -> CardEvent.Input(JsonArray(listOfNotNull(firstOption(node))))
-        "Slider" -> {
-            val min = (node.attrs["min"] as? JsonPrimitive)?.doubleOrNull ?: 0.0
-            val max = (node.attrs["max"] as? JsonPrimitive)?.doubleOrNull ?: 100.0
-            CardEvent.Input(JsonPrimitive(min + (max - min) / 2))
-        }
+        "Slider" -> CardEvent.Input(JsonPrimitive(sliderMidpoint(node)))
         "DateTimeInput" -> CardEvent.Input(
             JsonPrimitive(if ((node.attrs["enableDate"] as? JsonPrimitive)?.booleanOrNull == false) "09:30" else "2026-11-23")
         )
@@ -222,6 +234,16 @@ internal class CardConformance(private val context: Context, private val trust: 
         "Tabs" -> CardEvent.SelectTab(1)
         "Modal" -> CardEvent.ModalOpen
         else -> null
+    }
+
+    /**
+     * A Slider value is an integer inside the node's bounds (the core's `validate_input`: `as_i64`, then min and max).
+     * The midpoint, rounded into the whole numbers of [min, max].
+     */
+    private fun sliderMidpoint(node: CardNode): Long {
+        val min = (node.attrs["min"] as? JsonPrimitive)?.doubleOrNull ?: 0.0
+        val max = (node.attrs["max"] as? JsonPrimitive)?.doubleOrNull ?: 100.0
+        return floor((min + max) / 2).toLong().coerceIn(ceil(min).toLong(), floor(max).toLong())
     }
 
     private fun firstOption(node: CardNode): JsonElement? =
@@ -248,14 +270,19 @@ internal class CardConformance(private val context: Context, private val trust: 
         const val CHECK_C = "C"
         const val CHECK_RTL = "RTL"
         const val REPORT = "card-conformance.json"
+        const val HOST_SLOTS_REPORT = "card-host-slots.json"
         private const val EXCERPT_CHARS = 240
         private const val TAG = "RfCardConformance"
 
-        /** Writes the report (a JSON array, one object per record) to the app's cache directory and logs each line. */
-        fun report(context: Context, records: List<ConformanceRecord>): File {
+        /**
+         * Writes the report (a JSON array, one object per record) to the app's cache directory and logs each line. The
+         * host slots of failed check A rows go to [HOST_SLOTS_REPORT] in full, not cut to the record detail.
+         */
+        fun report(context: Context, records: List<ConformanceRecord>, hostSlots: List<JsonObject>): File {
             val lines = records.map { it.json() }
             val file = File(context.cacheDir, REPORT)
             file.writeText(JsonArray(lines).toString())
+            File(context.cacheDir, HOST_SLOTS_REPORT).writeText(JsonArray(hostSlots).toString())
             lines.forEach { Log.i(TAG, it.toString()) }
             return file
         }

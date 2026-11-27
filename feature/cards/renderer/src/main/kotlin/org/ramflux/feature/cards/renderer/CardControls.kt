@@ -46,6 +46,9 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.roundToLong
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -239,7 +242,10 @@ private fun selectedValues(value: JsonElement?): Set<String> = when (value) {
     else -> emptySet()
 }
 
-/** Slider (spec 4.13): the thumb moves locally; the final value is sent once on release. */
+/**
+ * Slider (spec 4.13): the thumb moves locally; the final value is sent once on release. The runtime takes a whole number
+ * inside the node's bounds, so the released value is rounded and kept between the first and the last whole number.
+ */
 @Composable
 internal fun CardSlider(node: CardNode, ctx: CardContext) {
     val theme = LocalRFTheme.current
@@ -261,7 +267,10 @@ internal fun CardSlider(node: CardNode, ctx: CardContext) {
         Slider(
             value = draft,
             onValueChange = { if (enabled) draft = it },
-            onValueChangeFinished = { if (enabled) ctx.event(key, CardEvent.Input(JsonPrimitive(draft.toDouble()))) },
+            onValueChangeFinished = {
+                val whole = draft.roundToLong().coerceIn(ceil(min).toLong(), floor(max).toLong())
+                if (enabled) ctx.event(key, CardEvent.Input(JsonPrimitive(whole)))
+            },
             valueRange = min.toFloat()..max.toFloat(),
             enabled = enabled
         )

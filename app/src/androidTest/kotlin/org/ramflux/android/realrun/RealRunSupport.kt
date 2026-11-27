@@ -281,6 +281,15 @@ class Ui(private val control: PeerControl) {
         return false
     }
 
+    /** Scrolls the first scrollable view of the app back to its top; a list that is not scrollable is left as it is. */
+    fun scrollToTop() {
+        val list = device.findObject(By.pkg(packageName).scrollable(true)) ?: return
+        repeat(30) {
+            runCatching { list.scroll(androidx.test.uiautomator.Direction.UP, 1f) }
+        }
+        device.waitForIdle()
+    }
+
     /** [scrollTo] that survives a list recomposing under the scroll (a stale node). */
     fun scrollToTag(tag: String): Boolean {
         repeat(3) {

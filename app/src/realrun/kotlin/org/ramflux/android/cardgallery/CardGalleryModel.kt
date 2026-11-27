@@ -81,8 +81,9 @@ internal class CardGalleryModel(private val context: Context) {
         scope.launch {
             pool.suspendAll()
             states.putAll(pool.snapshot())
-            val records = withContext(Dispatchers.IO) { CardConformance(context, material, rows).run() }
-            val file = withContext(Dispatchers.IO) { CardConformance.report(context, records) }
+            val conformance = CardConformance(context, material, rows)
+            val records = withContext(Dispatchers.IO) { conformance.run() }
+            val file = withContext(Dispatchers.IO) { CardConformance.report(context, records, conformance.hostSlotDumps) }
             val pass = records.count { it.pass }
             summary = "PASS $pass, FAIL ${records.size - pass} of ${records.size} checks; report ${file.name}"
             running = false

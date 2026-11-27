@@ -6,6 +6,7 @@ package org.ramflux.data.cards
 import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -56,14 +57,14 @@ class CardTreeFixtureTest {
                 continue
             }
             val expected = readJson(File(fixtures, "host-fixtures/" + row.text("expected")))
-            val batch = openBatch(expected)
+            val batch = openBatch(expected, session = 1)
             val held = CardTree.EMPTY.apply(batch)
             if (held == null) {
                 failures += "$id: the open batch does not apply to an empty tree"
                 continue
             }
-            val want = normal(expected)
-            val got = normal(treeJson(held))
+            val want = CardTreeCanonical.of(expected, 1L)
+            val got = CardTreeCanonical.of(treeJson(held), 1L)
             if (want != got) failures += "$id: held tree differs from the expected tree in ${want.keys.filter { want[it] != got[it] }}"
             else applied++
         }
@@ -71,8 +72,68 @@ class CardTreeFixtureTest {
         assertEquals(31, applied)
     }
 
-    /** `Tree::diff(None, 0, 1)` over an expected tree, with session 1 as the committed fixtures use. */
-    private fun openBatch(tree: JsonObject): JsonObject {
+    /**
+     * The device path: the runtime writes a `request_id` with its struct field order and the live session, not the
+     * fixture's sorted text with session 1. Every tree is opened in that shape at a live session, then compared through
+     * the same [CardTreeCanonical] the realrun conformance uses. Eight trees carry host slots; Image and Approval carry a
+     * `request_id`, the text that differed.
+     */
+    @Test fun everyTreeFixtureInRuntimeShapeAtLiveSessionEqualsItsExpectedTree() {
+        val live = 7L
+        val cases = readJson(File(fixtures, "host-fixtures/index.json")).array("cases")
+        val failures = mutableListOf<String>()
+        var withSlots = 0
+        for (case in cases) {
+            val row = case.jsonObject
+            if (row.text("outcome") != "tree") continue
+            val id = "${row.text("kind")}/${row.text("variant") ?: "unset"}"
+            val expected = readJson(File(fixtures, "host-fixtures/" + row.text("expected")))
+            if (expected.array("host_slots").isNotEmpty()) withSlots++
+            val shaped = runtimeShape(expected, live) as JsonObject
+            val held = CardTree.EMPTY.apply(openBatch(shaped, session = live))
+            if (held == null) {
+                failures += "$id: the runtime-shaped open batch does not apply to an empty tree"
+                continue
+            }
+            val want = CardTreeCanonical.of(expected, 1L)
+            val got = CardTreeCanonical.of(treeJson(held), live)
+            if (want != got) failures += "$id: differs in ${want.keys.filter { want[it] != got[it] }}"
+        }
+        assertEquals("trees with host slots in the fixtures (Modal, six Image variants, Approval)", 8, withSlots)
+        assertTrue("runtime-shaped trees that failed: ${failures.joinToString("; ")}", failures.isEmpty())
+    }
+
+    /**
+     * The runtime's output for [tree] at [live]: every `session` becomes [live] and each `request_id` text is the
+     * runtime's `EventToken` in struct field order (session, signedVersion, editSeq, treeVersion, key).
+     */
+    private fun runtimeShape(element: JsonElement, live: Long): JsonElement = when (element) {
+        is JsonObject -> JsonObject(
+            element.mapValues { (name, value) ->
+                when {
+                    name == "session" -> JsonPrimitive(live)
+                    name == "request_id" && value is JsonPrimitive -> JsonPrimitive(runtimeRequestId(value.content, live))
+                    else -> runtimeShape(value, live)
+                }
+            }
+        )
+        is JsonArray -> JsonArray(element.map { runtimeShape(it, live) })
+        else -> element
+    }
+
+    private fun runtimeRequestId(text: String, live: Long): String {
+        val token = Json.parseToJsonElement(text).jsonObject
+        return buildJsonObject {
+            put("session", live)
+            put("signedVersion", token.getValue("signedVersion"))
+            put("editSeq", token.getValue("editSeq"))
+            put("treeVersion", token.getValue("treeVersion"))
+            put("key", token.getValue("key"))
+        }.toString()
+    }
+
+    /** `Tree::diff(None, 0, 1)` over an expected tree, opened on [session]. */
+    private fun openBatch(tree: JsonObject, session: Long): JsonObject {
         val nodes = tree.array("nodes")
         val byKey = nodes.associateBy { it.jsonObject.text("key") ?: error("node without key") }
         val mutations = nodes.map { element ->
@@ -89,7 +150,7 @@ class CardTreeFixtureTest {
         }
         return buildJsonObject {
             put("schema", CardTree.SCHEMA)
-            put("session", 1)
+            put("session", session)
             put("previous_version", 0)
             put("version", 1)
             put("signed_version", tree.getValue("signed_version"))
@@ -134,11 +195,6 @@ class CardTreeFixtureTest {
                 }
             )
         )
-    }
-
-    private fun normal(json: JsonObject): JsonObject {
-        val nodes = json.array("nodes").sortedBy { it.jsonObject.text("key") }
-        return JsonObject(json + ("nodes" to JsonArray(nodes)))
     }
 
     private fun JsonObject.text(name: String): String? = (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.content
