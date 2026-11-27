@@ -89,7 +89,11 @@ class RealRunFlowTest {
 
     // Flow 1: custom node, account, recovery phrase, word check, account code, completion networking.
 
-    @Test fun f01_connectAndCreateAccount() = flow("01-connect-create", needsAccount = false) {
+    /**
+     * The onboarding path shared by f01 and f22 on a fresh install: launch, node review and confirm, to the display-name
+     * form. [existing] is called when the app already holds an account.
+     */
+    private fun onboardToDisplayName(existing: () -> Nothing) {
         if (!control.health()) blocked("peer control at ${args.control} is not reachable from the phone (adb reverse)")
         ui.launch()
         ui.shot("01-start")
@@ -97,7 +101,7 @@ class RealRunFlowTest {
             "startup-gateway" -> ui.tap("startup-change-node")
             "startup-welcome" -> ui.tap("startup-link")
             null -> fail("the app showed no startup screen: ${ui.screen()}")
-            else -> fail("the app already holds an account; the run needs a fresh install")
+            else -> existing()
         }
         ui.tap("connect")
         ui.tap("add-node")
@@ -128,6 +132,10 @@ class RealRunFlowTest {
             "startup-create" -> ui.tap("startup-create")
             null -> fail("no create entry after saving the node: ${ui.screen()}")
         }
+    }
+
+    @Test fun f01_connectAndCreateAccount() = flow("01-connect-create", needsAccount = false) {
+        onboardToDisplayName { fail("the app already holds an account; the run needs a fresh install") }
         val name = "Phone RealRun " + UUID.randomUUID().toString().take(4)
         // A new account: facts kept from an earlier run (its conversation id, device id) would point at the old one.
         RunState.clear()
@@ -1862,13 +1870,16 @@ class RealRunFlowTest {
     // recovery with the phrase and the right code (unlocked, the lock still on); exhaust again; remove from this device
     // (the confirmation dialog, cancel, confirm). It runs about 50 minutes: the waits alone are two rounds of 15.5 minutes
     // plus up to 8 minutes each after the two recoveries. Run it alone, in its own invocation, as a background command: it
-    // is longer than a ten-minute command. The signed-in account of flow 01 is signed out for the flow (the throwaway is
-    // created from the account chooser) and signed back in at its end; the throwaway account is removed by the flow itself.
+    // is longer than a ten-minute command. It needs a fresh install with no account (it never creates a second account:
+    // a second account on a connection still attended for the first is refused by core, G05e): it creates the one
+    // throwaway account itself through the onboarding path of flow 01 and removes it at the end.
 
-    @Test fun f22_exhaustRecoverRemove() = flow("22-exhaust-recover-remove") {
+    @Test fun f22_exhaustRecoverRemove() = flow("22-exhaust-recover-remove", needsAccount = false) {
         val name = "Phone Throwaway " + token()
         val notes = mutableListOf<String>()
-        val secrets = createThrowawayAccount(name)
+        val secrets = createThrowawayAccount(name) {
+            blocked("run f22 alone on a fresh install (scripts/realrun.sh … --tests f22 without --no-install, after uninstall)")
+        }
         try {
             appLockOnForThrowaway()
             notes += "throwaway account created; app lock on with timeout Immediately"
@@ -1949,9 +1960,6 @@ class RealRunFlowTest {
             secrets.phrase.fill('\u0000')
             secrets.code.fill('\u0000')
         }
-        // The flows after this one expect the account of flow 01 signed in.
-        val restored = runCatching { ensureShell() }.isSuccess
-        notes += if (restored) "the account of flow 01 is signed in again" else "the account of flow 01 could not be signed back in"
         notes.joinToString("; ")
     }
 
@@ -1960,18 +1968,12 @@ class RealRunFlowTest {
     private enum class RecoveryOutcome { UNLOCKED, RETRY_LATER, WRONG_CODE }
 
     /**
-     * Signs the current account out, creates a new account from the account chooser and keeps its recovery phrase (24 words
-     * joined by spaces) and its code in memory. The code is not saved as the run's code: flow 01's account keeps that.
+     * Creates the run's only account on a fresh install through the onboarding path of flow 01 (node confirm, create) and
+     * keeps its recovery phrase (24 words joined by spaces) and its code in memory. The code is not saved as the run's
+     * code. [existing] is called when the app already holds an account.
      */
-    private fun createThrowawayAccount(name: String): Throwaway {
-        ensureShell()
-        openSettings()
-        ui.tap("account-security")
-        if (!reach("sign-out")) fail("Account and security has no Sign out row: ${ui.screen()}")
-        ui.tap("sign-out")
-        if (!reach("confirm-exit")) fail("Sign out asked for no confirmation: ${ui.screen()}")
-        ui.tap("confirm-exit")
-        reachCreateForm()
+    private fun createThrowawayAccount(name: String, existing: () -> Nothing): Throwaway {
+        onboardToDisplayName(existing)
         ui.type("display-name", name)
         ui.tap("begin-create")
         ui.need("phrase-saved", Ui.LONG, "recovery phrase")
@@ -2015,31 +2017,6 @@ class RealRunFlowTest {
             words.forEach { it.fill('\u0000') }
             RealRunProbe.erase()
         }
-    }
-
-    /** From the signed-out state to the display-name form of a new account (node already saved on this install). */
-    private fun reachCreateForm() {
-        repeat(CREATE_STEPS) {
-            val tag = ui.first(
-                "display-name", "CREATE", "startup-create", "choose-saved", "onboarding-header", "startup-unlock-header",
-                "startup-info-header", "startup-details-header", "unlock-account-name", "shell-locked",
-                timeout = Ui.LONG
-            ) ?: fail("no way to a new account after sign out: ${ui.screen()}")
-            when (tag) {
-                "display-name" -> return
-                "CREATE", "startup-create" -> ui.tap(tag)
-                "choose-saved" -> {
-                    ui.tap("choose-saved")
-                    ui.tap(args.nodeId)
-                    ui.tap("use-node")
-                }
-                "onboarding-header" -> if (ui.scrollTo("CREATE")) ui.tap("CREATE") else ui.device.pressBack()
-                else -> ui.device.pressBack()
-            }
-            if (!ui.foreground()) ui.launch()
-            Thread.sleep(500)
-        }
-        fail("the new account form was not reached: ${ui.screen()}")
     }
 
     private fun joinWords(words: List<CharArray>): CharArray {
@@ -2299,7 +2276,6 @@ class RealRunFlowTest {
         private const val WAIT_EARLY_SLACK_SECS = 5L
         private const val PHRASE_WORDS = 24
         private const val CODE_DIGITS = 6
-        private const val CREATE_STEPS = 12
 
         /** Flow 20's phase in [RunState]: steps 7 and 8 wait for a new app process; the notes of the steps passed so far. */
         private const val APP_LOCK_PHASE = "app-lock-phase"
