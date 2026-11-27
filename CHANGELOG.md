@@ -5,6 +5,7 @@
 - Contacts list refresh (G24b): a contact accepted while another contacts page was open shows when the list is reopened, because returning to the list reloads it; after a verify the contact's status line in the list and the detail follows the verified state read last, so the detail no longer shows "not verified" beside a verified number.
 
 - Contacts safety verify (G24): after a confirmed "Numbers match", the safety read that follows sets the contact's verified state from the state the core returns, so the detail row no longer shows "not verified" beside a verified number, and the "refresh to read the current relationship" notice is cleared by that read. Verification stays automatic and adds no comparison step.
+- Core pin `a897c417` (core next, #649; includes #645 typed app-lock code refusals and #647 agent management): the method policy grows from 255 to 262 rows (`agent.catalog`, `agent.pause`, `agent.resume`, `agent.update`, `device.activity.report`, `device.notifications.cleared`, `device.push_policy.set`, `device.push_route.test`, `diag.export`, `diag.snapshot`, `push.keyset.get`), none of them used by the app yet; the card fixtures record the same revision and their files are unchanged.
 
 - Lint: ktlint violations fixed in the app shell (`MainActivity`, `InAppBanner`) and the chat, cards, onboarding and settings modules (import order, indentation, trailing commas, line length). Formatting only, no behaviour change.
 
