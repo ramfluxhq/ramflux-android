@@ -88,6 +88,8 @@ class ContactsViewModelTest {
         assertEquals(ContactOperation.VERIFY, command.operation)
         assertEquals("root", command.target)
         assertEquals(true, vm.state.value.safety?.verified)
+        assertEquals(true, vm.state.value.selected?.verified)
+        assertEquals(null, vm.state.value.operationNotice)
         assertEquals(ContactsPage.SAFETY, vm.state.value.page)
     }
 

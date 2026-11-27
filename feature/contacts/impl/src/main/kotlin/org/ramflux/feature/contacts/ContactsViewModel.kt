@@ -382,12 +382,17 @@ class ContactsViewModel @Inject constructor(
                 )
                 when (result) {
                     is ClientResult.Ready -> local.update {
+                        val verified = result.value.state == SafetyState.VERIFIED
                         it.copy(
                             safety = SafetyItem(
                                 result.value.number, result.value.fingerprint, result.value.state.message(),
-                                result.value.state == SafetyState.VERIFIED,
-                                result.value.verifiable && result.value.state != SafetyState.VERIFIED
-                            )
+                                verified,
+                                result.value.verifiable && !verified
+                            ),
+                            // The read just made is the refresh that a confirmation asked for: the acted-on contact
+                            // shows the state read here, and the "refresh to read" notice no longer applies.
+                            selected = it.selected?.let { row -> if (row.root == root) row.copy(verified = verified) else row },
+                            operationNotice = null
                         )
                     }
                     is ClientResult.Failed -> local.update { it.copy(problem = result.problem.message()) }
