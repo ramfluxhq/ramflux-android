@@ -159,7 +159,8 @@ internal class DefaultClientSessionRepository(
     }
 
     /**
-     * The app lock engaged: core dropped every card session, so the handles are forgotten here with no bus call. Idempotent,
+     * The app lock engaged: core dropped the locked account's card sessions (every account's when [account] is null), so the
+     * handles are forgotten here with no bus call. Idempotent,
      * and the cards come back through [resumeCards] only after the lock lifts, as suspended cards that open on the next tap.
      */
     private suspend fun dropCards(account: String? = null) {
