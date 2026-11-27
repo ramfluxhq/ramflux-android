@@ -143,18 +143,20 @@ internal class CardImageLoader(
     /** The plaintext of the object, at most [MAX_BYTES], or null on any refusal or mismatch. */
     private suspend fun read(account: String, objectId: String, operation: String): ByteArray? {
         val context = RepositoryContext(account)
-        val begun = body(
-            objects.objectGetBegin(
-                context,
-                SecretBody.fields {
-                    publicText("object_id", objectId)
-                    publicText("operation_id", operation)
-                    publicUnsigned("protocol_version", PROTOCOL_VERSION)
-                },
-            ),
-        ) ?: return null
         var out: ByteArray? = null
         try {
+            // Begin inside the try: core spools the plaintext on begin, so every path (cancellation included) must reach
+            // the finish in `finally`, which is a no-op for an id core never opened.
+            val begun = body(
+                objects.objectGetBegin(
+                    context,
+                    SecretBody.fields {
+                        publicText("object_id", objectId)
+                        publicText("operation_id", operation)
+                        publicUnsigned("protocol_version", PROTOCOL_VERSION)
+                    },
+                ),
+            ) ?: return null
             // The reply names the object it opened: it must be the one the slot selected.
             if (begun.text("object_id") != objectId) return null
             val total = begun.long("total_len")?.takeIf { it in 1..MAX_BYTES } ?: return null
