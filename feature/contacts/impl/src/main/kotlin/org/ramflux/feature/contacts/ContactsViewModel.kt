@@ -92,6 +92,9 @@ class ContactsViewModel @Inject constructor(
                         safety = null
                     )
                 }
+                // Changes that arrived while another page was open were not read (the watch reads the list only on
+                // the list), so returning to the list reloads it.
+                if (back == ContactsPage.LIST) read()
             }
             is ContactsAction.Tab -> if (local.value.tab != action.tab) {
                 request?.cancel()
@@ -391,7 +394,8 @@ class ContactsViewModel @Inject constructor(
                             ),
                             // The read just made is the refresh that a confirmation asked for: the acted-on contact
                             // shows the state read here, and the "refresh to read" notice no longer applies.
-                            selected = it.selected?.let { row -> if (row.root == root) row.copy(verified = verified) else row },
+                            selected = it.selected?.let { row -> if (row.root == root) row.withVerified(verified) else row },
+                            rows = it.rows.map { row -> if (row.root == root) row.withVerified(verified) else row }.toPersistentList(),
                             operationNotice = null
                         )
                     }
@@ -614,6 +618,12 @@ private fun ContactSummary.person(blocked: Boolean) = PersonItem(
     blocked = blocked,
     verified = verified,
     ai = ai
+)
+
+/** The row after a safety read: the status line the list and the detail show follows the state that was read last. */
+private fun PersonItem.withVerified(verified: Boolean): PersonItem = copy(
+    verified = verified,
+    status = if (request || blocked) status else uiText(if (verified) R.string.contacts_verified else R.string.contacts_unverified)
 )
 
 private fun ContactRequestSummary.person() = PersonItem(

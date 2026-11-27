@@ -89,8 +89,29 @@ class ContactsViewModelTest {
         assertEquals("root", command.target)
         assertEquals(true, vm.state.value.safety?.verified)
         assertEquals(true, vm.state.value.selected?.verified)
+        assertEquals(uiText(R.string.contacts_verified), vm.state.value.selected?.status)
+        assertEquals(uiText(R.string.contacts_verified), vm.state.value.rows.single { it.id == "link" }.status)
         assertEquals(null, vm.state.value.operationNotice)
         assertEquals(ContactsPage.SAFETY, vm.state.value.page)
+    }
+
+    @Test fun backToTheListRereadsContactsChangedWhileAnotherPageWasOpen() = runTest(timeout = 5.seconds) {
+        val repo = FakeContactDirectory().apply { reading = { ClientResult.Ready(emptyList()) } }
+        val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(ContactsAction.Visible(true))
+        runCurrent()
+        vm.onAction(ContactsAction.Page(ContactsPage.ADD))
+        runCurrent()
+        val reads = repo.reads
+        repo.live.emit(ClientResult.Ready(ContactChange.CONTACTS))
+        runCurrent()
+        assertEquals(reads, repo.reads)
+        vm.onAction(ContactsAction.Back)
+        runCurrent()
+        assertEquals(ContactsPage.LIST, vm.state.value.page)
+        assertEquals(reads + 1, repo.reads)
     }
 
     @Test fun removeBlockAndUnblockActOnTheLinkAfterConfirmationAndReturnToTheList() = runTest(timeout = 5.seconds) {
