@@ -470,7 +470,9 @@ class SettingsViewModel @Inject constructor(
                     session.recheckAppLock()
                     showAppLock(security.appLockState(account))
                 }
-                is ClientResult.Failed -> local.update { it.copy(appLock = it.appLock.copy(loading = false, problem = written.problem.message())) }
+                is ClientResult.Failed -> local.update {
+                    it.copy(appLock = it.appLock.copy(loading = false, problem = written.problem.message()))
+                }
                 is ClientResult.Unavailable -> local.update {
                     it.copy(appLock = it.appLock.copy(loading = false, problem = written.reason.message()))
                 }
@@ -485,7 +487,13 @@ class SettingsViewModel @Inject constructor(
                     loaded = true,
                     enabled = result.value.enabled,
                     timeoutMs = result.value.timeoutMs,
-                    unavailable = if (result.value.state == AppLockState.UNAVAILABLE) uiText(R.string.settings_app_lock_unavailable) else null,
+                    unavailable = if (result.value.state == AppLockState.UNAVAILABLE) {
+                        uiText(
+                            R.string.settings_app_lock_unavailable
+                        )
+                    } else {
+                        null
+                    }
                 )
                 is ClientResult.Failed -> it.appLock.copy(loading = false, problem = result.problem.message())
                 is ClientResult.Unavailable -> it.appLock.copy(loading = false, problem = result.reason.message())

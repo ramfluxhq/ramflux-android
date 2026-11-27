@@ -220,7 +220,16 @@ class CardWindowsTest {
     @Test fun aCheckBoxRevertsWhenItsInputCameBackStale() {
         val tree = tree(
             node("root", "Column", null),
-            node("cb", "CheckBox", "root", 0, buildJsonObject { put("label", "Agree"); put("value", false) })
+            node(
+                "cb",
+                "CheckBox",
+                "root",
+                0,
+                buildJsonObject {
+                    put("label", "Agree")
+                    put("value", false)
+                }
+            )
         )
         var staleSeq by mutableStateOf(0L)
         val actions = Recorder()

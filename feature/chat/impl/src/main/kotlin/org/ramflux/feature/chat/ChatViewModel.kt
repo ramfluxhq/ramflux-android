@@ -1510,7 +1510,13 @@ class ChatViewModel @Inject constructor(
             if (reply == null || reply.result == "stale_dropped") {
                 // Dismissing a sheet needs no second try, and an account that signed out has nothing to ask again.
                 val retired = reply?.reason == CardReply.ACCOUNT_RETIRED
-                if (action.outcome != CardSlotOutcome.CANCEL && !retired) local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_tap_again)) }
+                if (action.outcome != CardSlotOutcome.CANCEL && !retired) {
+                    local.update {
+                        it.copy(
+                            deliveryNotice = uiText(R.string.chat_card_tap_again)
+                        )
+                    }
+                }
                 return@launch
             }
             if (url != null && reply.result == "opened") channel.send(ChatEvent.OpenUrl(url))
