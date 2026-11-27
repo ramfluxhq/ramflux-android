@@ -1803,6 +1803,16 @@ class RealRunFlowTest {
         }
         ui.shot("21-gallery-open")
         ui.tap("card-gallery-run", 10_000)
+        // A tap on Run is sometimes lost (or the activity is recreated under it): when the summary is still empty and the
+        // button is enabled after a short wait, tap once more and say so.
+        val summaryEmpty = { ui.find("card-gallery-summary", 1_000)?.text.orEmpty().isEmpty() }
+        var retapped = false
+        Thread.sleep(RUN_RETAP_WAIT)
+        if (summaryEmpty() && ui.find("card-gallery-run", 1_000)?.isEnabled == true) {
+            retapped = true
+            control.log("f21: the summary was still empty ${RUN_RETAP_WAIT / 1000} s after Run with the button enabled: tapped Run again")
+            ui.tap("card-gallery-run", 10_000)
+        }
         val finished = ui.eventually(300_000, every = 2_000) { ui.find("card-gallery-summary")?.text.orEmpty().contains("checks") }
         if (!finished) fail("conformance did not finish within 300 s: ${ui.screen()}")
         val summary = ui.find("card-gallery-summary")?.text.orEmpty()
@@ -1840,7 +1850,435 @@ class RealRunFlowTest {
                     failed.take(20).joinToString("; ") { "${it.getString("id")} ${it.getString("check")} ${it.getString("detail")}" }
             )
         }
-        "${records.length()} checks, all PASS ($summary); report kept as artifacts/card-conformance.json; screenshots 21-gallery-*"
+        "${records.length()} checks, all PASS ($summary); report kept as artifacts/card-conformance.json; screenshots 21-gallery-*" +
+            if (retapped) "; Run was tapped a second time (first tap had no effect)" else ""
+    }
+
+    // Flow 22: an app-locked account whose code attempts are exhausted (G10b, RECOVER-LOCKED-01), on the lock cover. The
+    // recovery phrase and the account code exist only in this process (secure fields, nothing in the accessibility tree),
+    // so the flow creates its own throwaway account, keeps the phrase and the code in memory only (never logged, saved or
+    // shown on a screenshot) and runs the whole path in one process: 10 wrong codes with the escalating waits (30, 60, 120,
+    // 240, 480 s) and the exhausted page, also after a relaunch; recovery with the phrase and a wrong code (still locked);
+    // recovery with the phrase and the right code (unlocked, the lock still on); exhaust again; remove from this device
+    // (the confirmation dialog, cancel, confirm). It runs about 50 minutes: the waits alone are two rounds of 15.5 minutes
+    // plus up to 8 minutes each after the two recoveries. Run it alone, in its own invocation, as a background command: it
+    // is longer than a ten-minute command. The signed-in account of flow 01 is signed out for the flow (the throwaway is
+    // created from the account chooser) and signed back in at its end; the throwaway account is removed by the flow itself.
+
+    @Test fun f22_exhaustRecoverRemove() = flow("22-exhaust-recover-remove") {
+        val name = "Phone Throwaway " + token()
+        val notes = mutableListOf<String>()
+        val secrets = createThrowawayAccount(name)
+        try {
+            appLockOnForThrowaway()
+            notes += "throwaway account created; app lock on with timeout Immediately"
+            // Step 1: lock, ten wrong codes, the exhausted page, also after a relaunch.
+            relaunch()
+            lockForm()
+            ui.shot("22-lock-form")
+            var lastFailureAt = exhaustWithWrongCodes(secrets.code, detailed = true, notes = notes)
+            assertExhaustedPage(name)
+            ui.shot("22-exhausted")
+            relaunch()
+            assertExhaustedPage(name)
+            ui.shot("22-exhausted-relaunched")
+            notes += "exhausted page after the 10th wrong code and after a relaunch: restore and remove offered, no code field"
+            // Step 2: the right phrase and a WRONG code: refused, still locked.
+            val wrong = RunCode.next(secrets.code)
+            try {
+                when (recoverOnExhaustedPage(secrets.phrase, wrong)) {
+                    RecoveryOutcome.WRONG_CODE -> notes += "recovery with a wrong code: wrong-code notice on the exhausted page"
+                    RecoveryOutcome.RETRY_LATER -> {
+                        notes += "recovery with a wrong code: the phrase was accepted and the wait of the 10th failure still ran"
+                        waitOutPhraseAcceptedWait()
+                        ui.keys("app-lock-code", wrong)
+                        ui.tap("app-lock-unlock")
+                        val refused = ui.eventually(Ui.LONG) { ui.find("app-lock-notice", 300)?.text == ui.str("ui_code_wrong") }
+                        if (!refused) {
+                            fail(
+                                "the granted code try with a wrong code was not refused with the wrong-code text: ${ui.screen()}"
+                            )
+                        }
+                        notes += "the one granted try with a wrong code was refused"
+                    }
+                    RecoveryOutcome.UNLOCKED -> fail("recovery with a wrong account code opened the account")
+                }
+            } finally {
+                wrong.fill('\u0000')
+            }
+            val notice = ui.find("app-lock-notice", Ui.SHORT)?.text.orEmpty()
+            if (notice != ui.str("app_lock_code_wrong") && notice != ui.str("ui_code_wrong")) {
+                fail("the wrong code was not refused with a wrong-code notice: ${ui.screen()}")
+            }
+            assertExhaustedPage(name)
+            ui.shot("22-recover-wrong-code")
+            lastFailureAt = System.currentTimeMillis()
+            // Step 3: the right phrase and the right code, after the wait of the last failure: unlocked, the lock still on.
+            waitUntilAfter(lastFailureAt, EXHAUST_WAITS_SECS.last() + 10)
+            when (recoverOnExhaustedPage(secrets.phrase, secrets.code)) {
+                RecoveryOutcome.UNLOCKED -> notes += "recovery with the phrase and the right code unlocked the account"
+                RecoveryOutcome.RETRY_LATER -> {
+                    notes += "recovery with the right code: the phrase was accepted, the wait still ran (waited it out)"
+                    waitOutPhraseAcceptedWait()
+                    ui.keys("app-lock-code", secrets.code)
+                    ui.tap("app-lock-unlock")
+                }
+                RecoveryOutcome.WRONG_CODE -> fail("recovery with the right phrase and the right code refused the code: ${ui.screen()}")
+            }
+            if (!ui.eventually(Ui.LONG, 500) { ui.find("app-lock-code", 300) == null && ui.find("app-lock-exhausted", 300) == null }) {
+                fail("the cover is still up after a recovery with the right phrase and code: ${ui.screen()}")
+            }
+            openAppLockPageWithoutUnlock()
+            val lockSwitch = ui.need("app-lock-switch", Ui.LONG, "app lock switch")
+            if (!lockSwitch.isChecked) fail("the app lock setting is off after the recovery: ${ui.screen()}")
+            ui.shot("22-recovered-lock-still-on")
+            notes += "the app lock setting is still on after the recovery"
+            // Step 4: exhaust again, then remove from this device.
+            relaunch()
+            lockForm()
+            exhaustWithWrongCodes(secrets.code, detailed = false, notes = notes)
+            assertExhaustedPage(name)
+            ui.shot("22-exhausted-again")
+            notes += removeFromExhaustedPage(name)
+            // Step 5: the onboarding "forget-account" button appears only after a non-code unlock failure of a locked
+            // account (OnboardingViewModel.submitUnlock), which this flow cannot cause; recorded, not exercised.
+            notes += "forget-account (onboarding) not reachable here: it shows only after an unlock refused for a reason that " +
+                "is not a code refusal; the remove-dialog was exercised from the lock cover"
+        } finally {
+            secretScreen = false
+            secrets.phrase.fill('\u0000')
+            secrets.code.fill('\u0000')
+        }
+        // The flows after this one expect the account of flow 01 signed in.
+        val restored = runCatching { ensureShell() }.isSuccess
+        notes += if (restored) "the account of flow 01 is signed in again" else "the account of flow 01 could not be signed back in"
+        notes.joinToString("; ")
+    }
+
+    private class Throwaway(val phrase: CharArray, val code: CharArray)
+
+    private enum class RecoveryOutcome { UNLOCKED, RETRY_LATER, WRONG_CODE }
+
+    /**
+     * Signs the current account out, creates a new account from the account chooser and keeps its recovery phrase (24 words
+     * joined by spaces) and its code in memory. The code is not saved as the run's code: flow 01's account keeps that.
+     */
+    private fun createThrowawayAccount(name: String): Throwaway {
+        ensureShell()
+        openSettings()
+        ui.tap("account-security")
+        if (!reach("sign-out")) fail("Account and security has no Sign out row: ${ui.screen()}")
+        ui.tap("sign-out")
+        if (!reach("confirm-exit")) fail("Sign out asked for no confirmation: ${ui.screen()}")
+        ui.tap("confirm-exit")
+        reachCreateForm()
+        ui.type("display-name", name)
+        ui.tap("begin-create")
+        ui.need("phrase-saved", Ui.LONG, "recovery phrase")
+        ui.need("phrase-word-23")
+        // No screenshot from here until the account exists: the words and later the code are on screen.
+        secretScreen = true
+        val words = ArrayList<CharArray>()
+        var phrase: CharArray? = null
+        var code: CharArray? = null
+        try {
+            for (index in 0 until PHRASE_WORDS) {
+                if (!RealRunProbe.borrow(index) { words += it.copyOf() }) fail("recovery word ${index + 1} was not drawn (realrun probe)")
+            }
+            phrase = joinWords(words)
+            ui.tap("phrase-saved")
+            ui.need("challenge-0", Ui.LONG, "word challenge")
+            for (index in 0..2) {
+                val position = challengePosition(index)
+                var drawn = false
+                RealRunProbe.borrow(position - 1) { word ->
+                    ui.keys("challenge-$index", word)
+                    drawn = true
+                }
+                if (!drawn) fail("recovery word $position was not drawn (realrun probe)")
+            }
+            code = RunCode.next(CharArray(CODE_DIGITS) { '0' })
+            ui.keys("account-code", code)
+            ui.tap("confirm-account")
+            ui.need("continue-created", Ui.LONG, "account created")
+            secretScreen = false
+            RealRunProbe.erase()
+            ui.tap("continue-created")
+            leavePermissionFlow()
+            ui.need("shell-tabs", Ui.LONG, "shell after creation")
+            return Throwaway(phrase, code)
+        } catch (error: Throwable) {
+            phrase?.fill('\u0000')
+            code?.fill('\u0000')
+            throw error
+        } finally {
+            words.forEach { it.fill('\u0000') }
+            RealRunProbe.erase()
+        }
+    }
+
+    /** From the signed-out state to the display-name form of a new account (node already saved on this install). */
+    private fun reachCreateForm() {
+        repeat(CREATE_STEPS) {
+            val tag = ui.first(
+                "display-name", "CREATE", "startup-create", "choose-saved", "onboarding-header", "startup-unlock-header",
+                "startup-info-header", "startup-details-header", "unlock-account-name", "shell-locked",
+                timeout = Ui.LONG
+            ) ?: fail("no way to a new account after sign out: ${ui.screen()}")
+            when (tag) {
+                "display-name" -> return
+                "CREATE", "startup-create" -> ui.tap(tag)
+                "choose-saved" -> {
+                    ui.tap("choose-saved")
+                    ui.tap(args.nodeId)
+                    ui.tap("use-node")
+                }
+                "onboarding-header" -> if (ui.scrollTo("CREATE")) ui.tap("CREATE") else ui.device.pressBack()
+                else -> ui.device.pressBack()
+            }
+            if (!ui.foreground()) ui.launch()
+            Thread.sleep(500)
+        }
+        fail("the new account form was not reached: ${ui.screen()}")
+    }
+
+    private fun joinWords(words: List<CharArray>): CharArray {
+        val out = CharArray(words.sumOf { it.size } + words.size - 1)
+        var at = 0
+        words.forEachIndexed { index, word ->
+            if (index > 0) out[at++] = ' '
+            word.copyInto(out, at)
+            at += word.size
+        }
+        return out
+    }
+
+    /** Settings > Privacy > App lock of the active throwaway account, with no unlock helper (the run's code is another account's). */
+    private fun openAppLockPageWithoutUnlock() {
+        repeat(6) {
+            if (ui.find("shell-tabs", 1_500) != null) return@repeat
+            ui.device.pressBack()
+        }
+        openSettings()
+        ui.tap("account-security")
+        ui.tap("privacy")
+        ui.tap("app-lock")
+    }
+
+    private fun appLockOnForThrowaway() {
+        openAppLockPageWithoutUnlock()
+        ui.tap("app-lock-switch", Ui.LONG)
+        ui.tap("app-lock-timeout:0", Ui.LONG)
+        if (ui.find("app-lock-switch", Ui.SHORT)?.isChecked != true) fail("the app lock is not on: ${ui.screen()}")
+    }
+
+    private fun relaunch() {
+        ui.device.pressHome()
+        Thread.sleep(BACKGROUND_WAIT)
+        ui.launch()
+    }
+
+    /** The countdown the cover shows, in seconds, or null when none is shown. */
+    private fun shownWaitSecs(): Long? {
+        val text = ui.find("app-lock-wait", 1_000)?.text ?: return null
+        val match = Regex("(\\d{2}):(\\d{2})").find(text) ?: return null
+        return match.groupValues[1].toLong() * 60 + match.groupValues[2].toLong()
+    }
+
+    /** True once the code form takes input again: no countdown and the unlock button enabled. */
+    private fun codeFormReady(): Boolean = ui.find("app-lock-wait", 300) == null && ui.find("app-lock-unlock", 300)?.isEnabled == true
+
+    /**
+     * Types wrong codes until core answers with the exhausted page; returns when the 10th was refused. After the 5th to the
+     * 9th the countdown (30, 60, 120, 240, 480 s) must show with the unlock button disabled, and the wait must last as long
+     * as core said. Nothing is sent while a wait runs. With [detailed] there are screenshots and a relaunch inside the first wait.
+     */
+    private fun exhaustWithWrongCodes(code: CharArray, detailed: Boolean, notes: MutableList<String>): Long {
+        val waits = mutableListOf<String>()
+        var failedAt = 0L
+        for (attempt in 1..EXHAUST_ATTEMPTS) {
+            if (!ui.eventually(
+                    Ui.LONG,
+                    500
+                ) { codeFormReady() }
+            ) {
+                fail("the code form did not take input for attempt $attempt: ${ui.screen()}")
+            }
+            val wrong = RunCode.next(code)
+            try {
+                ui.keys("app-lock-code", wrong)
+            } finally {
+                wrong.fill('\u0000')
+            }
+            ui.tap("app-lock-unlock")
+            failedAt = System.currentTimeMillis()
+            Thread.sleep(1_500)
+            when {
+                attempt < WAIT_FROM_ATTEMPT -> {
+                    val refused = ui.eventually(Ui.LONG, 300) {
+                        ui.find("app-lock-notice", 300)?.text == ui.str("ui_code_wrong") &&
+                            ui.find("app-lock-unlock", 300)?.isEnabled == true
+                    }
+                    if (!refused) fail("attempt $attempt was not refused with the wrong-code text and an enabled form: ${ui.screen()}")
+                }
+                attempt < EXHAUST_ATTEMPTS -> {
+                    val expected = EXHAUST_WAITS_SECS[attempt - WAIT_FROM_ATTEMPT]
+                    if (!ui.eventually(
+                            Ui.LONG,
+                            300
+                        ) { shownWaitSecs() != null }
+                    ) {
+                        fail("no countdown after failure $attempt: ${ui.screen()}")
+                    }
+                    val shown = shownWaitSecs() ?: fail("the countdown vanished after failure $attempt")
+                    if (shown > expected || shown < expected - WAIT_READ_SLACK_SECS) {
+                        fail("after failure $attempt the countdown shows $shown s, expected $expected s")
+                    }
+                    if (ui.find("app-lock-unlock", 1_000)?.isEnabled != false) {
+                        fail(
+                            "the unlock button is enabled during the wait: ${ui.screen()}"
+                        )
+                    }
+                    val fieldEnabled = ui.find("app-lock-code", 1_000)?.isEnabled
+                    if (detailed && (attempt == WAIT_FROM_ATTEMPT || attempt == EXHAUST_ATTEMPTS - 1)) ui.shot("22-wait-$attempt")
+                    if (detailed && attempt == WAIT_FROM_ATTEMPT) {
+                        // The wait survives a relaunch: the cover reads core's state again.
+                        relaunch()
+                        lockForm()
+                        val again = shownWaitSecs() ?: fail("no countdown after the relaunch inside the first wait: ${ui.screen()}")
+                        if (again > expected || ui.find("app-lock-unlock", 1_000)?.isEnabled != false) {
+                            fail("after the relaunch the wait is not kept (shows $again s): ${ui.screen()}")
+                        }
+                        ui.shot("22-wait-relaunched")
+                    }
+                    if (!ui.eventually((expected + WAIT_END_SLACK_SECS) * 1_000, 1_000) { codeFormReady() }) {
+                        fail("the wait of $expected s after failure $attempt did not end: ${ui.screen()}")
+                    }
+                    val lasted = (System.currentTimeMillis() - failedAt) / 1_000
+                    if (lasted < expected - WAIT_EARLY_SLACK_SECS) {
+                        fail(
+                            "the wait after failure $attempt ended after $lasted s, expected $expected s"
+                        )
+                    }
+                    waits += "$attempt: ${expected}s (shown $shown, lasted $lasted, field enabled during wait: $fieldEnabled)"
+                }
+                else -> if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-exhausted", 300) != null }) {
+                    fail("the 10th wrong code did not lead to the exhausted page: ${ui.screen()}")
+                }
+            }
+        }
+        notes += "10 wrong codes: refused with the wrong-code text up to the 4th; waits after failures 5 to 9 ${waits.joinToString(", ")}"
+        return failedAt
+    }
+
+    /** The exhausted page: its marker, restore and remove offered, no code field, no account name. */
+    private fun assertExhaustedPage(name: String) {
+        ui.need("app-lock-exhausted", Ui.LONG, "exhausted page")
+        ui.need("app-lock-restore")
+        ui.need("app-lock-remove")
+        if (ui.find("app-lock-code", 1_000) != null) fail("the exhausted page still has the code field: ${ui.screen()}")
+        if (ui.find("app-lock-unlock", 500) != null) fail("the exhausted page still has the unlock button: ${ui.screen()}")
+        if (ui.hasText(name)) fail("the exhausted page shows the account name")
+    }
+
+    /** Recovery from the exhausted page with [phrase] and [code]; the screens with the secret fields are never captured. */
+    private fun recoverOnExhaustedPage(phrase: CharArray, code: CharArray): RecoveryOutcome {
+        ui.tap("app-lock-restore", Ui.LONG)
+        ui.need("recovery-phrase-entry", Ui.LONG, "recovery form")
+        ui.need("recovery-anchor")
+        secretScreen = true
+        try {
+            ui.keys("recovery-phrase-entry", phrase)
+            ui.keys("recovery-code", code)
+            ui.tap("confirm-recovery", Ui.LONG)
+            if (!ui.eventually(Ui.LONG, 300) { ui.find("recovery-phrase-entry", 200) == null }) {
+                fail("the recovery stayed on its form: notice '${ui.find("app-lock-notice", 500)?.text.orEmpty()}'")
+            }
+        } finally {
+            secretScreen = false
+        }
+        var outcome: RecoveryOutcome? = null
+        val decided = ui.eventually(Ui.LONG, 500) {
+            outcome = when {
+                ui.find("app-lock-recovery", 200) != null -> null
+                ui.find("app-lock-wait", 200) != null -> RecoveryOutcome.RETRY_LATER
+                ui.find("app-lock-exhausted", 200) != null -> RecoveryOutcome.WRONG_CODE
+                ui.find("app-lock-code", 200) == null && ui.find("app-lock-retry", 200) == null -> RecoveryOutcome.UNLOCKED
+                else -> null
+            }
+            outcome != null
+        }
+        if (!decided) fail("the recovery reached no result: ${ui.screen()}")
+        if (outcome == RecoveryOutcome.UNLOCKED) {
+            Thread.sleep(1_000)
+            if (ui.find("app-lock-code", 500) != null || ui.find("app-lock-exhausted", 500) != null) {
+                fail(
+                    "the cover came back: ${ui.screen()}"
+                )
+            }
+        }
+        return outcome ?: fail("the recovery reached no result")
+    }
+
+    /** After a recovery that was answered with the wait still running: the phrase-accepted line, then the wait until the field returns. */
+    private fun waitOutPhraseAcceptedWait() {
+        val accepted = ui.str("app_lock_phrase_accepted", "\u0000").substringBefore('\u0000')
+        if (ui.find("app-lock-wait", Ui.SHORT)?.text?.contains(accepted) != true) {
+            fail(
+                "the wait does not read 'phrase accepted': ${ui.screen()}"
+            )
+        }
+        if (ui.find("app-lock-unlock", 1_000)?.isEnabled != false) fail("the unlock button is enabled during the wait: ${ui.screen()}")
+        ui.shot("22-phrase-accepted-wait")
+        if (!ui.eventually((EXHAUST_WAITS_SECS.last() + WAIT_END_SLACK_SECS) * 1_000, 1_000) { codeFormReady() }) {
+            fail("the wait after the accepted phrase did not end: ${ui.screen()}")
+        }
+    }
+
+    /** Sleeps (with a look at the screen every 30 s, which keeps the phone awake) until [secs] after [since]. */
+    private fun waitUntilAfter(since: Long, secs: Long) {
+        val end = since + secs * 1_000
+        while (System.currentTimeMillis() < end) {
+            Thread.sleep(minOf(30_000L, maxOf(end - System.currentTimeMillis(), 0L)))
+            ui.find("app-lock-exhausted", 500)
+        }
+    }
+
+    /** The remove dialog from the exhausted page: no name, confirm disabled until "I understand", cancel keeps, confirm removes. */
+    private fun removeFromExhaustedPage(name: String): String {
+        ui.tap("app-lock-remove", Ui.LONG)
+        ui.need("remove-dialog", Ui.LONG, "remove dialog")
+        if (ui.find("remove-dialog-name", 500) != null || ui.hasText(name)) fail("the remove dialog names the account")
+        if (ui.find("remove-confirm", Ui.SHORT)?.isEnabled != false) fail("remove-confirm is enabled before 'I understand' is ticked")
+        ui.shot("22-remove-dialog")
+        ui.tap("remove-cancel")
+        if (!ui.eventually(Ui.SHORT, 300) { ui.find("remove-dialog", 300) == null }) fail("Cancel did not close the remove dialog")
+        assertExhaustedPage(name)
+        ui.shot("22-remove-cancelled")
+        ui.tap("app-lock-remove", Ui.LONG)
+        ui.need("remove-dialog", Ui.LONG, "remove dialog again")
+        if (ui.find("remove-confirm", Ui.SHORT)?.isEnabled != false) fail("remove-confirm is enabled when the dialog is opened again")
+        ui.tap("remove-understand")
+        if (!ui.eventually(Ui.SHORT, 300) { ui.find("remove-confirm", 300)?.isEnabled == true }) {
+            fail("remove-confirm did not enable after 'I understand': ${ui.screen()}")
+        }
+        ui.tap("remove-confirm")
+        val removedText = ui.str("ui_account_removed")
+        val toast = ui.text(removedText, Ui.SHORT) != null
+        val after = ui.first(
+            "onboarding-header", "startup-gateway", "startup-welcome", "startup-unlock-header", "unlock-account-name", "shell-locked",
+            timeout = Ui.LONG
+        ) ?: fail("no start state after the removal: ${ui.screen()}")
+        if (ui.find("app-lock-code", 1_000) != null || ui.find("app-lock-exhausted", 500) != null) {
+            fail(
+                "the cover is still up after the removal"
+            )
+        }
+        if (ui.eventually(5_000) { ui.hasText(name) }) fail("the removed throwaway account is still offered: ${ui.screen()}")
+        ui.shot("22-removed")
+        if (!toast) fail("the removed notice '$removedText' was not shown (the app went to '$after')")
+        return "remove dialog named no account, confirm needed 'I understand', Cancel kept the account, confirm removed it: toast shown, " +
+            "the app went to '$after' and no longer offers the account"
     }
 
     companion object {
@@ -1850,6 +2288,18 @@ class RealRunFlowTest {
         private const val CARD_GALLERY = "org.ramflux.android.cardgallery.CardGalleryActivity"
         private const val GALLERY_PAGES = 14
         private const val DARK_PAGES = 5
+        private const val RUN_RETAP_WAIT = 4_000L
+
+        /** Flow 22: the code form's escalating waits after failures 5 to 9 (core's throttle), the attempts and the reading slack. */
+        private val EXHAUST_WAITS_SECS = longArrayOf(30, 60, 120, 240, 480)
+        private const val EXHAUST_ATTEMPTS = 10
+        private const val WAIT_FROM_ATTEMPT = 5
+        private const val WAIT_READ_SLACK_SECS = 25L
+        private const val WAIT_END_SLACK_SECS = 90L
+        private const val WAIT_EARLY_SLACK_SECS = 5L
+        private const val PHRASE_WORDS = 24
+        private const val CODE_DIGITS = 6
+        private const val CREATE_STEPS = 12
 
         /** Flow 20's phase in [RunState]: steps 7 and 8 wait for a new app process; the notes of the steps passed so far. */
         private const val APP_LOCK_PHASE = "app-lock-phase"
