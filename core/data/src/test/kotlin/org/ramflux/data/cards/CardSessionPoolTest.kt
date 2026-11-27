@@ -131,9 +131,9 @@ class CardSessionPoolTest {
         pool.show(ACCOUNT, "a")
         val held = pool.state(ACCOUNT, "a")?.tree
         assertNotNull(held)
-        val stale = CardStamp(held!!.treeVersion + 1, held.editSeq)
+        val stale = CardStamp(held!!.session, held.signedVersion, held.treeVersion + 1, held.editSeq)
         pool.event(ACCOUNT, "a", "root", CardEvent.Activate, stale)
-        pool.event(ACCOUNT, "a", "root", CardEvent.Activate, CardStamp(held.treeVersion, held.editSeq + 1))
+        pool.event(ACCOUNT, "a", "root", CardEvent.Activate, CardStamp(held.session, held.signedVersion, held.treeVersion, held.editSeq + 1))
         assertEquals(0, bus.secretCalls)
         pool.event(ACCOUNT, "a", "root", CardEvent.Activate, held.stamp)
         assertEquals(1, bus.secretCalls)

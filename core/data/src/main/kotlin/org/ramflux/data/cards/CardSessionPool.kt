@@ -103,17 +103,21 @@ interface CardSessionRepository {
      * a later one). Two kinds follow this card's own earlier events and are re-sent with the token of the current tree: an
      * `input` (it carries the whole value) and an `activate` whose only later steps came from `input` events queued before
      * the tap; both only while the control is still the same node kind and `input_pointer` as when the person saw it.
-     * Consecutive `input` events for one control at the head of the queue are replaced by the newest one and answer
-     * `coalesced`. A dropped `input` answers `stale_dropped` too, so the control reverts to the value the runtime holds.
+     * An `input` that finds an `input` for the same control at the tail (or consecutive ones at the head) replaces it, and
+     * the replaced one answers `coalesced`. Any event that is not applied (stale, queue full, consumer cancelled, card gone)
+     * answers `stale_dropped`, so the control reverts and the host asks for the tap again.
      */
     suspend fun event(account: String, ref: String, key: String, event: CardEvent, seen: CardStamp): ClientResult<CardReply>
 
-    /** Answers a host slot (link or approval) with [outcome]; [token], [slotId] and [requestId] come from the tree or the host request. */
+    /**
+     * Answers a host slot (link or approval) with [outcome]; [token], [slotId] and [requestId] come from the tree or the host
+     * request. Queued with the card's events; an answer that is not applied answers `stale_dropped`.
+     */
     suspend fun slot(
         account: String, ref: String, slotId: String, requestId: String, token: JsonObject, outcome: CardSlotOutcome,
     ): ClientResult<CardReply>
 
-    /** The one networked call: submits the shown action of a consumed Button. Never retried automatically. */
+    /** The one networked call: submits the shown action of a consumed Button, queued with the card's events. Never retried automatically. */
     suspend fun submit(account: String, ref: String): ClientResult<CardReply>
 
     /** Locale or dark change for every resumed card of the account. */
@@ -173,23 +177,35 @@ internal class CardSessionPool(
         /** Set under [lock] by forget: a call that waited on the lock of a signed-out account must not touch the runtime. */
         @Volatile var retired = false
 
-        /** Host events waiting to be applied, per card; each queue has at most one consumer ([drain]). */
+        /** Operations waiting to be applied, per card; each queue instance has at most one consumer ([drain]). */
         val queues = HashMap<String, CardQueue>()
         var eventSeq = 0L
     }
 
-    /** One host event the person made, waiting for its turn. [seq] orders it against every other event of the account. */
-    private class Queued(
-        val key: String,
-        val event: CardEvent,
-        val seen: CardStamp,
-        val seq: Long,
-        val done: CompletableDeferred<ClientResult<CardReply>>,
-    )
+    /** What the person asked of one card: a control event, a host slot answer, or the submit of a pending action. */
+    private sealed interface Op {
+        class Event(val key: String, val event: CardEvent, val seen: CardStamp) : Op
+        class Answer(val slotId: String, val requestId: String, val token: JsonObject, val outcome: CardSlotOutcome) : Op
+        data object Submit : Op
+    }
 
+    /** One thing the person did, waiting for its turn. [seq] orders it against every other operation of the account. */
+    private class Queued(val op: Op, val seq: Long, val done: CompletableDeferred<ClientResult<CardReply>>) {
+        /** The control key when this is an `input` event, else null: only those are ever replaced by a newer one. */
+        val inputKey: String? get() = (op as? Op.Event)?.takeIf { it.event is CardEvent.Input }?.key
+    }
+
+    /**
+     * The operations of one card waiting to be applied. Each instance has at most one consumer ([drain]) and is mapped in
+     * [Account.queues] from its creation until that consumer finds it empty or gives up; a later operation then creates a
+     * fresh instance with its own consumer, so one consumer never touches another's queue.
+     */
     private class CardQueue {
         val items = ArrayDeque<Queued>()
         var draining = false
+
+        /** The operation the consumer took and has not answered yet; answered by [abandon] if the consumer dies. */
+        var current: Queued? = null
     }
 
     /** What the held tree says about one node: enough to tell that a control is still the control the person saw. */
@@ -262,84 +278,121 @@ internal class CardSessionPool(
 
     override suspend fun event(account: String, ref: String, key: String, event: CardEvent, seen: CardStamp): ClientResult<CardReply> {
         if (!usable(account) || !usable(ref)) return invalid()
+        return enqueue(account, ref, Op.Event(key, event, seen))
+    }
+
+    /**
+     * Queues [op] behind everything the person already did on this card and waits for its answer. An `input` that finds an
+     * `input` for the same control at the tail takes its place (the older one answers `coalesced`), so typing never fills
+     * the queue. Anything else that finds the queue full is answered as dropped (see [dropped]), never silently lost.
+     */
+    private suspend fun enqueue(account: String, ref: String, op: Op): ClientResult<CardReply> {
         val acc = accountOf(account) ?: return invalid()
         val done = CompletableDeferred<ClientResult<CardReply>>()
-        val start = synchronized(guard) {
+        var replaced: Queued? = null
+        var start: CardQueue? = null
+        val accepted = synchronized(guard) {
             val queue = acc.queues.getOrPut(ref) { CardQueue() }
-            if (queue.items.size >= MAX_QUEUED) {
-                null
-            } else {
-                acc.eventSeq += 1
-                queue.items.addLast(Queued(key, event, seen, acc.eventSeq, done))
-                val first = !queue.draining
-                queue.draining = true
-                first
+            val key = (op as? Op.Event)?.takeIf { it.event is CardEvent.Input }?.key
+            val tail = queue.items.lastOrNull()
+            if (key != null && tail != null && tail.inputKey == key) {
+                replaced = queue.items.removeLast()
+            } else if (queue.items.size >= MAX_QUEUED) {
+                return@synchronized false
             }
+            acc.eventSeq += 1
+            queue.items.addLast(Queued(op, acc.eventSeq, done))
+            if (!queue.draining) {
+                queue.draining = true
+                start = queue
+            }
+            true
         }
-        // A full queue drops the event: an Input must revert its field, so it says so as a stale answer.
-        if (start == null) return if (event is CardEvent.Input) ClientResult.Ready(staleDropped()) else invalid()
-        if (start) scope.launch { drain(acc, account, ref) }
+        replaced?.done?.complete(ClientResult.Ready(coalesced()))
+        if (!accepted) return dropped(op, started = false)
+        start?.let { queue ->
+            // A consumer that ends abnormally (cancelled, failed, or never started) answers everything it still holds.
+            scope.launch { drain(acc, account, ref, queue) }.invokeOnCompletion { cause -> if (cause != null) abandon(acc, ref, queue) }
+        }
         return done.await()
     }
 
-    /** The one consumer of a card's queue: applies the events one by one, in the order they were made. */
-    private suspend fun drain(acc: Account, account: String, ref: String) {
-        var current: Queued? = null
-        try {
-            while (true) {
-                val skipped = ArrayList<Queued>()
-                val next = synchronized(guard) { takeNext(acc, ref, skipped) }
-                skipped.forEach { it.done.complete(ClientResult.Ready(coalesced())) }
-                val item = next ?: return
-                current = item
-                val result = acc.exclusive(account, invalid()) { apply(acc, account, ref, item) }
-                item.done.complete(result)
-                current = null
-            }
-        } finally {
-            // Cancelled or failed: nothing queued may wait for a consumer that is gone.
-            val rest = synchronized(guard) {
-                val queue = acc.queues.remove(ref)
-                queue?.draining = false
-                queue?.items?.toList().orEmpty()
-            }
-            current?.done?.complete(invalid())
-            rest.forEach { it.done.complete(invalid()) }
+    /** The one consumer of [queue]: applies the operations one by one, in the order they were made. */
+    private suspend fun drain(acc: Account, account: String, ref: String, queue: CardQueue) {
+        while (true) {
+            val skipped = ArrayList<Queued>()
+            val next = synchronized(guard) { takeNext(acc, ref, queue, skipped).also { queue.current = it } }
+            skipped.forEach { it.done.complete(ClientResult.Ready(coalesced())) }
+            val item = next ?: return
+            val result = acc.exclusive(account, invalid()) { apply(acc, account, ref, item) }
+            synchronized(guard) { queue.current = null }
+            item.done.complete(result)
         }
     }
 
     /**
-     * The next event of the card, or null (and the queue is removed) when none is waiting. Only consecutive `input` events
-     * for one control at the head are replaced by the newest; an event of another kind or control is never jumped over.
+     * The consumer of [queue] ended abnormally: every operation it still holds is answered as dropped, and the queue is
+     * unmapped only while it is still the card's queue (a later instance belongs to another consumer).
      */
-    private fun takeNext(acc: Account, ref: String, skipped: MutableList<Queued>): Queued? {
-        val queue = acc.queues[ref] ?: return null
+    private fun abandon(acc: Account, ref: String, queue: CardQueue) {
+        val (current, rest) = synchronized(guard) {
+            if (acc.queues[ref] === queue) acc.queues.remove(ref)
+            queue.draining = false
+            val held = queue.current to queue.items.toList()
+            queue.current = null
+            queue.items.clear()
+            held
+        }
+        current?.let { it.done.complete(dropped(it.op, started = true)) }
+        rest.forEach { it.done.complete(dropped(it.op, started = false)) }
+    }
+
+    /**
+     * The answer to an operation that was never applied. A control event or slot answer reads as `stale_dropped`, so the
+     * control reverts and the host asks for the tap again. A submit is never retried: one that may have reached the runtime
+     * ([started]) has an unknown outcome, one that never left the queue has none.
+     */
+    private fun dropped(op: Op, started: Boolean): ClientResult<CardReply> = when (op) {
+        is Op.Event, is Op.Answer -> ClientResult.Ready(staleDropped())
+        Op.Submit -> if (started) failed(FAILED_CODE) else invalid()
+    }
+
+    /**
+     * The next operation of [queue], or null (and the queue is unmapped, if still mapped) when none is waiting. Only
+     * consecutive `input` events for one control at the head are replaced by the newest; nothing else is jumped over.
+     */
+    private fun takeNext(acc: Account, ref: String, queue: CardQueue, skipped: MutableList<Queued>): Queued? {
         var head: Queued = queue.items.removeFirstOrNull() ?: run {
-            acc.queues.remove(ref)
+            if (acc.queues[ref] === queue) acc.queues.remove(ref)
             queue.draining = false
             return null
         }
-        while (head.event is CardEvent.Input) {
+        while (true) {
+            val key = head.inputKey ?: break
             val after = queue.items.firstOrNull() ?: break
-            if (after.event !is CardEvent.Input || after.key != head.key) break
+            if (after.inputKey != key) break
             skipped += head
             head = queue.items.removeFirst()
         }
         return head
     }
 
-    private suspend fun apply(acc: Account, account: String, ref: String, item: Queued): ClientResult<CardReply> {
-        val input = item.event is CardEvent.Input
+    private suspend fun apply(acc: Account, account: String, ref: String, item: Queued): ClientResult<CardReply> = when (val op = item.op) {
+        is Op.Event -> applyEvent(acc, account, ref, item, op)
+        is Op.Answer -> applyAnswer(acc, account, ref, item, op)
+        Op.Submit -> applySubmit(acc, account, ref)
+    }
+
+    private suspend fun applyEvent(acc: Account, account: String, ref: String, item: Queued, op: Op.Event): ClientResult<CardReply> {
+        val input = op.event is CardEvent.Input
         val slot = touchSlot(acc, ref)?.takeIf { it.state.resumed }
         val tree = slot?.state?.tree
         val session = slot?.session
-        if (slot == null || tree == null || session == null) {
-            // A dropped Input must revert the field: say so as a stale answer.
-            return if (input) ClientResult.Ready(staleDropped()) else invalid()
-        }
+        // The card is gone or suspended: the event is dropped visibly, so the control reverts and a tap is asked again.
+        if (slot == null || tree == null || session == null) return ClientResult.Ready(staleDropped())
         // The tree moved on after the person acted: only an event that follows this card's own events is re-sent.
-        if (tree.stamp != item.seen && !rebasable(slot, tree, item)) return ClientResult.Ready(staleDropped())
-        return when (val call = client.event(account, session, tree.tokenFor(item.key), item.event)) {
+        if (tree.stamp != op.seen && !rebasable(slot, tree, item, op)) return ClientResult.Ready(staleDropped())
+        return when (val call = client.event(account, session, tree.tokenFor(op.key), op.event)) {
             is CardCall.Failed -> ClientResult.Failed(call.problem)
             is CardCall.Replied -> {
                 if (!absorbOwn(slot, call.reply, tree, item.seq, input)) reread(acc, account, slot)
@@ -354,14 +407,14 @@ internal class CardSessionPool(
      * whole value, so any later own step is fine. An `activate` is re-sent only when every later step came from an `input`
      * queued before the tap, so the tap still means what it meant; any other event gets the strict stamp check.
      */
-    private fun rebasable(slot: Slot, tree: CardTree, item: Queued): Boolean {
-        val event = item.event
+    private fun rebasable(slot: Slot, tree: CardTree, item: Queued, op: Op.Event): Boolean {
+        val event = op.event
         if (event !is CardEvent.Input && event !is CardEvent.Activate) return false
         if (slot.state.lifecycle != CardLifecycle.READY) return false
-        val index = slot.chain.indexOfFirst { it.stamp == item.seen }
+        val index = slot.chain.indexOfFirst { it.stamp == op.seen }
         if (index < 0) return false
-        val seenSig = slot.chain[index].sigs[item.key] ?: return false
-        val nowSig = tree.nodes[item.key]?.let { NodeSig(it.kind, it.attrs.text("input_pointer")) } ?: return false
+        val seenSig = slot.chain[index].sigs[op.key] ?: return false
+        val nowSig = tree.nodes[op.key]?.let { NodeSig(it.kind, it.attrs.text("input_pointer")) } ?: return false
         if (seenSig != nowSig) return false
         if (event is CardEvent.Input) return nowSig.pointer != null
         return slot.chain.drop(index + 1).all { it.byInput && it.producerSeq < item.seq }
@@ -386,38 +439,42 @@ internal class CardSessionPool(
         account: String, ref: String, slotId: String, requestId: String, token: JsonObject, outcome: CardSlotOutcome,
     ): ClientResult<CardReply> {
         if (!usable(account) || !usable(ref) || slotId.isEmpty() || requestId.isEmpty()) return invalid()
-        val acc = accountOf(account) ?: return invalid()
-        return acc.exclusive(account, invalid()) {
-            val slot = touchSlot(acc, ref)?.takeIf { it.state.resumed } ?: return@exclusive invalid()
-            val session = slot.session ?: return@exclusive invalid()
-            when (val call = client.slot(account, session, token, slotId, requestId, outcome)) {
-                is CardCall.Failed -> ClientResult.Failed(call.problem)
-                is CardCall.Replied -> {
-                    answered(acc, account, slot, call.reply)
-                    ClientResult.Ready(call.reply)
-                }
+        // Queued with the card's events, so the runtime sees the answer exactly where the person gave it.
+        return enqueue(account, ref, Op.Answer(slotId, requestId, token, outcome))
+    }
+
+    private suspend fun applyAnswer(acc: Account, account: String, ref: String, item: Queued, op: Op.Answer): ClientResult<CardReply> {
+        val slot = touchSlot(acc, ref)?.takeIf { it.state.resumed } ?: return ClientResult.Ready(staleDropped())
+        val session = slot.session ?: return ClientResult.Ready(staleDropped())
+        return when (val call = client.slot(account, session, op.token, op.slotId, op.requestId, op.outcome)) {
+            is CardCall.Failed -> ClientResult.Failed(call.problem)
+            is CardCall.Replied -> {
+                answered(acc, account, slot, call.reply, item.seq)
+                ClientResult.Ready(call.reply)
             }
         }
     }
 
     override suspend fun submit(account: String, ref: String): ClientResult<CardReply> {
         if (!usable(account) || !usable(ref)) return invalid()
-        val acc = accountOf(account) ?: return invalid()
-        return acc.exclusive(account, invalid()) {
-            val slot = touchSlot(acc, ref)?.takeIf { it.state.resumed } ?: return@exclusive invalid()
-            val session = slot.session ?: return@exclusive invalid()
-            publish(slot, slot.state.copy(lifecycle = CardLifecycle.SUBMITTING))
-            when (val call = client.submit(account, session)) {
-                is CardCall.Failed -> {
-                    publish(slot, slot.state.copy(lifecycle = CardLifecycle.READY))
-                    ClientResult.Failed(call.problem)
-                }
-                is CardCall.Replied -> {
-                    if (!absorb(slot, call.reply)) reread(acc, account, slot)
-                    // Any answer other than a consumed Button returns the card to ready.
-                    if (slot.state.lifecycle == CardLifecycle.SUBMITTING) publish(slot, slot.state.copy(lifecycle = CardLifecycle.READY))
-                    ClientResult.Ready(call.reply)
-                }
+        // The pending action was signed when the person tapped; the send still waits for what they did before asking for it.
+        return enqueue(account, ref, Op.Submit)
+    }
+
+    private suspend fun applySubmit(acc: Account, account: String, ref: String): ClientResult<CardReply> {
+        val slot = touchSlot(acc, ref)?.takeIf { it.state.resumed } ?: return invalid()
+        val session = slot.session ?: return invalid()
+        publish(slot, slot.state.copy(lifecycle = CardLifecycle.SUBMITTING))
+        return when (val call = client.submit(account, session)) {
+            is CardCall.Failed -> {
+                publish(slot, slot.state.copy(lifecycle = CardLifecycle.READY))
+                ClientResult.Failed(call.problem)
+            }
+            is CardCall.Replied -> {
+                if (!absorb(slot, call.reply)) reread(acc, account, slot)
+                // Any answer other than a consumed Button returns the card to ready.
+                if (slot.state.lifecycle == CardLifecycle.SUBMITTING) publish(slot, slot.state.copy(lifecycle = CardLifecycle.READY))
+                ClientResult.Ready(call.reply)
             }
         }
     }
@@ -700,20 +757,15 @@ internal class CardSessionPool(
      * answer (an edited batch, an approval decision, a refusal) goes through the same absorb as an event's reply, so the
      * held tree and the stamp chain stay in step with the runtime.
      */
-    private suspend fun answered(acc: Account, account: String, slot: Slot, reply: CardReply) {
+    private suspend fun answered(acc: Account, account: String, slot: Slot, reply: CardReply, seq: Long) {
         val before = slot.state.tree
         when (reply.result) {
             "opened", "resumed", "cancelled", "unavailable" -> publish(slot, slot.state.copy(hostRequest = null))
             else -> {
-                if (before != null && !absorbOwn(slot, reply, before, nextSeq(acc), false)) reread(acc, account, slot)
+                if (before != null && !absorbOwn(slot, reply, before, seq, false)) reread(acc, account, slot)
                 if (slot.state.hostRequest != null && reply.result != "open_url") publish(slot, slot.state.copy(hostRequest = null))
             }
         }
-    }
-
-    private fun nextSeq(acc: Account): Long = synchronized(guard) {
-        acc.eventSeq += 1
-        acc.eventSeq
     }
 
     private fun publish(slot: Slot, next: CardState) {

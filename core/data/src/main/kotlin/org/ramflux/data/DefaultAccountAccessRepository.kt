@@ -7,6 +7,8 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.sdk.*
 
@@ -18,6 +20,14 @@ internal class DefaultAccountAccessRepository(
     private val revisionCount = AtomicInteger()
     private val publishedRevisions = MutableSharedFlow<Int>(replay = 1, extraBufferCapacity = 1)
     override val revisions: Flow<Int> = publishedRevisions
+
+    /**
+     * One gate per account id: sign-in, sign-out, removal and lock of one account run one at a time, so the purge and
+     * re-admission of one operation never interleave with another's (a second sign-out cannot undo the first).
+     */
+    private val gates = HashMap<String, Mutex>()
+
+    private suspend fun <T> serial(id: String, body: suspend () -> T): T = synchronized(gates) { gates.getOrPut(id) { Mutex() } }.withLock { body() }
     /** Every account on this device, locked ones included, with its display name (`account.list`). */
     override suspend fun list(): ClientResult<AccountCatalog> = when (val result = accounts.accountList(RepositoryContext(null), JsonObject(emptyMap()))) {
         is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
@@ -36,48 +46,64 @@ internal class DefaultAccountAccessRepository(
             is ClientResult.Unavailable -> return current
         }
         if (catalog.accounts.none { it.id == id && it.unlocked }) return unavailable()
-        return switch(id)
+        return serial(id) { switch(id) }
     }
     override suspend fun unlock(id: String, code: CharArray): ClientResult<Unit> {
         if (!acceptable(id) || !AccountCode.complete(code)) {
             code.fill('\u0000')
             return if (acceptable(id)) codeRefused() else invalid()
         }
-        // The SDK field keeps its historical name; its value is the six-digit account code.
-        val unlocked = accounts.accountUnlock(
-            RepositoryContext(id, UUID.randomUUID().toString()),
-            SecretBody.fields { chars("passphrase", code) }
-        )
-        return when (unlocked) {
-            is CoreResult.Failure -> ClientResult.Failed(unlocked.appProblem())
-            is CoreResult.Success -> {
-                unlocked.value.close()
-                switch(id)
+        return serial(id) {
+            // The SDK field keeps its historical name; its value is the six-digit account code.
+            val unlocked = accounts.accountUnlock(
+                RepositoryContext(id, UUID.randomUUID().toString()),
+                SecretBody.fields { chars("passphrase", code) }
+            )
+            when (unlocked) {
+                is CoreResult.Failure -> ClientResult.Failed(unlocked.appProblem())
+                is CoreResult.Success -> {
+                    unlocked.value.close()
+                    switch(id)
+                }
             }
         }
     }
     override suspend fun signOut(id: String): ClientResult<Unit> {
         if (!acceptable(id)) return invalid()
-        if (!stores.purgeBeforeClose(id)) {
-            stores.admit(id)
-            return storageFailed()
+        return serial(id) {
+            if (!stores.purgeBeforeClose(id)) {
+                readmitIfOpen(id)
+                return@serial storageFailed()
+            }
+            closed(id, accounts.accountSign_out(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {}))
         }
-        return closed(id, accounts.accountSign_out(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {}))
     }
     override suspend fun removeLocal(id: String): ClientResult<Unit> {
         if (!acceptable(id)) return invalid()
-        if (!stores.purgeBeforeClose(id)) {
-            stores.admit(id)
-            return storageFailed()
+        return serial(id) {
+            if (!stores.purgeBeforeClose(id)) {
+                readmitIfOpen(id)
+                return@serial storageFailed()
+            }
+            // The SDK requires the account id itself as the typed confirmation.
+            val body = SecretBody.fields { publicText("confirmation", id) }
+            closed(id, accounts.accountRemove_local(RepositoryContext(id, UUID.randomUUID().toString()), body))
         }
-        // The SDK requires the account id itself as the typed confirmation.
-        val body = SecretBody.fields { publicText("confirmation", id) }
-        return closed(id, accounts.accountRemove_local(RepositoryContext(id, UUID.randomUUID().toString()), body))
+    }
+
+    /**
+     * A sign-out or removal that did not complete re-admits the account only when the core confirms it is still listed and
+     * unlocked. A failure because the account had already left (a second sign-out, a removal of a signed-out account) or
+     * an unreadable list keeps it closed; the next deliberate sign-in admits it again.
+     */
+    private suspend fun readmitIfOpen(id: String) {
+        val catalog = (list() as? ClientResult.Ready)?.value ?: return
+        if (catalog.accounts.any { it.id == id && it.unlocked }) stores.admit(id)
     }
     private suspend fun closed(id: String, result: CoreResult<SecretReply>): ClientResult<Unit> = when (result) {
         is CoreResult.Failure -> {
-            // The account stays open on this device, so its cards may open again.
-            stores.admit(id)
+            // The account may still be open on this device; only then may its cards open again.
+            readmitIfOpen(id)
             ClientResult.Failed(result.appProblem())
         }
         is CoreResult.Success -> {
@@ -98,12 +124,14 @@ internal class DefaultAccountAccessRepository(
         }
     override suspend fun lock(id: String): ClientResult<Unit> {
         if (!acceptable(id)) return invalid()
-        return when (val locked = accounts.accountLock(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {})) {
-            is CoreResult.Failure -> ClientResult.Failed(locked.appProblem())
-            is CoreResult.Success -> {
-                locked.value.close()
-                publishedRevisions.emit(revisionCount.incrementAndGet())
-                ClientResult.Ready(Unit)
+        return serial(id) {
+            when (val locked = accounts.accountLock(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {})) {
+                is CoreResult.Failure -> ClientResult.Failed(locked.appProblem())
+                is CoreResult.Success -> {
+                    locked.value.close()
+                    publishedRevisions.emit(revisionCount.incrementAndGet())
+                    ClientResult.Ready(Unit)
+                }
             }
         }
     }

@@ -19,6 +19,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.ramflux.data.*
 import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardSessionRepository
+import org.ramflux.data.cards.CardSlotOutcome
 import org.ramflux.data.cards.CardState
 import org.ramflux.data.cards.CardSurfaceRef
 import org.ramflux.data.cards.UnavailableCardSessionRepository
@@ -1440,8 +1441,10 @@ class ChatViewModel @Inject constructor(
             val sent = cards.event(account, action.ref, action.key, action.event, action.seen)
             val reply = (sent as? ClientResult.Ready)?.value
             if (reply == null) {
-                // An input that never reached the runtime must not leave the control showing a value the runtime does not hold.
-                if (action.event is CardEvent.Input) revertCard(action)
+                // An event that never reached the runtime must not leave the control showing a value the runtime does not
+                // hold, and a tap it did not take is asked for again rather than lost silently.
+                revertCard(action)
+                if (action.event !is CardEvent.Input) local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_tap_again)) }
                 return@launch
             }
             when (reply.result) {
@@ -1472,7 +1475,13 @@ class ChatViewModel @Inject constructor(
             val url = action.url
             if (url != null && (cards.state(account, action.ref)?.hostRequest?.get("url") as? JsonPrimitive)?.content != url) return@launch
             val answered = cards.slot(account, action.ref, action.slotId, action.requestId, action.token, action.outcome)
-            val reply = (answered as? ClientResult.Ready)?.value ?: return@launch
+            val reply = (answered as? ClientResult.Ready)?.value
+            // An answer the card did not take (dropped, or never reached the runtime) is asked for again, never lost silently.
+            if (reply == null || reply.result == "stale_dropped") {
+                // Dismissing a sheet needs no second try.
+                if (action.outcome != CardSlotOutcome.CANCEL) local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_tap_again)) }
+                return@launch
+            }
             if (url != null && reply.result == "opened") channel.send(ChatEvent.OpenUrl(url))
         }
     }
