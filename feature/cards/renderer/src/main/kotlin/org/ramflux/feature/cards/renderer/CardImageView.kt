@@ -35,6 +35,7 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.data.cards.CardImageSource
 import org.ramflux.data.cards.CardNode
+import org.ramflux.data.cards.CardTree
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
 import org.ramflux.designsystem.kit.KitButton
@@ -54,12 +55,14 @@ internal sealed interface ImageLoad {
 }
 
 /**
- * The bytes of an Image node (spec 4.15): read through the object API for a core `attachment` of `retrieval: "object"`.
- * Anything else, or any failure, draws [Unavailable]. Nothing is ever read from a URL, path or data URI of the tree.
+ * The bytes of an Image node (spec 4.15): read through the object API for the `attachment` core filled on the tree's host
+ * slot of kind `image` for this node's key, when it says `retrieval: "object"`. The node's own `attachment` is the author's
+ * bare selector and is never read. No slot, anything else, or any failure draws [Unavailable]. Nothing is ever read from a
+ * URL, path or data URI of the tree.
  */
 @Composable
-internal fun rememberCardImage(ref: String, node: CardNode): State<ImageLoad> {
-    val attachment = node.attrs["attachment"] as? JsonObject
+internal fun rememberCardImage(ref: String, node: CardNode, tree: CardTree): State<ImageLoad> {
+    val attachment = tree.hostSlotFor(node.key, "image")?.get("attachment") as? JsonObject
     val images = LocalCardImages.current
     return produceState<ImageLoad>(ImageLoad.Loading, ref, node.key, attachment) {
         value = if (attachment == null || attachment.str("retrieval") != "object") {

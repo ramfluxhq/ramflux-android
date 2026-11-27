@@ -125,7 +125,7 @@ internal class DefaultClientSessionRepository(
         }
         if (phase == AppLockPhase.LOCKED) {
             lockEngaged = true
-            dropCards()
+            dropCards(reading.account)
         }
         // The lock closed the account in the SDK, so every screen read behind the cover failed or saw no active account.
         // The release is a new generation: open screens clear and read again, and the navigation stack stays as it was.
@@ -162,9 +162,9 @@ internal class DefaultClientSessionRepository(
      * The app lock engaged: core dropped every card session, so the handles are forgotten here with no bus call. Idempotent,
      * and the cards come back through [resumeCards] only after the lock lifts, as suspended cards that open on the next tap.
      */
-    private suspend fun dropCards() {
+    private suspend fun dropCards(account: String? = null) {
         cardsSuspended = true
-        cards.locked()
+        cards.locked(account)
     }
 
     /** Resumes suspended cards only when the client is open and the app lock is open. */
@@ -185,5 +185,5 @@ internal class DefaultClientSessionRepository(
 private object NoCardLifecycle : CardLifecycleHooks {
     override suspend fun background() = Unit
     override suspend fun foreground() = Unit
-    override suspend fun locked() = Unit
+    override suspend fun locked(account: String?) = Unit
 }

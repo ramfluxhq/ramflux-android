@@ -121,7 +121,7 @@ internal fun CardImage(node: CardNode, ctx: CardContext) {
         "header" -> Modifier.fillMaxWidth().aspectRatio(2f).heightIn(max = 240.dp)
         else -> Modifier.fillMaxWidth().aspectRatio(16f / 9f).heightIn(max = 280.dp)
     }
-    val load by rememberCardImage(ctx.input.ref, node)
+    val load by rememberCardImage(ctx.input.ref, node, ctx.tree)
     val semantic = if (description.isEmpty()) Modifier else Modifier.semantics { contentDescription = description }
     val clip = if (variant == "avatar") CircleShape else shape
     Box(

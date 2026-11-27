@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory
 import java.io.ByteArrayInputStream
 import java.security.MessageDigest
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -60,6 +61,8 @@ internal class CardImageLoader(
     private val objects = DefaultConversationsRepository(transport)
     private val decoding = Mutex()
     private val guard = Any()
+    /** Numbers the reads: core discards an earlier open read with the same operation id, so each read has its own. */
+    private val reads = AtomicLong()
     private val sessions = HashMap<String, Held>()
 
     private class Held {
@@ -101,7 +104,7 @@ internal class CardImageLoader(
         }
         val operation = operationId(account, ref, objectId)
         if (attachment.text("transfer_state") != "available" && !fetched(account, objectId, operation)) return null
-        val bytes = read(account, objectId, operation) ?: return null
+        val bytes = read(account, objectId, "$operation-${reads.incrementAndGet()}") ?: return null
         val image = try {
             decode(bytes, held)
         } finally {
