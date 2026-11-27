@@ -599,14 +599,20 @@ class SettingsViewModel @Inject constructor(
             return
         }
         local.update { it.copy(usernameClaim = form.copy(working = true, problem = null, outcome = null)) }
-        usernameJob = viewModelScope.launch {
-            val result = security.claimUsername(account, form.name, phrase)
-            val committed = (result as? ClientResult.Ready)?.value as? UsernameClaimResult.Committed
-            local.update { current ->
-                current.copy(
-                    usernameClaim = usernameOutcome(current.usernameClaim, result),
-                    username = committed?.name?.let { uiText(R.string.settings_username_value, UiText.Untrusted(it)) } ?: current.username
-                )
+        // ATOMIC: the body always runs, so the phrase is erased by the finally even when the scope is cancelled before start.
+        usernameJob = viewModelScope.launch(start = CoroutineStart.ATOMIC) {
+            try {
+                val result = security.claimUsername(account, form.name, phrase)
+                val committed = (result as? ClientResult.Ready)?.value as? UsernameClaimResult.Committed
+                local.update { current ->
+                    current.copy(
+                        usernameClaim = usernameOutcome(current.usernameClaim, result),
+                        username = committed?.name?.let { uiText(R.string.settings_username_value, UiText.Untrusted(it)) }
+                            ?: current.username
+                    )
+                }
+            } finally {
+                phrase.fill('\u0000')
             }
         }
     }

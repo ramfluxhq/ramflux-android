@@ -80,7 +80,7 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
                                 )
                                 Text(stringResource(R.string.contacts_add_explanation), color = theme.secondary)
                                 // An @name is looked up first; its card then sends the request (the approval sheet still confirms it).
-                                state.username?.let { UsernameLookupCard(it, enabled = !state.loading, onAction = onAction) }
+                                state.visibleUsername()?.let { UsernameLookupCard(it, enabled = !state.loading, onAction = onAction) }
                                 KitButton(
                                     stringResource(
                                         if (state.usernameNeedsLookup()) R.string.contacts_find_username else R.string.contacts_send_request

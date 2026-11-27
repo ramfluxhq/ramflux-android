@@ -49,7 +49,8 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
 
 /** The answer for an `@name` on the add page: what the directory published, or why it published nothing. */
 @Immutable sealed interface UsernameLookup {
-    data class Found(val name: String, val displayName: String?, val bio: String?) : UsernameLookup
+    /** [query] is the trimmed text that was looked up (for example `@bob`); it is what the found name answers for. */
+    data class Found(val query: String, val name: String, val displayName: String?, val bio: String?) : UsernameLookup
     data class Failed(val message: UiText) : UsernameLookup
 }
 
@@ -58,7 +59,13 @@ internal fun ContactsState.usernameNeedsLookup(): Boolean {
     val typed = address.trim()
     if (!typed.startsWith(USERNAME_PREFIX)) return false
     val found = username as? UsernameLookup.Found
-    return found == null || USERNAME_PREFIX.toString() + found.name != typed
+    return found == null || found.query != typed
+}
+
+/** The lookup answer to show now: a found name only while the field still holds the text that was looked up. */
+internal fun ContactsState.visibleUsername(): UsernameLookup? = when (val lookup = username) {
+    is UsernameLookup.Found -> lookup.takeIf { it.query == address.trim() }
+    is UsernameLookup.Failed, null -> lookup
 }
 
 internal const val USERNAME_PREFIX = '@'

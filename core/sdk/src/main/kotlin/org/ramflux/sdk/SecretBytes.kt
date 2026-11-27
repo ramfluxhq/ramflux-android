@@ -28,7 +28,8 @@ class SecretBytes private constructor(private var bytes: ByteArray?) : Closeable
                 val result = Charsets.UTF_8.newEncoder()
                     .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
                     .encode(CharBuffer.wrap(value), encoded, true)
-                result.throwExceptionIfError()
+                // A lone surrogate is malformed input: refuse it as an argument error, never as an IOException.
+                require(!result.isError) { "phrase is not well-formed UTF-16" }
                 require(!result.isOverflow)
                 encoded.flip()
                 return take(ByteArray(encoded.remaining()).also { encoded.get(it) })

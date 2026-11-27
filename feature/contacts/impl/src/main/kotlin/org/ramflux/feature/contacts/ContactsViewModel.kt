@@ -110,7 +110,12 @@ class ContactsViewModel @Inject constructor(
                     read()
                 }
             }
-            is ContactsAction.Address -> local.update { it.copy(address = action.text.take(4096), unavailable = null, username = null) }
+            is ContactsAction.Address -> {
+                // A lookup still in flight answers for the old text: retire it so its reply can never reach the new field.
+                request?.cancel()
+                ticket++
+                local.update { it.copy(address = action.text.take(4096), loading = false, unavailable = null, username = null) }
+            }
             is ContactsAction.Select -> local.value.rows.find { it.id == action.id }?.let { row ->
                 request?.cancel()
                 ticket++
@@ -456,7 +461,8 @@ class ContactsViewModel @Inject constructor(
     }
 
     private fun lookupUsername() {
-        val name = local.value.address.trim().removePrefix(USERNAME_PREFIX.toString())
+        val query = local.value.address.trim()
+        val name = query.removePrefix(USERNAME_PREFIX.toString())
         if (name.isEmpty()) return
         val expected = ++ticket
         val generation = session.status.value.generation
@@ -470,7 +476,7 @@ class ContactsViewModel @Inject constructor(
                 local.update {
                     it.copy(
                         username = when (result) {
-                            is ClientResult.Ready -> UsernameLookup.Found(name, result.value.displayName, result.value.bio)
+                            is ClientResult.Ready -> UsernameLookup.Found(query, name, result.value.displayName, result.value.bio)
                             is ClientResult.Failed -> UsernameLookup.Failed(usernameLookupMessage(result.problem))
                             is ClientResult.Unavailable -> UsernameLookup.Failed(result.reason.message())
                         }
