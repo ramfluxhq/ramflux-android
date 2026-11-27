@@ -8,11 +8,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,7 +61,7 @@ import org.ramflux.feature.onboarding.impl.R
 data class AppLockCoverState(
     val phase: AppLockPhase = AppLockPhase.OPEN,
     val busy: Boolean = false,
-    val notice: UiText? = null,
+    val notice: UiText? = null
 )
 
 /**
@@ -72,7 +72,7 @@ data class AppLockCoverState(
 @HiltViewModel
 class AppLockViewModel @Inject constructor(
     private val accounts: AccountAccessRepository,
-    private val session: ClientSessionRepository,
+    private val session: ClientSessionRepository
 ) : ViewModel() {
     private val local = MutableStateFlow(AppLockCoverState())
 
@@ -127,7 +127,11 @@ class AppLockViewModel @Inject constructor(
                         session.recheckAppLock()
                     }
                     is ClientResult.Failed -> local.update { it.copy(notice = failureNotice(result.problem)) }
-                    is ClientResult.Unavailable -> local.update { it.copy(notice = uiText(R.string.ui_this_action_is_not_available_in_this_version)) }
+                    is ClientResult.Unavailable -> local.update {
+                        it.copy(
+                            notice = uiText(R.string.ui_this_action_is_not_available_in_this_version)
+                        )
+                    }
                 }
             } finally {
                 digits.fill('\u0000')
@@ -184,27 +188,37 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
                 stringResource(R.string.app_lock_retry),
                 { vm.retry() },
                 Modifier.fillMaxWidth(),
-                tag = "app-lock-retry",
+                tag = "app-lock-retry"
             )
         }
         AppLockPhase.LOCKED -> CoverSurface {
             Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
-                Text(stringResource(R.string.app_lock_app_name), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag("app-lock-name"))
+                Text(
+                    stringResource(R.string.app_lock_app_name),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.testTag("app-lock-name")
+                )
                 Text(stringResource(R.string.app_lock_body), style = MaterialTheme.typography.bodyLarge)
                 AccountCodeField(
                     code,
                     stringResource(R.string.ui_account_code),
                     "app-lock-code",
                     enabled = !ui.busy,
-                    helper = stringResource(R.string.ui_account_code_explanation),
+                    helper = stringResource(R.string.ui_account_code_explanation)
                 )
-                ui.notice?.let { Text(it.render(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("app-lock-notice")) }
+                ui.notice?.let {
+                    Text(
+                        it.render(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.testTag("app-lock-notice")
+                    )
+                }
                 KitButton(
                     stringResource(R.string.ui_unlock),
                     { vm.unlock(code) },
                     Modifier.fillMaxWidth(),
                     enabled = !ui.busy,
-                    tag = "app-lock-unlock",
+                    tag = "app-lock-unlock"
                 )
             }
         }
@@ -221,7 +235,7 @@ private fun CoverSurface(content: @Composable () -> Unit) {
             .background(theme.bg)
             .consumeAllPointers()
             .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(theme.gap.dp),
+            .padding(theme.gap.dp)
     ) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) { content() }
     }

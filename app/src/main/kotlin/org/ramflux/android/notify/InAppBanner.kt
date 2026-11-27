@@ -100,7 +100,7 @@ object BannerText {
 class InAppBanners @Inject constructor(
     private val history: MessageHistoryRepository,
     private val routes: NotificationRoutes,
-    private val session: ClientSessionRepository,
+    private val session: ClientSessionRepository
 ) {
     private val shown = MutableStateFlow<InAppBanner?>(null)
     private val serial = AtomicLong()

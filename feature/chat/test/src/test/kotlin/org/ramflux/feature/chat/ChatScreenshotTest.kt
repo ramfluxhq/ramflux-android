@@ -169,7 +169,17 @@ class ChatScreenshotTest(
                         "card:plan",
                         at(10, 21),
                         "plan",
-                        CardState("plan", CardLifecycle.READY, "Publish the release notes?", renderAllowed = false, tree = null, resumed = false, hostRequest = null, awaitingDecision = false, draftConflict = false),
+                        CardState(
+                            "plan",
+                            CardLifecycle.READY,
+                            "Publish the release notes?",
+                            renderAllowed = false,
+                            tree = null,
+                            resumed = false,
+                            hostRequest = null,
+                            awaitingDecision = false,
+                            draftConflict = false
+                        )
                     )
                 )
             )
