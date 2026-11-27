@@ -33,6 +33,7 @@ class ContactsViewModel @Inject constructor(
         if (status.phase == ClientPhase.OPEN) screen else ContactsState(problem = uiText(R.string.contacts_closed))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), ContactsState())
     private var request: Job? = null
+    private var lookupJob: Job? = null
     private var queryJob: Job? = null
     private var watch: Job? = null
     private var watchedAccount: String? = null
@@ -112,9 +113,20 @@ class ContactsViewModel @Inject constructor(
             }
             is ContactsAction.Address -> {
                 // A lookup still in flight answers for the old text: retire it so its reply can never reach the new field.
-                request?.cancel()
-                ticket++
-                local.update { it.copy(address = action.text.take(4096), loading = false, unavailable = null, username = null) }
+                // Only a lookup is retired here; a submit or approved operation is never cancelled by typing.
+                val lookup = lookupJob?.takeIf { it === request && it.isActive }
+                if (lookup != null) {
+                    lookup.cancel()
+                    ticket++
+                }
+                local.update {
+                    it.copy(
+                        address = action.text.take(4096),
+                        loading = if (lookup != null) false else it.loading,
+                        unavailable = null,
+                        username = null
+                    )
+                }
             }
             is ContactsAction.Select -> local.value.rows.find { it.id == action.id }?.let { row ->
                 request?.cancel()
@@ -467,7 +479,7 @@ class ContactsViewModel @Inject constructor(
         val expected = ++ticket
         val generation = session.status.value.generation
         local.update { it.copy(loading = true, username = null, problem = null, unavailable = null) }
-        request = viewModelScope.launch {
+        lookupJob = viewModelScope.launch {
             try {
                 val active = account(expected, generation, activeAccount) ?: return@launch
                 val result = directory.resolveUsername(active.id, name)
@@ -486,6 +498,7 @@ class ContactsViewModel @Inject constructor(
                 if (expected == ticket) local.update { it.copy(loading = false) }
             }
         }
+        request = lookupJob
     }
 
     private fun usernameLookupMessage(problem: ClientProblem): UiText = when (problem.check) {
@@ -502,7 +515,7 @@ class ContactsViewModel @Inject constructor(
         val prepared = commands
         val expected = ++ticket
         val generation = session.status.value.generation
-        local.update { it.copy(loading = true, approval = null, operationNotice = null, problem = null) }
+        local.update { it.copy(loading = true, submitting = true, approval = null, operationNotice = null, problem = null) }
         request = viewModelScope.launch {
             var done = false
             try {
@@ -546,6 +559,7 @@ class ContactsViewModel @Inject constructor(
                 done = true
             } finally {
                 commands = emptyList()
+                local.update { it.copy(submitting = false) }
                 if (expected == ticket) local.update { it.copy(loading = false) }
             }
             if (!done) return@launch

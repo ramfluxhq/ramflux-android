@@ -76,6 +76,7 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
                                     onValueChange = { onAction(ContactsAction.Address(it)) },
                                     label = { Text(stringResource(R.string.contacts_address)) },
                                     modifier = Modifier.fillMaxWidth(),
+                                    enabled = !state.submitting,
                                     maxLines = 3
                                 )
                                 Text(stringResource(R.string.contacts_add_explanation), color = theme.secondary)

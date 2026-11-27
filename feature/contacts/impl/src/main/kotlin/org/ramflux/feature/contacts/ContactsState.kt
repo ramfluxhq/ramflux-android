@@ -83,6 +83,7 @@ internal const val USERNAME_PREFIX = '@'
     val query: String = "",
     val address: String = "",
     val loading: Boolean = false,
+    val submitting: Boolean = false,
     val loaded: Boolean = false,
     val accountRequired: Boolean = false,
     val problem: UiText? = null,
