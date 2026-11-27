@@ -240,8 +240,23 @@
     <string name="app_lock_app_name">Ramflux</string>
     <string name="app_lock_body">Enter your account code to continue.</string>
     <string name="app_lock_retry">Try again</string>
-    <string name="app_lock_restore">Restore with recovery phrase</string>
+    <string name="app_lock_restore">Recover with recovery phrase</string>
     <string name="app_lock_wait">Too many wrong account codes. Try again in %1$s.</string>
     <string name="app_lock_unlock_failed">The account could not be unlocked. Try again.</string>
     <string name="app_lock_change_busy">Another app lock change is in progress.</string>
+    <string name="app_lock_exhausted_title">Too many wrong account codes</string>
+    <string name="app_lock_exhausted_body">This account is locked on this device. Recover it with its recovery phrase and account code, or remove it from this device.</string>
+    <string name="app_lock_remove">Remove from this device</string>
+    <string name="app_lock_recover_title">Recover this account</string>
+    <string name="app_lock_phrase_wrong">The recovery phrase does not match this account.</string>
+    <string name="app_lock_code_wrong">That account code is not right.</string>
+    <string name="app_lock_phrase_accepted">Recovery phrase accepted. You can enter your account code in %1$s.</string>
+    <string name="app_lock_recovery_expired">The recovery took too long. Start again.</string>
+    <string name="app_lock_remove_failed">The account could not be removed. Try again.</string>
+    <string name="ui_remove_dialog_title">Remove this account from this device?</string>
+    <string name="ui_remove_dialog_body">Local history that is not in a backup is lost. This cannot be undone. You can restore the account later from a backup and its recovery phrase.</string>
+    <string name="ui_remove_dialog_understand">I understand</string>
+    <string name="ui_remove_dialog_confirm">Remove</string>
+    <string name="ui_remove_dialog_cancel">Cancel</string>
+    <string name="ui_account_removed">Account removed from this device.</string>
 </resources>

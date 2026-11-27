@@ -56,7 +56,13 @@ enum class AccountCodeRefusal {
     REAUTH_REQUIRED,
 
     /** Another attended app-lock change is already running in this client; nothing was sent to the core. */
-    APP_LOCK_CHANGE_BUSY
+    APP_LOCK_CHANGE_BUSY,
+
+    /** `CustodyConfirmationFailed` on a recovery: the phrase is not this account's; no counter changed. */
+    RECOVERY_PHRASE_MISMATCH,
+
+    /** `CustodyExpired` on a recovery: the ceremony ran out; start again. */
+    RECOVERY_EXPIRED
 }
 
 /**
@@ -71,6 +77,9 @@ fun ClientProblem.accountCodeRefusal(): AccountCodeRefusal? = when (statusName) 
     "DeviceUnlockUnavailable" -> AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE
     "AccountCodeRequired" -> AccountCodeRefusal.CODE_REQUIRED
     "app_lock_change_busy" -> AccountCodeRefusal.APP_LOCK_CHANGE_BUSY
+    // A recovery phrase mismatch has no reason code; a creation word mismatch carries `word_N` and stays untyped here.
+    "CustodyConfirmationFailed" -> if (check == null) AccountCodeRefusal.RECOVERY_PHRASE_MISMATCH else null
+    "CustodyExpired" -> AccountCodeRefusal.RECOVERY_EXPIRED
     else -> when (check) {
         "wrong_passphrase" -> AccountCodeRefusal.WRONG_CODE
         "reauth_required" -> AccountCodeRefusal.REAUTH_REQUIRED

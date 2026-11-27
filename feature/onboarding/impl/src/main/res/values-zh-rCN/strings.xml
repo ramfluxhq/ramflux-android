@@ -243,4 +243,19 @@
     <string name="app_lock_wait">错误的账户码次数过多。请在 %1$s 后再试。</string>
     <string name="app_lock_unlock_failed">无法解锁此账户。请重试。</string>
     <string name="app_lock_change_busy">另一项应用锁更改正在进行中。</string>
+    <string name="app_lock_exhausted_title">错误的账户码次数过多</string>
+    <string name="app_lock_exhausted_body">此账户已在本设备上锁定。请用恢复短语和账户码恢复，或将其从本设备移除。</string>
+    <string name="app_lock_remove">从本设备移除</string>
+    <string name="app_lock_recover_title">恢复此账户</string>
+    <string name="app_lock_phrase_wrong">恢复短语与此账户不匹配。</string>
+    <string name="app_lock_code_wrong">账户码不正确。</string>
+    <string name="app_lock_phrase_accepted">恢复短语已确认。请在 %1$s 后输入账户码。</string>
+    <string name="app_lock_recovery_expired">恢复超时，请重新开始。</string>
+    <string name="app_lock_remove_failed">无法移除此账户。请重试。</string>
+    <string name="ui_remove_dialog_title">要从本设备移除此账户吗？</string>
+    <string name="ui_remove_dialog_body">未备份的本地记录将丢失，且无法撤销。之后可以用备份和恢复短语恢复此账户。</string>
+    <string name="ui_remove_dialog_understand">我已了解</string>
+    <string name="ui_remove_dialog_confirm">移除</string>
+    <string name="ui_remove_dialog_cancel">取消</string>
+    <string name="ui_account_removed">已从本设备移除此账户。</string>
 </resources>

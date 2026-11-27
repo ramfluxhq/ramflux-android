@@ -51,6 +51,7 @@ import org.ramflux.feature.appshell.ShellPage
 import org.ramflux.feature.chat.api.ChatRoute
 import org.ramflux.feature.onboarding.AppLockCover
 import org.ramflux.feature.onboarding.BackupNavigation
+import org.ramflux.feature.onboarding.LocalRemoveDialogSecure
 import org.ramflux.feature.onboarding.OnboardingNavigation
 import org.ramflux.feature.onboarding.api.BackupRoute
 import org.ramflux.feature.onboarding.api.OnboardingRoute
@@ -107,7 +108,8 @@ class MainActivity : ComponentActivity() {
                     // The realrun build shows the account-code sheet unsecured so UI automation can read it; never shipped.
                     CompositionLocalProvider(
                         LocalAppLockCovered provides covered,
-                        LocalAppLockReauthSecure provides !BuildConfig.REALRUN
+                        LocalAppLockReauthSecure provides !BuildConfig.REALRUN,
+                        LocalRemoveDialogSecure provides !BuildConfig.REALRUN
                     ) {
                         Box(Modifier.fillMaxSize()) {
                             // The shell under the cover is hidden from accessibility services and UI automation.

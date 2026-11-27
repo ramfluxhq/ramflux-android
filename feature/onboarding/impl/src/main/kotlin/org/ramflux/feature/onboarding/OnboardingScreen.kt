@@ -7,7 +7,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -268,9 +271,23 @@ fun OnboardingScreen(
                                         )
                                     }
                                     state.forgetAccountId?.let { id ->
+                                        // One tap never removes an account: the button opens the confirmation.
+                                        var confirming by remember(id) { mutableStateOf(false) }
+                                        if (confirming) {
+                                            RemoveAccountDialog(
+                                                accountName = state.accounts.firstOrNull { it.id == id }?.label,
+                                                busy = state.busy,
+                                                failed = false,
+                                                onConfirm = {
+                                                    confirming = false
+                                                    onAction(OnboardingAction.ForgetAccount(id))
+                                                },
+                                                onDismiss = { confirming = false }
+                                            )
+                                        }
                                         KitButton(
                                             stringResource(R.string.ui_forget_account_on_device),
-                                            { onAction(OnboardingAction.ForgetAccount(id)) },
+                                            { confirming = true },
                                             kind = KitButtonKind.Secondary,
                                             enabled = !state.busy,
                                             tag = "forget-account"

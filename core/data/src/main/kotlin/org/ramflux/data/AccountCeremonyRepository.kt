@@ -73,6 +73,7 @@ class DefaultAccountCeremonyRepository(
     private val gate = Any()
     private var ceremony: String? = null
     private var recovery: String? = null
+    private var recoveryAccount: String? = null
 
     override suspend fun beginCreate(displayName: String, nodeId: String?): ClientResult<CeremonyPending> {
         val name = displayName.trim()
@@ -176,15 +177,22 @@ class DefaultAccountCeremonyRepository(
 
     override suspend fun beginRecover(accountId: String): ClientResult<RecoveryPending> {
         if (accountId.isBlank() || accountId.length > 128) return failed()
-        synchronized(gate) { if (recovery != null) recovery = null }
-        val reply = accounts.accountRecoverBegin(context(), SecretBody.fields { publicText("account_id", accountId) })
+        synchronized(gate) {
+            recovery = null
+            recoveryAccount = null
+        }
+        // The envelope names the same account as the body: an app-locked account admits recovery only that way.
+        val reply = accounts.accountRecoverBegin(RepositoryContext(accountId), SecretBody.fields { publicText("account_id", accountId) })
         return when (reply) {
             is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
             is CoreResult.Success -> try {
                 val (id, anchor) = reply.value.twoTexts("ceremony_id", "account_anchor")
                 if (id.isEmpty() || id.length > 128 || anchor.isEmpty() || anchor.length > 256) failed()
                 else {
-                    synchronized(gate) { recovery = id }
+                    synchronized(gate) {
+                        recovery = id
+                        recoveryAccount = accountId
+                    }
                     ClientResult.Ready(RecoveryPending(accountId, anchor))
                 }
             } catch (_: IllegalArgumentException) {
@@ -197,13 +205,16 @@ class DefaultAccountCeremonyRepository(
 
     override suspend fun confirmRecover(phrase: CharArray, code: CharArray, anchor: String): ClientResult<String> {
         try {
-            synchronized(gate) { if (recovery == null) return failed() }
+            val account = synchronized(gate) { if (recovery == null) null else recoveryAccount } ?: return failed()
             if (!AccountCode.complete(code)) {
                 return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE, statusName = "not_six_digits"))
             }
             // Every confirmation consumes the ceremony, whatever its outcome.
-            synchronized(gate) { recovery = null }
-            val reply = accounts.accountRecoverConfirm(context(), SecretBody.fields {
+            synchronized(gate) {
+                recovery = null
+                recoveryAccount = null
+            }
+            val reply = accounts.accountRecoverConfirm(RepositoryContext(account), SecretBody.fields {
                 chars("phrase", phrase)
                 chars("passphrase", code)
                 publicText("confirmed_anchor", anchor)
@@ -226,9 +237,12 @@ class DefaultAccountCeremonyRepository(
     }
 
     override suspend fun cancelRecover(): ClientResult<Unit> {
-        synchronized(gate) { recovery ?: return ClientResult.Ready(Unit) }
-        val reply = accounts.accountRecoverCancel(context(), JsonObject(emptyMap()))
-        synchronized(gate) { recovery = null }
+        val account = synchronized(gate) { if (recovery == null) null else recoveryAccount } ?: return ClientResult.Ready(Unit)
+        val reply = accounts.accountRecoverCancel(RepositoryContext(account), JsonObject(emptyMap()))
+        synchronized(gate) {
+            recovery = null
+            recoveryAccount = null
+        }
         return when (reply) {
             is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
             is CoreResult.Success -> ClientResult.Ready(Unit)
@@ -246,7 +260,8 @@ class DefaultAccountCeremonyRepository(
         failed()
     }
 
-    // custody_setup rejects a frame operation_id. The in-memory ceremony id is the guard.
+    // custody_setup rejects a frame operation_id and names no account. The in-memory ceremony id is the guard. Recovery
+    // frames carry the account (and no operation id) in [RepositoryContext] instead.
     private fun context() = RepositoryContext(null)
     private fun <T> failed(): ClientResult<T> = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
     private fun <T> busy(): ClientResult<T> = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 5, ClientOutcome.NONE))

@@ -36,7 +36,10 @@ class AccountCodeTest {
         assertEquals(AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE, problem("DeviceUnlockUnavailable").accountCodeRefusal())
         assertEquals("a wrong code is named only by wrong_passphrase", AccountCodeRefusal.WRONG_CODE, problem("AuthFailed", "wrong_passphrase").accountCodeRefusal())
         assertNull(problem("ValidationFailed").accountCodeRefusal())
-        assertNull(problem("CustodyConfirmationFailed").accountCodeRefusal())
+        // A recovery phrase mismatch has no reason code; a creation word mismatch (`word_N`) is not a recovery refusal.
+        assertEquals(AccountCodeRefusal.RECOVERY_PHRASE_MISMATCH, problem("CustodyConfirmationFailed").accountCodeRefusal())
+        assertNull(problem("CustodyConfirmationFailed", "word_8").accountCodeRefusal())
+        assertEquals(AccountCodeRefusal.RECOVERY_EXPIRED, problem("CustodyExpired", "deadline").accountCodeRefusal())
     }
 
     @Test fun theSdkWaitIsCarriedIntoTheProblem() {

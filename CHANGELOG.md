@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- App-locked account recovery and removal (RECOVER-LOCKED-01): when the code attempts are exhausted the lock cover shows "Too many wrong account codes" with two actions, "Recover with recovery phrase" and a destructive "Remove from this device", and no code field. Recovery frames carry the locked account in the request envelope (no operation id), so core admits them behind the lock. A wrong phrase or an expired recovery returns to the first step with its own line; a correct phrase with the wait still running closes the recovery and shows the countdown with the field disabled ("Recovery phrase accepted..."); a wrong code returns to the exhausted page; the cover lowers only when core's state says unlocked. The removal dialog names the account, states the consequence and needs "I understand" before "Remove"; it is a secure window and closes when the app stops. Onboarding "Remove this account from this phone" now asks the same confirmation instead of removing on one tap. Typed recovery refusals `CustodyConfirmationFailed` and `CustodyExpired` are mapped; the phrase and the code stay in the existing erasable buffers.
+
 - Core pinned to `01174ece` (core next): recovery and removal of an app-locked account (RECOVER-LOCKED-01), card runtime batch A (typed codes, session drops, approvals, image slots); C ABI header, method policy and descriptor unchanged.
 
 - Contacts list refresh (G24b): a contact accepted while another contacts page was open shows when the list is reopened, because returning to the list reloads it; after a verify the contact's status line in the list and the detail follows the verified state read last, so the detail no longer shows "not verified" beside a verified number.

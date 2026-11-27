@@ -478,7 +478,14 @@ class OnboardingViewModel @Inject constructor(
                     checkCurrent()
                     channel.send(OnboardingEvent.AccountSelected(result.value))
                 }
-                else -> failure(result)
+                else -> {
+                    val refusal = (result as? ClientResult.Failed)?.problem?.accountCodeRefusal()
+                    failure(result)
+                    if (refusal != null && refusal.recoveryOnly()) {
+                        local.update { it.copy(notice = OnboardingNotice(codeText(refusal, null))) }
+                    }
+                    channel.send(OnboardingEvent.RecoveryRefused(refusal))
+                }
             }
         }
     }
@@ -705,6 +712,9 @@ private fun incompleteChallengeText(words: Array<CharArray>, code: CharArray): U
     return refusal?.let { codeText(it, null) } ?: uiText(R.string.ui_enter_the_recovery_words_and_the_account_code)
 }
 
+private fun AccountCodeRefusal.recoveryOnly() =
+    this == AccountCodeRefusal.RECOVERY_PHRASE_MISMATCH || this == AccountCodeRefusal.RECOVERY_EXPIRED
+
 /** The account-code refusals the SDK reports by name, as sentences. */
 internal fun codeText(refusal: AccountCodeRefusal, retryAfterSecs: Long?): UiText = when (refusal) {
     AccountCodeRefusal.NOT_SIX_DIGITS, AccountCodeRefusal.CODE_REQUIRED -> uiText(R.string.ui_code_not_six_digits)
@@ -716,6 +726,8 @@ internal fun codeText(refusal: AccountCodeRefusal, retryAfterSecs: Long?): UiTex
     // The sheet that asks for the code is the settings page only: the unlock path never sees this refusal.
     AccountCodeRefusal.REAUTH_REQUIRED -> uiText(R.string.app_lock_unlock_failed)
     AccountCodeRefusal.APP_LOCK_CHANGE_BUSY -> uiText(R.string.app_lock_change_busy)
+    AccountCodeRefusal.RECOVERY_PHRASE_MISMATCH -> uiText(R.string.app_lock_phrase_wrong)
+    AccountCodeRefusal.RECOVERY_EXPIRED -> uiText(R.string.app_lock_recovery_expired)
 }
 
 private fun ClientResult<*>.notice(unlock: Boolean = false): OnboardingNotice? = when (this) {
@@ -727,7 +739,8 @@ private fun ClientResult<*>.notice(unlock: Boolean = false): OnboardingNotice? =
         },
         OnboardingNoticeKind.UNAVAILABLE
     )
-    is ClientResult.Failed -> problem.accountCodeRefusal()?.let { refusal ->
+    // The recovery refusals are named by the recovery confirmation itself: a creation ceremony reports the same statuses.
+    is ClientResult.Failed -> problem.accountCodeRefusal()?.takeUnless { it.recoveryOnly() }?.let { refusal ->
         OnboardingNotice(codeText(refusal, problem.retryAfterSecs))
     } ?: run {
         val name = problem.statusName

@@ -7,6 +7,9 @@ sealed interface OnboardingEvent {
     data class AccountSelected(val id: String) : OnboardingEvent
     data object Back : OnboardingEvent
 
+    /** A recovery confirmation was refused; [refusal] is the typed reason, or null for any other failure. The ceremony is consumed. */
+    data class RecoveryRefused(val refusal: org.ramflux.data.AccountCodeRefusal?) : OnboardingEvent
+
     /** Restore an account from a backup archive on this new install (no account yet). */
     data object RestoreBackup : OnboardingEvent
 }
