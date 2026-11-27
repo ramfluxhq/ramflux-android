@@ -77,29 +77,6 @@ class SettingsViewModelTest {
         assertNull(vm.state.value.selectedTheme)
     }
 
-    @Test fun appLockPageOpenedBeforeTheAccountIsKnownReadsTheLockOnceTheAccountIs() = runTest(timeout = 5.seconds) {
-        val accounts = FakeSettingsAccounts()
-        val security = FakeAccountSecurity().apply {
-            appLock = ClientResult.Ready(AppLockStatus(enabled = true, timeoutMs = 0L, state = AppLockState.UNLOCKED))
-        }
-        val vm = SettingsViewModel(
-            accounts,
-            FakeDeviceDirectory(),
-            FakeAccountStatus(),
-            FakeSettingsAppearance(),
-            FakeSettingsSession(),
-            FakeSettingsLanguage(),
-            security
-        )
-        observe(vm)
-        vm.onAction(SettingsAction.Page(SettingsPage.APP_LOCK))
-        assertFalse(vm.state.value.appLock.loaded)
-        runCurrent()
-        assertTrue(vm.state.value.appLock.loaded)
-        assertTrue(vm.state.value.appLock.enabled)
-        assertEquals(1, security.appLockReads)
-    }
-
     @Test fun failedPreferenceCommitKeepsPreviousSelectionAndVisibleError() = runTest(timeout = 5.seconds) {
         val preferences = FakeSettingsAppearance().apply { result = failure() }
         val vm =

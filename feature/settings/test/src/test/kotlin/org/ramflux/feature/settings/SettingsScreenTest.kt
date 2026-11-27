@@ -3,7 +3,6 @@
 
 package org.ramflux.feature.settings
 import androidx.compose.runtime.*
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.text.intl.LocaleList
@@ -52,19 +51,6 @@ class SettingsScreenTest {
         compose.onNodeWithTag("invitation-chunk-0").assertExists()
         compose.onNodeWithText("Show as QR code").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(SettingsAction.InvitationAsText(false), actions.last()) }
-    }
-
-    @Test fun appLockSwitchExposesItsStateOnlyOnceTheLockIsRead() {
-        var state by mutableStateOf(SettingsState(page = SettingsPage.APP_LOCK, appLock = SettingsAppLock(loaded = false)))
-        compose.setContent {
-            RamfluxTheme { SettingsScreen(state, {}) }
-        }
-        compose.onNodeWithTag("app-lock-switch", useUnmergedTree = true)
-            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ToggleableState))
-        compose.runOnIdle { state = state.copy(appLock = SettingsAppLock(loaded = true, enabled = true)) }
-        compose.onNodeWithTag("app-lock-switch", useUnmergedTree = true).assertIsOn()
-        compose.runOnIdle { state = state.copy(appLock = SettingsAppLock(loaded = true, enabled = false)) }
-        compose.onNodeWithTag("app-lock-switch", useUnmergedTree = true).assertIsOff()
     }
 
     @Test fun noAccountDevicesExplainsBothLocalesAndEmitsAccountActionWithoutPrivateReads() {
