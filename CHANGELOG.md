@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Contacts safety verify (G24): after a confirmed "Numbers match", the safety read that follows sets the contact's verified state from the state the core returns, so the detail row no longer shows "not verified" beside a verified number, and the "refresh to read the current relationship" notice is cleared by that read. Verification stays automatic and adds no comparison step.
+
 - Lint: ktlint violations fixed in the app shell (`MainActivity`, `InAppBanner`) and the chat, cards, onboarding and settings modules (import order, indentation, trailing commas, line length). Formatting only, no behaviour change.
 
 - Usernames (RFGUI-44): Settings > Account > Username shows the account's `@name` and the directory's state, and claims or changes it. The name is confirmed with the account recovery phrase, which is typed into a masked field, handed to the SDK as erasable bytes and never kept in state, JSON, logs or storage; `ramflux_v2_username_authorize` runs through JNI on the prepare operation, which is released after authorize returns. Contacts > Add looks up a typed `@name` first and shows what the directory found (a display name and bio when published) before the contact request goes to the approval sheet; a name that is not found, an invalid name, a rate limit or an unreachable directory each show a typed message, and messaging is unaffected.
