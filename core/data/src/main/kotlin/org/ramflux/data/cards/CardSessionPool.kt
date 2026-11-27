@@ -152,7 +152,7 @@ internal class CardSessionPool(
     override val revision: StateFlow<Long> = counter.asStateFlow()
 
     private class Account(val lock: Mutex) {
-        /** Access order: iteration starts with the least recently used card. */
+        /** Access order: iteration starts with the least recently used card. Only [touchSlot] reorders it. */
         val slots = LinkedHashMap<String, Slot>(16, 0.75f, true)
         var watch: Job? = null
     }
@@ -194,13 +194,14 @@ internal class CardSessionPool(
         return ClientResult.Ready(CardSurfacePage(rows, root.text("next_cursor")?.takeIf { it.length <= MAX_CURSOR }))
     }
 
-    override fun state(account: String, ref: String): CardState? = synchronized(guard) { accounts[account]?.slots?.get(ref)?.state }
+    /** A non-touching peek: reading the state of many cards must not change which card is least recently used. */
+    override fun state(account: String, ref: String): CardState? = synchronized(guard) { accounts[account]?.let { peekSlot(it, ref) }?.state }
 
     override suspend fun show(account: String, ref: String, locale: String, dark: Boolean): ClientResult<Unit> {
         if (!usable(account) || !usable(ref)) return invalid()
         val acc = accountOf(account)
         return acc.lock.withLock {
-            val held = slotOf(acc, ref)
+            val held = touchSlot(acc, ref)
             when {
                 held == null -> open(acc, account, ref, locale, dark)
                 held.state.resumed -> ClientResult.Ready(Unit)
@@ -213,7 +214,7 @@ internal class CardSessionPool(
         if (!usable(account) || !usable(ref)) return invalid()
         val acc = accountOf(account)
         return acc.lock.withLock {
-            val slot = slotOf(acc, ref)?.takeIf { it.state.resumed } ?: return@withLock invalid()
+            val slot = touchSlot(acc, ref)?.takeIf { it.state.resumed } ?: return@withLock invalid()
             val tree = slot.state.tree ?: return@withLock invalid()
             val session = slot.session ?: return@withLock invalid()
             when (val call = client.event(account, session, tree.tokenFor(key), event)) {
@@ -232,7 +233,7 @@ internal class CardSessionPool(
         if (!usable(account) || !usable(ref) || slotId.isEmpty() || requestId.isEmpty()) return invalid()
         val acc = accountOf(account)
         return acc.lock.withLock {
-            val slot = slotOf(acc, ref)?.takeIf { it.state.resumed } ?: return@withLock invalid()
+            val slot = touchSlot(acc, ref)?.takeIf { it.state.resumed } ?: return@withLock invalid()
             val session = slot.session ?: return@withLock invalid()
             when (val call = client.slot(account, session, token, slotId, requestId, outcome)) {
                 is CardCall.Failed -> ClientResult.Failed(call.problem)
@@ -248,7 +249,7 @@ internal class CardSessionPool(
         if (!usable(account) || !usable(ref)) return invalid()
         val acc = accountOf(account)
         return acc.lock.withLock {
-            val slot = slotOf(acc, ref)?.takeIf { it.state.resumed } ?: return@withLock invalid()
+            val slot = touchSlot(acc, ref)?.takeIf { it.state.resumed } ?: return@withLock invalid()
             val session = slot.session ?: return@withLock invalid()
             publish(slot, slot.state.copy(lifecycle = CardLifecycle.SUBMITTING))
             when (val call = client.submit(account, session)) {
@@ -287,7 +288,7 @@ internal class CardSessionPool(
     override suspend fun dispose(account: String, ref: String) {
         if (!usable(account) || !usable(ref)) return
         val acc = accountOf(account)
-        acc.lock.withLock { slotOf(acc, ref)?.let { disposeSlot(acc, account, it) } }
+        acc.lock.withLock { peekSlot(acc, ref)?.let { disposeSlot(acc, account, it) } }
     }
 
     /** Background: stop the surface feed, then suspend every resumed card. Foreground resumes the most recent ones again. */
@@ -322,8 +323,11 @@ internal class CardSessionPool(
 
     private fun accountOf(account: String): Account = synchronized(guard) { accounts.getOrPut(account) { Account(Mutex()) } }
 
-    /** Reads the card and makes it most recently used. */
-    private fun slotOf(acc: Account, ref: String): Slot? = synchronized(guard) { acc.slots[ref] }
+    /** Reads the card and makes it most recently used. Used by show, event, slot and submit only. */
+    private fun touchSlot(acc: Account, ref: String): Slot? = synchronized(guard) { acc.slots[ref] }
+
+    /** Finds the card without changing the access order (iteration does not reorder a LinkedHashMap). */
+    private fun peekSlot(acc: Account, ref: String): Slot? = acc.slots.values.firstOrNull { it.ref == ref }
 
     private suspend fun open(acc: Account, account: String, ref: String, locale: String, dark: Boolean): ClientResult<Unit> {
         makeRoom(acc, account, except = ref)
@@ -347,17 +351,13 @@ internal class CardSessionPool(
     }
 
     private suspend fun resume(acc: Account, account: String, slot: Slot): ClientResult<Unit> {
-        val session = slot.session
-        if (session == null) {
-            // The runtime handle is gone: a fresh open replaces the held card.
-            synchronized(guard) { acc.slots.remove(slot.ref) }
-            return open(acc, account, slot.ref, slot.locale, slot.dark)
-        }
+        val session = slot.session ?: return reopen(acc, account, slot)
         var call = client.resume(account, session)
         if (isLimit(call)) {
             suspendLeastRecent(acc, account, except = slot.ref)
             call = client.resume(account, session)
         }
+        if (isInactive(call)) return reopen(acc, account, slot)
         return when (call) {
             is CardCall.Failed -> ClientResult.Failed(call.problem)
             is CardCall.Replied -> {
@@ -366,6 +366,16 @@ internal class CardSessionPool(
                 ClientResult.Ready(Unit)
             }
         }
+    }
+
+    /**
+     * The runtime handle is gone or the account closed: a fresh open replaces the held card. The held tree stays on
+     * screen until the open answers, so a failed reopen keeps the last tree for the next attempt.
+     */
+    private suspend fun reopen(acc: Account, account: String, slot: Slot): ClientResult<Unit> {
+        slot.session?.let { client.dispose(account, it) }
+        slot.session = null
+        return open(acc, account, slot.ref, slot.locale, slot.dark)
     }
 
     /** Full-tree re-read: the held tree no longer matches the runtime, so the card is suspended and resumed. */
@@ -383,7 +393,11 @@ internal class CardSessionPool(
         }
     }
 
-    /** Suspends the card and keeps its last tree on screen. A failed suspend drops the VM claim by disposing the card. */
+    /**
+     * Suspends the card and keeps its last tree (and the draft shown with it) on screen. A failed suspend, such as the
+     * account closed behind the app lock, releases the runtime handle best effort and keeps the tree: the next show or
+     * the lock release re-opens the card. The tree is not dropped, so the host does not lose the user's input.
+     */
     private suspend fun suspendSlot(acc: Account, account: String, slot: Slot): Boolean {
         val session = slot.session ?: return false
         return when (val call = client.suspendSession(account, session)) {
@@ -392,8 +406,9 @@ internal class CardSessionPool(
                 true
             }
             is CardCall.Failed -> {
-                publish(slot, slot.state.copy(resumed = false, lifecycle = CardLifecycle.UNAVAILABLE, hostRequest = null))
+                client.dispose(account, session)
                 slot.session = null
+                publish(slot, slot.state.copy(resumed = false, lifecycle = CardLifecycle.SUSPENDED, hostRequest = null, awaitingDecision = false))
                 true
             }
         }
@@ -498,6 +513,10 @@ internal class CardSessionPool(
 
     private fun isLimit(call: CardCall): Boolean = call is CardCall.Replied && call.reply.result == "refused" && call.reply.reason == "card_session_limit"
 
+    /** The runtime no longer holds the session (closed account or superseded handle); a transport failure is treated the same. */
+    private fun isInactive(call: CardCall): Boolean =
+        call is CardCall.Failed || (call is CardCall.Replied && call.reply.result == "refused" && call.reply.reason == "card_session_inactive")
+
     private fun startWatch(account: String) {
         val acc = accountOf(account)
         synchronized(guard) {
@@ -525,7 +544,7 @@ internal class CardSessionPool(
         val ref = meta.text("surface_ref") ?: return
         val acc = accountOf(account)
         acc.lock.withLock {
-            val slot = slotOf(acc, ref) ?: return@withLock
+            val slot = peekSlot(acc, ref) ?: return@withLock
             when {
                 topic == "surface.rejected" || topic == "surface.resync" || meta.flag("out_of_sync") == true -> {
                     if (slot.state.resumed) suspendSlot(acc, account, slot)
