@@ -20,6 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -580,7 +582,8 @@ private fun AppLockReauthSheet(lock: SettingsAppLock, onAction: (SettingsAction)
         )
     ) {
         Column(
-            Modifier.testTag("app-lock-reauth").padding(theme.gap.dp),
+            // A Dialog is its own window: test tags reach the accessibility tree as ids only when set here too.
+            Modifier.semantics { testTagsAsResourceId = true }.testTag("app-lock-reauth").padding(theme.gap.dp),
             verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
         ) {
             Text(stringResource(R.string.settings_app_lock_reauth_title), style = MaterialTheme.typography.titleMedium)
