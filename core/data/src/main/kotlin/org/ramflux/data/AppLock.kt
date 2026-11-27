@@ -113,7 +113,7 @@ private fun AccountCatalog.restoring(): Boolean = accounts.any { it.state == RES
  * the only "nothing to lock" answer. Every row is read for its own app lock: a closed or restoring row covers only when
  * its lock is on (or the call fails); a disabled lock leaves the device as before G05.
  */
-internal class AppLockReader(transport: RepositoryTransport) {
+internal class AppLockReader(private val transport: RepositoryTransport) {
     private val accounts = DefaultAccountAccessRepository(transport)
     private val security = DefaultAccountSecurityRepository(transport)
 
@@ -131,6 +131,12 @@ internal class AppLockReader(transport: RepositoryTransport) {
         }
         // Rows still restoring after the wait are read below like any other row: covered only when their lock is on.
         if (catalog.accounts.isEmpty()) return AppLockReading(AppLockPhase.OPEN, enabled = false)
+        // Core refuses app-lock reads for another account on an attended connection: with several rows the whole
+        // survey runs with the event subscription detached, so it reopens once instead of between rows.
+        return if (catalog.accounts.size > 1) transport.unattended(null) { survey(catalog) } else survey(catalog)
+    }
+
+    private suspend fun survey(catalog: AccountCatalog): AppLockReading {
         val locked = mutableListOf<String>()
         var enabled = false
         var unlockedRead = false
@@ -213,6 +219,8 @@ internal class AppLockRefusalTransport(
 
     override suspend fun <T> withAttendedCode(account: String, answer: suspend () -> CharArray?, body: suspend () -> T): T =
         inner.withAttendedCode(account, answer, body)
+
+    override suspend fun <T> unattended(account: String?, body: suspend () -> T): T = inner.unattended(account, body)
 
     private fun <T> CoreResult<T>.noteRefusal() {
         if (this is CoreResult.Failure && error.appProblem().isAppLocked()) onRefused()

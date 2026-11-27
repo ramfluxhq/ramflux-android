@@ -110,7 +110,9 @@ internal class DefaultAccountSecurityRepository(
 
     override suspend fun appLockState(account: String): ClientResult<AppLockStatus> {
         if (!valid(account)) return invalid()
-        return appLock(accounts.accountApp_lockState(RepositoryContext(account), JsonObject(emptyMap())))
+        return transport.unattended(account) {
+            appLock(accounts.accountApp_lockState(RepositoryContext(account), JsonObject(emptyMap())))
+        }
     }
 
     override suspend fun configureAppLock(account: String, enabled: Boolean, timeoutMs: Long, answer: suspend () -> CharArray?): ClientResult<Unit> {
@@ -119,7 +121,9 @@ internal class DefaultAccountSecurityRepository(
         // The attended code window is 60 s; the deadline covers it with a margin, and only this call sets it.
         val context = RepositoryContext(account, deadlineUnixMs = System.currentTimeMillis() + ATTENDED_DEADLINE_MS)
         val reply = try {
-            transport.withAttendedCode(account, answer) { accounts.accountApp_lockConfigure(context, body) }
+            transport.unattended(account) {
+                transport.withAttendedCode(account, answer) { accounts.accountApp_lockConfigure(context, body) }
+            }
         } catch (_: AttendedCodeBusyException) {
             // A second attended change while one runs: refused before the core sees it, with its own typed refusal.
             return codeRefused(AccountCodeRefusal.APP_LOCK_CHANGE_BUSY)
@@ -133,7 +137,8 @@ internal class DefaultAccountSecurityRepository(
     override suspend fun appLockLifecycle(account: String, state: String): ClientResult<AppLockState> {
         if (!valid(account) || state !in APP_LOCK_STATES) return invalid()
         val body = buildJsonObject { put("state", state) }
-        return when (val reply = accounts.accountApp_lockLifecycle(RepositoryContext(account), body)) {
+        val reply = transport.unattended(account) { accounts.accountApp_lockLifecycle(RepositoryContext(account), body) }
+        return when (reply) {
             is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
             is CoreResult.Success -> AppLockState.parse((((reply.value["body"] as? JsonObject)?.get("state")) as? JsonPrimitive)?.contentOrNull)
                 ?.let { ClientResult.Ready(it) } ?: invalid()
