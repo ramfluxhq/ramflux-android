@@ -58,18 +58,28 @@ internal class DefaultAccountAccessRepository(
     }
     override suspend fun signOut(id: String): ClientResult<Unit> {
         if (!acceptable(id)) return invalid()
-        if (!stores.purgeBeforeClose(id)) return storageFailed()
-        return closed(accounts.accountSign_out(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {}))
+        if (!stores.purgeBeforeClose(id)) {
+            stores.admit(id)
+            return storageFailed()
+        }
+        return closed(id, accounts.accountSign_out(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {}))
     }
     override suspend fun removeLocal(id: String): ClientResult<Unit> {
         if (!acceptable(id)) return invalid()
-        if (!stores.purgeBeforeClose(id)) return storageFailed()
+        if (!stores.purgeBeforeClose(id)) {
+            stores.admit(id)
+            return storageFailed()
+        }
         // The SDK requires the account id itself as the typed confirmation.
         val body = SecretBody.fields { publicText("confirmation", id) }
-        return closed(accounts.accountRemove_local(RepositoryContext(id, UUID.randomUUID().toString()), body))
+        return closed(id, accounts.accountRemove_local(RepositoryContext(id, UUID.randomUUID().toString()), body))
     }
-    private suspend fun closed(result: CoreResult<SecretReply>): ClientResult<Unit> = when (result) {
-        is CoreResult.Failure -> ClientResult.Failed(result.appProblem())
+    private suspend fun closed(id: String, result: CoreResult<SecretReply>): ClientResult<Unit> = when (result) {
+        is CoreResult.Failure -> {
+            // The account stays open on this device, so its cards may open again.
+            stores.admit(id)
+            ClientResult.Failed(result.appProblem())
+        }
         is CoreResult.Success -> {
             result.value.close()
             publishedRevisions.emit(revisionCount.incrementAndGet())
@@ -81,6 +91,7 @@ internal class DefaultAccountAccessRepository(
             is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
             is CoreResult.Success -> {
                 result.value.close()
+                stores.admit(id)
                 publishedRevisions.emit(revisionCount.incrementAndGet())
                 ClientResult.Ready(Unit)
             }

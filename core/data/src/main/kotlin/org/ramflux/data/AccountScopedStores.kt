@@ -20,6 +20,16 @@ fun interface AccountScopedStore {
  */
 class AccountScopedStores {
     private val stores = CopyOnWriteArrayList<AccountScopedStore>()
+    private val admissions = CopyOnWriteArrayList<(String) -> Unit>()
+
+    /** [listener] runs when an account is admitted again on purpose (unlock or switch), or when its sign-out did not complete. */
+    fun onAdmit(listener: (String) -> Unit) {
+        admissions.addIfAbsent(listener)
+    }
+
+    fun admit(account: String) {
+        for (listener in admissions) listener(account)
+    }
 
     fun register(store: AccountScopedStore) {
         stores.addIfAbsent(store)

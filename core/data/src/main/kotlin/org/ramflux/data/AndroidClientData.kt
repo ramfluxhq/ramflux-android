@@ -19,6 +19,7 @@ class AndroidClientData(context: Context, expectedDescriptor: String, languages:
     private val cardPool = CardSessionPool(driver.transport).also { pool ->
         // A card draft or tree must not outlive its account: sign-out and removal dispose the account's sessions.
         accountStores.register { account -> pool.forget(account) }
+        accountStores.onAdmit(pool::admit)
     }
     /** The card runtime: sessions shared by every chat screen, suspended and resumed with the client. */
     val cardSessions: CardSessionRepository = cardPool

@@ -54,7 +54,10 @@ class CardSessionPoolInputTest {
         var editSeq = 0L
         var text = ""
         var checked = false
+        var pointer = "/tf"
         val inputs = ArrayList<String>()
+        val activations = ArrayList<String>()
+        val log = ArrayList<String>()
         var secretCalls = 0
         var opens = 0
         var openGate: CompletableDeferred<Unit>? = null
@@ -91,8 +94,10 @@ class CardSessionPoolInputTest {
                         put("node", node)
                     })
                     upsert(null, 0, node("root", "Column", null, null, JsonNull))
-                    upsert("root", 0, node("tf", "TextField", "root", "/tf", JsonPrimitive(text)))
+                    upsert("root", 0, node("tf", "TextField", "root", pointer, JsonPrimitive(text)))
                     upsert("root", 1, node("cb", "CheckBox", "root", "/cb", JsonPrimitive(checked)))
+                    upsert("root", 2, node("btn", "Button", "root", null, JsonNull))
+                    upsert("root", 3, node("sw", "Button", "root", null, JsonNull))
                 })
                 put("host_slots", JsonArray(emptyList()))
                 put("locale", "en")
@@ -131,12 +136,22 @@ class CardSessionPoolInputTest {
                 (token["treeVersion"] as? JsonPrimitive)?.longOrNull == version
             if (!fresh) return CoreResult.Success(secret(reply("stale_dropped", null)))
             val value = event["value"] as? JsonPrimitive
-            when ((token["key"] as? JsonPrimitive)?.contentOrNull) {
-                "tf" -> {
-                    text = value?.contentOrNull.orEmpty()
-                    inputs += text
+            val kind = (event["kind"] as? JsonPrimitive)?.contentOrNull
+            val key = (token["key"] as? JsonPrimitive)?.contentOrNull
+            log += "$kind:$key"
+            if (kind == "activate") {
+                when (key) {
+                    "btn" -> activations += text
+                    "sw" -> pointer = if (pointer == "/tf") "/tf2" else "/tf"
                 }
-                "cb" -> checked = value?.booleanOrNull == true
+            } else {
+                when (key) {
+                    "tf" -> {
+                        text = value?.contentOrNull.orEmpty()
+                        inputs += text
+                    }
+                    "cb" -> checked = value?.booleanOrNull == true
+                }
             }
             editSeq++
             return CoreResult.Success(secret(reply("edited", batch(version))))
@@ -173,9 +188,9 @@ class CardSessionPoolInputTest {
         advanceUntilIdle()
         assertEquals("abc", runtime.text)
         assertEquals("abc", pool.tree().text("tf"))
-        // The first value went out; the middle one was replaced by the newest.
-        assertEquals(listOf("a", "abc"), runtime.inputs)
-        assertEquals(listOf("edited", "coalesced", "edited"), results.map { (it as ClientResult.Ready).value.result })
+        // The consecutive keystrokes at the head of the queue were replaced by the newest value.
+        assertEquals(listOf("abc"), runtime.inputs)
+        assertEquals(listOf("coalesced", "coalesced", "edited"), results.map { (it as ClientResult.Ready).value.result })
     }
 
     @Test fun aToggleAfterAnotherControlsEventIsApplied() = runTest {
@@ -211,11 +226,87 @@ class CardSessionPoolInputTest {
         val pool = CardSessionPool(runtime, scope = this)
         pool.show(ACCOUNT, "a")
         val seen = pool.tree().stamp
-        pool.event(ACCOUNT, "a", "tf", CardEvent.Input(JsonPrimitive("x")), seen)
+        // A tab-like step the person did not see: the tap on the old tree is not re-sent.
+        pool.event(ACCOUNT, "a", "sw", CardEvent.Activate, seen)
         val calls = runtime.secretCalls
-        val result = pool.event(ACCOUNT, "a", "cb", CardEvent.Activate, seen)
+        val result = pool.event(ACCOUNT, "a", "btn", CardEvent.Activate, seen)
         assertEquals("stale_dropped", (result as ClientResult.Ready).value.result)
         assertEquals(calls, runtime.secretCalls)
+        assertTrue(runtime.activations.isEmpty())
+    }
+
+    @Test fun anInputActivateInputSequenceIsAppliedInTheOrderTheyWereMade() = runTest {
+        val runtime = Runtime(replyDelay = 10)
+        val pool = CardSessionPool(runtime, scope = this)
+        pool.show(ACCOUNT, "a")
+        val seen = pool.tree().stamp
+        val results = ArrayList<String>()
+        fun send(event: CardEvent, key: String) = launch(start = CoroutineStart.UNDISPATCHED) {
+            results += (pool.event(ACCOUNT, "a", key, event, seen) as ClientResult.Ready).value.result
+        }
+        send(CardEvent.Input(JsonPrimitive("x")), "tf")
+        send(CardEvent.Activate, "btn")
+        send(CardEvent.Input(JsonPrimitive("y")), "tf")
+        advanceUntilIdle()
+        assertEquals(listOf("input:tf", "activate:btn", "input:tf"), runtime.log)
+        // The tap carries the value typed before it, not the one typed after it.
+        assertEquals(listOf("x"), runtime.activations)
+        assertEquals("y", runtime.text)
+        assertEquals(listOf("edited", "edited", "edited"), results)
+    }
+
+    @Test fun anActivateAfterQueuedInputsIsAppliedWithTheLatestValue() = runTest {
+        val runtime = Runtime(replyDelay = 10)
+        val pool = CardSessionPool(runtime, scope = this)
+        pool.show(ACCOUNT, "a")
+        val seen = pool.tree().stamp
+        var tap: ClientResult<CardReply>? = null
+        launch(start = CoroutineStart.UNDISPATCHED) { pool.event(ACCOUNT, "a", "tf", CardEvent.Input(JsonPrimitive("a")), seen) }
+        launch(start = CoroutineStart.UNDISPATCHED) { pool.event(ACCOUNT, "a", "tf", CardEvent.Input(JsonPrimitive("ab")), seen) }
+        launch(start = CoroutineStart.UNDISPATCHED) { tap = pool.event(ACCOUNT, "a", "btn", CardEvent.Activate, seen) }
+        advanceUntilIdle()
+        assertEquals(listOf("ab"), runtime.activations)
+        assertEquals("edited", (tap as ClientResult.Ready).value.result)
+    }
+
+    @Test fun anInputTypedAgainstAnotherPointerIsNotRebasedOntoTheCurrentOne() = runTest {
+        val runtime = Runtime()
+        val pool = CardSessionPool(runtime, scope = this)
+        pool.show(ACCOUNT, "a")
+        val p = pool.tree().stamp
+        // The field switches from pointer P to Q and back to P, each time on the tree the person saw.
+        pool.event(ACCOUNT, "a", "sw", CardEvent.Activate, p)
+        val q = pool.tree().stamp
+        pool.event(ACCOUNT, "a", "sw", CardEvent.Activate, q)
+        assertEquals("/tf", runtime.pointer)
+        val calls = runtime.secretCalls
+        val againstQ = pool.event(ACCOUNT, "a", "tf", CardEvent.Input(JsonPrimitive("typed on q")), q)
+        assertEquals("stale_dropped", (againstQ as ClientResult.Ready).value.result)
+        assertEquals(calls, runtime.secretCalls)
+        assertEquals("", runtime.text)
+        // Typed against the tree where the field was P, it still lands on P.
+        val againstP = pool.event(ACCOUNT, "a", "tf", CardEvent.Input(JsonPrimitive("typed on p")), p)
+        assertEquals("edited", (againstP as ClientResult.Ready).value.result)
+        assertEquals("typed on p", runtime.text)
+    }
+
+    @Test fun showAfterSignOutCreatesNoEntryAndNoOpenCall() = runTest {
+        val runtime = Runtime()
+        val pool = CardSessionPool(runtime, scope = this)
+        pool.show(ACCOUNT, "a")
+        pool.forget(ACCOUNT)
+        val late = pool.show(ACCOUNT, "b")
+        assertTrue(late is ClientResult.Failed)
+        assertEquals(1, runtime.opens)
+        assertEquals(null, pool.state(ACCOUNT, "b"))
+        // An account that never had an entry is refused too once it signed out.
+        pool.forget("other")
+        assertTrue(pool.show("other", "c") is ClientResult.Failed)
+        assertEquals(1, runtime.opens)
+        // An explicit sign-in lets cards open again.
+        pool.admit(ACCOUNT)
+        assertTrue(pool.show(ACCOUNT, "b") is ClientResult.Ready)
+        assertEquals(2, runtime.opens)
     }
 
     @Test fun anInputForAControlThatLeftTheTreeIsDropped() = runTest {

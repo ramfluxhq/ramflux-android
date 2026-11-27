@@ -1449,7 +1449,11 @@ class ChatViewModel @Inject constructor(
                     val submitted = cards.submit(account, action.ref)
                     if (submitted is ClientResult.Failed) local.update { it.copy(deliveryNotice = cardSubmitFailure(submitted.problem)) }
                 }
-                "stale_dropped" -> revertCard(action)
+                "stale_dropped" -> {
+                    revertCard(action)
+                    // A tap or a tab change the card did not take: ask for it again instead of dropping it silently.
+                    if (action.event !is CardEvent.Input) local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_tap_again)) }
+                }
                 else -> Unit
             }
         }
