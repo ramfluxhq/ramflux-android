@@ -190,6 +190,12 @@ internal fun CardModal(node: CardNode, ctx: CardContext) {
             if (ctx.navigable) ctx.event(node.key, CardEvent.ModalClose)
         }
     }
+    // The runtime tree still holds the content while the sheet is closed here (a cover closed it, or its ModalClose did not
+    // arrive): once the card can be used again, close it there too. The sheet re-opens only on a new tap.
+    val treeOpen = content != null && ctx.tree.nodes.containsKey(content)
+    LaunchedEffect(closeNow, treeOpen) {
+        if (!closeNow && treeOpen && !open && ctx.navigable) ctx.event(node.key, CardEvent.ModalClose)
+    }
     Box(
         Modifier
             .fillMaxWidth()

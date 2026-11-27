@@ -10,11 +10,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -42,8 +44,10 @@ class CardWindowsTest {
 
     private class Recorder : CardActions {
         val events = ArrayList<String>()
+        val inputs = ArrayList<JsonElement>()
         override fun event(key: String, event: CardEvent, seen: CardStamp) {
-            events += key
+            events += key + ":" + (event.json()["kind"] as? JsonPrimitive)?.content
+            (event as? CardEvent.Input)?.let { inputs += it.value }
         }
         override fun slot(slotId: String, requestId: String, token: JsonObject, outcome: CardSlotOutcome, url: String?) = Unit
         override fun show() = Unit
@@ -113,17 +117,27 @@ class CardWindowsTest {
         node("content", "Text", "modal", 1, buildJsonObject { put("text", "Sheet body") })
     )
 
+    /** The tree while the runtime holds the modal closed: the content is not mounted. */
+    private fun closedModalTree() = tree(
+        node("root", "Column", null),
+        node("modal", "Modal", "root"),
+        node("trigger", "Text", "modal", 0, buildJsonObject { put("text", "Details") })
+    )
+
     @Test fun theModalSheetCarriesTheAgentHeaderAndClosesUnderTheCover() {
         var covered by mutableStateOf(false)
+        var runtimeOpen by mutableStateOf(false)
         val actions = Recorder()
         compose.setContent {
             RamfluxTheme {
                 CompositionLocalProvider(LocalAppLockCovered provides covered) {
-                    CardRenderer(input(modalTree()), actions, 360.dp, Modifier)
+                    CardRenderer(input(if (runtimeOpen) modalTree() else closedModalTree()), actions, 360.dp, Modifier)
                 }
             }
         }
         compose.onNodeWithText("Details").performClick()
+        // The runtime answers modal_open with the tree that mounts the content.
+        compose.runOnIdle { runtimeOpen = true }
         compose.waitForIdle()
         compose.onNodeWithTag("card-modal-sheet").assertExists()
         compose.onNodeWithTag("card-modal-header").assertExists()
@@ -131,11 +145,16 @@ class CardWindowsTest {
         compose.runOnIdle { covered = true }
         compose.waitForIdle()
         compose.onNodeWithTag("card-modal-sheet").assertDoesNotExist()
-        // The sheet stays closed after the cover goes down: it must not reappear by itself.
+        // The sheet stays closed after the cover goes down: it must not reappear by itself. The ModalClose sent under the
+        // cover did not reach the runtime (the tree still holds the content), so the card closes it again once usable.
         compose.runOnIdle { covered = false }
         compose.waitForIdle()
         compose.onNodeWithTag("card-modal-sheet").assertDoesNotExist()
-        assertEquals(listOf("modal", "modal"), actions.events)
+        assertEquals(listOf("modal:modal_open", "modal:modal_close", "modal:modal_close"), actions.events)
+        // Once the runtime agrees (content unmounted) nothing more is sent.
+        compose.runOnIdle { runtimeOpen = false }
+        compose.waitForIdle()
+        assertEquals(3, actions.events.size)
     }
 
     @Test fun aSuspendedCardClosesItsModalSheet() {
@@ -195,6 +214,35 @@ class CardWindowsTest {
         compose.setContent { RamfluxTheme { CardRenderer(input(tree), actions, 360.dp, Modifier) } }
         compose.onNodeWithText("Level").assertExists()
         assertEquals(emptyList<String>(), actions.events)
+    }
+
+    /** A checkbox the runtime did not take reverts to the tree value when the host reports the input stale. */
+    @Test fun aCheckBoxRevertsWhenItsInputCameBackStale() {
+        val tree = tree(
+            node("root", "Column", null),
+            node("cb", "CheckBox", "root", 0, buildJsonObject { put("label", "Agree"); put("value", false) })
+        )
+        var staleSeq by mutableStateOf(0L)
+        val actions = Recorder()
+        compose.setContent {
+            RamfluxTheme {
+                val base = input(tree)
+                val shown = CardRenderInput(
+                    base.ref, base.tree, base.lifecycle, base.fallback, true, null, false, false,
+                    staleKey = if (staleSeq > 0) "cb" else null, staleSeq = staleSeq
+                )
+                CardRenderer(shown, actions, 360.dp, Modifier)
+            }
+        }
+        compose.onNodeWithContentDescription("Agree").performClick()
+        compose.waitForIdle()
+        // The control now shows checked; a second tap would send false.
+        compose.runOnIdle { staleSeq = 1 }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Agree").performClick()
+        compose.waitForIdle()
+        // Reverted to the tree value (false), the next tap sends true again.
+        assertEquals(listOf<JsonElement>(JsonPrimitive(true), JsonPrimitive(true)), actions.inputs)
     }
 
     @Test fun aSliderWithAMinBeyondFloatRangeDrawsWithoutCrashing() = sliderCase(-1e39, 100.0)

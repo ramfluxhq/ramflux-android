@@ -97,16 +97,19 @@ internal fun CardButton(node: CardNode, ctx: CardContext) {
     }
 }
 
+/** Changes each time an event of the control at [key] came back stale or never reached the runtime; 0 when none did. */
+internal fun staleSeqOf(ctx: CardContext, key: String): Long = if (ctx.input.staleKey == key) ctx.input.staleSeq else 0L
+
 /** TextField (spec 4.10): the shown value is kept while typing; each change is one `input` event. */
 @Composable
 internal fun CardTextField(node: CardNode, ctx: CardContext) {
     val key = node.key
     val treeValue = node.attrs.str("value").orEmpty()
-    val staleHere = ctx.input.staleKey == key
-    val staleSeq = if (staleHere) ctx.input.staleSeq else 0L
+    val staleSeq = staleSeqOf(ctx, key)
+    val staleHere = staleSeq > 0
     var draft by remember(key, staleSeq) { mutableStateOf(treeValue) }
     // An echo of a value this field sent is the own change coming back: the visible text stays as typed.
-    val sent = remember(key) { UnechoedValues() }
+    val sent = remember(key, staleSeq) { UnechoedValues() }
     LaunchedEffect(treeValue) {
         if (sent.onTreeValue(treeValue)) draft = treeValue
     }
@@ -115,7 +118,7 @@ internal fun CardTextField(node: CardNode, ctx: CardContext) {
     val enabled = ctx.live && node.attrs.bool("disabled") != true
     val number = node.attrs.str("variant") == "number"
     val error = when {
-        staleHere && staleSeq > 0 -> stringResource(R.string.card_stale_value)
+        staleHere -> stringResource(R.string.card_stale_value)
         else -> node.attrs.firstError()
     }
     KitTextField(
@@ -132,7 +135,7 @@ internal fun CardTextField(node: CardNode, ctx: CardContext) {
             if (focused && !state.hasFocus) touched = true
             focused = state.hasFocus
         },
-        error = error?.takeIf { touched || (staleHere && staleSeq > 0) },
+        error = error?.takeIf { touched || staleHere },
         enabled = enabled
     )
 }
@@ -173,7 +176,8 @@ private fun fieldValue(value: String, number: Boolean): JsonPrimitive {
 internal fun CardCheckBox(node: CardNode, ctx: CardContext) {
     val key = node.key
     val treeChecked = node.attrs.bool("value") == true
-    var checked by remember(key, treeChecked) { mutableStateOf(treeChecked) }
+    val staleSeq = staleSeqOf(ctx, key)
+    var checked by remember(key, treeChecked, staleSeq) { mutableStateOf(treeChecked) }
     val enabled = ctx.live && node.attrs.bool("disabled") != true
     Column(Modifier.fillMaxWidth()) {
         KitCheckbox(
@@ -199,7 +203,8 @@ internal fun CardChoicePicker(node: CardNode, ctx: CardContext) {
     val options = node.attrs.arr("options")?.mapNotNull { it as? JsonObject }.orEmpty()
     val exclusive = node.attrs.str("variant") == "mutuallyExclusive"
     val treeValues = selectedValues(node.attrs["value"])
-    var selected by remember(key, treeValues) { mutableStateOf(treeValues) }
+    val staleSeq = staleSeqOf(ctx, key)
+    var selected by remember(key, treeValues, staleSeq) { mutableStateOf(treeValues) }
     val enabled = ctx.live && node.attrs.bool("disabled") != true
     fun choose(value: String) {
         if (!enabled) return
@@ -287,7 +292,8 @@ internal fun CardSlider(node: CardNode, ctx: CardContext) {
     val whole = sliderWholeBounds(min, rawMax)
     val range = sliderRange(min, rawMax, node.attrs.num("value") ?: min)
     val treeValue = range?.third ?: 0f
-    var draft by remember(key, treeValue) { mutableFloatStateOf(treeValue) }
+    val staleSeq = staleSeqOf(ctx, key)
+    var draft by remember(key, treeValue, staleSeq) { mutableFloatStateOf(treeValue) }
     // Untrusted bounds may hold no whole number (min 0.2, max 0.8) or overflow a Float: nothing can be sent, the slider is disabled.
     val enabled = ctx.live && node.attrs.bool("disabled") != true && whole != null && range != null
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {

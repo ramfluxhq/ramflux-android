@@ -17,6 +17,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonPrimitive
 import org.ramflux.data.*
+import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardSessionRepository
 import org.ramflux.data.cards.CardState
 import org.ramflux.data.cards.CardSurfaceRef
@@ -1437,19 +1438,27 @@ class ChatViewModel @Inject constructor(
         val account = target?.account ?: return
         viewModelScope.launch {
             val sent = cards.event(account, action.ref, action.key, action.event, action.seen)
-            val reply = (sent as? ClientResult.Ready)?.value ?: return@launch
+            val reply = (sent as? ClientResult.Ready)?.value
+            if (reply == null) {
+                // An input that never reached the runtime must not leave the control showing a value the runtime does not hold.
+                if (action.event is CardEvent.Input) revertCard(action)
+                return@launch
+            }
             when (reply.result) {
                 "pending_submit" -> {
                     val submitted = cards.submit(account, action.ref)
                     if (submitted is ClientResult.Failed) local.update { it.copy(deliveryNotice = cardSubmitFailure(submitted.problem)) }
                 }
-                "stale_dropped" -> {
-                    cardStale[action.ref] = action.key to ((cardStale[action.ref]?.second ?: 0L) + 1)
-                    publish()
-                }
+                "stale_dropped" -> revertCard(action)
                 else -> Unit
             }
         }
+    }
+
+    /** Tells the card the control at the action's key shows a value the runtime does not hold, so it redraws the tree value. */
+    private fun revertCard(action: ChatAction.CardInteract) {
+        cardStale[action.ref] = action.key to ((cardStale[action.ref]?.second ?: 0L) + 1)
+        publish()
     }
 
     /** A link or approval answer. A link opens only after the runtime answers `opened`, and only if it is the link the sheet showed. */
