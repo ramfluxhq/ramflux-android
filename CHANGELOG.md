@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Core pinned to `01174ece` (core next): recovery and removal of an app-locked account (RECOVER-LOCKED-01), card runtime batch A (typed codes, session drops, approvals, image slots); C ABI header, method policy and descriptor unchanged.
+
 - Contacts list refresh (G24b): a contact accepted while another contacts page was open shows when the list is reopened, because returning to the list reloads it; after a verify the contact's status line in the list and the detail follows the verified state read last, so the detail no longer shows "not verified" beside a verified number.
 
 - Contacts safety verify (G24): after a confirmed "Numbers match", the safety read that follows sets the contact's verified state from the state the core returns, so the detail row no longer shows "not verified" beside a verified number, and the "refresh to read the current relationship" notice is cleared by that read. Verification stays automatic and adds no comparison step.
