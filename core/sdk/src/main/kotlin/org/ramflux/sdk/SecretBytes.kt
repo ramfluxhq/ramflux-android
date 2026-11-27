@@ -20,6 +20,23 @@ class SecretBytes private constructor(private var bytes: ByteArray?) : Closeable
     companion object {
         /** Ownership transfers: the caller must not retain or mutate the array afterwards. */
         fun take(bytes: ByteArray): SecretBytes = SecretBytes(bytes)
+
+        /** The UTF-8 bytes of [value]. [value] is erased before return; the encoder buffer is erased too. */
+        fun utf8Of(value: CharArray): SecretBytes {
+            val encoded = java.nio.ByteBuffer.allocate(value.size * 4)
+            try {
+                val result = Charsets.UTF_8.newEncoder()
+                    .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .encode(CharBuffer.wrap(value), encoded, true)
+                result.throwExceptionIfError()
+                require(!result.isOverflow)
+                encoded.flip()
+                return take(ByteArray(encoded.remaining()).also { encoded.get(it) })
+            } finally {
+                encoded.array().fill(0)
+                value.fill('\u0000')
+            }
+        }
     }
 }
 

@@ -35,6 +35,12 @@
     <string name="contacts_sent_explanation">这是已记录的发出请求状态。此处不会自动打开会话。</string>
     <string name="contacts_address">身份 ID、名片或链接</string>
     <string name="contacts_add_explanation">联系人请求需要宿主授权流程。草稿保留在此设备上。</string>
+    <string name="contacts_find_username">查找</string>
+    <string name="contacts_username_found">已找到 @%1$s</string>
+    <string name="contacts_username_not_found">没有人使用这个用户名</string>
+    <string name="contacts_username_invalid">此用户名无效。</string>
+    <string name="contacts_username_retry">%1$s 秒后重试</string>
+    <string name="contacts_username_unreachable">无法连接用户名服务；消息功能不受影响</string>
     <string name="contacts_send_request">发送联系人请求</string>
     <string name="contacts_batch_explanation">选择要不通过的请求。选择本身不会更改联系人关系。</string>
     <string name="contacts_decline_selected">不通过所选请求</string>

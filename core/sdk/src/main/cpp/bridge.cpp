@@ -153,3 +153,24 @@ extern "C" JNIEXPORT jint JNICALL
 Java_org_ramflux_sdk_JniCore_resumeClient(JNIEnv*, jobject, jlong core) {
     return ramflux_v2_client_resume(static_cast<uint64_t>(core));
 }
+
+// Signs a username draft with the account's recovery phrase. The phrase is borrowed for this call only: the native copy
+// is erased by Input, and the Java array is erased by the caller. Output is the signed JSON (code 0) or the error JSON.
+extern "C" JNIEXPORT jobject JNICALL
+Java_org_ramflux_sdk_JniCore_usernameAuthorize(JNIEnv* env, jobject, jlong core, jbyteArray publicRequest, jbyteArray phrase) {
+    Input request(env, publicRequest);
+    Input words(env, phrase);
+    if (!request.valid || !words.valid) return env->ExceptionCheck() ? nullptr : reply(env, 1);
+    RamfluxBuffer* signed_out = nullptr;
+    RamfluxBuffer* error_out = nullptr;
+    const int32_t code = ramflux_v2_username_authorize(
+        static_cast<uint64_t>(core), request.bytes.data(), request.bytes.size(),
+        words.bytes.data(), words.bytes.size(), &signed_out, &error_out);
+    if (code == 0 && signed_out != nullptr) {
+        ramflux_v2_buffer_free(error_out);
+        return reply(env, 0, signed_out);
+    }
+    ramflux_v2_buffer_free(signed_out);
+    // A success without signed output is a contract breach; report it as an invalid reply.
+    return reply(env, code == 0 ? 16 : code, error_out);
+}

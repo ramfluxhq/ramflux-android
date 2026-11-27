@@ -30,6 +30,21 @@ internal class DefaultAccountSecurityRepository(
         }
     }
 
+    override suspend fun claimUsername(account: String, name: String, phrase: CharArray): ClientResult<UsernameClaimResult> {
+        // The phrase is erased on every path: the bytes are taken here and wiped by the SDK call or on refusal.
+        val secret = try { SecretBytes.utf8Of(phrase) } catch (_: IllegalArgumentException) {
+            return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
+        }
+        if (!valid(account) || name.isBlank() || name.length > MAX_USERNAME_INPUT) {
+            secret.close()
+            return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
+        }
+        return when (val result = usernames.claim(account, name, secret)) {
+            is CoreResult.Failure -> ClientResult.Failed(result.appProblem())
+            is CoreResult.Success -> ClientResult.Ready(result.value)
+        }
+    }
+
     override suspend fun beginPairing(account: String, displayName: String, leaseSeconds: Long): ClientResult<PairingInvitation> {
         if (!valid(account) || displayName.isBlank() || displayName.length > 128 || leaseSeconds !in 3600L..MAX_LEASE_SECONDS) return invalid()
         val now = clock()
@@ -204,6 +219,7 @@ internal class DefaultAccountSecurityRepository(
         /** Sorted, as the SDK normalises them (`rights` in `local_dto.rs`). */
         val CAPABILITIES = listOf("call", "group", "message", "register", "sync")
         const val MAX_LEASE_SECONDS = 2_592_000L
+        const val MAX_USERNAME_INPUT = 65
         val APP_LOCK_STATES = setOf(APP_LOCK_FOREGROUND, APP_LOCK_BACKGROUND, "device_locked")
     }
 }

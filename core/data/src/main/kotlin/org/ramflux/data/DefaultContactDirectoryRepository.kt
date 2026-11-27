@@ -19,6 +19,7 @@ internal class DefaultContactDirectoryRepository(
     private val decoding: CoroutineDispatcher = Dispatchers.Default,
 ) : ContactDirectoryRepository {
     private val source = DefaultContactsRepository(transport)
+    private val usernames = DefaultUsernamesRepository(transport)
 
     /** The last compare-and-set stamp per (account, root), read by [safety] and spent by VERIFY. */
     private val stamps = object : LinkedHashMap<Pair<String, String>, String>(16, 0.75f, true) {
@@ -142,6 +143,19 @@ internal class DefaultContactDirectoryRepository(
             }
         }
     }
+
+    override suspend fun resolveUsername(account: String, name: String): ClientResult<org.ramflux.sdk.UsernameMatch> {
+        if (account.isBlank() || account.length > 4096 || name.isBlank() || name.length > 65) {
+            return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
+        }
+        val body = kotlinx.serialization.json.buildJsonObject { put("name", kotlinx.serialization.json.JsonPrimitive(name)) }
+        return when (val reply = usernames.resolve(RepositoryContext(account), body)) {
+            is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
+            is CoreResult.Success -> org.ramflux.sdk.UsernameMatchReader.read(reply.value)?.let { ClientResult.Ready(it) }
+                ?: ClientResult.Failed(CoreError.InvalidResponse().appProblem())
+        }
+    }
+
     override suspend fun conversation(account: String, root: String): ClientResult<String?> = direct.resolve(account, root)
 
     override suspend fun safety(account: String, root: String): ClientResult<ContactSafety> {

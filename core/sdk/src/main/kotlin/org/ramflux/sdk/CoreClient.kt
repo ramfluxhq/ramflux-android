@@ -60,12 +60,95 @@ class CoreClient internal constructor(
             decode = { ReplyCodec.decodeSecret(it, request.operationId) })
     } finally { request.body.close() }
 
+    /**
+     * Username change, first half: `username.mutate` phase prepare. When the reply names a draft, the phone signs it with
+     * [phrase] through `ramflux_v2_username_authorize`, with the prepare's own operation as `request_id` and [change]
+     * (the request's `change`) as `expected_change`. The operation is released once authorize has returned, on every
+     * path. [phrase] is erased by this call.
+     */
+    suspend fun prepareUsernameChange(request: SecretRequest, change: JsonObject, phrase: SecretBytes): CoreResult<UsernamePrepared> {
+        val held = LongArray(1)
+        try {
+            val prepared = try {
+                perform(request.method, request.operationId, request.deadlineUnixMs,
+                    encode = { deadline -> request.body.storage.useOnce { body -> encodeSecret(request, body, deadline) } },
+                    decode = { ReplyCodec.decodeSecret(it, request.operationId) }, hold = held)
+            } finally { request.body.close() }
+            val reply = when (prepared) {
+                is CoreResult.Failure -> return CoreResult.Failure(prepared.error, prepared.operationId, prepared.details)
+                is CoreResult.Success -> prepared.value
+            }
+            val accountId = request.accountId ?: return CoreResult.Failure(CoreError.InvalidArgument(Effect.NONE), request.operationId)
+            val operation = held[0]
+            val replyBytes = reply.useOnce { raw -> raw.copyOf() }
+            try {
+                val parser = ByteJson(replyBytes)
+                val draft = parser.field(parser.parse(), "draft")?.takeIf { it.kind != 110 }
+                    ?: return CoreResult.Success(UsernamePrepared.NoChange(SecretReply(SecretBytes.take(replyBytes.copyOf()))))
+                val draftRaw = parser.copy(draft)
+                return authorizeUsernameDraft(accountId, request.operationId, operation, draftRaw, change, phrase)
+            } catch (_: IllegalArgumentException) {
+                return CoreResult.Failure(CoreError.InvalidResponse(Effect.NONE), request.operationId)
+            } finally {
+                replyBytes.fill(0)
+            }
+        } finally {
+            phrase.close()
+            if (held[0] != 0L) withContext(NonCancellable) { releaseOperation(held[0]) }
+        }
+    }
+
+    private suspend fun authorizeUsernameDraft(
+        accountId: String, operationId: String?, operation: Long, draftRaw: ByteArray, change: JsonObject, phrase: SecretBytes,
+    ): CoreResult<UsernamePrepared> = withContext(io + NonCancellable) {
+        val head = "{\"account_id\":${JsonPrimitive(accountId)},\"request_id\":$operation,\"draft\":".toByteArray()
+        val tail = ",\"expected_change\":$change}".toByteArray()
+        val publicRequest = ByteArray(head.size + draftRaw.size + tail.size)
+        head.copyInto(publicRequest)
+        draftRaw.copyInto(publicRequest, head.size)
+        tail.copyInto(publicRequest, head.size + draftRaw.size)
+        head.fill(0)
+        tail.fill(0)
+        try {
+            val authorized = guard.withLock {
+                if (closing) null else phrase.useOnce { words -> native.usernameAuthorize(core, publicRequest, words) }
+            } ?: return@withContext CoreResult.Failure(CoreError.Closed(), operationId)
+            // The operation id is read before decodeAuthorize erases the signed bytes.
+            val signedId = if (authorized.code == 0) signedOperationId(authorized.body) else null
+            when (val decoded = ReplyCodec.decodeAuthorize(authorized, operationId)) {
+                is CoreResult.Failure -> CoreResult.Failure(decoded.error, decoded.operationId, decoded.details)
+                is CoreResult.Success -> CoreResult.Success(UsernamePrepared.Signed(signedId, decoded.value))
+            }
+        } finally {
+            publicRequest.fill(0)
+        }
+    }
+
+    /** `operation.body.operation_id` of a signed draft, or null when the signed JSON does not name one. */
+    private fun signedOperationId(signed: ByteArray): String? = try {
+        val parser = ByteJson(signed)
+        val operation = parser.field(parser.parse(), "operation")
+        val body = operation?.let { parser.field(it, "body") }
+        val id = body?.let { parser.field(it, "operation_id") }?.takeIf { it.kind == 34 }
+        if (id == null) null else {
+            val chars = parser.chars(id)
+            try { String(chars) } finally { chars.fill('\u0000') }
+        }
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+
+    /**
+     * [hold]: on success the caller takes the still-admitted C ABI operation (`hold[0]`) and releases it itself, after
+     * it has used the operation as a `request_id`. Failures release it as usual.
+     */
     private suspend fun <T> perform(
         method: String, operationId: String?, deadlineUnixMs: Long,
-        encode: (Long) -> ByteArray, decode: (NativeReply) -> CoreResult<T>,
+        encode: (Long) -> ByteArray, decode: (NativeReply) -> CoreResult<T>, hold: LongArray? = null,
     ): CoreResult<T> {
         var unreturned: java.io.Closeable? = null
         try {
+            var held = false
             val result = withContext(io) {
                 val caller = currentCoroutineContext()
                 caller.ensureActive()
@@ -119,13 +202,17 @@ class CoreClient internal constructor(
                         }
                         delay(pause); pause = (pause * 2).coerceAtMost(100)
                     }
+                    if (hold != null && terminal is CoreResult.Success<*> && operation != 0L) {
+                        hold[0] = operation
+                        held = true
+                    }
                     terminal
                 } catch (_: IllegalArgumentException) {
                     CoreResult.Failure(CoreError.InvalidArgument(Effect.NONE), operationId)
                 } catch (_: CancellationException) {
                     throw CoreCancellation(operationId)
                 } finally {
-                    if (operation != 0L) withContext(NonCancellable) { releaseOperation(operation) }
+                    if (operation != 0L && !held) withContext(NonCancellable) { releaseOperation(operation) }
                 }
             }
             currentCoroutineContext().ensureActive()

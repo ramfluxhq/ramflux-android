@@ -110,7 +110,7 @@ class ContactsViewModel @Inject constructor(
                     read()
                 }
             }
-            is ContactsAction.Address -> local.update { it.copy(address = action.text.take(4096), unavailable = null) }
+            is ContactsAction.Address -> local.update { it.copy(address = action.text.take(4096), unavailable = null, username = null) }
             is ContactsAction.Select -> local.value.rows.find { it.id == action.id }?.let { row ->
                 request?.cancel()
                 ticket++
@@ -384,6 +384,11 @@ class ContactsViewModel @Inject constructor(
 
     private fun preflight(operation: ContactOperation) {
         if (request?.isActive == true || session.status.value.phase != ClientPhase.OPEN) return
+        // An `@name` is looked up first; the request goes out only for the name the lookup found.
+        if (operation == ContactOperation.ADD && local.value.usernameNeedsLookup()) {
+            lookupUsername()
+            return
+        }
         val selected = local.value.selected
         when (operation) {
             ContactOperation.ACCEPT, ContactOperation.DECLINE, ContactOperation.BLOCK -> if (selected?.inbound != true) return
@@ -448,6 +453,42 @@ class ContactsViewModel @Inject constructor(
                 if (expected == ticket) local.update { it.copy(loading = false) }
             }
         }
+    }
+
+    private fun lookupUsername() {
+        val name = local.value.address.trim().removePrefix(USERNAME_PREFIX.toString())
+        if (name.isEmpty()) return
+        val expected = ++ticket
+        val generation = session.status.value.generation
+        local.update { it.copy(loading = true, username = null, problem = null, unavailable = null) }
+        request = viewModelScope.launch {
+            try {
+                val active = account(expected, generation, activeAccount) ?: return@launch
+                val result = directory.resolveUsername(active.id, name)
+                current(expected, generation)
+                if (account(expected, generation, active.id) == null) return@launch
+                local.update {
+                    it.copy(
+                        username = when (result) {
+                            is ClientResult.Ready -> UsernameLookup.Found(name, result.value.displayName, result.value.bio)
+                            is ClientResult.Failed -> UsernameLookup.Failed(usernameLookupMessage(result.problem))
+                            is ClientResult.Unavailable -> UsernameLookup.Failed(result.reason.message())
+                        }
+                    )
+                }
+            } finally {
+                if (expected == ticket) local.update { it.copy(loading = false) }
+            }
+        }
+    }
+
+    private fun usernameLookupMessage(problem: ClientProblem): UiText = when (problem.check) {
+        "not_found" -> uiText(R.string.contacts_username_not_found)
+        "invalid_username" -> uiText(R.string.contacts_username_invalid)
+        "rate_limited", "capacity" -> problem.retryAfterSecs?.let { uiText(R.string.contacts_username_retry, UiText.Data(it.toString())) }
+            ?: uiText(R.string.contacts_username_unreachable)
+        "directory_unavailable" -> uiText(R.string.contacts_username_unreachable)
+        else -> problem.message()
     }
 
     private fun executeApproved() {

@@ -47,6 +47,22 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
     val kind: ContactOperation? = null
 )
 
+/** The answer for an `@name` on the add page: what the directory published, or why it published nothing. */
+@Immutable sealed interface UsernameLookup {
+    data class Found(val name: String, val displayName: String?, val bio: String?) : UsernameLookup
+    data class Failed(val message: UiText) : UsernameLookup
+}
+
+/** True while the typed text is an `@name` that the last lookup has not found: the add button looks it up first. */
+internal fun ContactsState.usernameNeedsLookup(): Boolean {
+    val typed = address.trim()
+    if (!typed.startsWith(USERNAME_PREFIX)) return false
+    val found = username as? UsernameLookup.Found
+    return found == null || USERNAME_PREFIX.toString() + found.name != typed
+}
+
+internal const val USERNAME_PREFIX = '@'
+
 @Immutable data class ContactsState(
     val page: ContactsPage = ContactsPage.LIST,
     val tab: ContactsTab = ContactsTab.CONTACTS,
@@ -67,7 +83,9 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
     val approval: ContactApproval? = null,
     val safety: SafetyItem? = null,
     val operationNotice: UiText? = null,
-    val uncertain: ImmutableList<UiText> = persistentListOf()
+    val uncertain: ImmutableList<UiText> = persistentListOf(),
+    /** The last `@name` lookup on the add page; a request to a name is sent only after it was found. */
+    val username: UsernameLookup? = null
 ) {
     override fun toString() = "ContactsState(<redacted>)"
 }

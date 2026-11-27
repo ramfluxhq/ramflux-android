@@ -9,6 +9,8 @@ import org.ramflux.sdk.CoreResult
 import org.ramflux.sdk.CoreUpdate
 import org.ramflux.sdk.SecretRequest
 import org.ramflux.sdk.SecretReply
+import org.ramflux.sdk.SecretBytes
+import org.ramflux.sdk.UsernamePrepared
 import org.ramflux.sdk.SecretBody
 import org.ramflux.sdk.AndroidCoreHost
 import org.ramflux.sdk.HostState
@@ -30,6 +32,13 @@ interface RepositoryTransport {
     suspend fun executeSecret(request: SecretRequest): CoreResult<SecretReply>
     fun updates(filter: SubscriptionFilter): Flow<CoreUpdate>
     suspend fun resetEvents(generation: ULong): CoreResult<JsonObject> = CoreResult.Failure(CoreError.Closed())
+
+    /** Username prepare and authorize (see `CoreClient.prepareUsernameChange`); the default refuses and erases both inputs. */
+    suspend fun prepareUsernameChange(request: SecretRequest, change: JsonObject, phrase: SecretBytes): CoreResult<UsernamePrepared> {
+        request.body.close()
+        phrase.close()
+        return CoreResult.Failure(CoreError.Closed(), request.operationId)
+    }
 
     /** True when the open core negotiated the card runtime (`card_runtime`); false without a client. */
     fun cardRuntimeAvailable(): Boolean = false
@@ -54,6 +63,16 @@ class SdkRepositoryTransport internal constructor(private val currentClient: () 
             return CoreResult.Failure(CoreError.Closed(), request.operationId)
         }
         return client.executeSecret(request)
+    }
+    override suspend fun prepareUsernameChange(request: SecretRequest, change: JsonObject, phrase: SecretBytes): CoreResult<UsernamePrepared> {
+        val client = currentClient()
+        if (client == null) {
+            request.body.close()
+            phrase.close()
+            org.ramflux.sdk.sdkDebugEvent("sdk.no_client method=${request.method}")
+            return CoreResult.Failure(CoreError.Closed(), request.operationId)
+        }
+        return client.prepareUsernameChange(request, change, phrase)
     }
     override fun updates(filter: SubscriptionFilter): Flow<CoreUpdate> = flow {
         val client = currentClient()
