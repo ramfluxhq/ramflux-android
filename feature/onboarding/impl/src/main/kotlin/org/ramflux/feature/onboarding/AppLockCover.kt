@@ -92,8 +92,9 @@ data class AppLockCoverState(
 
 /**
  * The app-lock cover. It follows the session's app-lock phase: nothing while OPEN, a blank cover with a retry while
- * the lock state is UNKNOWN, and the account-code lock screen while LOCKED. It shows no account name, and it has no
- * skip or forget action: only the six-digit account code opens it.
+ * the lock state is UNKNOWN, and the account-code lock screen while LOCKED. It shows no account name and has no skip
+ * action: only the six-digit account code opens it, or the confirmed removal of the locked account from this device
+ * (a dialog that never names the account).
  */
 @HiltViewModel
 class AppLockViewModel @Inject constructor(
@@ -103,6 +104,9 @@ class AppLockViewModel @Inject constructor(
 ) : ViewModel() {
     private val local = MutableStateFlow(AppLockCoverState())
     private var waitJob: Job? = null
+
+    /** The account the open confirmation was raised for; confirm removes it only while it is still the locked account. */
+    private var removeTarget: String? = null
     private val removedChannel = Channel<Unit>(Channel.BUFFERED)
 
     /** One item after the locked account was removed from this device; the cover is already gone or going. */
@@ -197,18 +201,16 @@ class AppLockViewModel @Inject constructor(
         return false
     }
 
-    /** Opens the remove-from-this-device confirmation of the locked account; its name is read when core admits the read. */
+    /** Opens the remove-from-this-device confirmation of the locked account. The cover never reads or shows an account name. */
     fun requestRemove() {
         val account = session.status.value.appLockAccount ?: return
+        removeTarget = account
         local.update { it.copy(removeOpen = true, removeName = null, removing = false, removeFailed = false) }
-        viewModelScope.launch {
-            val name = (accounts.list() as? ClientResult.Ready)?.value?.accounts?.firstOrNull { it.id == account }?.label
-            if (session.status.value.appLockAccount == account) local.update { it.copy(removeName = name) }
-        }
     }
 
     fun cancelRemove() {
         if (local.value.removing) return
+        removeTarget = null
         local.update { it.copy(removeOpen = false, removeName = null, removeFailed = false) }
     }
 
@@ -218,8 +220,13 @@ class AppLockViewModel @Inject constructor(
      * onboarding. On failure nothing changed and the dialog says so.
      */
     fun confirmRemove() {
-        val account = session.status.value.appLockAccount ?: return
         if (!local.value.removeOpen || local.value.removing) return
+        val account = removeTarget
+        if (account == null || session.status.value.appLockAccount != account) {
+            removeTarget = null
+            local.update { it.copy(removeOpen = false, removeName = null, removeFailed = false) }
+            return
+        }
         local.update { it.copy(removing = true, removeFailed = false) }
         viewModelScope.launch {
             try {
@@ -239,6 +246,7 @@ class AppLockViewModel @Inject constructor(
 
     /** Ends what the cover showed for the lock: the wait countdown, the exhausted route, the notice and any recovery. */
     private fun resetCover() {
+        removeTarget = null
         waitJob?.cancel()
         waitJob = null
         local.update {

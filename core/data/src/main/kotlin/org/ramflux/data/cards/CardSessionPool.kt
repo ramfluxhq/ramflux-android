@@ -155,12 +155,12 @@ class UnavailableCardSessionRepository : CardSessionRepository {
 
 /**
  * Lifecycle the client drives: suspend every resumed card before the client goes to the background, resume on return.
- * [locked] runs when the app lock engages: core has dropped every session, so the handles are forgotten locally with no bus call.
+ * [locked] runs when the app lock engages: core has dropped the sessions of the locked account, so its handles are forgotten locally with no bus call.
  */
 internal interface CardLifecycleHooks {
     suspend fun background()
     suspend fun foreground()
-    suspend fun locked()
+    suspend fun locked(account: String?)
 }
 
 /**
@@ -704,12 +704,13 @@ internal class CardSessionPool(
     }
 
     /**
-     * The app lock engaged: core dropped every card session. Each handle is forgotten here with no bus call (a call on a locked
+     * The app lock engaged: core dropped the card sessions of the locked [account] only (null when the refusal did not name
+     * it: then every account's handles are forgotten). Each handle is forgotten here with no bus call (a call on a locked
      * account only fails), the last trees stay on screen read-only, and the images are released. A card opens again on the
      * next tap after the lock lifts, never by itself.
      */
-    override suspend fun locked() {
-        val held = synchronized(guard) { accounts.entries.map { it.key to it.value } }
+    override suspend fun locked(account: String?) {
+        val held = synchronized(guard) { accounts.entries.filter { account == null || it.key == account }.map { it.key to it.value } }
         for ((name, acc) in held) {
             acc.exclusive(name, Unit) {
                 synchronized(guard) {

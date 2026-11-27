@@ -167,7 +167,7 @@ class ClientSessionRepositoryTest {
                 release.await()
             }
             override suspend fun foreground() = Unit
-            override suspend fun locked() {
+            override suspend fun locked(account: String?) {
                 release.await()
             }
         }
@@ -214,7 +214,7 @@ private class RecordingCards : CardLifecycleHooks {
     override suspend fun foreground() {
         calls += "foreground"
     }
-    override suspend fun locked() {
+    override suspend fun locked(account: String?) {
         calls += "locked"
         appLockAtBackground = repository?.status?.value?.appLock
     }
