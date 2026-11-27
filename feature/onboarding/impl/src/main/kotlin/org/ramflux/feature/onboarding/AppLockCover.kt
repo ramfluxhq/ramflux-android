@@ -33,6 +33,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,8 +45,10 @@ import kotlinx.coroutines.launch
 import org.ramflux.data.AccountAccessRepository
 import org.ramflux.data.AccountCode
 import org.ramflux.data.AccountCodeRefusal
+import org.ramflux.data.AccountSecurityRepository
 import org.ramflux.data.AppLockPhase
 import org.ramflux.data.ClientPhase
+import org.ramflux.data.ClientProblem
 import org.ramflux.data.ClientResult
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.ClientSnapshot
@@ -57,11 +61,18 @@ import org.ramflux.designsystem.render
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.onboarding.impl.R
 
-/** What the app-lock cover shows: [phase] decides the cover, [busy] and [notice] belong to the code entry. */
+/**
+ * What the app-lock cover shows: [phase] decides the cover, [busy] and [notice] belong to the code entry. [waitSecs] is the
+ * throttle wait core reported (the field is disabled meanwhile), [exhausted] routes to recovery from the recovery phrase.
+ */
 data class AppLockCoverState(
     val phase: AppLockPhase = AppLockPhase.OPEN,
     val busy: Boolean = false,
-    val notice: UiText? = null
+    val notice: UiText? = null,
+    val waitSecs: Long = 0L,
+    val exhausted: Boolean = false,
+    /** The session status when the person chose recovery: the cover steps aside until the session status changes. */
+    val restoredAt: ClientSnapshot? = null
 )
 
 /**
@@ -72,9 +83,11 @@ data class AppLockCoverState(
 @HiltViewModel
 class AppLockViewModel @Inject constructor(
     private val accounts: AccountAccessRepository,
+    private val security: AccountSecurityRepository,
     private val session: ClientSessionRepository
 ) : ViewModel() {
     private val local = MutableStateFlow(AppLockCoverState())
+    private var waitJob: Job? = null
 
     init {
         // Any account change (unlock, switch, lock, sign-out) can change which account the lock applies to.
@@ -83,8 +96,16 @@ class AppLockViewModel @Inject constructor(
 
     /** Eager and computed from the session's current value, so a cover that was not subscribed still starts covered. */
     val state: StateFlow<AppLockCoverState> = combine(session.status, local) { status, screen ->
-        screen.copy(phase = status.coverPhase())
+        val stepping = screen.restoredAt == status
+        screen.copy(phase = if (stepping) AppLockPhase.OPEN else status.coverPhase())
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppLockCoverState(phase = session.status.value.coverPhase(), notice = null))
+
+    /** Leaves the cover up of the recovery route: the recovery-phrase restore is shown instead of the code field. */
+    fun restore(onRestore: (accountId: String) -> Unit) {
+        val account = session.status.value.appLockAccount ?: return
+        local.update { it.copy(restoredAt = session.status.value, notice = null) }
+        onRestore(account)
+    }
 
     /** Reads the lock again, or reopens the session when it failed: an UNKNOWN cover answers with the next state read. */
     fun retry() {
@@ -97,7 +118,7 @@ class AppLockViewModel @Inject constructor(
     fun unlock(code: ErasableBuffer) {
         val digits = code.snapshot()
         code.clear()
-        if (local.value.busy) {
+        if (local.value.busy || local.value.waitSecs > 0L || local.value.exhausted) {
             digits.fill('\u0000')
             return
         }
@@ -126,7 +147,7 @@ class AppLockViewModel @Inject constructor(
                         local.update { it.copy(notice = null) }
                         session.recheckAppLock()
                     }
-                    is ClientResult.Failed -> local.update { it.copy(notice = failureNotice(result.problem)) }
+                    is ClientResult.Failed -> failed(account, result.problem)
                     is ClientResult.Unavailable -> local.update {
                         it.copy(
                             notice = uiText(R.string.ui_this_action_is_not_available_in_this_version)
@@ -140,10 +161,49 @@ class AppLockViewModel @Inject constructor(
         }
     }
 
-    /** A failed unlock is a wrong code unless the SDK named another refusal: it never reads as a generic failure. */
-    private fun failureNotice(problem: org.ramflux.data.ClientProblem): UiText =
-        problem.accountCodeRefusal(unlock = true)?.let { codeText(it, problem.retryAfterSecs) }
-            ?: codeText(AccountCodeRefusal.WRONG_CODE, null)
+    /**
+     * A refused unlock. Only the typed `wrong_passphrase` reason reads as a wrong code; a throttle or an exhausted count
+     * is read from core's state, so the wait is what core holds, and any other failure says so without a guess.
+     */
+    private suspend fun failed(account: String, problem: ClientProblem) {
+        when (problem.accountCodeRefusal()) {
+            AccountCodeRefusal.WRONG_CODE -> {
+                local.update { it.copy(notice = codeText(AccountCodeRefusal.WRONG_CODE, null)) }
+                readThrottle(account)
+            }
+            AccountCodeRefusal.RETRY_LATER -> readThrottle(account)
+            AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> local.update {
+                it.copy(exhausted = true, notice = codeText(AccountCodeRefusal.ATTEMPTS_EXHAUSTED, null))
+            }
+            else -> local.update {
+                it.copy(
+                    notice = problem.accountCodeRefusal()?.let { refusal -> codeText(refusal, problem.retryAfterSecs) }
+                        ?: uiText(R.string.app_lock_unlock_failed)
+                )
+            }
+        }
+    }
+
+    /** Reads the throttle core holds now and counts it down; the field stays disabled until the count ends. */
+    private suspend fun readThrottle(account: String) {
+        val status = (security.appLockState(account) as? ClientResult.Ready)?.value ?: return
+        if (status.codeAttemptsExhausted) {
+            local.update { it.copy(exhausted = true, notice = codeText(AccountCodeRefusal.ATTEMPTS_EXHAUSTED, null)) }
+            return
+        }
+        val waitMs = status.codeRetryAfterMs?.takeIf { it > 0L } ?: return
+        val deadline = System.nanoTime() + waitMs * 1_000_000L
+        waitJob?.cancel()
+        waitJob = viewModelScope.launch {
+            while (true) {
+                val left = (deadline - System.nanoTime()).coerceAtLeast(0L)
+                val secs = (left + 999_999_999L) / 1_000_000_000L
+                local.update { it.copy(waitSecs = secs) }
+                if (secs == 0L) break
+                delay(1_000L)
+            }
+        }
+    }
 }
 
 private fun ClientSnapshot.coverPhase(): AppLockPhase = when {
@@ -165,7 +225,7 @@ fun CoverBackGuard(covered: Boolean, onBack: () -> Unit) {
 
 /** The cover for the app lock. Callers draw it above the shell, so the shell keeps its navigation state underneath. */
 @Composable
-fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
+fun AppLockCover(vm: AppLockViewModel = hiltViewModel(), onRestore: (accountId: String) -> Unit = {}) {
     val theme = LocalRFTheme.current
     val ui by vm.state.collectAsStateWithLifecycle()
     val focus = LocalFocusManager.current
@@ -199,27 +259,49 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
                     modifier = Modifier.testTag("app-lock-name")
                 )
                 Text(stringResource(R.string.app_lock_body), style = MaterialTheme.typography.bodyLarge)
-                AccountCodeField(
-                    code,
-                    stringResource(R.string.ui_account_code),
-                    "app-lock-code",
-                    enabled = !ui.busy,
-                    helper = stringResource(R.string.ui_account_code_explanation)
-                )
-                ui.notice?.let {
-                    Text(
-                        it.render(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.testTag("app-lock-notice")
+                if (ui.exhausted) {
+                    // No code field after too many wrong codes: only the recovery phrase opens the account.
+                    ui.notice?.let {
+                        Text(it.render(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("app-lock-notice"))
+                    }
+                    KitButton(
+                        stringResource(R.string.app_lock_restore),
+                        { vm.restore(onRestore) },
+                        Modifier.fillMaxWidth(),
+                        tag = "app-lock-restore"
+                    )
+                } else {
+                    val waiting = ui.waitSecs > 0L
+                    AccountCodeField(
+                        code,
+                        stringResource(R.string.ui_account_code),
+                        "app-lock-code",
+                        enabled = !ui.busy && !waiting,
+                        helper = stringResource(R.string.ui_account_code_explanation)
+                    )
+                    if (waiting) {
+                        val wait = "%02d:%02d".format(ui.waitSecs / 60, ui.waitSecs % 60)
+                        Text(
+                            stringResource(R.string.app_lock_wait, wait),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.testTag("app-lock-wait")
+                        )
+                    }
+                    ui.notice?.let {
+                        Text(
+                            it.render(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.testTag("app-lock-notice")
+                        )
+                    }
+                    KitButton(
+                        stringResource(R.string.ui_unlock),
+                        { vm.unlock(code) },
+                        Modifier.fillMaxWidth(),
+                        enabled = !ui.busy && !waiting,
+                        tag = "app-lock-unlock"
                     )
                 }
-                KitButton(
-                    stringResource(R.string.ui_unlock),
-                    { vm.unlock(code) },
-                    Modifier.fillMaxWidth(),
-                    enabled = !ui.busy,
-                    tag = "app-lock-unlock"
-                )
             }
         }
     }

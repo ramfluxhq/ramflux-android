@@ -83,8 +83,12 @@ interface AccountSecurityRepository {
     suspend fun appLockState(account: String): ClientResult<AppLockStatus> =
         ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.UNSUPPORTED_BY_CORE)
 
-    /** `account.app_lock.configure`: [timeoutMs] is 0..86_400_000, zero meaning immediately. The caller reads the state again. */
-    suspend fun configureAppLock(account: String, enabled: Boolean, timeoutMs: Long): ClientResult<Unit> =
+    /**
+     * `account.app_lock.configure`: [timeoutMs] is 0..86_400_000, zero meaning immediately. Every change goes through the
+     * attended path, and the core asks for the code only when the change weakens the lock; [answer] supplies it (null
+     * refuses). The caller reads the state again.
+     */
+    suspend fun configureAppLock(account: String, enabled: Boolean, timeoutMs: Long, answer: suspend () -> CharArray?): ClientResult<Unit> =
         ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.UNSUPPORTED_BY_CORE)
 
     /** `account.app_lock.lifecycle` with `background`, `foreground` or `device_locked`; the reply carries the state now in force. */

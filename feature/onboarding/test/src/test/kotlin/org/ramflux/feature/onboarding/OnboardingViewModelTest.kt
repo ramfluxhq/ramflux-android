@@ -746,11 +746,19 @@ class OnboardingViewModelTest {
         return vm to accounts
     }
 
-    private fun refused(name: String, retry: Long? = null) =
-        ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE, statusName = name, retryAfterSecs = retry))
+    private fun refused(name: String, retry: Long? = null, check: String? = null) = ClientResult.Failed(
+        ClientProblem(
+            ClientFailureKind.FAILED,
+            1,
+            ClientOutcome.NONE,
+            statusName = name,
+            check = check,
+            retryAfterSecs = retry
+        )
+    )
 
     @Test fun aWrongCodeIsNamedAndNotRetriedSilently() = runTest(timeout = 5.seconds) {
-        val (vm, accounts) = lockedVm(refused("ValidationFailed"))
+        val (vm, accounts) = lockedVm(refused("AuthFailed", check = "wrong_passphrase"))
         assertEquals(1, accounts.unlocks)
         assertEquals(R.string.ui_code_wrong, (vm.state.value.notice?.message as UiText.Resource).id)
         assertNull(vm.state.value.recoverAccountId)
@@ -785,7 +793,7 @@ class OnboardingViewModelTest {
     }
 
     @Test fun aWrongCodeOffersNoRemoval() = runTest(timeout = 5.seconds) {
-        val (vm, _) = lockedVm(refused("ValidationFailed"))
+        val (vm, _) = lockedVm(refused("AuthFailed", check = "wrong_passphrase"))
         assertNull(vm.state.value.forgetAccountId)
     }
 

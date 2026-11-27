@@ -248,6 +248,10 @@ class SettingsViewModel @Inject constructor(
             is SettingsAction.CodeDigit -> codeDigit(action.next, action.digit)
             SettingsAction.SubmitCodeChange -> submitCodeChange()
             SettingsAction.CloseCodeChange -> closeCodeChange()
+            is SettingsAction.ReauthDigit -> reauthDigit(action.digit)
+            SettingsAction.SubmitReauth -> submitReauth()
+            SettingsAction.CancelReauth -> AttendedAccountCode.refuse()
+            SettingsAction.RecoverAccount -> activeAccount?.let { event(SettingsEvent.Recover(it)) }
         }
     }
 
@@ -478,6 +482,39 @@ class SettingsViewModel @Inject constructor(
     }
 
     private var appLockJob: Job? = null
+    private var waitJob: Job? = null
+
+    // The account code typed into the weakening sheet: erasable digits, wiped when the sheet closes or answers.
+    private val reauthCode = CharArray(AccountCode.DIGITS)
+    private var reauthCount = 0
+
+    init {
+        viewModelScope.launch {
+            AttendedAccountCode.waiting.collect { open ->
+                if (!open) {
+                    reauthCode.fill('\u0000')
+                    reauthCount = 0
+                }
+                local.update { it.copy(appLock = it.appLock.copy(reauthOpen = open, reauthDigits = 0)) }
+            }
+        }
+    }
+
+    private fun reauthDigit(digit: Char?) {
+        if (!AttendedAccountCode.waiting.value) return
+        reauthCount = typed(reauthCode, reauthCount, digit)
+        local.update { it.copy(appLock = it.appLock.copy(reauthDigits = reauthCount)) }
+    }
+
+    private fun submitReauth() {
+        if (reauthCount != AccountCode.DIGITS) return
+        val code = reauthCode.copyOf()
+        reauthCode.fill('\u0000')
+        reauthCount = 0
+        local.update { it.copy(appLock = it.appLock.copy(reauthDigits = 0)) }
+        // The shared request wipes what it is given when no request waits; the core wipes its copy after use.
+        AttendedAccountCode.submit(code)
+    }
 
     /** Reads the app lock of the active account. A refresh keeps what the page shows until the answer arrives. */
     private fun readAppLock() {
@@ -487,21 +524,32 @@ class SettingsViewModel @Inject constructor(
         appLockJob = viewModelScope.launch { showAppLock(security.appLockState(account)) }
     }
 
-    /** Changes the lock, then reads it again so the page shows what the SDK now holds. */
+    /**
+     * Changes the lock. Every change goes through the attended path: core asks for the account code only when the change
+     * weakens the lock, and the sheet answers that request. Afterwards the page shows the state core holds now.
+     */
     private fun writeAppLock(enabled: Boolean, timeoutMs: Long) {
         val account = activeAccount ?: return
         if (appLockJob?.isActive == true) return
-        local.update { it.copy(appLock = it.appLock.copy(loading = true, problem = null)) }
+        local.update {
+            it.copy(
+                appLock = it.appLock.copy(
+                    loading = true,
+                    problem = null,
+                    reauthTurnOff = !enabled,
+                    wrongCode = false,
+                    notChanged = false
+                )
+            )
+        }
         appLockJob = viewModelScope.launch {
-            when (val written = security.configureAppLock(account, enabled, timeoutMs)) {
+            when (val written = security.configureAppLock(account, enabled, timeoutMs) { AttendedAccountCode.ask() }) {
                 is ClientResult.Ready -> {
                     // The session's appLockEnabled (banners, capture policy) is current at once.
                     session.recheckAppLock()
                     showAppLock(security.appLockState(account))
                 }
-                is ClientResult.Failed -> local.update {
-                    it.copy(appLock = it.appLock.copy(loading = false, problem = written.problem.message()))
-                }
+                is ClientResult.Failed -> refusedAppLock(account, written.problem)
                 is ClientResult.Unavailable -> local.update {
                     it.copy(appLock = it.appLock.copy(loading = false, problem = written.reason.message()))
                 }
@@ -509,25 +557,72 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private fun showAppLock(result: ClientResult<AppLockStatus>) = local.update {
-        it.copy(
-            appLock = when (result) {
-                is ClientResult.Ready -> SettingsAppLock(
-                    loaded = true,
-                    enabled = result.value.enabled,
-                    timeoutMs = result.value.timeoutMs,
-                    unavailable = if (result.value.state == AppLockState.UNAVAILABLE) {
-                        uiText(
-                            R.string.settings_app_lock_unavailable
+    /** A refused change: the stored state is read again and shown; only a typed refusal adds its line. */
+    private suspend fun refusedAppLock(account: String, problem: ClientProblem) {
+        showAppLock(security.appLockState(account))
+        val line: (SettingsAppLock) -> SettingsAppLock = when (problem.accountCodeRefusal()) {
+            AccountCodeRefusal.WRONG_CODE -> { lock -> lock.copy(wrongCode = true) }
+            // Cancelled or closed: nothing is said. Timed out: the lock was not changed, and the page says so.
+            AccountCodeRefusal.REAUTH_REQUIRED -> { lock -> lock.copy(notChanged = AttendedAccountCode.timedOut) }
+            AccountCodeRefusal.RETRY_LATER, AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> { lock -> lock }
+            else -> { lock -> lock.copy(problem = problem.message()) }
+        }
+        local.update { it.copy(appLock = line(it.appLock)) }
+    }
+
+    private fun showAppLock(result: ClientResult<AppLockStatus>) {
+        when (result) {
+            is ClientResult.Ready -> {
+                val status = result.value
+                local.update {
+                    it.copy(
+                        // The sheet's own fields are kept: a refresh must not hide a sheet that still waits for the code.
+                        appLock = it.appLock.copy(
+                            loaded = true,
+                            loading = false,
+                            problem = null,
+                            wrongCode = false,
+                            notChanged = false,
+                            enabled = status.enabled,
+                            timeoutMs = status.timeoutMs,
+                            unavailable = if (status.state == AppLockState.UNAVAILABLE) {
+                                uiText(R.string.settings_app_lock_unavailable)
+                            } else {
+                                null
+                            },
+                            exhausted = status.codeAttemptsExhausted,
+                            waitSecs = status.codeRetryAfterMs?.let { (it + 999L) / 1000L } ?: 0L
                         )
-                    } else {
-                        null
-                    }
-                )
-                is ClientResult.Failed -> it.appLock.copy(loading = false, problem = result.problem.message())
-                is ClientResult.Unavailable -> it.appLock.copy(loading = false, problem = result.reason.message())
-            }.copy(loading = false)
-        )
+                    )
+                }
+                startWait(status.codeRetryAfterMs)
+            }
+            is ClientResult.Failed -> local.update {
+                it.copy(appLock = it.appLock.copy(loading = false, problem = result.problem.message()))
+            }
+            is ClientResult.Unavailable -> local.update {
+                it.copy(appLock = it.appLock.copy(loading = false, problem = result.reason.message()))
+            }
+        }
+    }
+
+    /**
+     * Counts the throttle wait down from core's figure on the monotonic clock. Nothing is stored and nothing is asked
+     * again when the count ends.
+     */
+    private fun startWait(waitMs: Long?) {
+        waitJob?.cancel()
+        if (waitMs == null || waitMs <= 0L) return
+        val deadline = System.nanoTime() + waitMs * 1_000_000L
+        waitJob = viewModelScope.launch {
+            while (true) {
+                val left = (deadline - System.nanoTime()).coerceAtLeast(0L)
+                val secs = (left + 999_999_999L) / 1_000_000_000L
+                local.update { it.copy(appLock = it.appLock.copy(waitSecs = secs)) }
+                if (secs == 0L) break
+                delay(1_000L)
+            }
+        }
     }
 
     // The account-code change: digits live only in these arrays and are wiped on every exit.

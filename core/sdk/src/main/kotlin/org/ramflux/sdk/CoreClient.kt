@@ -61,6 +61,47 @@ class CoreClient internal constructor(
     } finally { request.body.close() }
 
     /**
+     * Runs [body] with the attended account-code callback registered for this client. A request from the core calls
+     * [answer] (the code, or null to refuse) and hands its bytes back; a request that waits longer than
+     * [ATTENDED_ANSWER_MS] is refused. The callback is registered only around [body]. It is answered with null before
+     * the provider is cleared, so clearing never waits for the bound. [answer] runs in the caller's context.
+     */
+    suspend fun <T> withAttendedCode(answer: suspend () -> CharArray?, body: suspend () -> T): T = coroutineScope {
+        val scope = this
+        val registered = guard.withLock { !closing && native.setCredentialProvider(core, true) == 0 }
+        if (!registered) return@coroutineScope body()
+        AttendedCredentialBridge.listen(core) {
+            scope.launch {
+                // A failing host answer is a refusal, never a failure of the configure call that waits for it.
+                val code = try {
+                    withTimeoutOrNull(ATTENDED_ANSWER_MS) { answer() }
+                } catch (failure: CancellationException) {
+                    throw failure
+                } catch (_: Exception) {
+                    null
+                }
+                if (code == null) {
+                    native.credentialReply(core, null)
+                } else {
+                    val bytes = SecretBytes.utf8Of(code)
+                    bytes.useOnce { native.credentialReply(core, it) }
+                    bytes.close()
+                }
+            }
+        }
+        try {
+            body()
+        } finally {
+            withContext(NonCancellable + io) {
+                // Answer a waiting request with a refusal first: clearing waits for an active callback.
+                native.credentialReply(core, null)
+                AttendedCredentialBridge.unlisten(core)
+                guard.withLock { if (!closing) native.setCredentialProvider(core, false) }
+            }
+        }
+    }
+
+    /**
      * Username change, first half: `username.mutate` phase prepare. When the reply names a draft, the phone signs it with
      * [phrase] through `ramflux_v2_username_authorize`, with the prepare's own operation as `request_id` and [change]
      * (the request's `change`) as `expected_change`. The operation is released once authorize has returned, on every

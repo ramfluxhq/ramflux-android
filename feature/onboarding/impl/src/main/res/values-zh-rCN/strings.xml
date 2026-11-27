@@ -239,4 +239,7 @@
     <string name="app_lock_app_name">Ramflux</string>
     <string name="app_lock_body">请输入账户码以继续。</string>
     <string name="app_lock_retry">重试</string>
+    <string name="app_lock_restore">用恢复短语恢复</string>
+    <string name="app_lock_wait">错误的账户码次数过多。请在 %1$s 后再试。</string>
+    <string name="app_lock_unlock_failed">无法解锁此账户。请重试。</string>
 </resources>

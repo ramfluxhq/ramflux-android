@@ -23,6 +23,7 @@ fun SettingsNavigation(
     onDelivery: () -> Unit = {},
     onBackup: () -> Unit = {},
     onStorage: (account: String) -> Unit = {},
+    onRecover: (account: String) -> Unit = {},
     vm: SettingsViewModel = hiltViewModel(),
     cardVm: MyContactCardViewModel = hiltViewModel()
 ) {
@@ -35,6 +36,7 @@ fun SettingsNavigation(
     val delivery by rememberUpdatedState(onDelivery)
     val backup by rememberUpdatedState(onBackup)
     val storage by rememberUpdatedState(onStorage)
+    val recover by rememberUpdatedState(onRecover)
     BackHandler { vm.onAction(SettingsAction.Back) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(SettingsAction.Refresh) }
     LaunchedEffect(vm) {
@@ -50,6 +52,7 @@ fun SettingsNavigation(
                 SettingsEvent.Delivery -> delivery()
                 SettingsEvent.Backup -> backup()
                 is SettingsEvent.Storage -> storage(event.accountId)
+                is SettingsEvent.Recover -> recover(event.accountId)
                 SettingsEvent.MyCard -> {
                     myCard = true
                     cardVm.load()

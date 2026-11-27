@@ -26,6 +26,12 @@ interface NativeCore {
      */
     fun usernameAuthorize(core: Long, publicRequest: ByteArray, phrase: ByteArray): NativeReply = NativeReply(UNSUPPORTED, byteArrayOf())
 
+    /** Registers (enabled) or clears the attended account-code callback of [core]; clearing drains an active request. */
+    fun setCredentialProvider(core: Long, enabled: Boolean): Int = UNSUPPORTED
+
+    /** Answers the waiting attended request with the UTF-8 code, or with null to refuse. Ignored when none waits. */
+    fun credentialReply(core: Long, passphrase: ByteArray?) = Unit
+
     companion object {
         /** Status of a core without suspend support (InvalidArgument); only test doubles lack it. */
         const val UNSUPPORTED = 1
@@ -53,6 +59,8 @@ class JniCore : NativeCore {
     override external fun suspendClient(core: Long): Int
     override external fun resumeClient(core: Long): Int
     override external fun usernameAuthorize(core: Long, publicRequest: ByteArray, phrase: ByteArray): NativeReply
+    override external fun setCredentialProvider(core: Long, enabled: Boolean): Int
+    override external fun credentialReply(core: Long, passphrase: ByteArray?)
 
     companion object {
         fun load(): JniCore {

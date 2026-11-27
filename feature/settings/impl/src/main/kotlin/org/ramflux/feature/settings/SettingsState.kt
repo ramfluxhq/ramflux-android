@@ -71,7 +71,21 @@ enum class PairingEnd { COMPLETED, CANCELLED, EXPIRED, REJECTED, FAILED }
     val enabled: Boolean = false,
     val timeoutMs: Long = APP_LOCK_TIMEOUTS.first(),
     val unavailable: UiText? = null,
-    val problem: UiText? = null
+    val problem: UiText? = null,
+    /** The account-code sheet is on screen: a change that weakens the lock is waiting for the code. */
+    val reauthOpen: Boolean = false,
+    /** Digits typed into the sheet (the digits themselves stay in the view model). */
+    val reauthDigits: Int = 0,
+    /** The sheet is asking for a turn-off (true) or for a longer timeout (false). */
+    val reauthTurnOff: Boolean = false,
+    /** The last code was refused as wrong (`wrong_passphrase`). */
+    val wrongCode: Boolean = false,
+    /** The change was not confirmed in time, so core left the lock as it was. */
+    val notChanged: Boolean = false,
+    /** Seconds left of the code throttle core reported; weakening waits for it, and no sheet opens meanwhile. */
+    val waitSecs: Long = 0L,
+    /** Too many wrong codes: only recovery from the recovery phrase opens the account now. */
+    val exhausted: Boolean = false
 )
 
 /** The timeouts the app lock page offers, in milliseconds: zero is "immediately". */

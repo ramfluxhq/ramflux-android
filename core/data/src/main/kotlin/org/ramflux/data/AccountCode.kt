@@ -50,23 +50,26 @@ enum class AccountCodeRefusal {
     DEVICE_UNLOCK_UNAVAILABLE,
 
     /** `AccountCodeRequired`: the account was locked; it opens with its code. */
-    CODE_REQUIRED
+    CODE_REQUIRED,
+
+    /** `reauth_required`: a change that weakens the app lock was not confirmed with the code; nothing changed. */
+    REAUTH_REQUIRED
 }
 
 /**
- * The typed account-code refusal of a failure, or null for other failures. [unlock] marks an
- * `account.unlock` reply, where the SDK reports a code that does not open the data key as
- * `ValidationFailed` ("wrong passphrase or damaged local key").
+ * The typed account-code refusal of a failure, or null for other failures. A wrong code is named only by the typed
+ * `wrong_passphrase` reason; a status such as `AuthFailed` or `ValidationFailed` is never read as a wrong code.
  */
-fun ClientProblem.accountCodeRefusal(unlock: Boolean = false): AccountCodeRefusal? = when (statusName) {
+fun ClientProblem.accountCodeRefusal(): AccountCodeRefusal? = when (statusName) {
     "not_six_digits" -> AccountCodeRefusal.NOT_SIX_DIGITS
     "trivial_code" -> AccountCodeRefusal.TRIVIAL_CODE
     "UnlockRetryLater" -> AccountCodeRefusal.RETRY_LATER
     "UnlockAttemptsExhausted" -> AccountCodeRefusal.ATTEMPTS_EXHAUSTED
     "DeviceUnlockUnavailable" -> AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE
     "AccountCodeRequired" -> AccountCodeRefusal.CODE_REQUIRED
-    "ValidationFailed", "AuthFailed" -> if (unlock) AccountCodeRefusal.WRONG_CODE else null
     else -> when (check) {
+        "wrong_passphrase" -> AccountCodeRefusal.WRONG_CODE
+        "reauth_required" -> AccountCodeRefusal.REAUTH_REQUIRED
         "unlock_retry_later" -> AccountCodeRefusal.RETRY_LATER
         "unlock_attempts_exhausted" -> AccountCodeRefusal.ATTEMPTS_EXHAUSTED
         "device_unlock_unavailable" -> AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE
