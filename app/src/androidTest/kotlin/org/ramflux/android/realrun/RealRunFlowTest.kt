@@ -1965,11 +1965,13 @@ class RealRunFlowTest {
     // Flow 23: two accounts with the app lock (G05e-A). Creating or switching to a second account, and returning from the
     // background with two accounts, must open the target and never stick on the lock cover's retry (app_lock_unauthorized
     // on account.app_lock.state for the account the event subscription is not attended for). The words and codes of both
-    // accounts exist only in this process (secure fields): nothing is logged, saved or shown on a screenshot while a secret
-    // is on screen. The app offers another account only through Lock account (Settings > Account and security), which
-    // leads to the account chooser, so every switch locks the open account and unlocks the target with its account code.
-    // Run it alone on a fresh install (scripts/realrun.sh ... --tests f23 without --no-install, after uninstall). Steps R1 to
-    // R8 of the G05e-A design, section 7.
+    // accounts exist only in this process (secure fields, in memory only): nothing is logged, saved or shown on a
+    // screenshot while a secret is on screen. The app offers another account only through Lock account (Settings > Account
+    // and security), which leads to the account chooser. While A's app lock is engaged there is no route to the chooser
+    // (Lock account raises A's cover; node.list is refused app_lock by design), a product gap tracked as G05e-B, so the
+    // flow runs in two phases on one fresh install: phase 1 with the app lock of both accounts off, phase 2 turns A's lock
+    // on and never leaves A. Run it alone on a fresh install (scripts/realrun.sh ... --tests f23 without --no-install, after
+    // uninstall).
 
     @Test fun f23_twoAccountsAppLock() = flow("23-two-accounts-app-lock", needsAccount = false) {
         val token = token()
@@ -1981,53 +1983,63 @@ class RealRunFlowTest {
         }
         var b: Throwaway? = null
         try {
-            // R1: A open, app lock on with timeout Immediately.
-            appLockOnForThrowaway()
-            notes += "R1: A created; app lock on, Immediately"
-            // R2: from A, open the account chooser and create B (lock left off): B opens, no cover stuck.
+            // Phase 1, app lock off for both accounts. P1: from A, open the chooser and create B: B opens, no cover left.
             leaveToShell()
             openAccountChooser()
             ui.tap("CREATE")
             b = createCeremony(nameB)
-            assertTwoAccountShell("R2 create B")
-            notes += "R2: B created from A and opened"
-            // R3, R4: switch B to A to B to A; each switch opens the target.
-            switchTo(nameA, a.code, "R3 B to A")
-            switchTo(nameB, b.code, "R4 A to B")
-            switchTo(nameA, a.code, "R4 B to A")
-            notes += "R3 and R4: B to A to B to A opened every target"
-            // R5: background and return on A: the cover asks for A's code, which opens A.
+            assertTwoAccountShell("P1 create B")
+            notes += "P1: A created, B created from the chooser and opened (lock off)"
+            // P2: switch B to A and A to B; each opens its target cleanly.
+            switchTo(nameA, a.code, "P2 B to A")
+            switchTo(nameB, b.code, "P2 A to B")
+            notes += "P2: B to A and A to B each opened the target, no retry, no leftover cover"
+            // P3: three background and return cycles on B, one on A (two accounts in the survey on every return).
+            repeat(3) { cycle ->
+                relaunch()
+                val state = settledState("P3 B cycle ${cycle + 1}")
+                if (state != "shell-tabs") fail("P3 B cycle ${cycle + 1}: expected B's shell, saw '$state': ${ui.screen()}")
+                assertTwoAccountShell("P3 B cycle ${cycle + 1}")
+            }
+            switchTo(nameA, a.code, "P3 A")
+            relaunch()
+            val onA = settledState("P3 A cycle")
+            if (onA != "shell-tabs") fail("P3 A cycle: expected A's shell, saw '$onA': ${ui.screen()}")
+            assertTwoAccountShell("P3 A cycle")
+            notes += "P3: three returns on B and one on A ended on the shell"
+            // Phase 2: A is open; turn A's app lock on (Immediately).
+            appLockOnForThrowaway()
+            notes += "P4: A's app lock on, Immediately"
+            // P5: background and return on A raises the cover; A's code opens A.
             relaunch()
             lockForm()
             enterCode("app-lock-code", a.code)
             ui.tap("app-lock-unlock")
             appLockOpened()
-            assertTwoAccountShell("R5 return on A")
-            notes += "R5: return on A showed the code form; A's code opened A"
-            // R6: background and relaunch with two accounts: either a code form, the shell or the account chooser, never a retry.
+            assertTwoAccountShell("P5 return on A")
+            notes += "P5: return on A raised the cover; A's code opened A"
+            // P6: relaunch with A engaged shows the cover; A's code opens A.
             relaunch()
-            val seen = settledState("R6 relaunch")
-            notes += "R6: relaunch settled on '$seen'"
-            // R7: open A (code on the cover, or the chooser), then B.
-            when (seen) {
-                "app-lock-code" -> {
-                    enterCode("app-lock-code", a.code)
-                    ui.tap("app-lock-unlock")
-                    appLockOpened()
-                }
-                "onboarding-header" -> openFromChooser(nameA, a.code, "R7 A from the chooser")
-                else -> switchTo(nameA, a.code, "R7 A")
-            }
-            assertTwoAccountShell("R7 A open")
-            switchTo(nameB, b.code, "R7 B")
-            notes += "R7: A opened with its code, then B opened"
-            // R8: three background and return cycles on B: every return ends on B's shell.
+            lockForm()
+            enterCode("app-lock-code", a.code)
+            ui.tap("app-lock-unlock")
+            appLockOpened()
+            assertTwoAccountShell("P6 relaunch on A")
+            notes += "P6: relaunch with A engaged showed the cover; A's code opened A"
+            // R8 on A: three returns, each raises the cover and A's code opens A's shell.
             repeat(3) { cycle ->
                 relaunch()
-                val state = settledState("R8 cycle ${cycle + 1}")
-                if (state != "shell-tabs") fail("R8 cycle ${cycle + 1}: expected B's shell, saw '$state': ${ui.screen()}")
+                lockForm()
+                enterCode("app-lock-code", a.code)
+                ui.tap("app-lock-unlock")
+                appLockOpened()
+                assertTwoAccountShell("R8 A cycle ${cycle + 1}")
             }
-            notes += "R8: three returns on B ended on B's shell"
+            notes += "R8: three returns on A each raised the cover and A's code opened A's shell"
+            // The flow runs in the instrumentation process and cannot read the app's private trace file.
+            notes += "app_lock_unauthorized absence is NOT asserted by the flow (the app trace is not readable here): the runner " +
+                "must grep app-trace.txt for app_lock_unauthorized and expect none"
+            notes += "NOT exercised: B, or a switch, while A's lock is engaged (no route to the chooser until G05e-B)"
         } finally {
             secretScreen = false
             a.phrase.fill('\u0000')
