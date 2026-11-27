@@ -5404,9 +5404,18 @@
       ]
     },
     "MOB-G02.light--zh-CN": {
-      "percent": 8.49,
-      "reason": "settings root (re-reviewed at the beta integration): board groups and rows from the Kit; the media Storage row (MOB-B30 storage, M3) takes the slot of the board's MCP and A2I row (not a phone feature in beta), so the app group sits about 10 dp higher; row values are live copy (node, backup, appearance) instead of the board's sample text; page tone and row icon glyphs differ",
+      "percent": 14.98,
+      "reason": "settings root (re-reviewed at the beta integration): board groups and rows from the Kit; the media Storage row (MOB-B30 storage, M3) takes the slot of the board's MCP and A2I row (not a phone feature in beta), so the app group sits about 10 dp higher; row values are live copy (node, backup, appearance) instead of the board's sample text; page tone and row icon glyphs differ The app group also carries the Message delivery row (decides whether messages and calls arrive; delivery settings page) below System permissions, which the board does not have.",
       "regions": [
+        {
+          "kind": "extra",
+          "x": 16,
+          "y": 725,
+          "w": 361,
+          "h": 66,
+          "dx": 0,
+          "dy": 0
+        },
         {
           "kind": "different",
           "x": 16,
@@ -5460,15 +5469,6 @@
           "h": 41,
           "dx": 0,
           "dy": -6
-        },
-        {
-          "kind": "different",
-          "x": 16,
-          "y": 726,
-          "w": 361,
-          "h": 7,
-          "dx": -12,
-          "dy": 12
         },
         {
           "kind": "different",
@@ -5712,6 +5712,15 @@
           "h": 5,
           "dx": 0,
           "dy": -2
+        },
+        {
+          "kind": "extra",
+          "x": 39,
+          "y": 753,
+          "w": 16,
+          "h": 17,
+          "dx": 0,
+          "dy": 0
         },
         {
           "kind": "different",
@@ -6601,16 +6610,16 @@
       ]
     },
     "MOB-S01.light--zh-CN": {
-      "percent": 0.69,
-      "reason": "splash (wave 2 pass 6): tile, wordmark, flux line and starting indicator at the board positions; residual 1-3 dp glyph offsets of the Android text renderer and the hand-traced flux line (the design vector is requested from design)",
+      "percent": 0.97,
+      "reason": "splash (wave 2 pass 6): tile, wordmark, flux line and starting indicator at the board positions; residual 1-3 dp glyph offsets of the Android text renderer and the hand-traced flux line (the design vector is requested from design) The debug build names the app \"Ramflux Dev\" (own application id, 7dd1deb), so the wordmark line is wider than the board's \"Ramflux\".",
       "regions": [
         {
-          "kind": "shifted",
-          "x": 146,
+          "kind": "different",
+          "x": 119,
           "y": 385,
-          "w": 102,
+          "w": 157,
           "h": 24,
-          "dx": 1,
+          "dx": -10,
           "dy": 3
         },
         {
@@ -6670,8 +6679,8 @@
       ]
     },
     "MOB-S02.light--en": {
-      "percent": 4.64,
-      "reason": "English fixture of MOB-S02 (pass 6): as zh; Latin tagline lines sit 3-5 dp lower because the wordmark line box is taller in the en locale, the node card is held at its Chinese height (77 dp, board 74)",
+      "percent": 4.81,
+      "reason": "English fixture of MOB-S02 (pass 6): as zh; Latin tagline lines sit 3-5 dp lower because the wordmark line box is taller in the en locale, the node card is held at its Chinese height (77 dp, board 74) The wordmark reads \"Ramflux Dev\" in the debug build (own application id, 7dd1deb), the board shows \"Ramflux\".",
       "regions": [
         {
           "kind": "different",
@@ -6753,6 +6762,15 @@
           "h": 5,
           "dx": 0,
           "dy": -1
+        },
+        {
+          "kind": "extra",
+          "x": 145,
+          "y": 151,
+          "w": 54,
+          "h": 24,
+          "dx": 0,
+          "dy": 0
         },
         {
           "kind": "different",
@@ -6973,8 +6991,8 @@
       ]
     },
     "MOB-S02.light--zh-CN": {
-      "percent": 3.16,
-      "reason": "get started (2026-11-16 revision, re-reviewed at the beta integration): intro, node card and node-change card at the board positions; the node card is the Kit summary card, whose design-line text boxes keep one height in every script (1 dp taller than the board), so its body line sits 1-2 dp lower; wordmark and flux line glyphs differ by 1-2 dp",
+      "percent": 3.35,
+      "reason": "get started (2026-11-16 revision, re-reviewed at the beta integration): intro, node card and node-change card at the board positions; the node card is the Kit summary card, whose design-line text boxes keep one height in every script (1 dp taller than the board), so its body line sits 1-2 dp lower; wordmark and flux line glyphs differ by 1-2 dp The wordmark reads \"Ramflux Dev\" in the debug build (own application id, 7dd1deb), the board shows \"Ramflux\".",
       "regions": [
         {
           "kind": "different",
@@ -7011,6 +7029,15 @@
           "h": 21,
           "dx": 0,
           "dy": 1
+        },
+        {
+          "kind": "extra",
+          "x": 145,
+          "y": 148,
+          "w": 53,
+          "h": 24,
+          "dx": 0,
+          "dy": 0
         },
         {
           "kind": "different",
@@ -7150,8 +7177,8 @@
       ]
     },
     "MOB-S18.light--zh-CN": {
-      "percent": 2.16,
-      "reason": "welcome (pass 6): intro and button stack at the board positions; the back affordance is kept (the board draws none, the gateway stays reachable), the recover text button is the 44 dp Kit text button (centre 3-4 dp lower)",
+      "percent": 2.35,
+      "reason": "welcome (pass 6): intro and button stack at the board positions; the back affordance is kept (the board draws none, the gateway stays reachable), the recover text button is the 44 dp Kit text button (centre 3-4 dp lower) The wordmark reads \"Ramflux Dev\" in the debug build (own application id, 7dd1deb), the board shows \"Ramflux\".",
       "regions": [
         {
           "kind": "different",
@@ -7188,6 +7215,15 @@
           "h": 21,
           "dx": 0,
           "dy": -2
+        },
+        {
+          "kind": "extra",
+          "x": 145,
+          "y": 172,
+          "w": 53,
+          "h": 24,
+          "dx": 0,
+          "dy": 0
         },
         {
           "kind": "different",

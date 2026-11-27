@@ -241,6 +241,7 @@
     <string name="app_lock_body">Enter your account code to continue.</string>
     <string name="app_lock_retry">Try again</string>
     <string name="app_lock_restore">Recover with recovery phrase</string>
+    <string name="app_lock_countdown">%1$s:%2$s</string>
     <string name="app_lock_wait">Too many wrong account codes. Try again in %1$s.</string>
     <string name="app_lock_unlock_failed">The account could not be unlocked. Try again.</string>
     <string name="app_lock_change_busy">Another app lock change is in progress.</string>

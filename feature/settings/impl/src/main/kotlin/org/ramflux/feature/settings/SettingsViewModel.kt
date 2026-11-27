@@ -146,7 +146,7 @@ class SettingsViewModel @Inject constructor(
             }
             SettingsAction.UsernameNext -> local.update {
                 val form = it.usernameClaim
-                val name = form.name.trim().removePrefix("@")
+                val name = form.name.trim().let { typed -> if (typed.startsWith(USERNAME_SIGIL)) typed.drop(1) else typed }
                 if (form.working || form.step != SettingsUsernameStep.NAME) {
                     it
                 } else if (name.isEmpty()) {
@@ -912,6 +912,7 @@ private const val PAIRING_POLL_MILLIS = 2_000L
 
 /** The longest username the claim form takes, without the at sign. */
 private const val MAX_USERNAME_NAME = 64
+private const val USERNAME_SIGIL = '@'
 
 /** The name this phone gives itself in the invitation (`display_name`); the SDK bounds it to 128 bytes. */
 private val DEVICE_NAME = android.os.Build.MODEL?.takeIf { it.isNotBlank() }?.take(64) ?: "android"

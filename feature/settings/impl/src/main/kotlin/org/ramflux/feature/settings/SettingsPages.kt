@@ -537,7 +537,11 @@ internal fun LazyListScope.appLockPage(state: SettingsState, onAction: (Settings
     }
     if (lock.waitSecs > 0L) {
         item("app-lock-wait") {
-            val wait = "%02d:%02d".format(lock.waitSecs / 60, lock.waitSecs % 60)
+            val wait = stringResource(
+                R.string.settings_app_lock_countdown,
+                (lock.waitSecs / 60).toString().padStart(2, '0'),
+                (lock.waitSecs % 60).toString().padStart(2, '0')
+            )
             Text(stringResource(R.string.settings_app_lock_wait, wait), Modifier.testTag("app-lock-wait"))
         }
     }

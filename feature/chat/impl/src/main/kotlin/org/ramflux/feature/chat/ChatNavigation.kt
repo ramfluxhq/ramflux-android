@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -150,7 +151,7 @@ fun ChatNavigation(
                 is ChatEvent.Copy -> clipboard.setText(AnnotatedString(event.text))
                 is ChatEvent.OpenUrl -> runCatching {
                     // Only web links leave the app; any other scheme in a card link is dropped.
-                    val uri = android.net.Uri.parse(event.url)
+                    val uri = event.url.toUri()
                     if (uri.scheme.equals("https", ignoreCase = true) || uri.scheme.equals("http", ignoreCase = true)) {
                         context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
                     }

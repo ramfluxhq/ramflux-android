@@ -38,7 +38,7 @@
     <string name="card_modal_close">Close</string>
     <string name="card_modal_from_agent">From the agent</string>
     <!-- Controls (spec 4.9 to 4.14). -->
-    <string name="card_submitting">Submitting...</string>
+    <string name="card_submitting">Submitting…</string>
     <string name="card_stale_value">This content changed. Check it and try again.</string>
     <string name="card_date_placeholder">Select a date</string>
     <!-- Image (spec 4.15): read through the object API; a failure of any kind shows this box. -->

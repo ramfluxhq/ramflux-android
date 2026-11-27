@@ -471,7 +471,11 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
                                 helper = stringResource(R.string.ui_account_code_explanation)
                             )
                             if (waiting) {
-                                val wait = "%02d:%02d".format(ui.waitSecs / 60, ui.waitSecs % 60)
+                                val wait = stringResource(
+                                    R.string.app_lock_countdown,
+                                    (ui.waitSecs / 60).toString().padStart(2, '0'),
+                                    (ui.waitSecs % 60).toString().padStart(2, '0')
+                                )
                                 Text(
                                     stringResource(
                                         if (ui.phraseAccepted) R.string.app_lock_phrase_accepted else R.string.app_lock_wait,
