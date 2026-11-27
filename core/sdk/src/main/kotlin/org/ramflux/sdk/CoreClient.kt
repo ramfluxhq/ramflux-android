@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.*
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /** All native handle access is serialized; the shared supervisor owns business execution. */
 class CoreClient internal constructor(
@@ -25,6 +27,7 @@ class CoreClient internal constructor(
     private var closing = false
     private var freed = false
     private val operations = OperationHandles()
+    private val attendedRunning = AtomicBoolean(false)
     private val pendingRelease = OperationHandles()
     private val generationState = MutableStateFlow(0uL)
     val subscriptionGeneration: StateFlow<ULong> = generationState.asStateFlow()
@@ -61,42 +64,57 @@ class CoreClient internal constructor(
     } finally { request.body.close() }
 
     /**
-     * Runs [body] with the attended account-code callback registered for this client. A request from the core calls
-     * [answer] (the code, or null to refuse) and hands its bytes back; a request that waits longer than
-     * [ATTENDED_ANSWER_MS] is refused. The callback is registered only around [body]. It is answered with null before
-     * the provider is cleared, so clearing never waits for the bound. [answer] runs in the caller's context.
+     * Runs [body] with the attended account-code callback registered for this client, answering only the core prompts
+     * of [account]. A request from the core calls [answer] (the code, or null to refuse) and hands its bytes back; a
+     * request that waits longer than [ATTENDED_ANSWER_MS] is refused. The callback is registered only around [body]. It
+     * is answered with null before the provider is cleared, so clearing never waits for the bound. [answer] runs in the
+     * caller's context. Only one attended request runs per client: a second one throws [AttendedCodeBusyException]
+     * before [body] starts.
      */
-    suspend fun <T> withAttendedCode(answer: suspend () -> CharArray?, body: suspend () -> T): T = coroutineScope {
+    suspend fun <T> withAttendedCode(account: String, answer: suspend () -> CharArray?, body: suspend () -> T): T {
+        if (!attendedRunning.compareAndSet(false, true)) throw AttendedCodeBusyException()
+        try {
+            return runAttendedCode(account, answer, body)
+        } finally {
+            attendedRunning.set(false)
+        }
+    }
+
+    private suspend fun <T> runAttendedCode(account: String, answer: suspend () -> CharArray?, body: suspend () -> T): T = coroutineScope {
         val scope = this
-        val registered = guard.withLock { !closing && native.setCredentialProvider(core, true) == 0 }
+        val registered = guard.withLock { !closing && native.setCredentialProvider(core, true, account) == 0 }
         if (!registered) return@coroutineScope body()
+        val answering = AtomicReference<Job?>(null)
         AttendedCredentialBridge.listen(core) {
-            scope.launch {
-                // A failing host answer is a refusal, never a failure of the configure call that waits for it.
-                val code = try {
-                    withTimeoutOrNull(ATTENDED_ANSWER_MS) { answer() }
-                } catch (failure: CancellationException) {
-                    throw failure
-                } catch (_: Exception) {
-                    null
+            answering.set(
+                scope.launch {
+                    // A failing host answer is a refusal, never a failure of the configure call that waits for it.
+                    val code = try {
+                        withTimeoutOrNull(ATTENDED_ANSWER_MS) { answer() }
+                    } catch (failure: CancellationException) {
+                        throw failure
+                    } catch (_: Exception) {
+                        null
+                    }
+                    val bytes = code?.let { runCatching { SecretBytes.utf8Of(it) }.getOrNull() }
+                    if (bytes == null) {
+                        native.credentialReply(core, null)
+                    } else {
+                        bytes.useOnce { native.credentialReply(core, it) }
+                        bytes.close()
+                    }
                 }
-                if (code == null) {
-                    native.credentialReply(core, null)
-                } else {
-                    val bytes = SecretBytes.utf8Of(code)
-                    bytes.useOnce { native.credentialReply(core, it) }
-                    bytes.close()
-                }
-            }
+            )
         }
         try {
             body()
         } finally {
             withContext(NonCancellable + io) {
-                // Answer a waiting request with a refusal first: clearing waits for an active callback.
-                native.credentialReply(core, null)
+                // Stop the sheet, then answer a waiting request with a refusal: clearing waits for an active callback.
                 AttendedCredentialBridge.unlisten(core)
-                guard.withLock { if (!closing) native.setCredentialProvider(core, false) }
+                answering.getAndSet(null)?.cancel()
+                native.credentialReply(core, null)
+                guard.withLock { if (!closing) native.setCredentialProvider(core, false, null) }
             }
         }
     }

@@ -116,7 +116,14 @@ internal class DefaultAccountSecurityRepository(
     override suspend fun configureAppLock(account: String, enabled: Boolean, timeoutMs: Long, answer: suspend () -> CharArray?): ClientResult<Unit> {
         if (!valid(account) || timeoutMs !in 0L..AccountSecurityRepository.MAX_APP_LOCK_TIMEOUT_MS) return invalid()
         val body = buildJsonObject { put("enabled", enabled); put("timeout_ms", timeoutMs) }
-        val reply = transport.withAttendedCode(answer) { accounts.accountApp_lockConfigure(RepositoryContext(account), body) }
+        // The attended code window is 60 s; the deadline covers it with a margin, and only this call sets it.
+        val context = RepositoryContext(account, deadlineUnixMs = System.currentTimeMillis() + ATTENDED_DEADLINE_MS)
+        val reply = try {
+            transport.withAttendedCode(account, answer) { accounts.accountApp_lockConfigure(context, body) }
+        } catch (_: AttendedCodeBusyException) {
+            // A second attended change while one runs: refused before the core sees it.
+            return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 5, ClientOutcome.NONE))
+        }
         return when (reply) {
             is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
             is CoreResult.Success -> ClientResult.Ready(Unit)
@@ -221,6 +228,8 @@ internal class DefaultAccountSecurityRepository(
         val CAPABILITIES = listOf("call", "group", "message", "register", "sync")
         const val MAX_LEASE_SECONDS = 2_592_000L
         const val MAX_USERNAME_INPUT = 65
+        /** The attended code window (60 s) plus a margin: the default request deadline would cut it short. */
+        const val ATTENDED_DEADLINE_MS = 90_000L
         val APP_LOCK_STATES = setOf(APP_LOCK_FOREGROUND, APP_LOCK_BACKGROUND, "device_locked")
     }
 }

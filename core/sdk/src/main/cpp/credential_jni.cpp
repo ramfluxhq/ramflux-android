@@ -10,6 +10,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -36,6 +37,8 @@ struct Slot {
     bool waiting = false;
     bool answered = false;
     std::vector<uint8_t> answer;
+    // The one account whose prompts this slot answers; set once, before the callback is registered.
+    std::string account;
 };
 
 std::mutex registry_guard;
@@ -57,6 +60,15 @@ bool is_unlock_request(const uint8_t* metadata, size_t length) {
     const auto first = text.find(kActionKey);
     return first != std::string_view::npos && first == text.rfind(kActionKey) &&
         text.find(kUnlockAction) != std::string_view::npos;
+}
+
+// Only a prompt for the configured account is answered. The metadata names the account once, as its JSON field.
+bool names_account(const uint8_t* metadata, size_t length, const std::string& account) {
+    if (metadata == nullptr || account.empty()) return false;
+    const std::string_view text(reinterpret_cast<const char*>(metadata), length);
+    const std::string needle = "\"local_account_id\":\"" + account + "\"";
+    const auto first = text.find(needle);
+    return first != std::string_view::npos && first == text.rfind(needle);
 }
 
 // Calls the host's bridge on this thread (attaching it when needed). Returns false when the host cannot be reached.
@@ -95,7 +107,7 @@ int32_t account_code_callback(const uint8_t* metadata, size_t metadata_len, uint
     if (out_pass == nullptr || cap_pass < kPassphraseCapacity || !is_unlock_request(metadata, metadata_len)) return 1;
     const auto handle = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(user_data));
     const auto slot = find_slot(handle);
-    if (!slot) return 1;
+    if (!slot || !names_account(metadata, metadata_len, slot->account)) return 1;
     try {
         {
             std::lock_guard<std::mutex> lock(slot->guard);
@@ -133,7 +145,7 @@ int32_t account_code_callback(const uint8_t* metadata, size_t metadata_len, uint
 
 // Registers (enabled) or clears the callback for one core handle. Clearing drains an active callback in the core.
 extern "C" JNIEXPORT jint JNICALL
-Java_org_ramflux_sdk_JniCore_setCredentialProvider(JNIEnv* env, jobject, jlong core, jboolean enabled) {
+Java_org_ramflux_sdk_JniCore_setCredentialProvider(JNIEnv* env, jobject, jlong core, jboolean enabled, jstring account) {
     const auto handle = static_cast<uint64_t>(core);
     if (!enabled) {
         const int32_t code = ramflux_v2_set_credential_provider(handle, nullptr, nullptr);
@@ -141,6 +153,11 @@ Java_org_ramflux_sdk_JniCore_setCredentialProvider(JNIEnv* env, jobject, jlong c
         slots.erase(handle);
         return code;
     }
+    if (account == nullptr) return 6;
+    const char* chars = env->GetStringUTFChars(account, nullptr);
+    if (chars == nullptr) return 6;
+    const std::string account_text(chars);
+    env->ReleaseStringUTFChars(account, chars);
     {
         std::lock_guard<std::mutex> lock(registry_guard);
         if (bridge_class == nullptr) {
@@ -158,7 +175,9 @@ Java_org_ramflux_sdk_JniCore_setCredentialProvider(JNIEnv* env, jobject, jlong c
             }
         }
         if (env->GetJavaVM(&vm) != JNI_OK) return 6;
-        slots[handle] = std::make_shared<Slot>();
+        auto slot = std::make_shared<Slot>();
+        slot->account = account_text;
+        slots[handle] = slot;
     }
     const int32_t code = ramflux_v2_set_credential_provider(handle, account_code_callback,
         reinterpret_cast<void*>(static_cast<uintptr_t>(handle)));

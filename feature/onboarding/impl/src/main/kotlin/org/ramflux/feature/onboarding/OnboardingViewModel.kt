@@ -422,11 +422,14 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    /** Opens the recovery-phrase restore of [accountId] (the route after too many wrong account codes). */
-    fun requestRecovery(accountId: String) = beginRecover(accountId)
+    /**
+     * Opens the recovery-phrase restore of [accountId], the locked account the lock cover names. It needs no list entry:
+     * the cover has no account list, and the id comes from the session's lock state.
+     */
+    fun requestRecovery(accountId: String) = beginRecover(accountId, listed = false)
 
-    private fun beginRecover(accountId: String) {
-        if (local.value.accounts.none { it.id == accountId }) return
+    private fun beginRecover(accountId: String, listed: Boolean = true) {
+        if (listed && local.value.accounts.none { it.id == accountId }) return
         launch {
             when (val result = ceremony.beginRecover(accountId)) {
                 is ClientResult.Ready -> {

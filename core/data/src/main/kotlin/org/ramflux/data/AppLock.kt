@@ -211,8 +211,8 @@ internal class AppLockRefusalTransport(
 
     override suspend fun resetEvents(generation: ULong): CoreResult<JsonObject> = inner.resetEvents(generation)
 
-    override suspend fun <T> withAttendedCode(answer: suspend () -> CharArray?, body: suspend () -> T): T =
-        inner.withAttendedCode(answer, body)
+    override suspend fun <T> withAttendedCode(account: String, answer: suspend () -> CharArray?, body: suspend () -> T): T =
+        inner.withAttendedCode(account, answer, body)
 
     private fun <T> CoreResult<T>.noteRefusal() {
         if (this is CoreResult.Failure && error.appProblem().isAppLocked()) onRefused()

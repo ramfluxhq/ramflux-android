@@ -34,10 +34,10 @@ interface RepositoryTransport {
     suspend fun resetEvents(generation: ULong): CoreResult<JsonObject> = CoreResult.Failure(CoreError.Closed())
 
     /**
-     * Runs [body] with the attended account-code callback registered (see `CoreClient.withAttendedCode`). The default has
+     * Runs [body] with the attended account-code callback of [account] registered (see `CoreClient.withAttendedCode`). The default has
      * no callback, so the core answers `reauth_required` and nothing changes.
      */
-    suspend fun <T> withAttendedCode(answer: suspend () -> CharArray?, body: suspend () -> T): T = body()
+    suspend fun <T> withAttendedCode(account: String, answer: suspend () -> CharArray?, body: suspend () -> T): T = body()
 
     /** Username prepare and authorize (see `CoreClient.prepareUsernameChange`); the default refuses and erases both inputs. */
     suspend fun prepareUsernameChange(request: SecretRequest, change: JsonObject, phrase: SecretBytes): CoreResult<UsernamePrepared> {
@@ -80,9 +80,9 @@ class SdkRepositoryTransport internal constructor(private val currentClient: () 
         }
         return client.prepareUsernameChange(request, change, phrase)
     }
-    override suspend fun <T> withAttendedCode(answer: suspend () -> CharArray?, body: suspend () -> T): T {
+    override suspend fun <T> withAttendedCode(account: String, answer: suspend () -> CharArray?, body: suspend () -> T): T {
         val client = currentClient() ?: return body()
-        return client.withAttendedCode(answer, body)
+        return client.withAttendedCode(account, answer, body)
     }
     override fun updates(filter: SubscriptionFilter): Flow<CoreUpdate> = flow {
         val client = currentClient()

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -57,6 +58,7 @@ import org.ramflux.data.appLockCovers
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.kit.KitButton
+import org.ramflux.designsystem.kit.KitButtonKind
 import org.ramflux.designsystem.render
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.onboarding.impl.R
@@ -71,8 +73,8 @@ data class AppLockCoverState(
     val notice: UiText? = null,
     val waitSecs: Long = 0L,
     val exhausted: Boolean = false,
-    /** The session status when the person chose recovery: the cover steps aside until the session status changes. */
-    val restoredAt: ClientSnapshot? = null
+    /** The locked account whose recovery phrase the cover shows in place of the code form; null while the code form shows. */
+    val recoveryAccount: String? = null
 )
 
 /**
@@ -92,19 +94,34 @@ class AppLockViewModel @Inject constructor(
     init {
         // Any account change (unlock, switch, lock, sign-out) can change which account the lock applies to.
         viewModelScope.launch { accounts.revisions.collect { session.recheckAppLock() } }
+        // An in-cover recovery ends when the app goes to the background or the lock lifts.
+        viewModelScope.launch {
+            session.status.collect { status ->
+                if (status.suspended || status.coverPhase() != AppLockPhase.LOCKED) local.update { it.copy(recoveryAccount = null) }
+            }
+        }
     }
 
     /** Eager and computed from the session's current value, so a cover that was not subscribed still starts covered. */
     val state: StateFlow<AppLockCoverState> = combine(session.status, local) { status, screen ->
-        val stepping = screen.restoredAt == status
-        screen.copy(phase = if (stepping) AppLockPhase.OPEN else status.coverPhase())
+        screen.copy(phase = status.coverPhase())
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppLockCoverState(phase = session.status.value.coverPhase(), notice = null))
 
-    /** Leaves the cover up of the recovery route: the recovery-phrase restore is shown instead of the code field. */
-    fun restore(onRestore: (accountId: String) -> Unit) {
+    /** Shows the recovery-phrase restore of the locked account inside the cover; the code form stays behind it. */
+    fun startRecovery() {
         val account = session.status.value.appLockAccount ?: return
-        local.update { it.copy(restoredAt = session.status.value, notice = null) }
-        onRestore(account)
+        local.update { it.copy(recoveryAccount = account, notice = null) }
+    }
+
+    /** Back from the recovery: the code form shows again. */
+    fun endRecovery() {
+        local.update { it.copy(recoveryAccount = null) }
+    }
+
+    /** A recovered account is opened by the normal path: the lock is read again, and the cover lowers only if it lifts. */
+    fun recovered() {
+        endRecovery()
+        viewModelScope.launch { session.recheckAppLock() }
     }
 
     /** Reads the lock again, or reopens the session when it failed: an UNKNOWN cover answers with the next state read. */
@@ -225,7 +242,7 @@ fun CoverBackGuard(covered: Boolean, onBack: () -> Unit) {
 
 /** The cover for the app lock. Callers draw it above the shell, so the shell keeps its navigation state underneath. */
 @Composable
-fun AppLockCover(vm: AppLockViewModel = hiltViewModel(), onRestore: (accountId: String) -> Unit = {}) {
+fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
     val theme = LocalRFTheme.current
     val ui by vm.state.collectAsStateWithLifecycle()
     val focus = LocalFocusManager.current
@@ -241,6 +258,7 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel(), onRestore: (accountId: 
             keyboard?.hide()
         }
     }
+    val recovering = ui.recoveryAccount
     when (ui.phase) {
         AppLockPhase.OPEN -> Unit
         AppLockPhase.UNKNOWN -> CoverSurface {
@@ -251,58 +269,122 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel(), onRestore: (accountId: 
                 tag = "app-lock-retry"
             )
         }
-        AppLockPhase.LOCKED -> CoverSurface {
-            Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
-                Text(
-                    stringResource(R.string.app_lock_app_name),
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.testTag("app-lock-name")
-                )
-                Text(stringResource(R.string.app_lock_body), style = MaterialTheme.typography.bodyLarge)
-                if (ui.exhausted) {
-                    // No code field after too many wrong codes: only the recovery phrase opens the account.
-                    ui.notice?.let {
-                        Text(it.render(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("app-lock-notice"))
-                    }
-                    KitButton(
-                        stringResource(R.string.app_lock_restore),
-                        { vm.restore(onRestore) },
-                        Modifier.fillMaxWidth(),
-                        tag = "app-lock-restore"
-                    )
-                } else {
-                    val waiting = ui.waitSecs > 0L
-                    AccountCodeField(
-                        code,
-                        stringResource(R.string.ui_account_code),
-                        "app-lock-code",
-                        enabled = !ui.busy && !waiting,
-                        helper = stringResource(R.string.ui_account_code_explanation)
-                    )
-                    if (waiting) {
-                        val wait = "%02d:%02d".format(ui.waitSecs / 60, ui.waitSecs % 60)
+        AppLockPhase.LOCKED -> {
+            if (recovering != null) {
+                LockRecovery(recovering, onBack = vm::endRecovery, onRecovered = vm::recovered)
+            } else {
+                CoverSurface {
+                    Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
                         Text(
-                            stringResource(R.string.app_lock_wait, wait),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.testTag("app-lock-wait")
+                            stringResource(R.string.app_lock_app_name),
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.testTag("app-lock-name")
                         )
+                        Text(stringResource(R.string.app_lock_body), style = MaterialTheme.typography.bodyLarge)
+                        if (ui.exhausted) {
+                            // No code field after too many wrong codes: only the recovery phrase opens the account.
+                            ui.notice?.let {
+                                Text(
+                                    it.render(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.testTag("app-lock-notice")
+                                )
+                            }
+                            KitButton(
+                                stringResource(R.string.app_lock_restore),
+                                { vm.startRecovery() },
+                                Modifier.fillMaxWidth(),
+                                tag = "app-lock-restore"
+                            )
+                        } else {
+                            val waiting = ui.waitSecs > 0L
+                            AccountCodeField(
+                                code,
+                                stringResource(R.string.ui_account_code),
+                                "app-lock-code",
+                                enabled = !ui.busy && !waiting,
+                                helper = stringResource(R.string.ui_account_code_explanation)
+                            )
+                            if (waiting) {
+                                val wait = "%02d:%02d".format(ui.waitSecs / 60, ui.waitSecs % 60)
+                                Text(
+                                    stringResource(R.string.app_lock_wait, wait),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.testTag("app-lock-wait")
+                                )
+                            }
+                            ui.notice?.let {
+                                Text(
+                                    it.render(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.testTag("app-lock-notice")
+                                )
+                            }
+                            KitButton(
+                                stringResource(R.string.ui_unlock),
+                                { vm.unlock(code) },
+                                Modifier.fillMaxWidth(),
+                                enabled = !ui.busy && !waiting,
+                                tag = "app-lock-unlock"
+                            )
+                        }
                     }
-                    ui.notice?.let {
-                        Text(
-                            it.render(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.testTag("app-lock-notice")
-                        )
-                    }
-                    KitButton(
-                        stringResource(R.string.ui_unlock),
-                        { vm.unlock(code) },
-                        Modifier.fillMaxWidth(),
-                        enabled = !ui.busy && !waiting,
-                        tag = "app-lock-unlock"
-                    )
                 }
             }
+        }
+    }
+}
+
+/**
+ * The phrase restore of the locked account, drawn inside the cover: the cover stays up and no shell page opens under it.
+ * The account is fixed to the lock's account, so there is no picker and no other onboarding entry. Back returns to the
+ * code form; a recovered account goes through the normal unlock path.
+ */
+@Composable
+private fun LockRecovery(account: String, onBack: () -> Unit, onRecovered: () -> Unit) {
+    val theme = LocalRFTheme.current
+    val ceremony = hiltViewModel<OnboardingViewModel>(key = "app-lock-recovery")
+    val state by ceremony.state.collectAsStateWithLifecycle()
+    val entry = remember { RecoveryEntry() }
+    DisposableEffect(Unit) {
+        onDispose {
+            entry.phrase.clear()
+            entry.code.clear()
+        }
+    }
+    LaunchedEffect(account) { ceremony.requestRecovery(account) }
+    LaunchedEffect(ceremony) {
+        ceremony.events.collect { event -> if (event is OnboardingEvent.AccountSelected) onRecovered() }
+    }
+    val leave = {
+        ceremony.onAction(OnboardingAction.Back)
+        onBack()
+    }
+    BackHandler(onBack = leave)
+    CoverSurface {
+        Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp), modifier = Modifier.testTag("app-lock-recovery")) {
+            Text(stringResource(R.string.ui_recover_account), style = MaterialTheme.typography.headlineSmall)
+            if (state.busy) Text(stringResource(R.string.ui_please_wait), style = MaterialTheme.typography.bodyMedium)
+            state.notice?.let {
+                Text(it.message.render(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("app-lock-notice"))
+            }
+            if (state.recovery != null) {
+                RecoverPage(state, entry, ceremony::onAction)
+                KitButton(
+                    stringResource(R.string.ui_recover_account_action),
+                    { ceremony.onAction(OnboardingAction.ConfirmRecover(entry.phrase, entry.code)) },
+                    Modifier.fillMaxWidth(),
+                    enabled = !state.busy && entry.ready(),
+                    tag = "confirm-recovery"
+                )
+            }
+            KitButton(
+                stringResource(R.string.ui_back),
+                leave,
+                Modifier.fillMaxWidth(),
+                kind = KitButtonKind.Secondary,
+                tag = "app-lock-recovery-back"
+            )
         }
     }
 }

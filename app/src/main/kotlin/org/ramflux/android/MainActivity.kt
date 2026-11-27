@@ -18,8 +18,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
@@ -105,8 +103,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     DisposableEffect(Unit) { onDispose { banners.chatOpened(null, null) } }
-                    // The cover's restore request, handed to the root stack that owns the navigation.
-                    val recoverRequest = remember { mutableStateOf<String?>(null) }
                     CompositionLocalProvider(LocalAppLockCovered provides covered) {
                         Box(Modifier.fillMaxSize()) {
                             // The shell under the cover is hidden from accessibility services and UI automation.
@@ -117,12 +113,6 @@ class MainActivity : ComponentActivity() {
                                     tabs = tabs,
                                     sessionAccount = startupUi.activeAccount,
                                     home = { navigate ->
-                                        LaunchedEffect(recoverRequest.value) {
-                                            recoverRequest.value?.let { account ->
-                                                recoverRequest.value = null
-                                                navigate(OnboardingRoute(recoverId = account))
-                                            }
-                                        }
                                         StartupHost(navigate, shell = {
                                             // Shown only for an unlocked session: a tapped notification waits here behind the unlock.
                                             NotificationOpener(notificationRoutes, tabs)
@@ -172,7 +162,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             // The app-lock cover draws above every shell page; it keeps the shell state underneath.
-                            AppLockCover(onRestore = { account -> recoverRequest.value = account })
+                            AppLockCover()
                         }
                     }
                 }
