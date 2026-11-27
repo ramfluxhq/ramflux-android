@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
@@ -39,7 +41,9 @@ import kotlinx.serialization.json.JsonObject
 import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardLifecycle
 import org.ramflux.data.cards.CardSlotOutcome
+import org.ramflux.data.cards.CardStamp
 import org.ramflux.data.cards.CardTree
+import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
 import org.ramflux.designsystem.kit.KitAiMarker
@@ -82,7 +86,7 @@ class CardRenderInput(
  */
 interface CardActions {
     /** A host event for the control at [key] (`input`, `activate`, `select_tab`, `modal_open`, `modal_close`). */
-    fun event(key: String, event: CardEvent)
+    fun event(key: String, event: CardEvent, seen: CardStamp)
 
     /** The answer to a link or approval slot. [url] is the link the sheet showed (null for approvals). */
     fun slot(slotId: String, requestId: String, token: JsonObject, outcome: CardSlotOutcome, url: String?)
@@ -108,7 +112,7 @@ internal class CardContext(
     val format: java.util.Locale get() = formatLocale(tree.formatLocale)
     val submitting: Boolean get() = input.lifecycle == CardLifecycle.SUBMITTING
 
-    fun event(key: String, event: CardEvent) = actions.event(key, event)
+    fun event(key: String, event: CardEvent) = actions.event(key, event, tree.stamp)
 
     fun inert(): CardContext = CardContext(input, actions, tree, live = false, navigable = false, pressed = pressed)
 }
@@ -273,7 +277,9 @@ private fun LinkSheet(input: CardRenderInput, actions: CardActions) {
     val slotId = request.str("slot_id") ?: return
     val requestId = request.str("request_id") ?: return
     val token = request.obj("token") ?: return
+    if (LocalAppLockCovered.current) return
     val theme = LocalRFTheme.current
+    val host = remember(url) { runCatching { java.net.URI(url).host }.getOrNull().orEmpty() }
     val shape = RoundedCornerShape(theme.radius_dialog.dp)
     Dialog(onDismissRequest = { actions.slot(slotId, requestId, token, CardSlotOutcome.CANCEL, url) }) {
         Column(
@@ -285,13 +291,26 @@ private fun LinkSheet(input: CardRenderInput, actions: CardActions) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             KitMeta(stringResource(R.string.card_link_title))
-            UntrustedText(
-                url,
-                kind = UntrustedKind.FileName,
-                style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.text, 1.448f, FontFamily.Monospace)
-            )
-            KitMeta(stringResource(R.string.card_link_author_note))
-            KitMeta(stringResource(R.string.card_link_privacy))
+            // The body scrolls so Open stays reachable for the longest URL; the buttons sit below it.
+            Column(
+                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (host.isNotEmpty()) {
+                    UntrustedText(
+                        host,
+                        kind = UntrustedKind.Name,
+                        style = kitStyle(theme.size_subheading, FontWeight.SemiBold, theme.text, 1.448f)
+                    )
+                }
+                UntrustedText(
+                    url,
+                    kind = UntrustedKind.FileName,
+                    style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.text, 1.448f, FontFamily.Monospace)
+                )
+                KitMeta(stringResource(R.string.card_link_author_note))
+                KitMeta(stringResource(R.string.card_link_privacy))
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                 KitButton(
                     label = stringResource(R.string.card_cancel),

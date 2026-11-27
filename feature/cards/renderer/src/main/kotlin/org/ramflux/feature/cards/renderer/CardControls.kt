@@ -56,6 +56,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardNode
+import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
@@ -68,7 +69,7 @@ import org.ramflux.designsystem.kit.shapeOf
 
 /** The text of a Button: its first Text child. */
 private fun buttonLabel(node: CardNode, ctx: CardContext): String =
-    node.children.firstNotNullOfOrNull { child -> ctx.tree.nodes[child]?.attrs?.str("text") }.orEmpty()
+    node.children.firstNotNullOfOrNull { child -> ctx.tree.nodes[child]?.attrs?.str("text") }.orEmpty().let { trusted(it) }
 
 /** Button (spec 4.9): activation is one event; the submit is the host's next call after `pending_submit`. */
 @Composable
@@ -163,7 +164,7 @@ internal class UnechoedValues(private val limit: Int = 64) {
 private fun fieldValue(value: String, number: Boolean): JsonPrimitive {
     if (!number) return JsonPrimitive(value)
     value.toLongOrNull()?.let { return JsonPrimitive(it) }
-    value.toDoubleOrNull()?.let { return JsonPrimitive(it) }
+    value.toDoubleOrNull()?.takeIf { it.isFinite() }?.let { return JsonPrimitive(it) }
     return JsonPrimitive(value)
 }
 
@@ -283,12 +284,12 @@ internal fun CardSlider(node: CardNode, ctx: CardContext) {
     val key = node.key
     val min = node.attrs.num("min") ?: 0.0
     val rawMax = node.attrs.num("max") ?: 100.0
-    val max = rawMax.coerceAtLeast(min + 1e-6)
     val whole = sliderWholeBounds(min, rawMax)
-    val treeValue = (node.attrs.num("value") ?: min).toFloat()
+    val range = sliderRange(min, rawMax, node.attrs.num("value") ?: min)
+    val treeValue = range?.third ?: 0f
     var draft by remember(key, treeValue) { mutableFloatStateOf(treeValue) }
-    // Untrusted bounds may hold no whole number (min 0.2, max 0.8): nothing can be sent, so the slider stays disabled.
-    val enabled = ctx.live && node.attrs.bool("disabled") != true && whole != null
+    // Untrusted bounds may hold no whole number (min 0.2, max 0.8) or overflow a Float: nothing can be sent, the slider is disabled.
+    val enabled = ctx.live && node.attrs.bool("disabled") != true && whole != null && range != null
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             KitText(
@@ -304,11 +305,26 @@ internal fun CardSlider(node: CardNode, ctx: CardContext) {
             onValueChangeFinished = {
                 if (enabled && whole != null) ctx.event(key, CardEvent.Input(JsonPrimitive(draft.roundToLong().coerceIn(whole))))
             },
-            valueRange = min.toFloat()..max.toFloat(),
+            valueRange = range?.let { it.first..it.second } ?: 0f..1f,
             enabled = enabled
         )
         node.attrs.firstError()?.let { KitMeta(it) }
     }
+}
+
+/**
+ * The Float range and the clamped value a Slider draws, or null when a bound or the value is not finite as a Float
+ * (1e39 overflows to infinity and would crash the layout) or min is above max. Untrusted input: never throws.
+ */
+internal fun sliderRange(min: Double, max: Double, value: Double): Triple<Float, Float, Float>? {
+    val low = min.toFloat()
+    val high = max.toFloat()
+    val shown = value.toFloat()
+    if (!low.isFinite() || !high.isFinite() || !shown.isFinite() || low > high) return null
+    // A zero-width range is drawn with a minimal span so the thumb fraction stays defined.
+    val top = if (high == low) Math.nextUp(low) else high
+    if (!top.isFinite()) return null
+    return Triple(low, top, shown.coerceIn(low, top))
 }
 
 /** The whole numbers a slider may send within [min, max], or null when the bounds hold none (or are not finite). */
@@ -364,7 +380,15 @@ internal fun CardDateTime(node: CardNode, ctx: CardContext) {
         }
         node.attrs.firstError()?.let { KitMeta(it) }
     }
-    if (pickingDate) {
+    val covered = LocalAppLockCovered.current
+    LaunchedEffect(covered) {
+        if (covered) {
+            pickingDate = false
+            pickingTime = false
+            pendingDay = null
+        }
+    }
+    if (pickingDate && !covered) {
         val state = rememberDatePickerState(initialSelectedDateMillis = (date ?: LocalDate.now()).toEpochDay() * DAY_MILLIS)
         DatePickerDialog(
             onDismissRequest = { pickingDate = false },
@@ -387,7 +411,7 @@ internal fun CardDateTime(node: CardNode, ctx: CardContext) {
             DatePicker(state = state)
         }
     }
-    if (pickingTime) {
+    if (pickingTime && !covered) {
         val start = time ?: LocalTime.NOON
         val state = rememberTimePickerState(initialHour = start.hour, initialMinute = start.minute, is24Hour = true)
         AlertDialog(

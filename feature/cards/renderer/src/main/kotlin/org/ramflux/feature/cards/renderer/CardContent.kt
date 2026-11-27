@@ -87,10 +87,15 @@ internal fun CardIcon(node: CardNode, ctx: CardContext) {
     when {
         name != null -> KitIcon(name, ICON_SIZE, theme.text, description = label)
         path != null -> {
-            val parsed = remember(path) { PathParser().parsePathString(path).toNodes().toPath() }
-            Canvas(Modifier.size(ICON_SIZE.dp)) {
-                val factor = size.width / PATH_VIEWBOX
-                scale(factor, factor, pivot = Offset.Zero) { drawPath(parsed, theme.text) }
+            // Untrusted path data: a malformed path draws the empty box, never a crash.
+            val parsed = remember(path) { runCatching { PathParser().parsePathString(path).toNodes().toPath() }.getOrNull() }
+            if (parsed == null) {
+                Box(Modifier.size(ICON_SIZE.dp))
+            } else {
+                Canvas(Modifier.size(ICON_SIZE.dp)) {
+                    val factor = size.width / PATH_VIEWBOX
+                    scale(factor, factor, pivot = Offset.Zero) { drawPath(parsed, theme.text) }
+                }
             }
         }
         else -> Box(Modifier.size(ICON_SIZE.dp))
@@ -129,7 +134,7 @@ internal fun CardChart(node: CardNode, ctx: CardContext) {
     val theme = LocalRFTheme.current
     val kind = node.attrs.str("kind") ?: "line"
     val scale = node.attrs.num("scale") ?: 1.0
-    val unit = node.attrs.str("unit")
+    val unit = node.attrs.str("unit")?.let { trusted(it) }
     val series = node.attrs.arr("series")?.mapNotNull { it as? JsonObject }.orEmpty()
     val data = series.map { s -> s.arr("points")?.mapNotNull { it as? JsonObject }.orEmpty() }
     var table by rememberSaveable(node.key) { mutableStateOf(false) }

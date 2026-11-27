@@ -149,9 +149,11 @@ internal class DefaultClientSessionRepository(
         resumeCards()
     }
 
-    /** Suspends the cards once per cover or background; a second call while they are suspended changes nothing. */
+    /**
+     * Suspends the cards on every cover or background. The call is idempotent per card, and it always runs: a card opened
+     * or resumed while the flag was already set (a screen that opened under the cover) must not stay running.
+     */
     private suspend fun suspendCards() {
-        if (cardsSuspended) return
         cardsSuspended = true
         cards.background()
     }

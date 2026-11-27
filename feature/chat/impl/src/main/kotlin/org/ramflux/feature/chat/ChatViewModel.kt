@@ -1436,7 +1436,8 @@ class ChatViewModel @Inject constructor(
     private fun cardInteract(action: ChatAction.CardInteract) {
         val account = target?.account ?: return
         viewModelScope.launch {
-            val reply = (cards.event(account, action.ref, action.key, action.event) as? ClientResult.Ready)?.value ?: return@launch
+            val sent = cards.event(account, action.ref, action.key, action.event, action.seen)
+            val reply = (sent as? ClientResult.Ready)?.value ?: return@launch
             when (reply.result) {
                 "pending_submit" -> {
                     val submitted = cards.submit(account, action.ref)

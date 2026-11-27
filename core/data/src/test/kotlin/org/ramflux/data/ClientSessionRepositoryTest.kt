@@ -124,9 +124,10 @@ class ClientSessionRepositoryTest {
         // Back in the foreground the lock covers the screens: the cards must not resume behind it.
         repository.foreground()
         assertEquals(AppLockPhase.LOCKED, repository.status.value.appLock)
-        assertEquals(listOf("background"), cards.calls)
+        // The lock read suspends again although the cards are already down: a card opened meanwhile must not run.
+        assertEquals(listOf("background", "background"), cards.calls)
         repository.recheckAppLock()
-        assertEquals(listOf("background", "foreground"), cards.calls)
+        assertEquals(listOf("background", "background", "foreground"), cards.calls)
     }
     @Test fun aLockRefusalCoversTheScreensAtOnceAndSuspendsTheCardsAfterwards() = runTest(timeout = 5.seconds) {
         var refused: (() -> Unit)? = null

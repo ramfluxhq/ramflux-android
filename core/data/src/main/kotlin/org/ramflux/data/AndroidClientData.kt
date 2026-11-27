@@ -16,7 +16,10 @@ class AndroidClientData(context: Context, expectedDescriptor: String, languages:
 
     /** Account-scoped host stores (drafts, media) register here; see [AccountScopedStores]. */
     val accountStores = AccountScopedStores()
-    private val cardPool = CardSessionPool(driver.transport)
+    private val cardPool = CardSessionPool(driver.transport).also { pool ->
+        // A card draft or tree must not outlive its account: sign-out and removal dispose the account's sessions.
+        accountStores.register { account -> pool.forget(account) }
+    }
     /** The card runtime: sessions shared by every chat screen, suspended and resumed with the client. */
     val cardSessions: CardSessionRepository = cardPool
     val session: ClientSessionRepository = DefaultClientSessionRepository(driver, cards = cardPool)

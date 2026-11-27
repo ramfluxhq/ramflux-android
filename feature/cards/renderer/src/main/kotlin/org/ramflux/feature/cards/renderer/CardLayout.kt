@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +26,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,7 +42,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardNode
+import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.kit.KitAiMarker
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
 import org.ramflux.designsystem.kit.KitMeta
@@ -176,6 +181,15 @@ internal fun CardModal(node: CardNode, ctx: CardContext) {
     var open by rememberSaveable(node.key) { mutableStateOf(false) }
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val label = stringResource(R.string.card_modal_open)
+    val covered = LocalAppLockCovered.current
+    // A suspended card or the app lock cover closes the sheet: no card window may stay above the cover.
+    val closeNow = covered || !ctx.navigable
+    LaunchedEffect(closeNow) {
+        if (closeNow && open) {
+            open = false
+            if (ctx.navigable) ctx.event(node.key, CardEvent.ModalClose)
+        }
+    }
     Box(
         Modifier
             .fillMaxWidth()
@@ -188,15 +202,28 @@ internal fun CardModal(node: CardNode, ctx: CardContext) {
     ) {
         RenderNode(trigger, ctx.inert())
     }
-    if (open && content != null && ctx.input.hostRequest?.str("kind") != "open_url") {
+    if (open && !closeNow && content != null && ctx.input.hostRequest?.str("kind") != "open_url") {
         val close = {
             if (open) {
                 open = false
                 ctx.event(node.key, CardEvent.ModalClose)
             }
         }
-        ModalBottomSheet(onDismissRequest = close, sheetState = sheet, modifier = Modifier.testTag("card-modal-sheet")) {
+        val theme = LocalRFTheme.current
+        // Plain card surface, not the host's security-sheet look, and an agent header inside: the author's content cannot
+        // pass for an approval sheet or a system prompt.
+        ModalBottomSheet(
+            onDismissRequest = close,
+            sheetState = sheet,
+            containerColor = theme.surface_white,
+            modifier = Modifier.testTag("card-modal-sheet")
+        ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth().testTag("card-modal-header"), verticalAlignment = Alignment.CenterVertically) {
+                    KitAiMarker()
+                    Spacer(Modifier.width(8.dp))
+                    KitMeta(stringResource(R.string.card_modal_from_agent))
+                }
                 RenderNode(content, ctx)
                 KitButton(label = stringResource(R.string.card_modal_close), onClick = close, kind = KitButtonKind.Secondary)
             }

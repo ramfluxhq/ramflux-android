@@ -6,9 +6,10 @@ package org.ramflux.feature.chat
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardSlotOutcome
+import org.ramflux.data.cards.CardStamp
 sealed interface ChatAction {
     /** A host event for the control at [key] of agent card [ref] (`input`, `activate`, `select_tab`, modal events). */
-    data class CardInteract(val ref: String, val key: String, val event: CardEvent) : ChatAction
+    data class CardInteract(val ref: String, val key: String, val event: CardEvent, val seen: CardStamp) : ChatAction
 
     /** The answer to a card's link or approval slot. [url] is the link the sheet showed; null for approvals. */
     data class CardAnswer(

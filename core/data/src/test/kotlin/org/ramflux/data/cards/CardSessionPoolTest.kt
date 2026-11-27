@@ -32,6 +32,8 @@ class CardSessionPoolTest {
     private class FakeBus(var suspendFails: Boolean = false, var resumeFails: CoreError? = null) : RepositoryTransport {
         var opens = 0
         val suspends = ArrayList<Long>()
+        val disposes = ArrayList<Long>()
+        var secretCalls = 0
         private var next = 1L
 
         override suspend fun execute(request: CoreRequest): CoreResult<JsonObject> {
@@ -47,12 +49,18 @@ class CardSessionPoolTest {
                     if (suspendFails) CoreResult.Failure(CoreError.Closed())
                     else CoreResult.Success(JsonObject(mapOf("result" to JsonPrimitive("suspended"), "render_allowed" to JsonPrimitive(true))))
                 }
-                "card.session.dispose" -> CoreResult.Success(JsonObject(mapOf("result" to JsonPrimitive("disposed"))))
+                "card.session.dispose" -> {
+                    disposes += session
+                    CoreResult.Success(JsonObject(mapOf("result" to JsonPrimitive("disposed"))))
+                }
                 else -> CoreResult.Failure(CoreError.Closed())
             }
         }
 
-        override suspend fun executeSecret(request: SecretRequest): CoreResult<SecretReply> = CoreResult.Failure(CoreError.Closed())
+        override suspend fun executeSecret(request: SecretRequest): CoreResult<SecretReply> {
+            secretCalls++
+            return CoreResult.Failure(CoreError.Closed())
+        }
         override fun updates(filter: SubscriptionFilter): Flow<CoreUpdate> = emptyFlow()
     }
 
@@ -115,6 +123,38 @@ class CardSessionPoolTest {
         assertEquals(CardSessionPool.MAX_OPEN + 1, bus.opens)
         assertNotNull(pool.state(ACCOUNT, "c0"))
         assertEquals(true, pool.state(ACCOUNT, last)?.resumed)
+    }
+
+    @Test fun anEventFromAnOlderTreeIsDroppedBeforeItReachesTheRuntime() = runTest {
+        val bus = FakeBus()
+        val pool = CardSessionPool(bus, scope = this)
+        pool.show(ACCOUNT, "a")
+        val held = pool.state(ACCOUNT, "a")?.tree
+        assertNotNull(held)
+        val stale = CardStamp(held!!.treeVersion + 1, held.editSeq)
+        pool.event(ACCOUNT, "a", "root", CardEvent.Activate, stale)
+        pool.event(ACCOUNT, "a", "root", CardEvent.Activate, CardStamp(held.treeVersion, held.editSeq + 1))
+        assertEquals(0, bus.secretCalls)
+        pool.event(ACCOUNT, "a", "root", CardEvent.Activate, held.stamp)
+        assertEquals(1, bus.secretCalls)
+    }
+
+    @Test fun forgettingAnAccountDisposesItsSessionsAndDropsItsSlots() = runTest {
+        val bus = FakeBus()
+        val pool = CardSessionPool(bus, scope = this)
+        pool.show(ACCOUNT, "a")
+        pool.show(ACCOUNT, "b")
+        pool.show("other", "c")
+        pool.forget(ACCOUNT)
+        assertEquals(setOf(1L, 2L), bus.disposes.toSet())
+        assertEquals(null, pool.state(ACCOUNT, "a"))
+        assertEquals(null, pool.state(ACCOUNT, "b"))
+        assertNotNull(pool.state("other", "c"))
+    }
+
+    @Test fun aCardNodeNeverPrintsItsAttributes() {
+        val node = CardNode("k", "c", "TextField", "card", null, emptyList(), null, buildJsonObject { put("value", "secret draft") }, emptyList())
+        assertFalse(node.toString().contains("secret draft"))
     }
 
     private companion object {

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +34,7 @@ import java.time.format.FormatStyle
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.data.cards.CardNode
 import org.ramflux.data.cards.CardSlotOutcome
+import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
 import org.ramflux.designsystem.kit.KitButton
@@ -61,6 +63,8 @@ internal fun CardApproval(node: CardNode, ctx: CardContext) {
     val canAnswer = ctx.live && facts != null && slotId != null && requestId != null && token != null &&
         !ctx.input.awaitingDecision && node.attrs.bool("disabled") != true
     var confirming by remember(key) { mutableStateOf(false) }
+    val covered = LocalAppLockCovered.current
+    LaunchedEffect(covered) { if (covered) confirming = false }
     Column(Modifier.fillMaxWidth().testTag("card-approval"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         KitText(
             facts?.str("action")?.let { trusted(it) } ?: stringResource(R.string.card_approval_title),
@@ -175,6 +179,7 @@ private fun riskLabel(risk: String): String = risk.lowercase().replaceFirstChar 
 /** The host security sheet: the verified facts again and a single-tap Confirm (README, no hold gesture). */
 @Composable
 private fun ApprovalConfirm(facts: JsonObject, onCancel: () -> Unit, onConfirm: () -> Unit) {
+    if (LocalAppLockCovered.current) return
     val theme = LocalRFTheme.current
     val shape = RoundedCornerShape(theme.radius_dialog.dp)
     Dialog(onDismissRequest = onCancel) {

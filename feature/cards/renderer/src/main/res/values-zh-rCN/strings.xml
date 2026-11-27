@@ -26,6 +26,7 @@
     <string name="card_show_all">显示全部（%1$d）</string>
     <string name="card_modal_open">打开</string>
     <string name="card_modal_close">关闭</string>
+    <string name="card_modal_from_agent">来自智能体</string>
     <string name="card_submitting">提交中…</string>
     <string name="card_stale_value">内容已变化。请检查后重试。</string>
     <string name="card_date_placeholder">选择日期</string>

@@ -40,7 +40,7 @@ internal fun JsonObject.firstError(): String? {
         is JsonPrimitive -> first.takeIf { it.isString }?.content
         is JsonObject -> first.str("message") ?: first.str("text")
         else -> null
-    }?.takeIf { it.isNotEmpty() }
+    }?.let { trusted(it) }?.takeIf { it.isNotEmpty() }
 }
 
 /** Tree text is untrusted: it reaches the screen only through [untrustedDisplay], never as markup or links. */

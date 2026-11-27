@@ -30,6 +30,7 @@ import org.ramflux.android.R
 import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardLifecycle
 import org.ramflux.data.cards.CardSlotOutcome
+import org.ramflux.data.cards.CardStamp
 import org.ramflux.data.cards.CardState
 import org.ramflux.feature.cards.renderer.CardActions
 import org.ramflux.feature.cards.renderer.CardRenderInput
@@ -104,7 +105,7 @@ internal fun CardState.renderInput(): CardRenderInput = CardRenderInput(
  * standalone path (the SDK owns slots), so it is dropped here and the sheet closes on the next state.
  */
 private class GalleryActions(private val model: CardGalleryModel, private val ref: String) : CardActions {
-    override fun event(key: String, event: CardEvent) = model.event(ref, key, event)
+    override fun event(key: String, event: CardEvent, seen: CardStamp) = model.event(ref, key, event)
 
     override fun slot(slotId: String, requestId: String, token: JsonObject, outcome: CardSlotOutcome, url: String?) = Unit
 

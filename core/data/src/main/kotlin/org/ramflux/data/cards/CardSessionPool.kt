@@ -95,8 +95,11 @@ interface CardSessionRepository {
     /** Opens the card, or resumes it when it is held but suspended (the first tap on a suspended card). */
     suspend fun show(account: String, ref: String, locale: String = "en", dark: Boolean = false): ClientResult<Unit>
 
-    /** Sends one host event for the control at [key] of the shown tree. Refused when the card is not resumed. */
-    suspend fun event(account: String, ref: String, key: String, event: CardEvent): ClientResult<CardReply>
+    /**
+     * Sends one host event for the control at [key] of the shown tree. Refused when the card is not resumed, and dropped
+     * when the held tree is not the one [seen] (the token is built from the tree the person saw, not a later one).
+     */
+    suspend fun event(account: String, ref: String, key: String, event: CardEvent, seen: CardStamp): ClientResult<CardReply>
 
     /** Answers a host slot (link or approval) with [outcome]; [token], [slotId] and [requestId] come from the tree or the host request. */
     suspend fun slot(
@@ -121,7 +124,7 @@ class UnavailableCardSessionRepository : CardSessionRepository {
     override fun state(account: String, ref: String): CardState? = null
     override val revision: StateFlow<Long> = MutableStateFlow(0L).asStateFlow()
     override suspend fun show(account: String, ref: String, locale: String, dark: Boolean): ClientResult<Unit> = unavailable
-    override suspend fun event(account: String, ref: String, key: String, event: CardEvent): ClientResult<CardReply> = unavailable
+    override suspend fun event(account: String, ref: String, key: String, event: CardEvent, seen: CardStamp): ClientResult<CardReply> = unavailable
     override suspend fun slot(
         account: String, ref: String, slotId: String, requestId: String, token: JsonObject, outcome: CardSlotOutcome,
     ): ClientResult<CardReply> = unavailable
@@ -211,13 +214,15 @@ internal class CardSessionPool(
         }
     }
 
-    override suspend fun event(account: String, ref: String, key: String, event: CardEvent): ClientResult<CardReply> {
+    override suspend fun event(account: String, ref: String, key: String, event: CardEvent, seen: CardStamp): ClientResult<CardReply> {
         if (!usable(account) || !usable(ref)) return invalid()
         val acc = accountOf(account)
         return acc.lock.withLock {
             val slot = touchSlot(acc, ref)?.takeIf { it.state.resumed } ?: return@withLock invalid()
             val tree = slot.state.tree ?: return@withLock invalid()
             val session = slot.session ?: return@withLock invalid()
+            // The tree moved on after the person acted (an update or a re-read): the event no longer matches what they saw.
+            if (tree.stamp != seen) return@withLock invalid()
             when (val call = client.event(account, session, tree.tokenFor(key), event)) {
                 is CardCall.Failed -> ClientResult.Failed(call.problem)
                 is CardCall.Replied -> {
@@ -290,6 +295,25 @@ internal class CardSessionPool(
         if (!usable(account) || !usable(ref)) return
         val acc = accountOf(account)
         acc.lock.withLock { peekSlot(acc, ref)?.let { disposeSlot(acc, account, it) } }
+    }
+
+    /**
+     * The account left this device (sign-out or removal): its sessions are disposed and its slots dropped, so no draft or
+     * tree outlives it.
+     */
+    suspend fun forget(account: String) {
+        if (!usable(account)) return
+        val acc = synchronized(guard) { accounts[account] } ?: return
+        acc.lock.withLock {
+            val held = synchronized(guard) {
+                acc.watch?.cancel()
+                acc.watch = null
+                acc.slots.values.toList().also { acc.slots.clear() }
+            }
+            for (slot in held) slot.session?.let { client.dispose(account, it) }
+            synchronized(guard) { accounts.remove(account) }
+            counter.value = counter.value + 1
+        }
     }
 
     /** Background: stop the surface feed, then suspend every resumed card. Foreground resumes the most recent ones again. */

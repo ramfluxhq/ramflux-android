@@ -20,7 +20,13 @@ data class CardNode(
     val slot: JsonObject?,
     val attrs: JsonObject,
     val children: List<String>,
-)
+) {
+    /** Attrs hold the author's text and the person's drafts: they are never printed. */
+    override fun toString() = "CardNode(<redacted>)"
+}
+
+/** Which version of the tree a person saw when they acted: a host event is dropped when the held tree has moved on. */
+data class CardStamp(val treeVersion: Long, val editSeq: Long)
 
 /**
  * The client copy of one card's native tree. The only way to change it is [apply]: an atomic
@@ -43,6 +49,9 @@ class CardTree private constructor(
     val lifecycle: String,
 ) {
     fun root(): CardNode? = rootKey?.let { nodes[it] }
+
+    /** The version a host event is stamped with when it is raised from this tree. */
+    val stamp: CardStamp get() = CardStamp(treeVersion, editSeq)
 
     /** The `token` a host event carries for [key] of this tree (the runtime's `EventToken`, camelCase). */
     fun tokenFor(key: String): JsonObject = buildJsonObject {

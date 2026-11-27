@@ -23,6 +23,20 @@ class CardControlsTest {
         assertEquals(0L..100L, sliderWholeBounds(0.0, 100.0))
     }
 
+    @Test fun sliderRangeRefusesBoundsThatOverflowFloat() {
+        assertNull(sliderRange(-1e39, 100.0, 5.0))
+        assertNull(sliderRange(0.0, 1e39, 5.0))
+        assertNull(sliderRange(0.0, 100.0, 1e39))
+        assertNull(sliderRange(0.0, 100.0, Double.NaN))
+        assertNull(sliderRange(10.0, 1.0, 5.0))
+    }
+
+    @Test fun sliderRangeClampsTheValueAndKeepsAZeroWidthRangeDefined() {
+        assertEquals(Triple(0f, 100f, 100f), sliderRange(0.0, 100.0, 250.0))
+        val flat = sliderRange(3.0, 3.0, 3.0)
+        assertTrue(flat != null && flat.first < flat.second)
+    }
+
     @Test fun anEchoOfOwnInputKeepsTheTypedText() {
         val sent = UnechoedValues()
         sent.sent("a")

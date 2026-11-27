@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.Dp
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardSlotOutcome
+import org.ramflux.data.cards.CardStamp
 import org.ramflux.feature.cards.renderer.CardActions
 import org.ramflux.feature.cards.renderer.CardRenderInput
 import org.ramflux.feature.cards.renderer.CardRenderer
@@ -36,7 +37,7 @@ internal fun CardView(card: CardItem, cap: Dp, modifier: Modifier, onAction: (Ch
 
 /** The chat's side of one card: each call becomes one [ChatAction] for the card's ref. */
 private class ChatCardActions(private val ref: String, private val onAction: (ChatAction) -> Unit) : CardActions {
-    override fun event(key: String, event: CardEvent) = onAction(ChatAction.CardInteract(ref, key, event))
+    override fun event(key: String, event: CardEvent, seen: CardStamp) = onAction(ChatAction.CardInteract(ref, key, event, seen))
 
     override fun slot(slotId: String, requestId: String, token: JsonObject, outcome: CardSlotOutcome, url: String?) =
         onAction(ChatAction.CardAnswer(ref, slotId, requestId, token, outcome, url))

@@ -35,6 +35,7 @@
     <string name="card_show_all">Show all (%1$d)</string>
     <string name="card_modal_open">Open</string>
     <string name="card_modal_close">Close</string>
+    <string name="card_modal_from_agent">From the agent</string>
     <!-- Controls (spec 4.9 to 4.14). -->
     <string name="card_submitting">Submitting...</string>
     <string name="card_stale_value">This content changed. Check it and try again.</string>
