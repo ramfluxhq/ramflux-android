@@ -98,10 +98,16 @@ class AppLockViewModel @Inject constructor(
         // to the background, when the lock lifts or when it names another account; the next lock starts with the code form.
         viewModelScope.launch {
             var lockedAccount: String? = null
+            var shownFor: String? = null
             session.status.collect { status ->
                 val phase = status.coverPhase()
                 if (status.suspended || phase != AppLockPhase.LOCKED || status.appLockAccount != lockedAccount) resetCover()
                 lockedAccount = status.appLockAccount
+                // Each time a lock is shown, the wait and the exhausted route are read from core again, so a return from
+                // the background or a restart never re-enables the code field while core still refuses it.
+                val showing = status.appLockAccount?.takeIf { !status.suspended && phase == AppLockPhase.LOCKED }
+                if (showing != null && showing != shownFor) launch { readThrottle(showing) }
+                shownFor = showing
             }
         }
     }
