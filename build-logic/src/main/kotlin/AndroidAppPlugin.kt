@@ -32,6 +32,7 @@ class AndroidAppPlugin : Plugin<Project> {
             check(pin[3].isEmpty() || pin[3].toLongOrNull()?.let { it > 0 } == true) { "ramflux.usernameDirectory.generation must be a positive integer" }
             listOf("URL", "ID", "KEY").forEachIndexed { i, name -> defaultConfig.buildConfigField("String", "USERNAME_DIRECTORY_$name", "\"${pin[i]}\"") }
             defaultConfig.buildConfigField("long", "USERNAME_DIRECTORY_GENERATION", "${pin[3].ifEmpty { "0" }}L")
+            defaultConfig.buildConfigField("boolean", "REALRUN", "false")
             compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
             buildTypes.getByName("release") { isMinifyEnabled = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt")) }
             // Debug installs beside the release app under its own application id (and so its own Keystore keys,
@@ -43,6 +44,7 @@ class AndroidAppPlugin : Plugin<Project> {
                 initWith(buildTypes.getByName("debug"))
                 applicationIdSuffix = ".realrun"
                 matchingFallbacks += "debug"
+                buildConfigField("boolean", "REALRUN", "true")
             }
             if (providers.gradleProperty("ramflux.realrun").orNull == "true") testBuildType = "realrun"
             packaging.jniLibs.useLegacyPackaging = false

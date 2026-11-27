@@ -13,14 +13,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 import java.util.Locale
+import org.ramflux.data.AccountCode
 import org.ramflux.data.AppLanguage
 import org.ramflux.data.ContactRequestPolicy
 import org.ramflux.designsystem.*
@@ -463,7 +470,9 @@ private fun UsernamePhraseForm(form: SettingsUsernameClaim, onAction: (SettingsA
  */
 internal fun LazyListScope.appLockPage(state: SettingsState, onAction: (SettingsAction) -> Unit) {
     val lock = state.appLock
-    val usable = lock.loaded && !lock.loading && lock.unavailable == null
+    val usable = lock.loaded && !lock.loading && lock.unavailable == null && !lock.reauthOpen
+    // Turning the lock on needs no code; turning it off is a weakening, so it waits out a throttle.
+    val switchUsable = usable && (!lock.enabled || lock.waitSecs == 0L)
     item("app-lock-switch") {
         val theme = LocalRFTheme.current
         SettingsGroup(stringResource(R.string.settings_app_lock_title)) {
@@ -475,9 +484,10 @@ internal fun LazyListScope.appLockPage(state: SettingsState, onAction: (Settings
                 KitSwitch(
                     checked = lock.enabled,
                     onChecked = { onAction(SettingsAction.SetAppLock(it)) },
-                    enabled = usable,
+                    enabled = switchUsable,
                     label = stringResource(R.string.settings_app_lock_switch),
-                    tag = "app-lock-switch"
+                    tag = "app-lock-switch",
+                    stateKnown = lock.loaded
                 )
             }
         }
@@ -489,7 +499,8 @@ internal fun LazyListScope.appLockPage(state: SettingsState, onAction: (Settings
                     stringResource(appLockTimeoutLabel(timeout)),
                     { onAction(SettingsAction.AppLockTimeout(timeout)) },
                     trailing = if (lock.timeoutMs == timeout) KitRowTrailing.Check else KitRowTrailing.None,
-                    enabled = usable && lock.enabled,
+                    // A longer timeout weakens the lock: it waits out a throttle. A shorter one needs no code.
+                    enabled = usable && lock.enabled && (timeout <= lock.timeoutMs || lock.waitSecs == 0L),
                     divider = index != APP_LOCK_TIMEOUTS.lastIndex,
                     testTag = "app-lock-timeout:$timeout"
                 )
@@ -514,6 +525,118 @@ internal fun LazyListScope.appLockPage(state: SettingsState, onAction: (Settings
     }
     lock.unavailable?.let { message -> item("app-lock-unavailable") { Text(message.render()) } }
     lock.problem?.let { message -> item("app-lock-error") { Text(message.render()) } }
+    if (lock.wrongCode) {
+        item("app-lock-wrong-code") {
+            Text(stringResource(R.string.settings_app_lock_wrong_code), Modifier.testTag("app-lock-wrong-code"))
+        }
+    }
+    if (lock.notChanged) {
+        item("app-lock-not-changed") {
+            Text(stringResource(R.string.settings_app_lock_not_changed), Modifier.testTag("app-lock-not-changed"))
+        }
+    }
+    if (lock.waitSecs > 0L) {
+        item("app-lock-wait") {
+            val wait = "%02d:%02d".format(lock.waitSecs / 60, lock.waitSecs % 60)
+            Text(stringResource(R.string.settings_app_lock_wait, wait), Modifier.testTag("app-lock-wait"))
+        }
+    }
+    if (lock.exhausted) {
+        item("app-lock-exhausted") {
+            Column(verticalArrangement = Arrangement.spacedBy(LocalRFTheme.current.gap.dp)) {
+                Text(stringResource(R.string.settings_app_lock_exhausted), Modifier.testTag("app-lock-exhausted"))
+                KitButton(
+                    stringResource(R.string.settings_app_lock_restore),
+                    { onAction(SettingsAction.RecoverAccount) },
+                    Modifier.fillMaxWidth(),
+                    tag = "app-lock-restore"
+                )
+            }
+        }
+    }
+    if (lock.reauthOpen) {
+        item("app-lock-reauth") {
+            AppLockReauthSheet(lock, onAction)
+        }
+    }
+}
+
+/**
+ * Whether the account-code sheet is marked secure. The app provides `false` only in the realrun build (test-only,
+ * never shipped) because UI automation cannot read a secure window; every other build keeps it secure.
+ */
+val LocalAppLockReauthSecure = staticCompositionLocalOf { true }
+
+/**
+ * The account-code sheet for a change that weakens the lock. It is its own window, so screenshots and recordings of it
+ * are refused; the digits go straight to the view model, and cancelling or dismissing it refuses the request.
+ */
+@Composable
+private fun AppLockReauthSheet(lock: SettingsAppLock, onAction: (SettingsAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    val secure = LocalAppLockReauthSecure.current
+    Dialog(
+        onDismissRequest = { onAction(SettingsAction.CancelReauth) },
+        properties = DialogProperties(
+            usePlatformDefaultWidth = true,
+            securePolicy = if (secure) SecureFlagPolicy.SecureOn else SecureFlagPolicy.SecureOff
+        )
+    ) {
+        Column(
+            // A Dialog is its own window: test tags reach the accessibility tree as ids only when set here too.
+            Modifier.semantics { testTagsAsResourceId = true }.testTag("app-lock-reauth").padding(theme.gap.dp),
+            verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
+        ) {
+            Text(stringResource(R.string.settings_app_lock_reauth_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(
+                    if (lock.reauthTurnOff) R.string.settings_app_lock_reauth_off else R.string.settings_app_lock_reauth_longer
+                ),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            KitCodeField(
+                stringResource(R.string.settings_app_lock_code_label),
+                lock.reauthDigits,
+                focused = true,
+                tag = "app-lock-code"
+            )
+            for (row in KEYPAD) {
+                Row(horizontalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                    for (key in row) {
+                        Box(Modifier.weight(1f)) {
+                            when (key) {
+                                KEY_NONE -> Unit
+                                KEY_DELETE -> KitButton(
+                                    stringResource(R.string.settings_code_delete),
+                                    { onAction(SettingsAction.ReauthDigit(null)) },
+                                    kind = KitButtonKind.Secondary,
+                                    tag = "app-lock-code-delete"
+                                )
+                                else -> KitButton(
+                                    key.toString(),
+                                    { onAction(SettingsAction.ReauthDigit('0' + key)) },
+                                    kind = KitButtonKind.Secondary,
+                                    tag = "app-lock-code-key-$key"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            KitButton(
+                stringResource(R.string.settings_app_lock_confirm),
+                { onAction(SettingsAction.SubmitReauth) },
+                enabled = lock.reauthDigits == AccountCode.DIGITS,
+                tag = "app-lock-confirm"
+            )
+            KitButton(
+                stringResource(R.string.settings_cancel),
+                { onAction(SettingsAction.CancelReauth) },
+                kind = KitButtonKind.Secondary,
+                tag = "app-lock-cancel"
+            )
+        }
+    }
 }
 
 private fun appLockTimeoutLabel(timeoutMs: Long): Int = when (timeoutMs) {

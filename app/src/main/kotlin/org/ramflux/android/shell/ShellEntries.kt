@@ -159,7 +159,8 @@ fun EntryProviderScope<NavKey>.shellEntries(shell: ShellNavigation) {
             onPermissions = { shell.navigate(PermissionsRoute()) },
             onDelivery = { shell.navigate(DeliveryRoute) },
             onBackup = { shell.navigate(BackupRoute()) },
-            onStorage = { account -> shell.navigate(MediaStorageRoute(account)) }
+            onStorage = { account -> shell.navigate(MediaStorageRoute(account)) },
+            onRecover = { account -> shell.navigate(OnboardingRoute(recoverId = account)) }
         )
     }
 }

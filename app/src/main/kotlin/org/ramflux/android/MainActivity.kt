@@ -57,6 +57,7 @@ import org.ramflux.feature.onboarding.api.OnboardingRoute
 import org.ramflux.feature.permissions.PermissionsNavigation
 import org.ramflux.feature.permissions.api.PermissionEntry
 import org.ramflux.feature.permissions.api.PermissionsRoute
+import org.ramflux.feature.settings.LocalAppLockReauthSecure
 import org.ramflux.navigation.rememberTopLevelNavigator
 import org.ramflux.push.api.DeliveryRoute
 import org.ramflux.push.ui.DeliveryNavigation
@@ -103,7 +104,11 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     DisposableEffect(Unit) { onDispose { banners.chatOpened(null, null) } }
-                    CompositionLocalProvider(LocalAppLockCovered provides covered) {
+                    // The realrun build shows the account-code sheet unsecured so UI automation can read it; never shipped.
+                    CompositionLocalProvider(
+                        LocalAppLockCovered provides covered,
+                        LocalAppLockReauthSecure provides !BuildConfig.REALRUN
+                    ) {
                         Box(Modifier.fillMaxSize()) {
                             // The shell under the cover is hidden from accessibility services and UI automation.
                             Box(Modifier.fillMaxSize().hiddenWhileCovered(covered).focusProperties { canFocus = !covered }) {
@@ -154,6 +159,7 @@ class MainActivity : ComponentActivity() {
                                                 onRestoreBackup = { navigate(BackupRoute(freshInstall = true)) },
                                                 openCreate = route.openCreate,
                                                 unlockId = route.unlockId,
+                                                recoverId = route.recoverId,
                                                 modifier = it
                                             )
                                         }

@@ -11,4 +11,7 @@ sealed interface SettingsEvent {
     data object Connections : SettingsEvent
     data object Backup : SettingsEvent
     data class Storage(val accountId: String) : SettingsEvent
+
+    /** The account whose only way back is recovery from its recovery phrase. */
+    data class Recover(val accountId: String) : SettingsEvent
 }

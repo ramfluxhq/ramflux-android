@@ -34,7 +34,7 @@ class AccountCodeTest {
         assertEquals(AccountCodeRefusal.RETRY_LATER, problem("UnlockRetryLater").accountCodeRefusal())
         assertEquals(AccountCodeRefusal.ATTEMPTS_EXHAUSTED, problem(null, "unlock_attempts_exhausted").accountCodeRefusal())
         assertEquals(AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE, problem("DeviceUnlockUnavailable").accountCodeRefusal())
-        assertEquals("a wrong code is ValidationFailed only on unlock", AccountCodeRefusal.WRONG_CODE, problem("ValidationFailed").accountCodeRefusal(unlock = true))
+        assertEquals("a wrong code is named only by wrong_passphrase", AccountCodeRefusal.WRONG_CODE, problem("AuthFailed", "wrong_passphrase").accountCodeRefusal())
         assertNull(problem("ValidationFailed").accountCodeRefusal())
         assertNull(problem("CustodyConfirmationFailed").accountCodeRefusal())
     }
@@ -44,6 +44,6 @@ class AccountCodeTest {
             JsonObject(mapOf("retry_after_secs" to JsonPrimitive(120))))
         val problem = failure.appProblem()
         assertEquals(120L, problem.retryAfterSecs)
-        assertEquals(AccountCodeRefusal.RETRY_LATER, problem.accountCodeRefusal(unlock = true))
+        assertEquals(AccountCodeRefusal.RETRY_LATER, problem.accountCodeRefusal())
     }
 }

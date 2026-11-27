@@ -66,4 +66,12 @@ sealed interface SettingsAction {
     data class CodeDigit(val next: Boolean, val digit: Char?) : SettingsAction
     data object SubmitCodeChange : SettingsAction
     data object CloseCodeChange : SettingsAction
+
+    /** One typed digit (or deletion with null) of the account code the weakening sheet asks for. */
+    data class ReauthDigit(val digit: Char?) : SettingsAction
+    data object SubmitReauth : SettingsAction
+
+    /** Opens the recovery-phrase restore of the active account (after too many wrong codes). */
+    data object RecoverAccount : SettingsAction
+    data object CancelReauth : SettingsAction
 }

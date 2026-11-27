@@ -138,6 +138,8 @@ internal fun HitBox(
     modifier: Modifier = Modifier,
     role: Role = Role.Button,
     label: String = "",
+    // Applied to the node that carries the tag, so a test reads the state from the tagged node itself.
+    inner: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides dp(RfMetrics.hit)) {
@@ -158,7 +160,7 @@ internal fun HitBox(
                 .kitTag(tag?.let { "$it-hit" }),
             contentAlignment = Alignment.Center
         ) {
-            Box(if (tag == null) Modifier else Modifier.testTag(tag), content = content)
+            Box(inner.then(if (tag == null) Modifier else Modifier.testTag(tag)), content = content)
         }
     }
 }

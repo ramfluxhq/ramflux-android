@@ -282,4 +282,15 @@
     <string name="settings_app_lock_not_available">暂不可用</string>
     <string name="settings_app_lock_explain">开启后，离开一段时间，Ramflux 会在返回时要求输入账户码。</string>
     <string name="settings_app_lock_unavailable">此设备无法使用应用锁</string>
+    <string name="settings_app_lock_reauth_title">用账户码确认</string>
+    <string name="settings_app_lock_reauth_off">输入账户码以关闭应用锁。</string>
+    <string name="settings_app_lock_reauth_longer">输入账户码以延长锁定时间。</string>
+    <string name="settings_app_lock_code_label">账户码</string>
+    <string name="settings_app_lock_confirm">确认</string>
+    <string name="settings_app_lock_wrong_code">账户码不正确。请检查后重试。</string>
+    <string name="settings_app_lock_wait">错误的账户码次数过多。请在 %1$s 后再试。</string>
+    <string name="settings_app_lock_exhausted">错误的账户码次数过多。请用恢复短语恢复此账户。</string>
+    <string name="settings_app_lock_restore">用恢复短语恢复</string>
+    <string name="settings_app_lock_not_changed">应用锁未更改。此更改需要账户码。</string>
+    <string name="settings_app_lock_busy">另一项应用锁更改正在进行中。</string>
 </resources>

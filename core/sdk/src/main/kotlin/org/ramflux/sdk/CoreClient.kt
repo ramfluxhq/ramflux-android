@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.*
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /** All native handle access is serialized; the shared supervisor owns business execution. */
 class CoreClient internal constructor(
@@ -25,6 +27,7 @@ class CoreClient internal constructor(
     private var closing = false
     private var freed = false
     private val operations = OperationHandles()
+    private val attendedRunning = AtomicBoolean(false)
     private val pendingRelease = OperationHandles()
     private val generationState = MutableStateFlow(0uL)
     val subscriptionGeneration: StateFlow<ULong> = generationState.asStateFlow()
@@ -59,6 +62,62 @@ class CoreClient internal constructor(
             encode = { deadline -> request.body.storage.useOnce { body -> encodeSecret(request, body, deadline) } },
             decode = { ReplyCodec.decodeSecret(it, request.operationId) })
     } finally { request.body.close() }
+
+    /**
+     * Runs [body] with the attended account-code callback registered for this client, answering only the core prompts
+     * of [account]. A request from the core calls [answer] (the code, or null to refuse) and hands its bytes back; a
+     * request that waits longer than [ATTENDED_ANSWER_MS] is refused. The callback is registered only around [body]. It
+     * is answered with null before the provider is cleared, so clearing never waits for the bound. [answer] runs in the
+     * caller's context. Only one attended request runs per client: a second one throws [AttendedCodeBusyException]
+     * before [body] starts.
+     */
+    suspend fun <T> withAttendedCode(account: String, answer: suspend () -> CharArray?, body: suspend () -> T): T {
+        if (!attendedRunning.compareAndSet(false, true)) throw AttendedCodeBusyException()
+        try {
+            return runAttendedCode(account, answer, body)
+        } finally {
+            attendedRunning.set(false)
+        }
+    }
+
+    private suspend fun <T> runAttendedCode(account: String, answer: suspend () -> CharArray?, body: suspend () -> T): T = coroutineScope {
+        val scope = this
+        val registered = guard.withLock { !closing && native.setCredentialProvider(core, true, account) == 0 }
+        if (!registered) return@coroutineScope body()
+        val answering = AtomicReference<Job?>(null)
+        AttendedCredentialBridge.listen(core) {
+            answering.set(
+                scope.launch {
+                    // A failing host answer is a refusal, never a failure of the configure call that waits for it.
+                    val code = try {
+                        withTimeoutOrNull(ATTENDED_ANSWER_MS) { answer() }
+                    } catch (failure: CancellationException) {
+                        throw failure
+                    } catch (_: Exception) {
+                        null
+                    }
+                    val bytes = code?.let { runCatching { SecretBytes.utf8Of(it) }.getOrNull() }
+                    if (bytes == null) {
+                        native.credentialReply(core, null)
+                    } else {
+                        bytes.useOnce { native.credentialReply(core, it) }
+                        bytes.close()
+                    }
+                }
+            )
+        }
+        try {
+            body()
+        } finally {
+            withContext(NonCancellable + io) {
+                // Stop the sheet, then answer a waiting request with a refusal: clearing waits for an active callback.
+                AttendedCredentialBridge.unlisten(core)
+                answering.getAndSet(null)?.cancel()
+                native.credentialReply(core, null)
+                guard.withLock { if (!closing) native.setCredentialProvider(core, false, null) }
+            }
+        }
+    }
 
     /**
      * Username change, first half: `username.mutate` phase prepare. When the reply names a draft, the phone signs it with

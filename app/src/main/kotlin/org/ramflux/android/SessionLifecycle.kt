@@ -8,6 +8,7 @@ import androidx.lifecycle.LifecycleOwner
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.*
+import org.ramflux.data.AttendedAccountCode
 import org.ramflux.data.ClientSessionRepository
 
 /** Application-owned lifecycle work survives Activity/configuration and ViewModel destruction. */
@@ -20,6 +21,14 @@ class SessionLifecycle @Inject constructor(private val session: ClientSessionRep
         foreground = scope.launch { session.foreground() }
     }
     override fun onStop(owner: LifecycleOwner) {
-        background = scope.launch { session.background() }
+        // A pending account-code request is refused first: its sheet closes, bounded, before the client suspends.
+        background = scope.launch {
+            AttendedAccountCode.refuseAndAwait(REFUSAL_WAIT_MS)
+            session.background()
+        }
+    }
+
+    private companion object {
+        const val REFUSAL_WAIT_MS = 1_000L
     }
 }

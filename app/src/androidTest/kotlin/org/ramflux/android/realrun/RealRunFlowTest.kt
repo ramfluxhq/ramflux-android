@@ -1114,24 +1114,134 @@ class RealRunFlowTest {
         return "a stale app lock from an earlier phase was opened with the run's code and turned off"
     }
 
-    /** Settings > Privacy > App lock: switches the lock off when it is on, with the run's code when it is asked. */
-    private fun turnAppLockOffWithRunCode(): Boolean {
+    /**
+     * Settings > Privacy > App lock: turns the lock off. When the account-code sheet asks, the run's code is typed into it.
+     * Fails unless the lock reads off afterwards (the switch is unchecked and the timeouts are disabled). Returns whether the
+     * sheet asked; with [requireOn] a lock that is already off fails.
+     */
+    private fun turnAppLockOffWithRunCode(requireOn: Boolean = false): Boolean {
         if (ui.find("app-lock-code", 1_000) != null) enterAppLockCode()
+        openAppLockPage()
+        val switch = ui.need("app-lock-switch", Ui.LONG, "app lock switch")
+        if (!switch.isChecked) {
+            if (requireOn) fail("the app lock was already off before it was turned off: ${ui.screen()}")
+            ensureShell()
+            return false
+        }
+        ui.tap("app-lock-switch", Ui.LONG)
+        val asked = ui.eventually(4_000, 300) { ui.windowNode("app-lock-reauth") != null }
+        if (asked) enterReauthRunCode()
+        if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-switch", 300)?.isChecked == false }) {
+            fail("the app lock is still on after the turn-off (the code was ${if (asked) "asked" else "not asked"}): ${ui.screen()}")
+        }
+        if (ui.find("app-lock-timeout:0", 300)?.isEnabled != false) {
+            fail("the app lock timeouts stay enabled after the lock was turned off: ${ui.screen()}")
+        }
+        ensureShell()
+        return asked
+    }
+
+    /** Settings > Privacy > App lock, from the settings root. */
+    private fun openAppLockPage() {
         ensureShell()
         openSettings()
         ui.tap("account-security")
         ui.tap("privacy")
         ui.tap("app-lock")
-        val timeout = ui.need("app-lock-timeout:0", Ui.LONG, "app lock page")
-        if (!timeout.isEnabled) {
-            ensureShell()
-            return false
+    }
+
+    /**
+     * G05f, with the lock on and the timeout Immediately: a longer timeout asks for the account code. Cancel changes nothing
+     * and shows nothing; a wrong code is refused with the wrong-code text and the timeout stays; the right code applies 15
+     * minutes. Then Immediately again (a shorter timeout asks for nothing), so the steps after it run as before.
+     */
+    private fun longerTimeoutWithCode(): String {
+        openAppLockPage()
+        ui.need("app-lock-timeout:0", Ui.LONG, "app lock timeouts")
+        // Cancel: the sheet closes, the timeout stays Immediately and no error text shows.
+        ui.tap("app-lock-timeout:900000", Ui.LONG)
+        if (!ui.eventually(Ui.LONG, 300) { ui.windowNode("app-lock-reauth") != null }) {
+            fail("the longer timeout did not ask for the account code: ${ui.screen()}")
         }
-        ui.tap("app-lock-switch", Ui.LONG)
-        if (ui.find("app-lock-code", 4_000) != null) enterAppLockCode()
-        ui.eventually(Ui.LONG) { ui.find("app-lock-timeout:0", 300)?.isEnabled == false }
+        if (!ui.tapWindowNode("app-lock-cancel")) fail("the account-code sheet has no cancel button: ${ui.screen()}")
+        if (!ui.eventually(Ui.LONG, 300) { ui.windowNode("app-lock-reauth") == null }) {
+            fail("the account-code sheet stayed open after cancel: ${ui.screen()}")
+        }
+        ui.need("app-lock-timeout:0", Ui.LONG, "app lock timeouts after cancel")
+        if (ui.find("app-lock-timeout:0", 300)?.let { it.isSelected || it.isChecked } != true) {
+            fail(
+                "cancel changed the timeout: ${ui.screen()}"
+            )
+        }
+        if (ui.find("app-lock-wrong-code", 300) != null || ui.find("app-lock-not-changed", 300) != null) {
+            fail("cancel showed an error text: ${ui.screen()}")
+        }
+        // A wrong code: the sheet closes with the wrong-code text, and the timeout stays Immediately.
+        ui.tap("app-lock-timeout:900000", Ui.LONG)
+        if (!ui.eventually(Ui.LONG, 300) { ui.windowNode("app-lock-reauth") != null }) {
+            fail("the longer timeout did not ask for the account code again: ${ui.screen()}")
+        }
+        val old = RunCode.load() ?: blocked("no saved run code on this install")
+        val wrong = RunCode.next(old)
+        old.fill('\u0000')
+        try {
+            typeReauthCode(wrong)
+        } finally {
+            wrong.fill('\u0000')
+        }
+        if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-wrong-code", 300) != null }) {
+            fail("a wrong code was not refused with the wrong-code text: ${ui.screen()}")
+        }
+        if (ui.find("app-lock-timeout:0", 300)?.let {
+                it.isSelected || it.isChecked
+            } != true
+        ) {
+            fail("a wrong code changed the timeout: ${ui.screen()}")
+        }
+        // The right code: the timeout becomes 15 minutes.
+        ui.tap("app-lock-timeout:900000", Ui.LONG)
+        if (!ui.eventually(Ui.LONG, 300) { ui.windowNode("app-lock-reauth") != null }) {
+            fail("the longer timeout did not ask for the account code a third time: ${ui.screen()}")
+        }
+        enterReauthRunCode()
+        if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-timeout:900000", 300)?.let { it.isSelected || it.isChecked } == true }) {
+            fail("the right code did not apply the 15 minute timeout: ${ui.screen()}")
+        }
+        if (ui.find("app-lock-wrong-code", 300) != null) fail("the right code still shows the wrong-code text: ${ui.screen()}")
+        // Back to Immediately: a shorter timeout asks for nothing.
+        ui.tap("app-lock-timeout:0", Ui.LONG)
+        if (ui.eventually(1_500, 300) { ui.windowNode("app-lock-reauth") != null }) {
+            fail("a shorter timeout asked for the account code: ${ui.screen()}")
+        }
+        if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-timeout:0", 300)?.let { it.isSelected || it.isChecked } == true }) {
+            fail("the shorter timeout did not apply: ${ui.screen()}")
+        }
         ensureShell()
-        return true
+        return "G05f: a longer timeout asked for the code; cancel changed nothing and showed nothing; a wrong code was refused " +
+            "with the wrong-code text; the right code applied 15 minutes; Immediately again asked for no code"
+    }
+
+    /**
+     * Types the run's code on the account-code sheet (a dialog window: its keys are found in any window) and confirms it.
+     * The digits are never logged or put in a message; the caller wipes its array.
+     */
+    private fun typeReauthCode(code: CharArray) {
+        for (digit in code) {
+            if (!ui.tapWindowNode("app-lock-code-key-$digit", Ui.SHORT)) {
+                fail("the account-code sheet has no key to type on: ${ui.screen()}")
+            }
+        }
+        if (!ui.tapWindowNode("app-lock-confirm", Ui.SHORT)) fail("the account-code sheet did not enable confirm: ${ui.screen()}")
+    }
+
+    /** Types the run's code on the account-code sheet and confirms it; the loaded code is wiped after use. */
+    private fun enterReauthRunCode() {
+        val code = RunCode.load() ?: blocked("no saved run code on this install")
+        try {
+            typeReauthCode(code)
+        } finally {
+            code.fill('\u0000')
+        }
     }
 
     /** Steps 1 to 6: the lock is off by default; then on with timeout Immediately; the lock form; back; relocks; a menu. */
@@ -1165,6 +1275,7 @@ class RealRunFlowTest {
         val biometric = ui.need("app-lock-biometric", Ui.LONG, "biometric row")
         if (biometric.isEnabled) fail("the biometric unlock row is enabled; it must be disabled until the core offers it")
         notes += "app lock on with timeout Immediately; biometric row disabled"
+        notes += longerTimeoutWithCode()
         ensureShell()
         openConversation(conversation)
         // 3. Background, return: the lock form only, no account or chat text; a wrong code is refused.
@@ -1245,18 +1356,8 @@ class RealRunFlowTest {
         ui.need("conversation-$conversation", Ui.LONG, "conversation row after the unlock")
         val notes = RunState[APP_LOCK_NOTES].orEmpty() +
             "; after a force-stop the lock form came first; the run's code opened the shell with the account's conversation"
-        // Step 8, part 1: turn the lock off; the code is asked or not, and both are recorded.
-        openSettings()
-        ui.tap("account-security")
-        ui.tap("privacy")
-        ui.tap("app-lock")
-        ui.tap("app-lock-switch", Ui.LONG)
-        val asked = ui.find("app-lock-code", 4_000) != null
-        if (asked) enterAppLockCode()
-        if (!ui.eventually(Ui.LONG) { ui.find("app-lock-timeout:0", 300)?.isEnabled == false }) {
-            fail("the app lock timeouts stay enabled after the lock was turned off: ${ui.screen()}")
-        }
-        ensureShell()
+        // Step 8, part 1: turn the lock off with the run's code when the sheet asks for it; both outcomes are recorded.
+        val asked = turnAppLockOffWithRunCode(requireOn = true)
         RunState[APP_LOCK_NOTES] = notes + "; turned off: the code was ${if (asked) "asked" else "not asked"}"
         RunState[APP_LOCK_PHASE] = APP_LOCK_OFF
         throw FlowStop(

@@ -199,7 +199,14 @@ internal object ReplyCodec {
         return namedErrorField(parser, envelope, "code") ?: namedErrorField(parser, envelope, "name")
     }
 
+    /** The top-level `reason_code` the C ABI writes for every error frame; the nested error's field is the fallback. */
     private fun reasonCode(parser: ByteJson, envelope: ByteJson.Node): String? {
+        val top = parser.field(envelope, "reason_code")?.takeIf { it.kind == 34 }
+        if (top != null) {
+            val chars = parser.chars(top)
+            val named = try { identifier(chars) } finally { chars.fill('\u0000') }
+            if (named != null) return named
+        }
         return namedErrorField(parser, envelope, "reason_code")
     }
 
@@ -220,7 +227,10 @@ internal object ReplyCodec {
 
     private fun statusName(body: JsonObject): String? = identifierField(body, "code") ?: identifierField(body, "name")
 
-    private fun reasonCode(body: JsonObject): String? = identifierField(body, "reason_code")
+    /** The top-level `reason_code` first; the nested error's field is the fallback. */
+    private fun reasonCode(body: JsonObject): String? =
+        (body["reason_code"] as? JsonPrimitive)?.contentOrNull?.let { identifier(it.toCharArray()) }
+            ?: identifierField(body, "reason_code")
 
     private fun identifierField(body: JsonObject, field: String): String? {
         val response = body["response"] as? JsonObject ?: return null

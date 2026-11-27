@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
@@ -128,6 +129,8 @@ fun KitRow(
             .background(if (pressed && tappable) theme.selected else androidx.compose.ui.graphics.Color.Transparent)
             .then(if (divider) Modifier.kitHairline(theme.line) else Modifier)
             .kitTag(testTag)
+            // The checked row is the selected one, so a test or an accessibility service can read the choice.
+            .then(if (trailing == KitRowTrailing.Check) Modifier.semantics { selected = true } else Modifier)
             .clickableNoRipple(interaction, tappable, onClick)
             .padding(horizontal = dp(RfMetrics.gutter), vertical = dp(RfMetrics.rowPadV)),
         verticalAlignment = Alignment.CenterVertically,

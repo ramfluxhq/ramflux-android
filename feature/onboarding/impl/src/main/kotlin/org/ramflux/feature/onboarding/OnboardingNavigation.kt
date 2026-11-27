@@ -19,11 +19,15 @@ fun OnboardingNavigation(
     onRestoreBackup: () -> Unit = {},
     openCreate: Boolean = false,
     unlockId: String = "",
+    recoverId: String = "",
     vm: OnboardingViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(openCreate, unlockId) {
         if (openCreate || unlockId.isNotEmpty()) vm.requestEntry(openCreate, unlockId)
+    }
+    LaunchedEffect(recoverId) {
+        if (recoverId.isNotEmpty()) vm.requestRecovery(recoverId)
     }
     BackHandler { vm.onAction(OnboardingAction.Back) }
     LaunchedEffect(vm) {

@@ -10,14 +10,18 @@ import org.ramflux.sdk.SecretBody
 import org.ramflux.sdk.SecretReply
 
 interface DevicesRepository {
+    suspend fun activityReport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun list(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
+    suspend fun notificationsCleared(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun pairApprove(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun pairBegin(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun pairCancel(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun pairConfirm(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun pairJoin(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun pairStatus(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
+    suspend fun push_policySet(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun push_routeSet(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
+    suspend fun push_routeTest(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun refresh(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun revoke(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun syncExport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -32,8 +36,14 @@ interface DevicesRepository {
 }
 
 class DefaultDevicesRepository(transport: RepositoryTransport) : SdkRepository(transport), DevicesRepository {
+    override suspend fun activityReport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("device.activity.report", "device", context, body)
+
     override suspend fun list(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("device.list", "device", context, SecretBody.publicJson("device.list", body))
+
+    override suspend fun notificationsCleared(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("device.notifications.cleared", "device", context, body)
 
     override suspend fun pairApprove(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("device.pair.approve", "device", context, body)
@@ -53,8 +63,14 @@ class DefaultDevicesRepository(transport: RepositoryTransport) : SdkRepository(t
     override suspend fun pairStatus(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply> =
         executeSecret("device.pair.status", "device", context, SecretBody.publicJson("device.pair.status", body))
 
+    override suspend fun push_policySet(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("device.push_policy.set", "device", context, body)
+
     override suspend fun push_routeSet(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("device.push_route.set", "device", context, body)
+
+    override suspend fun push_routeTest(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
+        executeSecret("device.push_route.test", "device", context, body)
 
     override suspend fun refresh(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("device.refresh", "device", context, body)

@@ -382,7 +382,7 @@ class OnboardingViewModel @Inject constructor(
                     }
                     else -> {
                         failure(result, unlock = true)
-                        val refusal = (result as? ClientResult.Failed)?.problem?.accountCodeRefusal(unlock = true)
+                        val refusal = (result as? ClientResult.Failed)?.problem?.accountCodeRefusal()
                         if (refusal == AccountCodeRefusal.ATTEMPTS_EXHAUSTED || refusal == AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE) {
                             local.update { it.copy(recoverAccountId = id) }
                         } else if (refusal == null && local.value.accounts.any { it.id == id && !it.unlocked }) {
@@ -422,8 +422,23 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    private fun beginRecover(accountId: String) {
-        if (local.value.accounts.none { it.id == accountId }) return
+    /**
+     * Opens the recovery-phrase restore of [accountId], the locked account the lock cover names. It needs no list entry:
+     * the cover has no account list, and the id comes from the session's lock state.
+     */
+    fun requestRecovery(accountId: String) = beginRecover(accountId, listed = false)
+
+    /** Ends an open recovery without the user's back action: its facts are cleared and the core recover session is cancelled. */
+    fun cancelRecovery() {
+        if (local.value.recovery == null) return
+        work?.cancel()
+        ticket++
+        local.update { it.copy(recovery = null, busy = false, notice = null) }
+        viewModelScope.launch { ceremony.cancelRecover() }
+    }
+
+    private fun beginRecover(accountId: String, listed: Boolean = true) {
+        if (listed && local.value.accounts.none { it.id == accountId }) return
         launch {
             when (val result = ceremony.beginRecover(accountId)) {
                 is ClientResult.Ready -> {
@@ -698,6 +713,9 @@ internal fun codeText(refusal: AccountCodeRefusal, retryAfterSecs: Long?): UiTex
     AccountCodeRefusal.RETRY_LATER -> UiText.Quantity(R.plurals.ui_code_retry_later, (retryAfterSecs ?: 0L).coerceAtLeast(0L).toULong())
     AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> uiText(R.string.ui_code_attempts_exhausted)
     AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE -> uiText(R.string.ui_code_device_unlock_unavailable)
+    // The sheet that asks for the code is the settings page only: the unlock path never sees this refusal.
+    AccountCodeRefusal.REAUTH_REQUIRED -> uiText(R.string.app_lock_unlock_failed)
+    AccountCodeRefusal.APP_LOCK_CHANGE_BUSY -> uiText(R.string.app_lock_change_busy)
 }
 
 private fun ClientResult<*>.notice(unlock: Boolean = false): OnboardingNotice? = when (this) {
@@ -709,7 +727,7 @@ private fun ClientResult<*>.notice(unlock: Boolean = false): OnboardingNotice? =
         },
         OnboardingNoticeKind.UNAVAILABLE
     )
-    is ClientResult.Failed -> problem.accountCodeRefusal(unlock)?.let { refusal ->
+    is ClientResult.Failed -> problem.accountCodeRefusal()?.let { refusal ->
         OnboardingNotice(codeText(refusal, problem.retryAfterSecs))
     } ?: run {
         val name = problem.statusName
