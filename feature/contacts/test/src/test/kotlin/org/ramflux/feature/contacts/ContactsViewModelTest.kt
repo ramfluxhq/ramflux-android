@@ -89,6 +89,8 @@ class ContactsViewModelTest {
         assertEquals("root", command.target)
         assertEquals(true, vm.state.value.safety?.verified)
         assertEquals(true, vm.state.value.selected?.verified)
+        assertEquals(uiText(R.string.contacts_verified), vm.state.value.selected?.status)
+        assertEquals(uiText(R.string.contacts_verified), vm.state.value.rows.single { it.id == "link" }.status)
         assertEquals(null, vm.state.value.operationNotice)
         assertEquals(ContactsPage.SAFETY, vm.state.value.page)
     }
