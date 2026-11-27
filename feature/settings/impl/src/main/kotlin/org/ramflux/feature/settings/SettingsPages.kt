@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -558,15 +559,25 @@ internal fun LazyListScope.appLockPage(state: SettingsState, onAction: (Settings
 }
 
 /**
+ * Whether the account-code sheet is marked secure. The app provides `false` only in the realrun build (test-only,
+ * never shipped) because UI automation cannot read a secure window; every other build keeps it secure.
+ */
+val LocalAppLockReauthSecure = staticCompositionLocalOf { true }
+
+/**
  * The account-code sheet for a change that weakens the lock. It is its own window, so screenshots and recordings of it
  * are refused; the digits go straight to the view model, and cancelling or dismissing it refuses the request.
  */
 @Composable
 private fun AppLockReauthSheet(lock: SettingsAppLock, onAction: (SettingsAction) -> Unit) {
     val theme = LocalRFTheme.current
+    val secure = LocalAppLockReauthSecure.current
     Dialog(
         onDismissRequest = { onAction(SettingsAction.CancelReauth) },
-        properties = DialogProperties(usePlatformDefaultWidth = true, securePolicy = SecureFlagPolicy.SecureOn)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = true,
+            securePolicy = if (secure) SecureFlagPolicy.SecureOn else SecureFlagPolicy.SecureOff
+        )
     ) {
         Column(
             Modifier.testTag("app-lock-reauth").padding(theme.gap.dp),
