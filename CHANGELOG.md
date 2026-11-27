@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Agent cards lock fixes: an app lock refusal covers the screens at once, before the cards are suspended, so a busy card call cannot delay the cover; the cards resume after any later lock read that finds the lock open; a card re-opens only on the explicit inactive refusal or a closed-account failure, so a transient failure keeps its session and draft; re-opening a card at the maximum no longer evicts an unrelated card.
+
 - Agent cards review fixes: cards stay suspended behind the app lock and resume only when the cover is released (a lock refusal suspends them first); a suspend that fails because the account closed keeps the held tree and re-opens the card on release; reading card states no longer reorders the least-recently-used cards; the timeline disposes the oldest card by creation time and releases its cards when it leaves a conversation; a slider whose bounds hold no whole number stays disabled; card links open only over http or https; a TextField keeps the typed text on its own echoes; a card answer with an unknown outcome shows a failure notice.
 
 - Agent card Slider sends its released value as a whole number inside its bounds (the runtime rejects fractions), and the card conformance compares `request_id` texts by their parsed JSON, so trees with host slots (Image, Approval) match the core fixtures; failed host slots are written in full to `card-host-slots.json`, and real-run flow 21 scrolls the gallery to the top before it looks for the Dark switch.

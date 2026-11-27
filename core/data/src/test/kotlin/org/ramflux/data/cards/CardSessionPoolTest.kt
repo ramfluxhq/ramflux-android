@@ -29,7 +29,7 @@ import org.ramflux.sdk.SubscriptionFilter
 
 class CardSessionPoolTest {
     /** A bus that answers the card calls the pool makes. [suspendFails] makes suspend fail as it does once the account closed. */
-    private class FakeBus(var suspendFails: Boolean = false) : RepositoryTransport {
+    private class FakeBus(var suspendFails: Boolean = false, var resumeFails: CoreError? = null) : RepositoryTransport {
         var opens = 0
         val suspends = ArrayList<Long>()
         private var next = 1L
@@ -41,7 +41,7 @@ class CardSessionPoolTest {
                     opens++
                     CoreResult.Success(reply("opened", next++))
                 }
-                "card.session.resume" -> CoreResult.Success(reply("resumed", session))
+                "card.session.resume" -> resumeFails?.let { CoreResult.Failure(it) } ?: CoreResult.Success(reply("resumed", session))
                 "card.session.suspend" -> {
                     suspends += session
                     if (suspendFails) CoreResult.Failure(CoreError.Closed())
@@ -85,6 +85,36 @@ class CardSessionPoolTest {
         pool.foreground()
         assertEquals(2, bus.opens)
         assertEquals(true, pool.state(ACCOUNT, "a")?.resumed)
+    }
+
+    @Test fun aTransientResumeFailureKeepsTheSessionAndTheDraft() = runTest {
+        val bus = FakeBus()
+        val pool = CardSessionPool(bus, scope = this)
+        pool.show(ACCOUNT, "a")
+        pool.background()
+        bus.resumeFails = CoreError.Closed()
+        pool.foreground()
+        assertEquals(1, bus.opens)
+        assertNotNull(pool.state(ACCOUNT, "a")?.tree)
+        bus.resumeFails = null
+        pool.show(ACCOUNT, "a")
+        assertEquals(1, bus.opens)
+        assertEquals(true, pool.state(ACCOUNT, "a")?.resumed)
+    }
+
+    @Test fun reopeningAtTheMaximumDoesNotEvictAnUnrelatedCard() = runTest {
+        val bus = FakeBus()
+        val pool = CardSessionPool(bus, scope = this)
+        repeat(CardSessionPool.MAX_OPEN) { pool.show(ACCOUNT, "c$it") }
+        // The last card loses its runtime handle on a failed suspend; showing it re-opens it in place at the maximum.
+        bus.suspendFails = true
+        pool.background()
+        bus.suspendFails = false
+        val last = "c${CardSessionPool.MAX_OPEN - 1}"
+        pool.show(ACCOUNT, last)
+        assertEquals(CardSessionPool.MAX_OPEN + 1, bus.opens)
+        assertNotNull(pool.state(ACCOUNT, "c0"))
+        assertEquals(true, pool.state(ACCOUNT, last)?.resumed)
     }
 
     private companion object {

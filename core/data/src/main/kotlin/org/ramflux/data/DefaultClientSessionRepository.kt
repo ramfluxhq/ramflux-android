@@ -25,17 +25,14 @@ internal class DefaultClientSessionRepository(
     override val status = mutable.asStateFlow()
 
     init {
-        // A refusal that names the app lock suspends the cards first, then covers the screens; the next read decides what follows.
+        // A refusal that names the app lock covers the screens at once, outside the transition lock, so no card call or
+        // lifecycle step can delay the cover. The cards suspend afterwards; they cannot resume while the lock is not open.
         driver.onAppLockRefused {
+            lockEngaged = true
+            mutable.update { if (it.phase == ClientPhase.OPEN) it.copy(appLock = AppLockPhase.LOCKED) else it }
             refusals.launch {
                 transitions.withLock {
-                    withContext(io + NonCancellable) {
-                        if (mutable.value.phase == ClientPhase.OPEN) {
-                            suspendCards()
-                            mutable.update { if (it.phase == ClientPhase.OPEN) it.copy(appLock = AppLockPhase.LOCKED) else it }
-                        }
-                        lockEngaged = true
-                    }
+                    withContext(io + NonCancellable) { if (mutable.value.phase == ClientPhase.OPEN) suspendCards() }
                 }
             }
         }
@@ -147,8 +144,9 @@ internal class DefaultClientSessionRepository(
             }
         }
         clientDebugEvent("session.app_lock:$phase")
-        // Cards come back only after the cover is down, so a card never draws behind the lock.
-        if (released) resumeCards()
+        // Cards come back only after the cover is down, so a card never draws behind the lock. Idempotent: a recheck
+        // that reads OPEN after a failed read still resumes cards an earlier cover suspended.
+        resumeCards()
     }
 
     /** Suspends the cards once per cover or background; a second call while they are suspended changes nothing. */

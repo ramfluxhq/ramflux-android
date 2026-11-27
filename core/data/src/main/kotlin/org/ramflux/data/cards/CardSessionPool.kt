@@ -36,6 +36,7 @@ import org.ramflux.data.RepositoryTransport
 import org.ramflux.data.SurfacesRepository
 import org.ramflux.data.UnavailableReason
 import org.ramflux.data.appProblem
+import org.ramflux.data.isAppLocked
 import org.ramflux.sdk.CoreResult
 import org.ramflux.sdk.CoreUpdate
 import org.ramflux.sdk.SecretReply
@@ -327,7 +328,7 @@ internal class CardSessionPool(
     private fun touchSlot(acc: Account, ref: String): Slot? = synchronized(guard) { acc.slots[ref] }
 
     /** Finds the card without changing the access order (iteration does not reorder a LinkedHashMap). */
-    private fun peekSlot(acc: Account, ref: String): Slot? = acc.slots.values.firstOrNull { it.ref == ref }
+    private fun peekSlot(acc: Account, ref: String): Slot? = synchronized(guard) { acc.slots.values.firstOrNull { it.ref == ref } }
 
     private suspend fun open(acc: Account, account: String, ref: String, locale: String, dark: Boolean): ClientResult<Unit> {
         makeRoom(acc, account, except = ref)
@@ -358,6 +359,7 @@ internal class CardSessionPool(
             call = client.resume(account, session)
         }
         if (isInactive(call)) return reopen(acc, account, slot)
+        // Any other failure keeps the runtime session, and the draft with it, for the next attempt.
         return when (call) {
             is CardCall.Failed -> ClientResult.Failed(call.problem)
             is CardCall.Replied -> {
@@ -426,7 +428,8 @@ internal class CardSessionPool(
     }
 
     private suspend fun makeRoom(acc: Account, account: String, except: String) {
-        while (synchronized(guard) { acc.slots.size } >= MAX_OPEN) {
+        // The card being (re)opened does not count: a re-open at the maximum must not evict an unrelated card.
+        while (synchronized(guard) { acc.slots.values.count { it.ref != except } } >= MAX_OPEN) {
             val victim = synchronized(guard) { acc.slots.values.firstOrNull { it.ref != except } } ?: break
             disposeSlot(acc, account, victim)
         }
@@ -513,9 +516,9 @@ internal class CardSessionPool(
 
     private fun isLimit(call: CardCall): Boolean = call is CardCall.Replied && call.reply.result == "refused" && call.reply.reason == "card_session_limit"
 
-    /** The runtime no longer holds the session (closed account or superseded handle); a transport failure is treated the same. */
+    /** The runtime no longer holds the session: the explicit inactive refusal, or a failure that names a closed (locked) account. */
     private fun isInactive(call: CardCall): Boolean =
-        call is CardCall.Failed || (call is CardCall.Replied && call.reply.result == "refused" && call.reply.reason == "card_session_inactive")
+        (call is CardCall.Failed && call.problem.isAppLocked()) || (call is CardCall.Replied && call.reply.result == "refused" && call.reply.reason == "card_session_inactive")
 
     private fun startWatch(account: String) {
         val acc = accountOf(account)

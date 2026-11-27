@@ -4,6 +4,7 @@
 package org.ramflux.data
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -127,7 +128,7 @@ class ClientSessionRepositoryTest {
         repository.recheckAppLock()
         assertEquals(listOf("background", "foreground"), cards.calls)
     }
-    @Test fun aLockRefusalSuspendsTheCardsBeforeTheCoverRises() = runTest(timeout = 5.seconds) {
+    @Test fun aLockRefusalCoversTheScreensAtOnceAndSuspendsTheCardsAfterwards() = runTest(timeout = 5.seconds) {
         var refused: (() -> Unit)? = null
         val readings = ArrayDeque(listOf(AppLockReading(AppLockPhase.OPEN, enabled = true, foreground = false)))
         val driver = object : ClientLifecycleDriver {
@@ -145,8 +146,55 @@ class ClientSessionRepositoryTest {
         refused?.invoke()
         advanceUntilIdle()
         assertEquals(listOf("background"), cards.calls)
-        assertEquals(AppLockPhase.OPEN, cards.appLockAtBackground)
+        assertEquals(AppLockPhase.LOCKED, cards.appLockAtBackground)
         assertEquals(AppLockPhase.LOCKED, repository.status.value.appLock)
+    }
+    @Test fun theCoverRisesImmediatelyWhileACardCallHoldsItsLock() = runTest(timeout = 5.seconds) {
+        var refused: (() -> Unit)? = null
+        val readings = ArrayDeque(listOf(AppLockReading(AppLockPhase.OPEN, enabled = true, foreground = false)))
+        val driver = object : ClientLifecycleDriver {
+            override suspend fun open(): ClientResult<Unit> = ClientResult.Ready(Unit)
+            override suspend fun suspend(): ClientResult<Unit> = ClientResult.Ready(Unit)
+            override suspend fun appLockRead(): AppLockReading = readings.removeFirst()
+            override fun onAppLockRefused(listener: () -> Unit) {
+                refused = listener
+            }
+        }
+        val release = CompletableDeferred<Unit>()
+        val cards = object : CardLifecycleHooks {
+            override suspend fun background() {
+                release.await()
+            }
+            override suspend fun foreground() = Unit
+        }
+        val repository = DefaultClientSessionRepository(driver, StandardTestDispatcher(testScheduler), cards)
+        repository.foreground()
+        refused?.invoke()
+        // The card suspend is stuck behind a card call; the cover is already published and no step was needed.
+        assertEquals(AppLockPhase.LOCKED, repository.status.value.appLock)
+        release.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(AppLockPhase.LOCKED, repository.status.value.appLock)
+    }
+    @Test fun aRecheckThatReadsOpenAfterAFailedReadResumesTheCards() = runTest(timeout = 5.seconds) {
+        val readings = ArrayDeque(listOf(
+            AppLockReading(AppLockPhase.OPEN, enabled = true, foreground = false),
+            AppLockReading(AppLockPhase.UNKNOWN, enabled = true),
+            AppLockReading(AppLockPhase.OPEN, enabled = true, foreground = false),
+        ))
+        val driver = object : ClientLifecycleDriver {
+            override suspend fun open(): ClientResult<Unit> = ClientResult.Ready(Unit)
+            override suspend fun suspend(): ClientResult<Unit> = ClientResult.Ready(Unit)
+            override suspend fun appLockRead(): AppLockReading = readings.removeFirst()
+        }
+        val cards = RecordingCards()
+        val repository = DefaultClientSessionRepository(driver, StandardTestDispatcher(testScheduler), cards)
+        repository.foreground()
+        repository.background()
+        repository.foreground()
+        assertEquals(listOf("background"), cards.calls)
+        repository.recheckAppLock()
+        assertEquals(listOf("background", "foreground"), cards.calls)
     }
 }
 
