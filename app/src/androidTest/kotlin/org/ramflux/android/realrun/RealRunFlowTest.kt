@@ -1168,7 +1168,11 @@ class RealRunFlowTest {
             fail("the account-code sheet stayed open after cancel: ${ui.screen()}")
         }
         ui.need("app-lock-timeout:0", Ui.LONG, "app lock timeouts after cancel")
-        if (ui.find("app-lock-timeout:0", 300)?.isSelected != true) fail("cancel changed the timeout: ${ui.screen()}")
+        if (ui.find("app-lock-timeout:0", 300)?.let { it.isSelected || it.isChecked } != true) {
+            fail(
+                "cancel changed the timeout: ${ui.screen()}"
+            )
+        }
         if (ui.find("app-lock-wrong-code", 300) != null || ui.find("app-lock-not-changed", 300) != null) {
             fail("cancel showed an error text: ${ui.screen()}")
         }
@@ -1188,14 +1192,19 @@ class RealRunFlowTest {
         if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-wrong-code", 300) != null }) {
             fail("a wrong code was not refused with the wrong-code text: ${ui.screen()}")
         }
-        if (ui.find("app-lock-timeout:0", 300)?.isSelected != true) fail("a wrong code changed the timeout: ${ui.screen()}")
+        if (ui.find("app-lock-timeout:0", 300)?.let {
+                it.isSelected || it.isChecked
+            } != true
+        ) {
+            fail("a wrong code changed the timeout: ${ui.screen()}")
+        }
         // The right code: the timeout becomes 15 minutes.
         ui.tap("app-lock-timeout:900000", Ui.LONG)
         if (!ui.eventually(Ui.LONG, 300) { ui.windowNode("app-lock-reauth") != null }) {
             fail("the longer timeout did not ask for the account code a third time: ${ui.screen()}")
         }
         enterReauthRunCode()
-        if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-timeout:900000", 300)?.isSelected == true }) {
+        if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-timeout:900000", 300)?.let { it.isSelected || it.isChecked } == true }) {
             fail("the right code did not apply the 15 minute timeout: ${ui.screen()}")
         }
         if (ui.find("app-lock-wrong-code", 300) != null) fail("the right code still shows the wrong-code text: ${ui.screen()}")
@@ -1204,7 +1213,7 @@ class RealRunFlowTest {
         if (ui.eventually(1_500, 300) { ui.windowNode("app-lock-reauth") != null }) {
             fail("a shorter timeout asked for the account code: ${ui.screen()}")
         }
-        if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-timeout:0", 300)?.isSelected == true }) {
+        if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-timeout:0", 300)?.let { it.isSelected || it.isChecked } == true }) {
             fail("the shorter timeout did not apply: ${ui.screen()}")
         }
         ensureShell()
