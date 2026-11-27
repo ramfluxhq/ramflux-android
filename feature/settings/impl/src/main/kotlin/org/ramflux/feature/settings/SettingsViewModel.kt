@@ -121,6 +121,13 @@ class SettingsViewModel @Inject constructor(
                 } else {
                     if (page == SettingsPage.PAIRING) endPairing()
                     if (page == SettingsPage.ACCOUNT) closeCodeChange()
+                    if (page == SettingsPage.USERNAME && usernameJob?.isActive != true) {
+                        local.update {
+                            it.copy(
+                                usernameClaim = SettingsUsernameClaim()
+                            )
+                        }
+                    }
                     local.update { it.copy(page = parent(page), loading = false, problem = null, unavailable = null) }
                 }
             }
@@ -131,6 +138,27 @@ class SettingsViewModel @Inject constructor(
             SettingsAction.Connections -> event(SettingsEvent.Connections)
             SettingsAction.Backup -> event(SettingsEvent.Backup)
             SettingsAction.Storage -> activeAccount?.let { event(SettingsEvent.Storage(it)) }
+            SettingsAction.OpenUsernameClaim -> if (usernameJob?.isActive != true && activeAccount != null) {
+                local.update { it.copy(usernameClaim = SettingsUsernameClaim(step = SettingsUsernameStep.NAME)) }
+            }
+            is SettingsAction.UsernameName -> local.update {
+                it.copy(usernameClaim = it.usernameClaim.copy(name = action.text.take(MAX_USERNAME_NAME), problem = null))
+            }
+            SettingsAction.UsernameNext -> local.update {
+                val form = it.usernameClaim
+                val name = form.name.trim().removePrefix("@")
+                if (form.working || form.step != SettingsUsernameStep.NAME) {
+                    it
+                } else if (name.isEmpty()) {
+                    it.copy(usernameClaim = form.copy(problem = uiText(R.string.settings_username_empty)))
+                } else {
+                    it.copy(usernameClaim = form.copy(name = name, step = SettingsUsernameStep.PHRASE, problem = null))
+                }
+            }
+            SettingsAction.CancelUsername -> if (usernameJob?.isActive != true) {
+                local.update { it.copy(usernameClaim = SettingsUsernameClaim()) }
+            }
+            is SettingsAction.ClaimUsername -> submitUsername(action.phrase)
             is SettingsAction.Page -> {
                 capability?.cancel()
                 local.update { it.copy(page = action.page, problem = null, unavailable = null) }
@@ -226,6 +254,7 @@ class SettingsViewModel @Inject constructor(
     private fun parent(page: SettingsPage) = when (page) {
         SettingsPage.PRIVACY -> SettingsPage.ACCOUNT
         SettingsPage.APP_LOCK -> SettingsPage.PRIVACY
+        SettingsPage.USERNAME -> SettingsPage.PRIVACY
         SettingsPage.PAIRING -> SettingsPage.DEVICES
         SettingsPage.LANGUAGE -> SettingsPage.APPEARANCE
         else -> SettingsPage.GENERAL
@@ -507,6 +536,7 @@ class SettingsViewModel @Inject constructor(
     private var currentCount = 0
     private var nextCount = 0
     private var codeJob: Job? = null
+    private var usernameJob: Job? = null
 
     private fun codeDigit(next: Boolean, digit: Char?) {
         val form = local.value.codeChange
@@ -555,6 +585,74 @@ class SettingsViewModel @Inject constructor(
         currentCount = 0
         nextCount = 0
     }
+
+    /**
+     * Claims the typed name with the recovery phrase. [phrase] is erased by the repository on every path; this view model
+     * keeps only the name, the step and the typed outcome.
+     */
+    private fun submitUsername(phrase: CharArray) {
+        val account = activeAccount
+        val form = local.value.usernameClaim
+        val refused = account == null || form.working || form.step != SettingsUsernameStep.PHRASE || usernameJob?.isActive == true
+        if (refused || phrase.isEmpty()) {
+            phrase.fill('\u0000')
+            return
+        }
+        local.update { it.copy(usernameClaim = form.copy(working = true, problem = null, outcome = null)) }
+        // ATOMIC: the body always runs, so the phrase is erased by the finally even when the scope is cancelled before start.
+        usernameJob = viewModelScope.launch(start = CoroutineStart.ATOMIC) {
+            try {
+                val result = security.claimUsername(account, form.name, phrase)
+                val committed = (result as? ClientResult.Ready)?.value as? UsernameClaimResult.Committed
+                local.update { current ->
+                    current.copy(
+                        usernameClaim = usernameOutcome(current.usernameClaim, result),
+                        username = committed?.name?.let { uiText(R.string.settings_username_value, UiText.Untrusted(it)) }
+                            ?: current.username
+                    )
+                }
+            } finally {
+                phrase.fill('\u0000')
+            }
+        }
+    }
+
+    private fun usernameOutcome(form: SettingsUsernameClaim, result: ClientResult<UsernameClaimResult>): SettingsUsernameClaim =
+        when (result) {
+            is ClientResult.Ready -> when (val outcome = result.value) {
+                UsernameClaimResult.Unchanged -> SettingsUsernameClaim(outcome = uiText(R.string.settings_username_unchanged))
+                is UsernameClaimResult.Committed -> SettingsUsernameClaim(outcome = uiText(R.string.settings_username_committed))
+                is UsernameClaimResult.Aborted -> SettingsUsernameClaim(
+                    step = SettingsUsernameStep.PHRASE,
+                    outcome = outcome.reason?.let { uiText(R.string.settings_username_aborted, UiText.Data(it)) }
+                        ?: uiText(R.string.settings_username_aborted_plain)
+                )
+                UsernameClaimResult.Pending -> SettingsUsernameClaim(outcome = uiText(R.string.settings_username_pending))
+            }
+            is ClientResult.Failed -> {
+                val step = when (result.problem.check) {
+                    "invalid_username", "username_taken" -> SettingsUsernameStep.NAME
+                    else -> SettingsUsernameStep.PHRASE
+                }
+                SettingsUsernameClaim(step = step, name = form.name, problem = usernameProblem(result.problem))
+            }
+            is ClientResult.Unavailable -> SettingsUsernameClaim(
+                step = SettingsUsernameStep.PHRASE,
+                name = form.name,
+                problem = result.reason.message()
+            )
+        }
+
+    private fun usernameProblem(problem: ClientProblem): UiText = when (problem.check) {
+        "invalid_username" -> uiText(R.string.settings_username_invalid)
+        "username_taken" -> uiText(R.string.settings_username_taken)
+        "authentication_required" -> uiText(R.string.settings_username_phrase_mismatch)
+        "rate_limited", "capacity" -> problem.retryAfterSecs?.let { uiText(R.string.settings_username_retry, UiText.Data(it.toString())) }
+            ?: uiText(R.string.settings_username_directory_unreachable)
+        "directory_unavailable" -> uiText(R.string.settings_username_directory_unreachable)
+        else -> problem.message()
+    }
+
     private fun closeCodeChange() {
         if (codeJob?.isActive == true) return
         wipeCodes()
@@ -713,6 +811,9 @@ private fun ClientProblem.codeMessage(): UiText = when (statusName) {
 /** Invitation characters drawn per chunk; chunks are numbered so they can be checked in order. */
 private const val INVITATION_CHUNK = 32
 private const val PAIRING_POLL_MILLIS = 2_000L
+
+/** The longest username the claim form takes, without the at sign. */
+private const val MAX_USERNAME_NAME = 64
 
 /** The name this phone gives itself in the invitation (`display_name`); the SDK bounds it to 128 bytes. */
 private val DEVICE_NAME = android.os.Build.MODEL?.takeIf { it.isNotBlank() }?.take(64) ?: "android"

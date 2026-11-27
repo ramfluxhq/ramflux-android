@@ -58,6 +58,10 @@ interface ContactDirectoryRepository {
     suspend fun ownCard(account: String): ClientResult<OwnContactCard> =
         ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
 
+    /** `username.resolve` for `@name`: what the directory publishes for it. A refusal names its typed code (`not_found`, ...). */
+    suspend fun resolveUsername(account: String, name: String): ClientResult<org.ramflux.sdk.UsernameMatch> =
+        ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
     /** Live changes for [account]; collect while a contacts screen is visible. */
     fun changes(account: String): Flow<ClientResult<ContactChange>> = emptyFlow()
     suspend fun submit(command: ContactCommand, confirmed: Boolean): ClientResult<Unit>

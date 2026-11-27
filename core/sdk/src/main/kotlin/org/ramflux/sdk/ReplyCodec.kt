@@ -79,6 +79,36 @@ internal object ReplyCodec {
         CoreResult.Failure(CoreError.InvalidResponse(), operationId)
     } finally { reply.body.fill(0) }
 
+    /**
+     * `ramflux_v2_username_authorize`: code 0 carries the signed JSON; any other code carries the flat error envelope
+     * `{code, name, reason_code, directory?}` (no phrase in it). The copy of a success is owned by the reply.
+     */
+    fun decodeAuthorize(reply: NativeReply, operationId: String?): CoreResult<SecretReply> = try {
+        if (reply.code == 0 && reply.body.isNotEmpty()) CoreResult.Success(SecretReply(SecretBytes.take(reply.body.copyOf())))
+        else {
+            val parser = ByteJson(reply.body)
+            val envelope = parser.parse()
+            val name = flatIdentifier(parser, envelope, "name")
+            val reason = flatIdentifier(parser, envelope, "reason_code")
+            val directory = flatIdentifier(parser, envelope, "directory")
+            CoreResult.Failure(
+                error(if (reply.code == 0) 16 else reply.code, Effect.NONE, name, reason), operationId,
+                directory?.let { JsonObject(mapOf(DIRECTORY to JsonPrimitive(it))) },
+            )
+        }
+    } catch (_: Exception) {
+        CoreResult.Failure(CoreError.InvalidResponse(Effect.NONE), operationId)
+    } finally { reply.body.fill(0) }
+
+    /** The directory token of a failure that came from the username directory (`directory`), or null. */
+    const val DIRECTORY = "directory"
+
+    private fun flatIdentifier(parser: ByteJson, envelope: ByteJson.Node, field: String): String? {
+        val node = parser.field(envelope, field)?.takeIf { it.kind == 34 } ?: return null
+        val chars = parser.chars(node)
+        return try { identifier(chars) } finally { chars.fill('\u0000') }
+    }
+
     fun decodeEvent(reply: NativeReply, accountId: String?, generation: ULong): CoreResult<SecretReply?> = try {
         if (reply.code != 0) CoreResult.Failure(error(reply.code, Effect.UNKNOWN))
         else {

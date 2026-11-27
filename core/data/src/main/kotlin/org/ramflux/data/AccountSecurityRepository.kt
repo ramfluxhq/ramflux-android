@@ -59,6 +59,12 @@ interface AccountSecurityRepository {
     suspend fun usernameStatus(account: String): ClientResult<UsernameState> =
         ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.UNSUPPORTED_BY_CORE)
 
+    /** Claims or changes the account's username; [phrase] is erased by the call and is never stored. */
+    suspend fun claimUsername(account: String, name: String, phrase: CharArray): ClientResult<UsernameClaimResult> {
+        phrase.fill('\u0000')
+        return ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.UNSUPPORTED_BY_CORE)
+    }
+
     /** `device.pair.begin` with every linked-device capability for [leaseSeconds]; [displayName] names this phone. */
     suspend fun beginPairing(account: String, displayName: String, leaseSeconds: Long = DEFAULT_LEASE_SECONDS): ClientResult<PairingInvitation>
     suspend fun pairingStatus(account: String, operationId: String, generation: ULong): ClientResult<PairingState>

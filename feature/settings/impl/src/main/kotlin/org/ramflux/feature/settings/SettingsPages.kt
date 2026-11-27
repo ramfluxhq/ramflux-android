@@ -9,6 +9,10 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -318,8 +322,27 @@ internal fun LazyListScope.privacyPage(state: SettingsState, onAction: (Settings
                 trailing = KitRowTrailing.None,
                 testTag = "open-account"
             )
-            // The directory's answer for this account (`username.status`), or its typed refusal. Claiming or changing a
-            // name needs the recovery-phrase ceremony, which this phone does not offer; contacts are added by @name.
+            // The directory's answer for this account (`username.status`), or its typed refusal; the page claims or changes it.
+            KitRow(
+                stringResource(R.string.settings_username),
+                { onAction(SettingsAction.Page(SettingsPage.USERNAME)) },
+                value = state.username?.render(),
+                enabled = state.accountLabel != null,
+                divider = false,
+                testTag = "username"
+            )
+        }
+    }
+}
+
+/**
+ * The username page: the state the directory reports for this account, then the claim or change form. The recovery phrase
+ * is typed into a masked field and handed to the view model as characters; it is never kept in state.
+ */
+internal fun LazyListScope.usernamePage(state: SettingsState, onAction: (SettingsAction) -> Unit) {
+    val form = state.usernameClaim
+    item("username-state") {
+        SettingsGroup(stringResource(R.string.settings_username_title)) {
             KitRow(
                 stringResource(R.string.settings_username),
                 {},
@@ -327,8 +350,109 @@ internal fun LazyListScope.privacyPage(state: SettingsState, onAction: (Settings
                 locked = true,
                 trailing = KitRowTrailing.None,
                 divider = false,
-                testTag = "username"
+                testTag = "username-state"
             )
+        }
+    }
+    item("username-actions", contentType = "body") {
+        val theme = LocalRFTheme.current
+        Column(Modifier.padding(horizontal = theme.gap.dp), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+            form.outcome?.let { Text(it.render(), color = theme.secondary) }
+            if (form.step == SettingsUsernameStep.CLOSED) {
+                KitButton(
+                    stringResource(R.string.settings_username_claim),
+                    { onAction(SettingsAction.OpenUsernameClaim) },
+                    Modifier.fillMaxWidth(),
+                    enabled = state.accountLabel != null && !form.working,
+                    tag = "username-claim"
+                )
+            }
+        }
+    }
+    if (form.step == SettingsUsernameStep.NAME) {
+        item("username-name", contentType = "body") {
+            val theme = LocalRFTheme.current
+            Column(Modifier.padding(horizontal = theme.gap.dp), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                KitTextField(
+                    form.name,
+                    { onAction(SettingsAction.UsernameName(it)) },
+                    label = stringResource(R.string.settings_username_name_label),
+                    placeholder = stringResource(R.string.settings_username_name_placeholder),
+                    error = form.problem?.render(),
+                    helper = stringResource(R.string.settings_username_name_help),
+                    enabled = !form.working,
+                    tag = "username-name"
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        KitButton(stringResource(R.string.settings_username_next), {
+                            onAction(SettingsAction.UsernameNext)
+                        }, Modifier.fillMaxWidth(), tag = "username-next")
+                    }
+                    Box(Modifier.weight(1f)) {
+                        KitButton(
+                            stringResource(R.string.settings_username_cancel),
+                            { onAction(SettingsAction.CancelUsername) },
+                            Modifier.fillMaxWidth(),
+                            kind = KitButtonKind.Secondary,
+                            tag = "username-cancel"
+                        )
+                    }
+                }
+            }
+        }
+    }
+    if (form.step == SettingsUsernameStep.PHRASE) item("username-phrase", contentType = "body") { UsernamePhraseForm(form, onAction) }
+}
+
+/** The recovery-phrase step of the claim. The typed text lives only in this composable until it is handed over as characters. */
+@Composable
+private fun UsernamePhraseForm(form: SettingsUsernameClaim, onAction: (SettingsAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    var phrase by remember { mutableStateOf("") }
+    Column(
+        Modifier.padding(horizontal = theme.gap.dp).testTag("username-phrase-form"),
+        verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
+    ) {
+        Text(stringResource(R.string.settings_username_phrase_title))
+        KitTextField(
+            phrase,
+            { phrase = it },
+            label = stringResource(R.string.settings_username_phrase_label),
+            error = form.problem?.render(),
+            helper = stringResource(R.string.settings_username_phrase_help),
+            enabled = !form.working,
+            tag = "username-phrase",
+            secure = true
+        )
+        if (form.working) Text(stringResource(R.string.settings_username_publishing), color = theme.secondary)
+        Row(horizontalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+            Box(Modifier.weight(1f)) {
+                KitButton(
+                    stringResource(R.string.settings_username_confirm),
+                    {
+                        val chars = phrase.toCharArray()
+                        phrase = ""
+                        onAction(SettingsAction.ClaimUsername(chars))
+                    },
+                    Modifier.fillMaxWidth(),
+                    enabled = phrase.isNotBlank() && !form.working,
+                    tag = "username-confirm"
+                )
+            }
+            Box(Modifier.weight(1f)) {
+                KitButton(
+                    stringResource(R.string.settings_username_cancel),
+                    {
+                        phrase = ""
+                        onAction(SettingsAction.CancelUsername)
+                    },
+                    Modifier.fillMaxWidth(),
+                    kind = KitButtonKind.Secondary,
+                    enabled = !form.working,
+                    tag = "username-cancel-phrase"
+                )
+            }
         }
     }
 }

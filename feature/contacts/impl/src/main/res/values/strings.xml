@@ -35,6 +35,12 @@
     <string name="contacts_sent_explanation">This is the recorded outgoing request status. No conversation is opened automatically here.</string>
     <string name="contacts_address">Identity ID, card or link</string>
     <string name="contacts_add_explanation">A contact request requires the host authorization flow. Your draft stays on this device.</string>
+    <string name="contacts_find_username">Find</string>
+    <string name="contacts_username_found">Found @%1$s</string>
+    <string name="contacts_username_not_found">No one with that username</string>
+    <string name="contacts_username_invalid">This username is not valid.</string>
+    <string name="contacts_username_retry">Try again in %1$s s</string>
+    <string name="contacts_username_unreachable">Username service unreachable; messaging still works</string>
     <string name="contacts_send_request">Send contact request</string>
     <string name="contacts_batch_explanation">Select requests to decline. No selection changes a contact relationship.</string>
     <string name="contacts_decline_selected">Decline selected requests</string>

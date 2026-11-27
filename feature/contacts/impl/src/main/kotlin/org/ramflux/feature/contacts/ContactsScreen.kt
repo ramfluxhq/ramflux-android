@@ -76,12 +76,23 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
                                     onValueChange = { onAction(ContactsAction.Address(it)) },
                                     label = { Text(stringResource(R.string.contacts_address)) },
                                     modifier = Modifier.fillMaxWidth(),
+                                    enabled = !state.submitting,
                                     maxLines = 3
                                 )
                                 Text(stringResource(R.string.contacts_add_explanation), color = theme.secondary)
-                                KitButton(stringResource(R.string.contacts_send_request), {
-                                    onAction(ContactsAction.Operate(ContactOperation.ADD))
-                                }, Modifier.fillMaxWidth(), enabled = !state.loading && state.address.isNotBlank(), tag = "contacts-send")
+                                // An @name is looked up first; its card then sends the request (the approval sheet still confirms it).
+                                state.visibleUsername()?.let { UsernameLookupCard(it, enabled = !state.loading, onAction = onAction) }
+                                KitButton(
+                                    stringResource(
+                                        if (state.usernameNeedsLookup()) R.string.contacts_find_username else R.string.contacts_send_request
+                                    ),
+                                    {
+                                        onAction(ContactsAction.Operate(ContactOperation.ADD))
+                                    },
+                                    Modifier.fillMaxWidth(),
+                                    enabled = !state.loading && state.address.isNotBlank(),
+                                    tag = "contacts-send"
+                                )
                             }
                         }
                         ContactsPage.BATCH -> {
@@ -445,3 +456,27 @@ private const val SAFETY_GROUP = 5
 private const val SKELETON_ROWS = 5
 private const val AVATAR = 40f
 private const val PROFILE_AVATAR = 56f
+
+/** The directory's answer for an `@name`: the name it found with its published details, or the typed refusal. */
+@Composable
+private fun UsernameLookupCard(lookup: UsernameLookup, enabled: Boolean, onAction: (ContactsAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    when (lookup) {
+        is UsernameLookup.Found -> Column(
+            Modifier.fillMaxWidth().testTag("contacts-username-found"),
+            verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
+        ) {
+            Text(stringResource(R.string.contacts_username_found, lookup.name))
+            lookup.displayName?.let { Text(it) }
+            lookup.bio?.let { Text(it, color = theme.secondary) }
+            KitButton(stringResource(R.string.contacts_send_request), {
+                onAction(ContactsAction.Operate(ContactOperation.ADD))
+            }, Modifier.fillMaxWidth(), enabled = enabled, tag = "contacts-username-send")
+        }
+        is UsernameLookup.Failed -> Text(
+            lookup.message.render(),
+            color = theme.danger,
+            modifier = Modifier.testTag("contacts-username-failed")
+        )
+    }
+}

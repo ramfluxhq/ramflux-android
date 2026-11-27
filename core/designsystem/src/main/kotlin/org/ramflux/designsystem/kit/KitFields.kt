@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -28,6 +29,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.LayoutDirection
 import org.ramflux.designsystem.LocalRFTheme
 
@@ -42,7 +46,12 @@ fun KitTextField(
     helper: String? = null,
     enabled: Boolean = true,
     focused: Boolean = false,
-    tag: String? = null
+    tag: String? = null,
+    /**
+     * A secret entry (a recovery phrase): masked, multi-line, with the password keyboard so the IME keeps no suggestions
+     * and no autocorrect history. Off for every other field.
+     */
+    secure: Boolean = false
 ) {
     val theme = LocalRFTheme.current
     val interaction = remember { MutableInteractionSource() }
@@ -63,7 +72,16 @@ fun KitTextField(
             value = value,
             onValueChange = onValue,
             enabled = enabled,
-            singleLine = true,
+            singleLine = !secure,
+            keyboardOptions = if (secure) {
+                KeyboardOptions(
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Password
+                )
+            } else {
+                KeyboardOptions.Default
+            },
+            visualTransformation = if (secure) PasswordVisualTransformation() else VisualTransformation.None,
             textStyle = kitStyle(theme.size_mobile_body, FontWeight.Normal, theme.text, RfMetrics.lineTitle),
             cursorBrush = SolidColor(theme.focus),
             interactionSource = interaction,

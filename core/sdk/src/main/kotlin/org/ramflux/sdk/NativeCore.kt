@@ -20,6 +20,11 @@ interface NativeCore {
     fun suspendClient(core: Long): Int = UNSUPPORTED
     /** Reopens files and reconnects without the account code. Blocking: call on the IO dispatcher. */
     fun resumeClient(core: Long): Int = UNSUPPORTED
+    /**
+     * `ramflux_v2_username_authorize`: [publicRequest] is the public JSON, [phrase] the recovery phrase as UTF-8. Code 0
+     * carries the signed JSON, any other code the error JSON. Blocking: the caller erases both arrays.
+     */
+    fun usernameAuthorize(core: Long, publicRequest: ByteArray, phrase: ByteArray): NativeReply = NativeReply(UNSUPPORTED, byteArrayOf())
 
     companion object {
         /** Status of a core without suspend support (InvalidArgument); only test doubles lack it. */
@@ -47,6 +52,7 @@ class JniCore : NativeCore {
     override external fun eventPoll(core: Long): NativeReply
     override external fun suspendClient(core: Long): Int
     override external fun resumeClient(core: Long): Int
+    override external fun usernameAuthorize(core: Long, publicRequest: ByteArray, phrase: ByteArray): NativeReply
 
     companion object {
         fun load(): JniCore {

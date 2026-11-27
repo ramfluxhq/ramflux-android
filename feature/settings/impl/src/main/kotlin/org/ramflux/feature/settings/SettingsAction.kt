@@ -41,6 +41,19 @@ sealed interface SettingsAction {
 
     data class RequestPolicy(val policy: org.ramflux.data.ContactRequestPolicy) : SettingsAction
 
+    /** Opens the claim form (claim or change of the account's @username). */
+    data object OpenUsernameClaim : SettingsAction
+
+    data class UsernameName(val text: String) : SettingsAction
+
+    /** Name step done: moves to the recovery-phrase step. */
+    data object UsernameNext : SettingsAction
+
+    data object CancelUsername : SettingsAction
+
+    /** The recovery phrase as typed. The view model erases [phrase] at once; it is never stored or logged. */
+    class ClaimUsername(val phrase: CharArray) : SettingsAction
+
     /** Switches the app lock on or off for the active account; only the account code opens it again. */
     data class SetAppLock(val enabled: Boolean) : SettingsAction
 

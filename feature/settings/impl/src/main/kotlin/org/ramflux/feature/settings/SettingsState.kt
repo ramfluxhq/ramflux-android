@@ -8,7 +8,19 @@ import org.ramflux.data.AppLanguage
 import org.ramflux.data.ContactRequestPolicy
 import org.ramflux.designsystem.*
 
-enum class SettingsPage { GENERAL, ACCOUNT, PRIVACY, APP_LOCK, DEVICES, PAIRING, APPEARANCE, LANGUAGE, DIAGNOSTICS }
+enum class SettingsPage { GENERAL, ACCOUNT, PRIVACY, APP_LOCK, DEVICES, PAIRING, APPEARANCE, LANGUAGE, DIAGNOSTICS, USERNAME }
+
+/** Where the username claim form stands: closed, the name step, or the recovery-phrase step. */
+enum class SettingsUsernameStep { CLOSED, NAME, PHRASE }
+
+/** The claim or change form. The recovery phrase is never held here: the view model takes it as typed. */
+@Immutable data class SettingsUsernameClaim(
+    val step: SettingsUsernameStep = SettingsUsernameStep.CLOSED,
+    val name: String = "",
+    val working: Boolean = false,
+    val problem: UiText? = null,
+    val outcome: UiText? = null
+)
 
 /** Where linking a new device stands on this phone (the inviting side). */
 enum class PairingStep { IDLE, STARTING, INVITED, COMPARE, REVIEW, WORKING, ENDED }
@@ -86,6 +98,7 @@ val APP_LOCK_TIMEOUTS: List<Long> = listOf(0L, 60_000L, 300_000L, 900_000L, 3_60
     val accountLabel: String? = null,
     /** This account's username, or why the directory cannot say (`username.status`); null until read. */
     val username: UiText? = null,
+    val usernameClaim: SettingsUsernameClaim = SettingsUsernameClaim(),
     val accountRequired: Boolean = false,
     val loading: Boolean = false,
     val selectedTheme: String? = null,

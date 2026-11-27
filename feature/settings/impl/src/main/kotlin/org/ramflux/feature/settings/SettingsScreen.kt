@@ -43,6 +43,7 @@ fun SettingsScreen(
             SettingsPage.APPEARANCE -> R.string.settings_appearance_language
             SettingsPage.LANGUAGE -> R.string.settings_language
             SettingsPage.DEVICES -> R.string.settings_devices
+            SettingsPage.USERNAME -> R.string.settings_username_title
         }
     )
     Scaffold(modifier = modifier, contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
@@ -90,6 +91,7 @@ fun SettingsScreen(
                         SettingsPage.ACCOUNT -> accountPage(state, onAction)
                         SettingsPage.PRIVACY -> privacyPage(state, onAction)
                         SettingsPage.APP_LOCK -> appLockPage(state, onAction)
+                        SettingsPage.USERNAME -> usernamePage(state, onAction)
                         SettingsPage.PAIRING -> pairingPage(state, onAction, drawInvitation, drawInvitationQr)
                         SettingsPage.DIAGNOSTICS -> diagnosticsPage(state, { AboutVersion() }) { label, value -> StatusRow(label, value) }
                         SettingsPage.LANGUAGE -> languagePage(state, onAction) { id, label, selected, enabled, select ->

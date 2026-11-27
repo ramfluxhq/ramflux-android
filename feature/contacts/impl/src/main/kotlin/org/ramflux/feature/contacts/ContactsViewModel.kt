@@ -33,6 +33,7 @@ class ContactsViewModel @Inject constructor(
         if (status.phase == ClientPhase.OPEN) screen else ContactsState(problem = uiText(R.string.contacts_closed))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), ContactsState())
     private var request: Job? = null
+    private var lookupJob: Job? = null
     private var queryJob: Job? = null
     private var watch: Job? = null
     private var watchedAccount: String? = null
@@ -110,7 +111,23 @@ class ContactsViewModel @Inject constructor(
                     read()
                 }
             }
-            is ContactsAction.Address -> local.update { it.copy(address = action.text.take(4096), unavailable = null) }
+            is ContactsAction.Address -> {
+                // A lookup still in flight answers for the old text: retire it so its reply can never reach the new field.
+                // Only a lookup is retired here; a submit or approved operation is never cancelled by typing.
+                val lookup = lookupJob?.takeIf { it === request && it.isActive }
+                if (lookup != null) {
+                    lookup.cancel()
+                    ticket++
+                }
+                local.update {
+                    it.copy(
+                        address = action.text.take(4096),
+                        loading = if (lookup != null) false else it.loading,
+                        unavailable = null,
+                        username = null
+                    )
+                }
+            }
             is ContactsAction.Select -> local.value.rows.find { it.id == action.id }?.let { row ->
                 request?.cancel()
                 ticket++
@@ -384,6 +401,11 @@ class ContactsViewModel @Inject constructor(
 
     private fun preflight(operation: ContactOperation) {
         if (request?.isActive == true || session.status.value.phase != ClientPhase.OPEN) return
+        // An `@name` is looked up first; the request goes out only for the name the lookup found.
+        if (operation == ContactOperation.ADD && local.value.usernameNeedsLookup()) {
+            lookupUsername()
+            return
+        }
         val selected = local.value.selected
         when (operation) {
             ContactOperation.ACCEPT, ContactOperation.DECLINE, ContactOperation.BLOCK -> if (selected?.inbound != true) return
@@ -450,12 +472,50 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
+    private fun lookupUsername() {
+        val query = local.value.address.trim()
+        val name = query.removePrefix(USERNAME_PREFIX.toString())
+        if (name.isEmpty()) return
+        val expected = ++ticket
+        val generation = session.status.value.generation
+        local.update { it.copy(loading = true, username = null, problem = null, unavailable = null) }
+        lookupJob = viewModelScope.launch {
+            try {
+                val active = account(expected, generation, activeAccount) ?: return@launch
+                val result = directory.resolveUsername(active.id, name)
+                current(expected, generation)
+                if (account(expected, generation, active.id) == null) return@launch
+                local.update {
+                    it.copy(
+                        username = when (result) {
+                            is ClientResult.Ready -> UsernameLookup.Found(query, name, result.value.displayName, result.value.bio)
+                            is ClientResult.Failed -> UsernameLookup.Failed(usernameLookupMessage(result.problem))
+                            is ClientResult.Unavailable -> UsernameLookup.Failed(result.reason.message())
+                        }
+                    )
+                }
+            } finally {
+                if (expected == ticket) local.update { it.copy(loading = false) }
+            }
+        }
+        request = lookupJob
+    }
+
+    private fun usernameLookupMessage(problem: ClientProblem): UiText = when (problem.check) {
+        "not_found" -> uiText(R.string.contacts_username_not_found)
+        "invalid_username" -> uiText(R.string.contacts_username_invalid)
+        "rate_limited", "capacity" -> problem.retryAfterSecs?.let { uiText(R.string.contacts_username_retry, UiText.Data(it.toString())) }
+            ?: uiText(R.string.contacts_username_unreachable)
+        "directory_unavailable" -> uiText(R.string.contacts_username_unreachable)
+        else -> problem.message()
+    }
+
     private fun executeApproved() {
         if (request?.isActive == true || commands.isEmpty()) return
         val prepared = commands
         val expected = ++ticket
         val generation = session.status.value.generation
-        local.update { it.copy(loading = true, approval = null, operationNotice = null, problem = null) }
+        local.update { it.copy(loading = true, submitting = true, approval = null, operationNotice = null, problem = null) }
         request = viewModelScope.launch {
             var done = false
             try {
@@ -499,6 +559,7 @@ class ContactsViewModel @Inject constructor(
                 done = true
             } finally {
                 commands = emptyList()
+                local.update { it.copy(submitting = false) }
                 if (expected == ticket) local.update { it.copy(loading = false) }
             }
             if (!done) return@launch
