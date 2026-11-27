@@ -5,10 +5,12 @@ package org.ramflux.data
 
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.sdk.*
 
@@ -38,15 +40,16 @@ internal class DefaultAccountAccessRepository(
             }, decoded.value.activeAccountId))
         }
     }
-    override suspend fun select(id: String): ClientResult<Unit> {
-        // Authoritative state is checked for every selection, not trusted from a previous screen.
+    override suspend fun select(id: String): ClientResult<Unit> = serial(id) {
+        // Authoritative state is checked for every selection, not trusted from a previous screen, and under the account's
+        // gate, so a sign-out that completes between the check and the switch cannot be undone by the switch.
         val catalog = when (val current = list()) {
             is ClientResult.Ready -> current.value
-            is ClientResult.Failed -> return current
-            is ClientResult.Unavailable -> return current
+            is ClientResult.Failed -> return@serial current
+            is ClientResult.Unavailable -> return@serial current
         }
-        if (catalog.accounts.none { it.id == id && it.unlocked }) return unavailable()
-        return serial(id) { switch(id) }
+        if (catalog.accounts.none { it.id == id && it.unlocked }) return@serial unavailable()
+        switch(id)
     }
     override suspend fun unlock(id: String, code: CharArray): ClientResult<Unit> {
         if (!acceptable(id) || !AccountCode.complete(code)) {
@@ -70,24 +73,38 @@ internal class DefaultAccountAccessRepository(
     }
     override suspend fun signOut(id: String): ClientResult<Unit> {
         if (!acceptable(id)) return invalid()
-        return serial(id) {
-            if (!stores.purgeBeforeClose(id)) {
-                readmitIfOpen(id)
-                return@serial storageFailed()
-            }
-            closed(id, accounts.accountSign_out(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {}))
-        }
+        return leave(id) { accounts.accountSign_out(RepositoryContext(id, UUID.randomUUID().toString()), SecretBody.fields {}) }
     }
     override suspend fun removeLocal(id: String): ClientResult<Unit> {
         if (!acceptable(id)) return invalid()
-        return serial(id) {
-            if (!stores.purgeBeforeClose(id)) {
-                readmitIfOpen(id)
-                return@serial storageFailed()
-            }
+        return leave(id) {
             // The SDK requires the account id itself as the typed confirmation.
             val body = SecretBody.fields { publicText("confirmation", id) }
-            closed(id, accounts.accountRemove_local(RepositoryContext(id, UUID.randomUUID().toString()), body))
+            accounts.accountRemove_local(RepositoryContext(id, UUID.randomUUID().toString()), body)
+        }
+    }
+
+    /**
+     * Sign-out or removal: purge the account's host stores (which shuts its cards), then [close] it in the core. Once the
+     * purge starts the whole body runs without cancellation, so a caller that goes away cannot leave the account open in
+     * the core with its cards shut. Any body that still did not complete (an unexpected exception) re-admits the account
+     * when the core says it is still open.
+     */
+    private suspend fun leave(id: String, close: suspend () -> CoreResult<SecretReply>): ClientResult<Unit> = serial(id) {
+        withContext(NonCancellable) {
+            var settled = false
+            try {
+                val result = if (!stores.purgeBeforeClose(id)) {
+                    readmitIfOpen(id)
+                    storageFailed()
+                } else {
+                    closed(id, close())
+                }
+                settled = true
+                result
+            } finally {
+                if (!settled) readmitIfOpen(id)
+            }
         }
     }
 
@@ -97,7 +114,12 @@ internal class DefaultAccountAccessRepository(
      * an unreadable list keeps it closed; the next deliberate sign-in admits it again.
      */
     private suspend fun readmitIfOpen(id: String) {
-        val catalog = (list() as? ClientResult.Ready)?.value ?: return
+        val listed = try {
+            list()
+        } catch (_: Exception) {
+            return
+        }
+        val catalog = (listed as? ClientResult.Ready)?.value ?: return
         if (catalog.accounts.any { it.id == id && it.unlocked }) stores.admit(id)
     }
     private suspend fun closed(id: String, result: CoreResult<SecretReply>): ClientResult<Unit> = when (result) {

@@ -76,6 +76,12 @@ class CardReply internal constructor(
     override fun toString() = "CardReply(result=$result, <redacted>)"
 
     companion object {
+        /**
+         * The [reason] of a host-made `stale_dropped`: the account signed out or was removed before the operation started.
+         * The control reverts; nothing is asked again.
+         */
+        const val ACCOUNT_RETIRED = "host_account_retired"
+
         internal fun parse(row: JsonObject): CardReply? {
             val result = row.text("result") ?: return null
             return CardReply(

@@ -9,13 +9,17 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -104,14 +108,16 @@ interface CardSessionRepository {
      * `input` (it carries the whole value) and an `activate` whose only later steps came from `input` events queued before
      * the tap; both only while the control is still the same node kind and `input_pointer` as when the person saw it.
      * An `input` that finds an `input` for the same control at the tail (or consecutive ones at the head) replaces it, and
-     * the replaced one answers `coalesced`. Any event that is not applied (stale, queue full, consumer cancelled, card gone)
-     * answers `stale_dropped`, so the control reverts and the host asks for the tap again.
+     * the replaced one answers `coalesced`. Any event that is not applied (stale, queue full, consumer cancelled before it
+     * started, card gone) answers `stale_dropped`, so the control reverts and the host asks for the tap again; for an account
+     * that signed out the reply carries the reason [CardReply.ACCOUNT_RETIRED] and nothing is asked again. An event whose call
+     * started always gets the runtime's reply, or a failure with an unknown outcome when it cannot be known.
      */
     suspend fun event(account: String, ref: String, key: String, event: CardEvent, seen: CardStamp): ClientResult<CardReply>
 
     /**
      * Answers a host slot (link or approval) with [outcome]; [token], [slotId] and [requestId] come from the tree or the host
-     * request. Queued with the card's events; an answer that is not applied answers `stale_dropped`.
+     * request. Queued with the card's events; an answer that is not applied answers `stale_dropped` (as for [event]).
      */
     suspend fun slot(
         account: String, ref: String, slotId: String, requestId: String, token: JsonObject, outcome: CardSlotOutcome,
@@ -159,7 +165,18 @@ internal class CardSessionPool(
     private val transport: RepositoryTransport,
     private val surfaces: SurfacesRepository = DefaultSurfacesRepository(transport),
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    /** Test seam: called by a card queue's consumer at each [DrainStage]; may suspend or throw. A no-op in production. */
+    private val probe: suspend (DrainStage, String) -> Unit = { _, _ -> },
 ) : CardSessionRepository, CardLifecycleHooks {
+    /** Where a card queue's consumer calls [probe]. */
+    internal enum class DrainStage {
+        /** An operation was taken from the queue and is about to wait for the account's lock; nothing was sent yet. */
+        HANDOFF,
+
+        /** The queue was found empty and unmapped; the consumer is about to end. */
+        IDLE,
+    }
+
     private val client = CardSessionClient(transport)
     private val guard = Any()
     private val accounts = HashMap<String, Account>()
@@ -191,6 +208,9 @@ internal class CardSessionPool(
 
     /** One thing the person did, waiting for its turn. [seq] orders it against every other operation of the account. */
     private class Queued(val op: Op, val seq: Long, val done: CompletableDeferred<ClientResult<CardReply>>) {
+        /** Set under the guard once the consumer holds the account's lock and starts applying it; from then on it is never dropped. */
+        var started = false
+
         /** The control key when this is an `input` event, else null: only those are ever replaced by a newer one. */
         val inputKey: String? get() = (op as? Op.Event)?.takeIf { it.event is CardEvent.Input }?.key
     }
@@ -204,7 +224,7 @@ internal class CardSessionPool(
         val items = ArrayDeque<Queued>()
         var draining = false
 
-        /** The operation the consumer took and has not answered yet; answered by [abandon] if the consumer dies. */
+        /** The operation the consumer took and has not answered yet; answered by [abandon] if the consumer dies before it started. */
         var current: Queued? = null
     }
 
@@ -287,7 +307,7 @@ internal class CardSessionPool(
      * the queue. Anything else that finds the queue full is answered as dropped (see [dropped]), never silently lost.
      */
     private suspend fun enqueue(account: String, ref: String, op: Op): ClientResult<CardReply> {
-        val acc = accountOf(account) ?: return invalid()
+        val acc = accountOf(account) ?: return retired(op)
         val done = CompletableDeferred<ClientResult<CardReply>>()
         var replaced: Queued? = null
         var start: CardQueue? = null
@@ -317,22 +337,57 @@ internal class CardSessionPool(
         return done.await()
     }
 
-    /** The one consumer of [queue]: applies the operations one by one, in the order they were made. */
+    /**
+     * The one consumer of [queue]: applies the operations one by one, in the order they were made. Cancellation is honoured
+     * only before an operation starts (while it waits for the account's lock); once started it runs to its answer without
+     * cancellation, so a call that reached the core is never reported as dropped and its reply is always absorbed.
+     */
     private suspend fun drain(acc: Account, account: String, ref: String, queue: CardQueue) {
         while (true) {
             val skipped = ArrayList<Queued>()
             val next = synchronized(guard) { takeNext(acc, ref, queue, skipped).also { queue.current = it } }
             skipped.forEach { it.done.complete(ClientResult.Ready(coalesced())) }
-            val item = next ?: return
-            val result = acc.exclusive(account, invalid()) { apply(acc, account, ref, item) }
-            synchronized(guard) { queue.current = null }
-            item.done.complete(result)
+            val item = next ?: run {
+                probe(DrainStage.IDLE, ref)
+                return
+            }
+            probe(DrainStage.HANDOFF, ref)
+            val ran = acc.exclusive(account, false) {
+                // The lock may be taken without suspending; a consumer cancelled by now must not start the operation.
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable) { applyHeld(acc, account, ref, queue, item) }
+                true
+            }
+            if (!ran) {
+                // The account signed out while the operation waited: it never started.
+                synchronized(guard) { if (queue.current === item) queue.current = null }
+                item.done.complete(retired(item.op))
+            }
         }
     }
 
     /**
+     * Applies [item] and answers it. Runs without cancellation. Any failure after the start (the call may have reached the
+     * core) answers with an unknown outcome instead of a drop, so the host never asks for a second tap that may repeat it.
+     */
+    private suspend fun applyHeld(acc: Account, account: String, ref: String, queue: CardQueue, item: Queued) {
+        synchronized(guard) { item.started = true }
+        val result = try {
+            apply(acc, account, ref, item)
+        } catch (_: Exception) {
+            // The held tree may no longer match the runtime: own events must not be re-based on it.
+            synchronized(guard) { acc.slots[ref] }?.resetChain()
+            failed(FAILED_CODE)
+        }
+        synchronized(guard) { if (queue.current === item) queue.current = null }
+        item.done.complete(result)
+    }
+
+    /**
      * The consumer of [queue] ended abnormally: every operation it still holds is answered as dropped, and the queue is
-     * unmapped only while it is still the card's queue (a later instance belongs to another consumer).
+     * unmapped only while it is still the card's queue (a later instance belongs to another consumer). An operation that
+     * started is answered by its consumer; one still marked started here (the consumer died of an error) has an unknown
+     * outcome.
      */
     private fun abandon(acc: Account, ref: String, queue: CardQueue) {
         val (current, rest) = synchronized(guard) {
@@ -343,18 +398,29 @@ internal class CardSessionPool(
             queue.items.clear()
             held
         }
-        current?.let { it.done.complete(dropped(it.op, started = true)) }
+        current?.let { it.done.complete(dropped(it.op, started = it.started)) }
         rest.forEach { it.done.complete(dropped(it.op, started = false)) }
     }
 
     /**
-     * The answer to an operation that was never applied. A control event or slot answer reads as `stale_dropped`, so the
-     * control reverts and the host asks for the tap again. A submit is never retried: one that may have reached the runtime
-     * ([started]) has an unknown outcome, one that never left the queue has none.
+     * The answer to an operation that was not applied. One that never started reads as `stale_dropped` (a control event or
+     * slot answer: the control reverts and the host asks for the tap again) or as a failure with no outcome (a submit, never
+     * retried). One that may have reached the runtime ([started]) has an unknown outcome.
      */
-    private fun dropped(op: Op, started: Boolean): ClientResult<CardReply> = when (op) {
-        is Op.Event, is Op.Answer -> ClientResult.Ready(staleDropped())
-        Op.Submit -> if (started) failed(FAILED_CODE) else invalid()
+    private fun dropped(op: Op, started: Boolean): ClientResult<CardReply> = when {
+        started -> failed(FAILED_CODE)
+        op is Op.Submit -> invalid()
+        else -> ClientResult.Ready(staleDropped())
+    }
+
+    /**
+     * The answer to an operation of an account that signed out or was removed. A control event or slot answer reads as
+     * `stale_dropped` with the reason [CardReply.ACCOUNT_RETIRED], so the control reverts without asking for a tap again;
+     * a submit fails with no outcome.
+     */
+    private fun retired(op: Op): ClientResult<CardReply> = when (op) {
+        is Op.Event, is Op.Answer -> ClientResult.Ready(staleDropped(CardReply.ACCOUNT_RETIRED))
+        Op.Submit -> invalid()
     }
 
     /**
@@ -847,7 +913,7 @@ internal class CardSessionPool(
 
     private fun usable(value: String) = value.isNotEmpty() && value.toByteArray(Charsets.UTF_8).size <= MAX_ID
     /** A dropped event the view reports as stale, so the control it came from reverts to the value the runtime holds. */
-    private fun staleDropped() = CardReply("stale_dropped", null, true, "", null, null, null, false)
+    private fun staleDropped(reason: String? = null) = CardReply("stale_dropped", null, true, "", reason, null, null, false)
 
     /** An Input replaced by a newer one for the same control before it was sent; nothing changed. */
     private fun coalesced() = CardReply("coalesced", null, true, "", null, null, null, false)

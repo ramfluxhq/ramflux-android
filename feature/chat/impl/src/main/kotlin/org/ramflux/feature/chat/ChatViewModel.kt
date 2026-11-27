@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonPrimitive
 import org.ramflux.data.*
 import org.ramflux.data.cards.CardEvent
+import org.ramflux.data.cards.CardReply
 import org.ramflux.data.cards.CardSessionRepository
 import org.ramflux.data.cards.CardSlotOutcome
 import org.ramflux.data.cards.CardState
@@ -109,6 +110,9 @@ class ChatViewModel @Inject constructor(
 
     /** The last control per card whose event the runtime dropped as stale; the renderer reverts that field. */
     private val cardStale = HashMap<String, Pair<String, Long>>()
+
+    /** When each card last said an input was not applied (monotonic nanoseconds); the notice is shown at most once per interval. */
+    private val inputNoticeAt = HashMap<String, Long>()
 
     /** The locale and theme the cards draw with, as the screen reports them. */
     private var cardLook = CardLook("en", false)
@@ -805,6 +809,7 @@ class ChatViewModel @Inject constructor(
         cardRefs.clear()
         if (leaving != null && held.isNotEmpty()) viewModelScope.launch { held.forEach { cards.dispose(leaving, it) } }
         cardStale.clear()
+        inputNoticeAt.clear()
         olderJob?.cancel()
         forwardJob?.cancel()
         forwarding = null
@@ -1441,10 +1446,14 @@ class ChatViewModel @Inject constructor(
             val sent = cards.event(account, action.ref, action.key, action.event, action.seen)
             val reply = (sent as? ClientResult.Ready)?.value
             if (reply == null) {
-                // An event that never reached the runtime must not leave the control showing a value the runtime does not
-                // hold, and a tap it did not take is asked for again rather than lost silently.
+                // An event that was not applied must not leave the control showing a value the runtime does not hold. A
+                // call that may have reached the runtime is never asked for again: a second tap could repeat it.
                 revertCard(action)
-                if (action.event !is CardEvent.Input) local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_tap_again)) }
+                if ((sent as? ClientResult.Failed)?.problem?.outcome == ClientOutcome.UNKNOWN) {
+                    local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_result_unknown)) }
+                } else {
+                    cardNotApplied(action)
+                }
                 return@launch
             }
             when (reply.result) {
@@ -1454,12 +1463,28 @@ class ChatViewModel @Inject constructor(
                 }
                 "stale_dropped" -> {
                     revertCard(action)
-                    // A tap or a tab change the card did not take: ask for it again instead of dropping it silently.
-                    if (action.event !is CardEvent.Input) local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_tap_again)) }
+                    // The account signed out: nothing to ask again. Otherwise the drop is said, never silent.
+                    if (reply.reason != CardReply.ACCOUNT_RETIRED) cardNotApplied(action)
                 }
                 else -> Unit
             }
         }
+    }
+
+    /**
+     * A control event the card did not take: a tap or a tab change is asked for again; an input says once per interval per
+     * card that it was not applied (typing would otherwise repeat the notice on every keystroke).
+     */
+    private fun cardNotApplied(action: ChatAction.CardInteract) {
+        if (action.event !is CardEvent.Input) {
+            local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_tap_again)) }
+            return
+        }
+        val now = System.nanoTime()
+        val last = inputNoticeAt[action.ref]
+        if (last != null && now - last < INPUT_NOTICE_INTERVAL_NANOS) return
+        inputNoticeAt[action.ref] = now
+        local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_input_not_applied)) }
     }
 
     /** Tells the card the control at the action's key shows a value the runtime does not hold, so it redraws the tree value. */
@@ -1476,10 +1501,16 @@ class ChatViewModel @Inject constructor(
             if (url != null && (cards.state(account, action.ref)?.hostRequest?.get("url") as? JsonPrimitive)?.content != url) return@launch
             val answered = cards.slot(account, action.ref, action.slotId, action.requestId, action.token, action.outcome)
             val reply = (answered as? ClientResult.Ready)?.value
+            // An answer that may have reached the runtime is never asked for again: a second answer could repeat it.
+            if ((answered as? ClientResult.Failed)?.problem?.outcome == ClientOutcome.UNKNOWN) {
+                local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_result_unknown)) }
+                return@launch
+            }
             // An answer the card did not take (dropped, or never reached the runtime) is asked for again, never lost silently.
             if (reply == null || reply.result == "stale_dropped") {
-                // Dismissing a sheet needs no second try.
-                if (action.outcome != CardSlotOutcome.CANCEL) local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_tap_again)) }
+                // Dismissing a sheet needs no second try, and an account that signed out has nothing to ask again.
+                val retired = reply?.reason == CardReply.ACCOUNT_RETIRED
+                if (action.outcome != CardSlotOutcome.CANCEL && !retired) local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_tap_again)) }
                 return@launch
             }
             if (url != null && reply.result == "opened") channel.send(ChatEvent.OpenUrl(url))
@@ -1680,6 +1711,9 @@ private fun kindOf(mime: String) = when (MediaAttachment.kindOf(mime)) {
 private const val OUTBOX_LIMIT = 64
 private const val CARD_PAGES = 4
 private const val CARD_WINDOW = 200
+
+/** At most one "input not applied" notice per card in this interval. */
+private const val INPUT_NOTICE_INTERVAL_NANOS = 5_000_000_000L
 
 private data class CardLook(val locale: String, val dark: Boolean)
 

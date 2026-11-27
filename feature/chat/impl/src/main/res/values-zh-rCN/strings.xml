@@ -267,6 +267,8 @@
     <!-- A send the SDK refused because the contact's home node is not known yet (no contact card imported); the entry keeps a Retry. -->
     <string name="chat_card_submit_unknown">卡片回复可能已发出，也可能未发出。请先查看会话，再决定是否重新回复。</string>
     <string name="chat_card_tap_again">卡片在你点击前已更新。请再点一次。</string>
+    <string name="chat_card_result_unknown">无法确认卡片是否收到了这次操作。请先查看卡片，再决定是否重试。</string>
+    <string name="chat_card_input_not_applied">你对卡片的最近一次修改未生效。</string>
     <string name="chat_send_needs_card">未发送。与此联系人交换联系人名片后才能发送媒体。</string>
     <!-- Centred service line in a group chat: member added. -->
     <string name="chat_service_member_added">已添加成员</string>
