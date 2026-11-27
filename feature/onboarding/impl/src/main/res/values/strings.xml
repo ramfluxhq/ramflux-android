@@ -243,4 +243,5 @@
     <string name="app_lock_restore">Restore with recovery phrase</string>
     <string name="app_lock_wait">Too many wrong account codes. Try again in %1$s.</string>
     <string name="app_lock_unlock_failed">The account could not be unlocked. Try again.</string>
+    <string name="app_lock_change_busy">Another app lock change is in progress.</string>
 </resources>

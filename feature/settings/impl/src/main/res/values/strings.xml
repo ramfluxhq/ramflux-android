@@ -292,4 +292,5 @@
     <string name="settings_app_lock_exhausted">Too many wrong account codes. Restore the account with its recovery phrase.</string>
     <string name="settings_app_lock_restore">Restore with recovery phrase</string>
     <string name="settings_app_lock_not_changed">App lock was not changed. The change needs your account code.</string>
+    <string name="settings_app_lock_busy">Another app lock change is in progress.</string>
 </resources>

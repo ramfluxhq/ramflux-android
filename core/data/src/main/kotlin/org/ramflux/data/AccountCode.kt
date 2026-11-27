@@ -53,7 +53,10 @@ enum class AccountCodeRefusal {
     CODE_REQUIRED,
 
     /** `reauth_required`: a change that weakens the app lock was not confirmed with the code; nothing changed. */
-    REAUTH_REQUIRED
+    REAUTH_REQUIRED,
+
+    /** Another attended app-lock change is already running in this client; nothing was sent to the core. */
+    APP_LOCK_CHANGE_BUSY
 }
 
 /**
@@ -67,6 +70,7 @@ fun ClientProblem.accountCodeRefusal(): AccountCodeRefusal? = when (statusName) 
     "UnlockAttemptsExhausted" -> AccountCodeRefusal.ATTEMPTS_EXHAUSTED
     "DeviceUnlockUnavailable" -> AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE
     "AccountCodeRequired" -> AccountCodeRefusal.CODE_REQUIRED
+    "app_lock_change_busy" -> AccountCodeRefusal.APP_LOCK_CHANGE_BUSY
     else -> when (check) {
         "wrong_passphrase" -> AccountCodeRefusal.WRONG_CODE
         "reauth_required" -> AccountCodeRefusal.REAUTH_REQUIRED

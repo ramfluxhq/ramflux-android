@@ -8,7 +8,9 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The one attended account-code request that waits for the person: the sheet that confirms a change which weakens the
@@ -59,5 +61,14 @@ object AttendedAccountCode {
     /** Refuses the waiting request, if any, so the core answers `reauth_required`. */
     fun refuse() {
         pending.value?.complete(null)
+    }
+
+    /**
+     * Refuses the waiting request and waits, at most [timeoutMs], until its sheet has closed. The background path calls
+     * this before the client suspends, so a prompt is not left mid-flight. Returns false when the wait ran out.
+     */
+    suspend fun refuseAndAwait(timeoutMs: Long): Boolean {
+        refuse()
+        return withTimeoutOrNull(timeoutMs) { waiting.first { !it } } != null
     }
 }

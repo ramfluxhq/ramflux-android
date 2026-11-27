@@ -292,4 +292,5 @@
     <string name="settings_app_lock_exhausted">错误的账户码次数过多。请用恢复短语恢复此账户。</string>
     <string name="settings_app_lock_restore">用恢复短语恢复</string>
     <string name="settings_app_lock_not_changed">应用锁未更改。此更改需要账户码。</string>
+    <string name="settings_app_lock_busy">另一项应用锁更改正在进行中。</string>
 </resources>

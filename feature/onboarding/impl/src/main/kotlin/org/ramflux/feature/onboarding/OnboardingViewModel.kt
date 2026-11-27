@@ -428,6 +428,15 @@ class OnboardingViewModel @Inject constructor(
      */
     fun requestRecovery(accountId: String) = beginRecover(accountId, listed = false)
 
+    /** Ends an open recovery without the user's back action: its facts are cleared and the core recover session is cancelled. */
+    fun cancelRecovery() {
+        if (local.value.recovery == null) return
+        work?.cancel()
+        ticket++
+        local.update { it.copy(recovery = null, busy = false, notice = null) }
+        viewModelScope.launch { ceremony.cancelRecover() }
+    }
+
     private fun beginRecover(accountId: String, listed: Boolean = true) {
         if (listed && local.value.accounts.none { it.id == accountId }) return
         launch {
@@ -706,6 +715,7 @@ internal fun codeText(refusal: AccountCodeRefusal, retryAfterSecs: Long?): UiTex
     AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE -> uiText(R.string.ui_code_device_unlock_unavailable)
     // The sheet that asks for the code is the settings page only: the unlock path never sees this refusal.
     AccountCodeRefusal.REAUTH_REQUIRED -> uiText(R.string.app_lock_unlock_failed)
+    AccountCodeRefusal.APP_LOCK_CHANGE_BUSY -> uiText(R.string.app_lock_change_busy)
 }
 
 private fun ClientResult<*>.notice(unlock: Boolean = false): OnboardingNotice? = when (this) {

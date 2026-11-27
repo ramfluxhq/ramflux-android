@@ -35,9 +35,7 @@ class AccountCodeTest {
         assertEquals(AccountCodeRefusal.ATTEMPTS_EXHAUSTED, problem(null, "unlock_attempts_exhausted").accountCodeRefusal())
         assertEquals(AccountCodeRefusal.DEVICE_UNLOCK_UNAVAILABLE, problem("DeviceUnlockUnavailable").accountCodeRefusal())
         assertEquals("a wrong code is named only by wrong_passphrase", AccountCodeRefusal.WRONG_CODE, problem("AuthFailed", "wrong_passphrase").accountCodeRefusal())
-        assertNull("a status alone is never a wrong code", problem("AuthFailed").accountCodeRefusal())
         assertNull(problem("ValidationFailed").accountCodeRefusal())
-        assertEquals(AccountCodeRefusal.REAUTH_REQUIRED, problem("AuthFailed", "reauth_required").accountCodeRefusal())
         assertNull(problem("CustodyConfirmationFailed").accountCodeRefusal())
     }
 

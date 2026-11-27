@@ -94,10 +94,14 @@ class AppLockViewModel @Inject constructor(
     init {
         // Any account change (unlock, switch, lock, sign-out) can change which account the lock applies to.
         viewModelScope.launch { accounts.revisions.collect { session.recheckAppLock() } }
-        // An in-cover recovery ends when the app goes to the background or the lock lifts.
+        // The wait, the exhausted route, the notice and an in-cover recovery belong to one lock. They end when the app goes
+        // to the background, when the lock lifts or when it names another account; the next lock starts with the code form.
         viewModelScope.launch {
+            var lockedAccount: String? = null
             session.status.collect { status ->
-                if (status.suspended || status.coverPhase() != AppLockPhase.LOCKED) local.update { it.copy(recoveryAccount = null) }
+                val phase = status.coverPhase()
+                if (status.suspended || phase != AppLockPhase.LOCKED || status.appLockAccount != lockedAccount) resetCover()
+                lockedAccount = status.appLockAccount
             }
         }
     }
@@ -120,8 +124,15 @@ class AppLockViewModel @Inject constructor(
 
     /** A recovered account is opened by the normal path: the lock is read again, and the cover lowers only if it lifts. */
     fun recovered() {
-        endRecovery()
+        resetCover()
         viewModelScope.launch { session.recheckAppLock() }
+    }
+
+    /** Ends what the cover showed for the lock: the wait countdown, the exhausted route, the notice and any recovery. */
+    private fun resetCover() {
+        waitJob?.cancel()
+        waitJob = null
+        local.update { it.copy(waitSecs = 0L, exhausted = false, notice = null, recoveryAccount = null) }
     }
 
     /** Reads the lock again, or reopens the session when it failed: an UNKNOWN cover answers with the next state read. */
@@ -161,7 +172,7 @@ class AppLockViewModel @Inject constructor(
                 }
                 when (val result = accounts.unlock(account, digits)) {
                     is ClientResult.Ready -> {
-                        local.update { it.copy(notice = null) }
+                        resetCover()
                         session.recheckAppLock()
                     }
                     is ClientResult.Failed -> failed(account, result.problem)
@@ -350,6 +361,8 @@ private fun LockRecovery(account: String, onBack: () -> Unit, onRecovered: () ->
         onDispose {
             entry.phrase.clear()
             entry.code.clear()
+            // Leaving the cover (suspend or the lock lifting) ends the core recover session, not only the typed buffers.
+            ceremony.cancelRecovery()
         }
     }
     LaunchedEffect(account) { ceremony.requestRecovery(account) }

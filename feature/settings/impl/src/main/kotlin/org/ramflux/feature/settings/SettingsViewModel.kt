@@ -565,6 +565,7 @@ class SettingsViewModel @Inject constructor(
             // Cancelled or closed: nothing is said. Timed out: the lock was not changed, and the page says so.
             AccountCodeRefusal.REAUTH_REQUIRED -> { lock -> lock.copy(notChanged = AttendedAccountCode.timedOut) }
             AccountCodeRefusal.RETRY_LATER, AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> { lock -> lock }
+            AccountCodeRefusal.APP_LOCK_CHANGE_BUSY -> { lock -> lock.copy(problem = uiText(R.string.settings_app_lock_busy)) }
             else -> { lock -> lock.copy(problem = problem.message()) }
         }
         local.update { it.copy(appLock = line(it.appLock)) }

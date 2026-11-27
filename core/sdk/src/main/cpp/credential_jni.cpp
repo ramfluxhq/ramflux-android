@@ -36,6 +36,8 @@ struct Slot {
     std::condition_variable answered_cv;
     bool waiting = false;
     bool answered = false;
+    // Set by the clear path before it drains the core. A callback that has not started waiting is refused at once.
+    bool closed = false;
     std::vector<uint8_t> answer;
     // The one account whose prompts this slot answers; set once, before the callback is registered.
     std::string account;
@@ -111,6 +113,7 @@ int32_t account_code_callback(const uint8_t* metadata, size_t metadata_len, uint
     try {
         {
             std::lock_guard<std::mutex> lock(slot->guard);
+            if (slot->closed) return 1;
             slot->waiting = true;
             slot->answered = false;
             slot->answer.clear();
@@ -124,7 +127,7 @@ int32_t account_code_callback(const uint8_t* metadata, size_t metadata_len, uint
         bool answered = false;
         {
             std::unique_lock<std::mutex> lock(slot->guard);
-            answered = slot->answered_cv.wait_for(lock, kAnswerWait, [&] { return slot->answered; });
+            answered = slot->answered_cv.wait_for(lock, kAnswerWait, [&] { return slot->answered || slot->closed; });
             slot->waiting = false;
             slot->answered = false;
             answer.swap(slot->answer);
@@ -148,6 +151,12 @@ extern "C" JNIEXPORT jint JNICALL
 Java_org_ramflux_sdk_JniCore_setCredentialProvider(JNIEnv* env, jobject, jlong core, jboolean enabled, jstring account) {
     const auto handle = static_cast<uint64_t>(core);
     if (!enabled) {
+        // Close the slot and wake a waiting callback first, so the drain below never waits for the 60 s bound.
+        if (const auto slot = find_slot(handle)) {
+            std::lock_guard<std::mutex> lock(slot->guard);
+            slot->closed = true;
+            slot->answered_cv.notify_all();
+        }
         const int32_t code = ramflux_v2_set_credential_provider(handle, nullptr, nullptr);
         std::lock_guard<std::mutex> lock(registry_guard);
         slots.erase(handle);

@@ -121,8 +121,8 @@ internal class DefaultAccountSecurityRepository(
         val reply = try {
             transport.withAttendedCode(account, answer) { accounts.accountApp_lockConfigure(context, body) }
         } catch (_: AttendedCodeBusyException) {
-            // A second attended change while one runs: refused before the core sees it.
-            return ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 5, ClientOutcome.NONE))
+            // A second attended change while one runs: refused before the core sees it, with its own typed refusal.
+            return codeRefused(AccountCodeRefusal.APP_LOCK_CHANGE_BUSY)
         }
         return when (reply) {
             is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
