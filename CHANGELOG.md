@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- CI green on next (android): the lock wait countdown formats through a string resource, the username sigil is a char, `Submitting…` uses the ellipsis character, the chat link intent uses `toUri()`, and five board deviations (debug app name `Ramflux Dev` on the splash, get started and welcome boards; the Message delivery row on the settings root) are recorded with reasons in `expected-deviations.json`.
 - Real run: flow `f22` drives exhaust, recover and remove on the app-lock cover with a throwaway account; `f21` taps Run again once when the first tap had no effect.
 - Card images: the object read begins inside the guarded block, so core's plaintext spool is always finished, also when the load is cancelled.
 - Card images and lock cover fixes (G10b round 2): an Image node now reads its bytes from the `attachment` core fills on the tree's host slot of kind `image` for the node's key (the node's own `attachment` is only the author's selector), so card images load; no slot or no object retrieval shows "Image unavailable". Each object read carries its own operation id, so two Image nodes for one object or a recomposition no longer discard each other's read. The app-lock cover never reads or shows an account name; the remove dialog is confirmed only for the account it was opened for and closes without removing if the locked account changed. Locking forgets the card handles of the locked account only (every account when the refusal does not name one).
