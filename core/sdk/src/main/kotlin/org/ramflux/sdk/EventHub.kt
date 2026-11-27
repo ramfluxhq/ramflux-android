@@ -4,6 +4,7 @@
 package org.ramflux.sdk
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -56,6 +58,8 @@ class EventHub internal constructor(
     private var pumpTopics: Set<String> = emptySet()
     private var generation = 0uL
     private var paused = false
+    private var detached = 0
+    private var detaching: Job? = null
 
     /** Number of collectors currently registered (for tests and diagnostics). */
     val collectorCount: Int get() = synchronized(lock) { subscribers.size }
@@ -91,15 +95,53 @@ class EventHub internal constructor(
     /** The client resumed: the pump reopens from the journal head and every collector gets `resync_required`. */
     fun resume() = synchronized(lock) {
         paused = false
-        if (pump == null && subscribers.isNotEmpty()) {
+        if (detached == 0 && pump == null && subscribers.isNotEmpty()) {
             val account = pumpAccount
             start(account, union(subscribers.filter { it.account == account }))
             subscribers.forEach { offer(it, resync()) }
         }
     }
 
+    /**
+     * Runs [block] while the shared subscription is not attended for an account other than [account] (null: for any
+     * account). Core refuses app-lock calls for another account on an attended connection (`refuse_attended`).
+     */
+    suspend fun <T> unattended(account: String?, block: suspend () -> T): T {
+        var join: Job? = null
+        val detach = synchronized(lock) {
+            val current = pumpAccount
+            val needed = detached > 0 || (pump != null && current != null && (account == null || account != current))
+            if (needed) {
+                detached++
+                val taken = pump.also { pump = null }
+                if (taken != null) detaching = taken
+                join = detaching
+            }
+            needed
+        }
+        if (!detach) return block()
+        try {
+            join?.cancelAndJoin()
+            return block()
+        } finally {
+            withContext(NonCancellable) {
+                synchronized(lock) {
+                    if (detached > 0) detached--
+                    if (detached == 0) {
+                        detaching = null
+                        if (!paused && pump == null && subscribers.isNotEmpty()) {
+                            val current = pumpAccount
+                            start(current, union(subscribers.filter { it.account == current }))
+                            subscribers.forEach { offer(it, resync()) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun register(subscriber: Subscriber) = synchronized(lock) {
-        if (paused) {
+        if (paused || detached > 0) {
             // Collectors that join while the client is suspended wait for [resume]; one account at a time still holds.
             if (pumpAccount != subscriber.account) {
                 subscribers.filter { it.account != subscriber.account }.forEach { other ->

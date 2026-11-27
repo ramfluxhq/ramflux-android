@@ -39,6 +39,12 @@ interface RepositoryTransport {
      */
     suspend fun <T> withAttendedCode(account: String, answer: suspend () -> CharArray?, body: suspend () -> T): T = body()
 
+    /**
+     * Runs [body] with the event subscription not attended for an account other than [account] (null: any account), see
+     * `EventHub.unattended`. The default has no subscription and runs the body.
+     */
+    suspend fun <T> unattended(account: String?, body: suspend () -> T): T = body()
+
     /** Username prepare and authorize (see `CoreClient.prepareUsernameChange`); the default refuses and erases both inputs. */
     suspend fun prepareUsernameChange(request: SecretRequest, change: JsonObject, phrase: SecretBytes): CoreResult<UsernamePrepared> {
         request.body.close()
@@ -70,6 +76,9 @@ class SdkRepositoryTransport internal constructor(private val currentClient: () 
         }
         return client.executeSecret(request)
     }
+    override suspend fun <T> unattended(account: String?, body: suspend () -> T): T =
+        currentClient()?.events?.unattended(account, body) ?: body()
+
     override suspend fun prepareUsernameChange(request: SecretRequest, change: JsonObject, phrase: SecretBytes): CoreResult<UsernamePrepared> {
         val client = currentClient()
         if (client == null) {
