@@ -16,6 +16,11 @@ sealed interface ChatEvent {
         override fun toString() = "File(<redacted>)"
     }
 
+    /** A card link the person confirmed and the runtime answered as opened; hand it to the system browser. */
+    data class OpenUrl(val url: String) : ChatEvent {
+        override fun toString() = "OpenUrl(<redacted>)"
+    }
+
     /** Copy [text] to the clipboard; it is message plaintext and is never logged. */
     data class Copy(val text: String) : ChatEvent {
         override fun toString() = "Copy(<redacted>)"

@@ -13,6 +13,7 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.Multibinds
 import javax.inject.Singleton
 import org.ramflux.data.*
+import org.ramflux.data.cards.CardSessionRepository
 import org.ramflux.feature.onboarding.ConfirmTrace
 
 /** Declares the store set so the app builds even when no feature contributes a store. */
@@ -73,7 +74,7 @@ object ClientModule {
 
     @Provides fun calls(data: AndroidClientData): CallDirectoryRepository = data.calls
 
-    @Provides fun cards(data: AndroidClientData): CardHostAvailabilityRepository = data.cards
+    @Provides fun cardSessions(data: AndroidClientData): CardSessionRepository = data.cardSessions
 
     @Provides fun tasks(data: AndroidClientData): TaskDirectoryRepository = data.taskDirectory
 

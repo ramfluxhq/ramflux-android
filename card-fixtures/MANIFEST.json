@@ -1,0 +1,370 @@
+{
+  "core_rev": "30d0f9a7cb4135c442d36c4aee4fcedc1a24ccbc",
+  "files": [
+    {
+      "path": "fixtures/approval.edit.json",
+      "sha256": "05e706b0bf6db30be169757e13bd2ecd91efd5f12ac068f0b23e27115ebc27cd"
+    },
+    {
+      "path": "fixtures/approval.json",
+      "sha256": "61f89608b1b60120115c3d56975fd2c6952061b6c58fa7433f1a38d84f7d1b35"
+    },
+    {
+      "path": "fixtures/approval.mount.json",
+      "sha256": "8123179e9a2e03400afbf07bd386cfab5b85e24317e54e8638ace42b7c2e1c9e"
+    },
+    {
+      "path": "fixtures/approval.tree.json",
+      "sha256": "a4128c9b744232a99f8b2c19bf063cee5cca519414d6b1a55cd43cc58caab494"
+    },
+    {
+      "path": "fixtures/approval.updated.json",
+      "sha256": "45cebe3b5d775ac4c2ab615841fcf4284395cd97c479c15568f150a1f327dd71"
+    },
+    {
+      "path": "fixtures/chart.edit.json",
+      "sha256": "9ef60109cbea6eb787ccc4c85d4fa2db2c6179dc09f6ec1d5134b48e8aa7312b"
+    },
+    {
+      "path": "fixtures/chart.json",
+      "sha256": "d6c7e1a5c33bc7b227f2086cdc6b1f1276c8c0f6ff26a2801d2ecf4a6c0ef589"
+    },
+    {
+      "path": "fixtures/chart.mount.json",
+      "sha256": "991c6b7b74e424eeccb5ba80e16d36d301bab856b534eab21d3bbd522579f531"
+    },
+    {
+      "path": "fixtures/chart.tree.json",
+      "sha256": "d9a0d9d9ed9be253da25c5288342c27c80cb9e469025795a863c3707f0222e47"
+    },
+    {
+      "path": "fixtures/chart.updated.json",
+      "sha256": "5ff66e4b282fb9c6ee8e70d296e8f08366dcc1acc00ec76f1a289a841238d25b"
+    },
+    {
+      "path": "fixtures/complete_form.edit.json",
+      "sha256": "44f346def9304f24cabf39f1a7a99a92887e915dfd5b87197bdbef2a3b976bc6"
+    },
+    {
+      "path": "fixtures/complete_form.json",
+      "sha256": "1e36e1d17c8ee23a86e99e75acf626806694c0d3e63a841e711d7f3727ececd4"
+    },
+    {
+      "path": "fixtures/complete_form.mount.json",
+      "sha256": "8e1cb76c8a54494be9aab3bd49e1635f85f68ad240d2c993af068d485d8a9ae1"
+    },
+    {
+      "path": "fixtures/complete_form.tree.json",
+      "sha256": "6c27816d62be621187c253fe7658d86457f68ff07c2e8720e9c66de0e7bd87bb"
+    },
+    {
+      "path": "fixtures/complete_form.updated.json",
+      "sha256": "e716a5c874546ff591f742691f2a1ca6fcaed2cb70e82fd3266c7b0d844f5cbc"
+    },
+    {
+      "path": "fixtures/form.edit.json",
+      "sha256": "fec4562c236146541706883d9836f748ed6400cf869529a14c2fb961a578442d"
+    },
+    {
+      "path": "fixtures/form.json",
+      "sha256": "9e464c4a01c64dc5af29bdccdd21cbf6e1ab6549eb452c0e0416927c66187f57"
+    },
+    {
+      "path": "fixtures/form.mount.json",
+      "sha256": "fba2df2e82ca35fed7601b2af8cc437d961672a4de4cbd03a9925198341c0c05"
+    },
+    {
+      "path": "fixtures/form.tree.json",
+      "sha256": "acf9063591e28fb432ede439346249660c4abb83790350a866dd7b7562db1be7"
+    },
+    {
+      "path": "fixtures/form.updated.json",
+      "sha256": "bb884d2de0bdfa8a5cd155427571b7f784ce4e99f210b4d40b8876618027815d"
+    },
+    {
+      "path": "fixtures/task.edit.json",
+      "sha256": "ca25e63c9401443ac659919005356b6a93d7a03e6cc83a5d4622124f9147c49e"
+    },
+    {
+      "path": "fixtures/task.json",
+      "sha256": "feb123fe960ad6badb1cef04627d2a3d339da4de6b72afaa0748a63314d1ed63"
+    },
+    {
+      "path": "fixtures/task.mount.json",
+      "sha256": "7ef52fad013bfd3c0b367876f126b5964ae9dd3469f32839e1d04e429ea8c480"
+    },
+    {
+      "path": "fixtures/task.tree.json",
+      "sha256": "4d8020033247bdd15879c3f529d9987a2acc9e4fecfc09bd06c6c00d5ae292c7"
+    },
+    {
+      "path": "fixtures/task.updated.json",
+      "sha256": "cb4be5316049ffc54c54b2cdbf406470273eb3ed065aacfb97da71e069710811"
+    },
+    {
+      "path": "host-fixtures/README.md",
+      "sha256": "fa7b7b02900a80fb6b11c9c6fec888a554343db8bdbee6e5c88778e3ed5de26a"
+    },
+    {
+      "path": "host-fixtures/approval/unset.input.json",
+      "sha256": "61f89608b1b60120115c3d56975fd2c6952061b6c58fa7433f1a38d84f7d1b35"
+    },
+    {
+      "path": "host-fixtures/approval/unset.tree.json",
+      "sha256": "462f8bd33b92a2306ab328d18b885269b590f5faf3cbc7d7c5c6409059860ae0"
+    },
+    {
+      "path": "host-fixtures/button/borderless.input.json",
+      "sha256": "f2240874322c2759d122feee663a35c5eb1357a02b836036565344e06e41afe6"
+    },
+    {
+      "path": "host-fixtures/button/borderless.tree.json",
+      "sha256": "5e900a8f9d39d699adcc779f4781899b7cb7cbbd453d3daec43f0f2917dc4562"
+    },
+    {
+      "path": "host-fixtures/button/default.input.json",
+      "sha256": "3b9c98f498c6a0cc363d199b9089ab444ba1595d9a8b5f1edee85f153f3fa3de"
+    },
+    {
+      "path": "host-fixtures/button/default.tree.json",
+      "sha256": "39ab6942df07be0a3e4f30aa5f6477df7b623e4a9b90b33a4d05aa6a2cdd6c0c"
+    },
+    {
+      "path": "host-fixtures/button/primary.input.json",
+      "sha256": "113a86d7590f8b8e61207d0c907f57166a6ebba6a66b0dac7a5f6e6a91a5401c"
+    },
+    {
+      "path": "host-fixtures/button/primary.tree.json",
+      "sha256": "5b96e6babd64bf7af6284ad75956b7ce411b8f0bf0866c2199369b2b6d72393b"
+    },
+    {
+      "path": "host-fixtures/card/unset.input.json",
+      "sha256": "9f59829701a828b5dafbcdafd06d1cd106c5ff1e37326b2b649388077883bf20"
+    },
+    {
+      "path": "host-fixtures/card/unset.tree.json",
+      "sha256": "31f71e2eca606e7c7755b059256ae6f316188f998ba8c0f2719c43985ca8fadc"
+    },
+    {
+      "path": "host-fixtures/chart/unset.input.json",
+      "sha256": "d6c7e1a5c33bc7b227f2086cdc6b1f1276c8c0f6ff26a2801d2ecf4a6c0ef589"
+    },
+    {
+      "path": "host-fixtures/chart/unset.tree.json",
+      "sha256": "3df112fcffbde45c82ae0947aa6b931c278134347d1a5972f1dd5a34f7304e96"
+    },
+    {
+      "path": "host-fixtures/check_box/unset.input.json",
+      "sha256": "e9470312150da7436e71c4b42496fa04a59eb466172bf85f9e520004a3143e90"
+    },
+    {
+      "path": "host-fixtures/check_box/unset.tree.json",
+      "sha256": "83b5b7e85f5b33d6ed1b2b356800167dd4fcaa631ef8089ac49e95e1c8edc63a"
+    },
+    {
+      "path": "host-fixtures/choice_picker/multipleSelection.input.json",
+      "sha256": "2a57f21b0b6291bb7ea42f89850769eac3b3f753145c3665d9297fea9a25e546"
+    },
+    {
+      "path": "host-fixtures/choice_picker/multipleSelection.tree.json",
+      "sha256": "81c68990ee2a40de780612e8631089d68fe91cf663927c8b7a37384d06eb8a05"
+    },
+    {
+      "path": "host-fixtures/choice_picker/mutuallyExclusive.input.json",
+      "sha256": "6d1506ec67271af91815f0ec939b98df6bc721c46f77c1bb949f38d811b88a2e"
+    },
+    {
+      "path": "host-fixtures/choice_picker/mutuallyExclusive.tree.json",
+      "sha256": "e8dec564c0445f0e52dfe0137e3cb64b5748dc01a1bc3419de02e04a1dbf52c5"
+    },
+    {
+      "path": "host-fixtures/column/unset.input.json",
+      "sha256": "973de2d80996b3c961210a7a2626e919e1a2466395f1fa58e694e6409e6e8bcd"
+    },
+    {
+      "path": "host-fixtures/column/unset.tree.json",
+      "sha256": "21ddec0795e7db794d5f96922dcd1f6a1e88dbd95741585d1be99b82d80a5d9e"
+    },
+    {
+      "path": "host-fixtures/date_time_input/unset.input.json",
+      "sha256": "8011d5d749dfc22fb896efe05065fb91856fac95893194a02460bbdbc3b88b13"
+    },
+    {
+      "path": "host-fixtures/date_time_input/unset.tree.json",
+      "sha256": "d9121e1549a87726d68c24f53f375eb244c6c48bad89f05e555b6ea1c7d3a905"
+    },
+    {
+      "path": "host-fixtures/divider/unset.input.json",
+      "sha256": "dc0c140162fde623df9d07527f6339e61cc02d55f12b342e74ba2fd565ea2505"
+    },
+    {
+      "path": "host-fixtures/divider/unset.tree.json",
+      "sha256": "bc8861888e1da76d180c764ed9850454d31b37af82a9b1b5c5310252ed62624e"
+    },
+    {
+      "path": "host-fixtures/icon/unset.input.json",
+      "sha256": "6f5fb20e5a38c5f27d16719cf9341059a6ba7eed7d7649da0c2a7b07861b19d3"
+    },
+    {
+      "path": "host-fixtures/icon/unset.tree.json",
+      "sha256": "d2317a365792ea1ad1197acb2421bbe41d1d57650d0ed279a27f512f0e170f4c"
+    },
+    {
+      "path": "host-fixtures/image/avatar.input.json",
+      "sha256": "016e4d8acaa3701c8b72ec5c8a1db4e9ef8f4779dd0680928019bf60410581de"
+    },
+    {
+      "path": "host-fixtures/image/avatar.tree.json",
+      "sha256": "8dedf7f20d9d577aff6d1a12cff90c2bcfc2c8c0750e58647e5fb16be183e4ba"
+    },
+    {
+      "path": "host-fixtures/image/header.input.json",
+      "sha256": "f62b337c8ca71aa4d370c8cf43860e8026c5625e44d69d277be9e8994f9c2720"
+    },
+    {
+      "path": "host-fixtures/image/header.tree.json",
+      "sha256": "cd0cbcb502c209fe1d0a873a7cef6abadd23ac8a61d2be6b2edc613a0d8da922"
+    },
+    {
+      "path": "host-fixtures/image/icon.input.json",
+      "sha256": "4dd40901d7df008a3ad0bfc9bdaaddb6983d749e431662f57c5b2ec4c6a3673b"
+    },
+    {
+      "path": "host-fixtures/image/icon.tree.json",
+      "sha256": "aeb7233af2d73cc4b99cfbcf39037c257cd7d88d76d8fb8dc77901ee9a06e044"
+    },
+    {
+      "path": "host-fixtures/image/largeFeature.input.json",
+      "sha256": "655246e4114560f4bcc7503f6e8919c78a9462d06fd44949e944432d39cf0f9f"
+    },
+    {
+      "path": "host-fixtures/image/largeFeature.tree.json",
+      "sha256": "36223236396857b6d794382f0b6e706350cfe06381f9eebd2ed87e5b2a3e8347"
+    },
+    {
+      "path": "host-fixtures/image/mediumFeature.input.json",
+      "sha256": "b039e23db5c85cbc24f62eeb7eed3f61d7edc089e6f3345c14cf06185813c66b"
+    },
+    {
+      "path": "host-fixtures/image/mediumFeature.tree.json",
+      "sha256": "42da8361a14ef4cbca42bfface1fc7716f89e3c359a6932a5d80b32303fafa1c"
+    },
+    {
+      "path": "host-fixtures/image/smallFeature.input.json",
+      "sha256": "90345bbd4f101d60ed1cbe8700d6db521ce34d6fbf8a8f5b9c26e5fdcfd5bc13"
+    },
+    {
+      "path": "host-fixtures/image/smallFeature.tree.json",
+      "sha256": "360372d5722f1fd805505ee198c96f73d25023672db142f7b5c4b618a9747258"
+    },
+    {
+      "path": "host-fixtures/index.json",
+      "sha256": "adf22e6df559bf28896cc65569502a03e934912a69b492403690946c462a001a"
+    },
+    {
+      "path": "host-fixtures/list/unset.input.json",
+      "sha256": "c5051ec4238dc8585790d9a226b4eec46c35383cdb8c0b2b9a2e87068fc5de17"
+    },
+    {
+      "path": "host-fixtures/list/unset.tree.json",
+      "sha256": "8734150fc4ec3c2bc688cb4d68dba4369693aaa2c45d8438a0fa13a9351881fe"
+    },
+    {
+      "path": "host-fixtures/modal/unset.input.json",
+      "sha256": "6d6cddb9e1a0c0336b474fba142cddeae158324c99add4bc102b58c75c233a51"
+    },
+    {
+      "path": "host-fixtures/modal/unset.tree.json",
+      "sha256": "7f30b3bfc1ee1f0cef427633d8e1a3238e56616d37271e8413f931d8a22e8c45"
+    },
+    {
+      "path": "host-fixtures/row/unset.input.json",
+      "sha256": "e92507f139c35d47388a59456b6af4a475404ba0f7574d6b4dae9a02e35ad1f9"
+    },
+    {
+      "path": "host-fixtures/row/unset.tree.json",
+      "sha256": "e99eedd8339a6ff7e2cf0544abe45685764c06853b5b2602f4d60a4d2dc7c024"
+    },
+    {
+      "path": "host-fixtures/slider/unset.input.json",
+      "sha256": "ef1a9a28e84ba9ce211be14a60cadf9029788181cedd0bdb13ffb48642ddc467"
+    },
+    {
+      "path": "host-fixtures/slider/unset.tree.json",
+      "sha256": "7e2ea789d8c3d9fdf531cb5b42c66ee5ac03a8775559ff8ffddee5fcb2d603fc"
+    },
+    {
+      "path": "host-fixtures/table/unset.input.json",
+      "sha256": "f2dccb1d1df6875dbd7745cbdf8ddf3f88eb9171abf1cbd91f2978c6d792067a"
+    },
+    {
+      "path": "host-fixtures/table/unset.tree.json",
+      "sha256": "7029d7d0be9e41188d10a3a9992175076ff826a028c52d888b7213774b011ac5"
+    },
+    {
+      "path": "host-fixtures/tabs/unset.input.json",
+      "sha256": "c47b76e099f702ed1f0a8df11bb959196a6351ffa5ba5c924bb269332e34cce5"
+    },
+    {
+      "path": "host-fixtures/tabs/unset.tree.json",
+      "sha256": "eff08fdb408a12eafb57adfdd47d271af939c9d81cb418e2b35d048f99d1a334"
+    },
+    {
+      "path": "host-fixtures/task/unset.input.json",
+      "sha256": "feb123fe960ad6badb1cef04627d2a3d339da4de6b72afaa0748a63314d1ed63"
+    },
+    {
+      "path": "host-fixtures/task/unset.tree.json",
+      "sha256": "9f268f9d59333686a6f3c3099e111ce336ab3907edfaf30cf27f97a3f1fc2256"
+    },
+    {
+      "path": "host-fixtures/text/body.input.json",
+      "sha256": "c7c7b85f43dbc2e50a8f2ec78f30cbd97753f40f966bd7ddc57be5459e356e1c"
+    },
+    {
+      "path": "host-fixtures/text/body.tree.json",
+      "sha256": "ae840989c111c49f0dd07c88156d8dca73fc6f3ec75007ff4bbc402ab0d2b343"
+    },
+    {
+      "path": "host-fixtures/text/caption.input.json",
+      "sha256": "d1d0b381bfe8bc48d6d461cdb75900e31cbcb79661162507531b4ab82a5840a7"
+    },
+    {
+      "path": "host-fixtures/text/caption.tree.json",
+      "sha256": "a800a5b1d80df8b06a24fd982220afa4a488f7fd24d16d6e35a4d5b578886daf"
+    },
+    {
+      "path": "host-fixtures/text_field/longText.input.json",
+      "sha256": "23937e5054097610bb620667215063f7fe4f0ee2541290c601c162d223f0310f"
+    },
+    {
+      "path": "host-fixtures/text_field/longText.tree.json",
+      "sha256": "92f4b477b4fe0948d41f522f2615d65d09d2ab0dd71a0085cb7540407ac81b18"
+    },
+    {
+      "path": "host-fixtures/text_field/number.input.json",
+      "sha256": "3f75a9fbf3170c8e7fd8058b11018242b78a6df39970be9f3d53f20bee645322"
+    },
+    {
+      "path": "host-fixtures/text_field/number.tree.json",
+      "sha256": "352df528d42a4216b0a5627488d8c35b0387e29232a14e0b94cc9a5942486ca5"
+    },
+    {
+      "path": "host-fixtures/text_field/obscured.input.json",
+      "sha256": "bca0450fa07e8f5f488d08dbf2d8a24e028a013ba5ff5e9eefcd8969f5ffed1c"
+    },
+    {
+      "path": "host-fixtures/text_field/obscured.refusal.json",
+      "sha256": "91afbb02e762dc913a97797d1c321b32a8baf11b6e1121970749a7154d5a8803"
+    },
+    {
+      "path": "host-fixtures/text_field/shortText.input.json",
+      "sha256": "fe18333bfb57edf9e71ea65046a85c86e37d35c76fa475cc06b1f27995ba4ed0"
+    },
+    {
+      "path": "host-fixtures/text_field/shortText.tree.json",
+      "sha256": "e03a7a0c52154c2d9b69f2863b7e1f2c90448b0e84dcd6fc103d220406fdb880"
+    }
+  ],
+  "hash": "sha256"
+}

@@ -31,6 +31,7 @@ FLOWS = [
     ("18-usernames", "15 Username in settings and adding a contact by @name"),
     ("19-group-system-lines", "5 RFGUI-72: group system events are centred named lines, no undisplayable bubble, peers show names not device ids"),
     ("20-app-lock", "2 App lock (G05): off by default; on with timeout Immediately; lock form; wrong and right code; BACK; relocks; menu under the cover; force-stop; turned off"),
+    ("21-card-gallery", "Cards (G10) test build: the gallery draws every fixture and scenario from the card runtime; Run conformance checks A to C with no FAIL; card-conformance.json is kept in artifacts/"),
 ]
 
 

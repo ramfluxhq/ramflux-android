@@ -10,12 +10,13 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import org.ramflux.data.*
+import org.ramflux.data.cards.CardSessionRepository
 import org.ramflux.designsystem.failureText
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.cards.impl.R
 @HiltViewModel
 class CardsViewModel @Inject constructor(
-    private val cards: CardHostAvailabilityRepository,
+    private val cards: CardSessionRepository,
     private val session: ClientSessionRepository
 ) : ViewModel() {
     private val local = MutableStateFlow(CardsState())

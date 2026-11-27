@@ -214,6 +214,13 @@ def handler_for(harness: Harness):
                         raise ValueError("bad name")
                     (harness.out / "screenshots" / (name + ".png")).write_bytes(raw)
                     return self.reply(200, {"ok": True})
+                if self.path.startswith("/artifact/"):
+                    name = self.path.split("/", 2)[2]
+                    if not SAFE_NAME.match(name):
+                        raise ValueError("bad name")
+                    (harness.out / "artifacts").mkdir(exist_ok=True)
+                    (harness.out / "artifacts" / name).write_bytes(raw)
+                    return self.reply(200, {"ok": True})
                 if self.path.startswith("/dump/"):
                     name = self.path.split("/", 2)[2]
                     if not SAFE_NAME.match(name):

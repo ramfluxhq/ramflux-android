@@ -18,6 +18,8 @@ import kotlinx.collections.immutable.persistentListOf
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.ramflux.data.cards.CardLifecycle
+import org.ramflux.data.cards.CardState
 import org.ramflux.designsystem.RamfluxTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.kit.KitHomeIndicator
@@ -167,28 +169,7 @@ class ChatScreenshotTest(
                         "card:plan",
                         at(10, 21),
                         "plan",
-                        org.ramflux.data.CardGroup(
-                            "root",
-                            false,
-                            true,
-                            listOf(
-                                org.ramflux.data.CardText("title", "Publish the release notes?", false),
-                                org.ramflux.data.CardApproval("approval", "The agent asks to post the notes to the team space.", false),
-                                org.ramflux.data.CardGroup(
-                                    "buttons",
-                                    true,
-                                    false,
-                                    listOf(
-                                        org.ramflux.data.CardButton("approve", "Approve", true, false),
-                                        org.ramflux.data.CardButton("decline", "Decline", false, false)
-                                    )
-                                )
-                            )
-                        ),
-                        "Publish the release notes?",
-                        actionable = true,
-                        closed = false,
-                        outOfSync = false
+                        CardState("plan", CardLifecycle.READY, "Publish the release notes?", renderAllowed = false, tree = null, resumed = false, hostRequest = null, awaitingDecision = false, draftConflict = false),
                     )
                 )
             )

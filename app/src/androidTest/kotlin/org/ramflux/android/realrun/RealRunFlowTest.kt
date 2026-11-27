@@ -6,6 +6,7 @@ package org.ramflux.android.realrun
 import android.content.Intent
 import android.net.Uri
 import android.provider.MediaStore
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiObject2
 import java.io.File
@@ -1688,8 +1689,66 @@ class RealRunFlowTest {
         return out.toByteArray()
     }
 
+    // Flow 21: the card gallery (test and realrun builds only; the release build has no such activity). It lists every
+    // fixture id and scenario, each drawn by the card renderer from the standalone card runtime. Run conformance runs
+    // checks A to C over the fixtures and writes card-conformance.json on the phone; the flow sends that report to the
+    // control server (artifacts/card-conformance.json) and keeps screenshots of the gallery. Any FAIL fails the flow.
+    @Test fun f21_cardGallery() = flow("21-card-gallery", needsAccount = false) {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.startActivity(Intent().setClassName(context.packageName, CARD_GALLERY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        if (ui.find("card-gallery", 20_000) == null) fail("the card gallery did not open: ${ui.screen()}")
+        if (ui.texts().contains(ui.str("card_gallery_runtime_missing"))) {
+            fail("this build has no card runtime fixture library (build with RAMFLUX_CARD_FIXTURE=1 before the realrun build)")
+        }
+        ui.shot("21-gallery-open")
+        ui.tap("card-gallery-run", 10_000)
+        val finished = ui.eventually(300_000, every = 2_000) { ui.find("card-gallery-summary")?.text.orEmpty().contains("checks") }
+        if (!finished) fail("conformance did not finish within 300 s: ${ui.screen()}")
+        val summary = ui.find("card-gallery-summary")?.text.orEmpty()
+        val report = File(context.cacheDir, "card-conformance.json").readBytes()
+        control.artifact("card-conformance.json", report)
+        File(context.cacheDir, "card-host-slots.json").takeIf { it.isFile }?.let {
+            control.artifact("card-host-slots.json", it.readBytes())
+        }
+        val records = JSONArray(report.decodeToString())
+        val failed = (0 until records.length()).map { records.getJSONObject(it) }.filter { !it.getBoolean("pass") }
+        ui.shot("21-gallery-conformance")
+        val device = ui.device
+        val x = device.displayWidth / 2
+        repeat(GALLERY_PAGES) { page ->
+            device.swipe(x, device.displayHeight * 4 / 5, x, device.displayHeight / 5, 25)
+            Thread.sleep(600)
+            ui.shot("21-gallery-${page + 1}")
+        }
+        // Dark: the same gallery with the Dark switch on; the runtime presents the dark theme to every held card. The
+        // list is left on the Image cards by the pages above, so it goes back to the top before the switch is looked for.
+        if (ui.find("card-gallery", 10_000) == null) fail("the card gallery is not in front after the conformance pages: ${ui.screen()}")
+        ui.scrollToTop()
+        if (!ui.scrollToTag("card-gallery-dark")) fail("the card gallery has no Dark switch: ${ui.screen()}")
+        ui.tap("card-gallery-dark", 10_000)
+        Thread.sleep(600)
+        repeat(DARK_PAGES) { page ->
+            ui.shot("21-gallery-dark-${page + 1}")
+            device.swipe(x, device.displayHeight * 4 / 5, x, device.displayHeight / 5, 25)
+            Thread.sleep(600)
+        }
+        device.pressBack()
+        if (failed.isNotEmpty()) {
+            fail(
+                "${failed.size} of ${records.length()} checks FAIL ($summary): " +
+                    failed.take(20).joinToString("; ") { "${it.getString("id")} ${it.getString("check")} ${it.getString("detail")}" }
+            )
+        }
+        "${records.length()} checks, all PASS ($summary); report kept as artifacts/card-conformance.json; screenshots 21-gallery-*"
+    }
+
     companion object {
         private const val BACKGROUND_WAIT = 8_000L
+
+        /** The card gallery activity (realrun source set; not in any other build type). */
+        private const val CARD_GALLERY = "org.ramflux.android.cardgallery.CardGalleryActivity"
+        private const val GALLERY_PAGES = 14
+        private const val DARK_PAGES = 5
 
         /** Flow 20's phase in [RunState]: steps 7 and 8 wait for a new app process; the notes of the steps passed so far. */
         private const val APP_LOCK_PHASE = "app-lock-phase"

@@ -59,23 +59,38 @@ ndk_args=(-t arm64-v8a --platform 28)
 if [[ "$action" == build ]]; then ndk_args+=(-o "$out/jniLibs"); fi
 echo "native cargo jobs=${CARGO_BUILD_JOBS} incremental=${CARGO_INCREMENTAL:-1} profile=${profile} codegen-units=${CARGO_PROFILE_FFI_RELEASE_CODEGEN_UNITS:-default}"
 # The ${array[@]+...} form keeps an empty profile_args (dev profile) valid under bash 3.2 with set -u.
-(cd "$core" && cargo ndk "${ndk_args[@]}" "$action" --jobs "$CARGO_BUILD_JOBS" -p ramflux-sdk --lib --features c-abi --locked ${profile_args[@]+"${profile_args[@]}"})
+(cd "$core" && cargo ndk "${ndk_args[@]}" "$action" --jobs "$CARGO_BUILD_JOBS" -p ramflux-sdk --lib --features card-runtime --locked ${profile_args[@]+"${profile_args[@]}"})
 if [[ "$action" == check ]]; then exit 0; fi
+# cargo-ndk also copies the ramflux-card cdylib, whose SONAME is libramflux_sdk.so and whose card ABI the SDK already
+# exports. Packaging keeps only the SDK library (and the fixture library in the realrun build); a stale copy is removed.
+rm -f "$out/jniLibs/arm64-v8a/libramflux_card.so" "$out/symbols/arm64-v8a/libramflux_card.so.dbg"
 cp "$CARGO_TARGET_DIR/include/ramflux_sdk.h" "$out/include/ramflux_sdk.h"
+# The standalone card header is included by ramflux_sdk.h when RAMFLUX_WITH_CARD_RUNTIME is defined (realrun card gallery).
+cp "$core/crates/ramflux-card/include/ramflux_card.h" "$out/include/ramflux_card.h"
+# The test-only card fixture library exists only when asked for; a previous one is removed so it cannot be packaged.
+card_fixture=0
+rm -rf "$out/card-fixture"
+if [[ "${RAMFLUX_CARD_FIXTURE:-0}" == 1 ]]; then card_fixture=1; fi
 cmake_bin="${ANDROID_HOME:?Set ANDROID_HOME}/cmake/3.22.1/bin/cmake"
 "$cmake_bin" -S "$repo/core/sdk/src/main/cpp" -B "$out/cmake" -G Ninja \
   -DCMAKE_MAKE_PROGRAM="$ANDROID_HOME/cmake/3.22.1/bin/ninja" \
   -DCMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake" \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28 -DANDROID_STL=c++_static \
-  -DRAMFLUX_NATIVE_DIR="$out/jniLibs" -DRAMFLUX_HEADER_DIR="$out/include" \
+  -DRAMFLUX_NATIVE_DIR="$out/jniLibs" -DRAMFLUX_HEADER_DIR="$out/include" -DRAMFLUX_CARD_FIXTURE="$([[ $card_fixture == 1 ]] && echo ON || echo OFF)" \
   -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="$out/unstripped/arm64-v8a"
 "$cmake_bin" --build "$out/cmake" --parallel 2
 cp "$out/unstripped/arm64-v8a/libramflux_android.so" "$out/jniLibs/arm64-v8a/libramflux_android.so"
+if [[ "$card_fixture" == 1 ]]; then
+  mkdir -p "$out/card-fixture/arm64-v8a"
+  cp "$out/unstripped/arm64-v8a/libramflux_card_fixture.so" "$out/card-fixture/arm64-v8a/libramflux_card_fixture.so"
+fi
 host_tools=("$ndk"/toolchains/llvm/prebuilt/*/bin)
 [[ ${#host_tools[@]} == 1 ]] || { echo 'Expected one NDK host toolchain' >&2; exit 1; }
 objdump="${host_tools[0]}/llvm-objdump"
-for library in "$out/jniLibs/arm64-v8a/"*.so; do
+libraries=("$out/jniLibs/arm64-v8a/"*.so)
+if [[ "$card_fixture" == 1 ]]; then libraries+=("$out/card-fixture/arm64-v8a/"*.so); fi
+for library in "${libraries[@]}"; do
   symbol_file="$out/symbols/arm64-v8a/$(basename "$library").dbg"
   "${host_tools[0]}/llvm-objcopy" --only-keep-debug "$library" "$symbol_file"
   "${host_tools[0]}/llvm-strip" --strip-unneeded "$library"

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (c) 2026 Span Brain -->
+<!-- Merged into the realrun build only: the card gallery exists in no other build type. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="org.ramflux.android.cardgallery.CardGalleryActivity"
+            android:exported="false"
+            android:label="@string/card_gallery_title" />
+    </application>
+</manifest>

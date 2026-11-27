@@ -3,4 +3,11 @@
 <resources>
     <!-- Launcher label of the opt-in real-run test build, installed beside the regular app on shared test devices. Not translated: testers only. -->
     <string name="app_name" translatable="false">Ramflux Real Run</string>
+    <string name="card_gallery_title">Card gallery (test build)</string>
+    <string name="card_gallery_runtime_missing">The card runtime fixture library is not packaged in this build.</string>
+    <string name="card_gallery_dark">Dark</string>
+    <string name="card_gallery_run">Run conformance</string>
+    <string name="card_gallery_not_run">Conformance not run</string>
+    <string name="card_gallery_fixtures">Fixtures</string>
+    <string name="card_gallery_scenarios">Scenarios</string>
 </resources>
