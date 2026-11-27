@@ -195,6 +195,9 @@ internal class CardSessionClient(private val transport: RepositoryTransport) {
     }
 }
 
+/** The typed card refusal token of a failure: the bus `reason_code`, else the status name; null when neither is set. */
+internal fun ClientProblem.cardToken(): String? = check ?: statusName
+
 internal fun JsonObject.text(name: String): String? = (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
 internal fun JsonObject.flag(name: String): Boolean? = (this[name] as? JsonPrimitive)?.booleanOrNull

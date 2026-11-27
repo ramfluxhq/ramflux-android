@@ -124,10 +124,10 @@ class ClientSessionRepositoryTest {
         // Back in the foreground the lock covers the screens: the cards must not resume behind it.
         repository.foreground()
         assertEquals(AppLockPhase.LOCKED, repository.status.value.appLock)
-        // The lock read suspends again although the cards are already down: a card opened meanwhile must not run.
-        assertEquals(listOf("background", "background"), cards.calls)
+        // The lock read drops the card handles (core dropped the sessions) although the cards are already down: a card opened meanwhile must not run.
+        assertEquals(listOf("background", "locked"), cards.calls)
         repository.recheckAppLock()
-        assertEquals(listOf("background", "background", "foreground"), cards.calls)
+        assertEquals(listOf("background", "locked", "foreground"), cards.calls)
     }
     @Test fun aLockRefusalCoversTheScreensAtOnceAndSuspendsTheCardsAfterwards() = runTest(timeout = 5.seconds) {
         var refused: (() -> Unit)? = null
@@ -146,7 +146,7 @@ class ClientSessionRepositoryTest {
         repository.foreground()
         refused?.invoke()
         advanceUntilIdle()
-        assertEquals(listOf("background"), cards.calls)
+        assertEquals(listOf("locked"), cards.calls)
         assertEquals(AppLockPhase.LOCKED, cards.appLockAtBackground)
         assertEquals(AppLockPhase.LOCKED, repository.status.value.appLock)
     }
@@ -167,6 +167,9 @@ class ClientSessionRepositoryTest {
                 release.await()
             }
             override suspend fun foreground() = Unit
+            override suspend fun locked() {
+                release.await()
+            }
         }
         val repository = DefaultClientSessionRepository(driver, StandardTestDispatcher(testScheduler), cards)
         repository.foreground()
@@ -210,5 +213,9 @@ private class RecordingCards : CardLifecycleHooks {
     }
     override suspend fun foreground() {
         calls += "foreground"
+    }
+    override suspend fun locked() {
+        calls += "locked"
+        appLockAtBackground = repository?.status?.value?.appLock
     }
 }

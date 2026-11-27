@@ -1436,7 +1436,8 @@ class ChatViewModel @Inject constructor(
 
     private fun cardItem(meta: CardSurfaceRef, state: CardState): CardItem {
         val stale = cardStale[meta.ref]
-        return CardItem("card:" + meta.ref, meta.createdAt, meta.ref, state, stale?.first, stale?.second ?: 0)
+        val images = cards.images(target?.account.orEmpty())
+        return CardItem("card:" + meta.ref, meta.createdAt, meta.ref, state, stale?.first, stale?.second ?: 0, images)
     }
 
     /** A control event from the timeline. A `pending_submit` is submitted once; a stale answer reverts the field. */
@@ -1504,6 +1505,11 @@ class ChatViewModel @Inject constructor(
             // An answer that may have reached the runtime is never asked for again: a second answer could repeat it.
             if ((answered as? ClientResult.Failed)?.problem?.outcome == ClientOutcome.UNKNOWN) {
                 local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_result_unknown)) }
+                return@launch
+            }
+            // The request changed or was decided already (typed refusal): say so; the card was read again, nothing is retried.
+            if (reply?.result == "approval_changed") {
+                local.update { it.copy(deliveryNotice = uiText(R.string.chat_card_request_changed)) }
                 return@launch
             }
             // An answer the card did not take (dropped, or never reached the runtime) is asked for again, never lost silently.

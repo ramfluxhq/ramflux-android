@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.data.cards.CardEvent
+import org.ramflux.data.cards.CardImageSource
 import org.ramflux.data.cards.CardLifecycle
 import org.ramflux.data.cards.CardSlotOutcome
 import org.ramflux.data.cards.CardStamp
@@ -122,19 +123,27 @@ internal class CardContext(
  * drawn from [input.tree] only; with no tree or `renderAllowed == false` the author's fallback text is the content.
  */
 @Composable
-fun CardRenderer(input: CardRenderInput, actions: CardActions, cap: Dp, modifier: Modifier = Modifier) {
+fun CardRenderer(
+    input: CardRenderInput,
+    actions: CardActions,
+    cap: Dp,
+    modifier: Modifier = Modifier,
+    images: CardImageSource = CardImageSource.None
+) {
     val theme = LocalRFTheme.current
     val shape = RoundedCornerShape(theme.radius_card.dp)
     val tree = input.tree?.takeIf { input.renderAllowed && input.lifecycle != CardLifecycle.UNAVAILABLE }
     val pressed = remember(input.ref) { mutableStateOf<String?>(null) }
     val suspended = input.lifecycle == CardLifecycle.SUSPENDED
+    // A suspended card, and one that found no runtime slot, asks again on the next tap.
+    val retryable = suspended || input.lifecycle == CardLifecycle.OVER_LIMIT
     val live = tree != null && input.lifecycle == CardLifecycle.READY
     val navigable = tree != null && !suspended
     val ctx = tree?.let { CardContext(input, actions, it, live, navigable, pressed) }
     val direction = if (tree?.direction == "rtl") LayoutDirection.Rtl else LayoutDirection.Ltr
     val pad = if (cap < 400.dp) 12.dp else 16.dp
     val label = stringResource(R.string.card_resume_label)
-    CompositionLocalProvider(LocalLayoutDirection provides direction) {
+    CompositionLocalProvider(LocalLayoutDirection provides direction, LocalCardImages provides images) {
         Column(
             modifier
                 .fillMaxWidth()
@@ -144,7 +153,7 @@ fun CardRenderer(input: CardRenderInput, actions: CardActions, cap: Dp, modifier
                 .clip(shape)
                 .background(theme.surface_white)
                 .then(
-                    if (suspended) Modifier.clickable(role = Role.Button, onClickLabel = label) { actions.show() } else Modifier
+                    if (retryable) Modifier.clickable(role = Role.Button, onClickLabel = label) { actions.show() } else Modifier
                 )
                 .padding(pad)
                 .testTag("card-" + input.ref),
@@ -158,6 +167,7 @@ fun CardRenderer(input: CardRenderInput, actions: CardActions, cap: Dp, modifier
                     kind = UntrustedKind.Excerpt,
                     style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, 1.448f)
                 )
+                CardLifecycleLine(input.lifecycle)
             } else {
                 CardLifecycleLine(input.lifecycle)
                 if (input.draftConflict) KitTipBar(stringResource(R.string.card_draft_replaced), icon = "info")

@@ -16,7 +16,7 @@
     <string name="card_status_out_of_sync">Out of sync</string>
     <string name="card_status_over_limit">Over limit</string>
     <!-- Lifecycle lines under the header (spec 3.4). -->
-    <string name="card_over_limit_body">This content exceeds display limits. Readable content is kept; actions are disabled.</string>
+    <string name="card_over_limit_body">Too many cards are active. Try again in a moment.</string>
     <string name="card_superseded_body">The version you saw has changed. Review the new version before deciding.</string>
     <string name="card_out_of_sync_body">This card is behind the agent. Resync to see the latest version.</string>
     <!-- Resync action of an out-of-sync card. -->
@@ -28,6 +28,7 @@
     <string name="card_link_author_note">Sent by an agent in this conversation. Check the address before you open it.</string>
     <string name="card_link_privacy">Opening the link leaves Ramflux and loads the page from its website. Ramflux does not open it before you confirm.</string>
     <string name="card_link_open">Open</string>
+    <string name="card_close">Close</string>
     <string name="card_cancel">Cancel</string>
     <string name="card_ok">OK</string>
     <!-- Lists and modal (spec 4.4, 4.7). -->
@@ -40,7 +41,7 @@
     <string name="card_submitting">Submitting...</string>
     <string name="card_stale_value">This content changed. Check it and try again.</string>
     <string name="card_date_placeholder">Select a date</string>
-    <!-- Image (spec 4.15): no bytes are delivered yet. -->
+    <!-- Image (spec 4.15): read through the object API; a failure of any kind shows this box. -->
     <string name="card_image_unavailable">Image unavailable</string>
     <!-- Chart and table (spec 4.18, 4.19). -->
     <string name="card_no_data">No data for this period</string>

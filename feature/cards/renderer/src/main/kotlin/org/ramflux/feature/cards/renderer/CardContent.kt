@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -102,7 +103,10 @@ internal fun CardIcon(node: CardNode, ctx: CardContext) {
     }
 }
 
-/** Image (spec 4.15): v0.2.9 has no byte delivery, so every image draws its box and the unavailable state; no URL is ever loaded. */
+/**
+ * Image (spec 4.15): the bytes come through the object API for a core `attachment` selector (see [rememberCardImage]); the box
+ * shows a placeholder while they load and "Image unavailable" on any failure. No URL is ever loaded. Tap opens the full view.
+ */
 @Composable
 internal fun CardImage(node: CardNode, ctx: CardContext) {
     val theme = LocalRFTheme.current
@@ -117,14 +121,17 @@ internal fun CardImage(node: CardNode, ctx: CardContext) {
         "header" -> Modifier.fillMaxWidth().aspectRatio(2f).heightIn(max = 240.dp)
         else -> Modifier.fillMaxWidth().aspectRatio(16f / 9f).heightIn(max = 280.dp)
     }
+    val load by rememberCardImage(ctx.input.ref, node)
     val semantic = if (description.isEmpty()) Modifier else Modifier.semantics { contentDescription = description }
+    val clip = if (variant == "avatar") CircleShape else shape
     Box(
         box
-            .background(theme.surface, if (variant == "avatar") CircleShape else shape)
+            .background(theme.surface, clip)
+            .clip(clip)
             .then(semantic),
         contentAlignment = Alignment.Center
     ) {
-        if (variant != "icon" && variant != "avatar") KitMeta(stringResource(R.string.card_image_unavailable), centered = true)
+        ImageBox(load, node.attrs.str("fit"), description, showLabel = variant != "icon" && variant != "avatar")
     }
 }
 

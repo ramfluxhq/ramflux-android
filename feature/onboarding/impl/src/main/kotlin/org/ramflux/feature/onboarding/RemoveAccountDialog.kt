@@ -80,7 +80,7 @@ internal fun RemoveAccountDialog(accountName: String?, busy: Boolean, failed: Bo
                 Text(
                     stringResource(R.string.ui_remove_dialog_understand),
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier = Modifier.padding(start = theme.gap.dp)
                 )
             }
             if (failed) {

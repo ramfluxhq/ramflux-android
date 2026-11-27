@@ -267,6 +267,7 @@
     <string name="chat_media_unsent">Not sent</string>
     <!-- A send the SDK refused because the contact's home node is not known yet (no contact card imported); the entry keeps a Retry. -->
     <string name="chat_card_submit_unknown">The card answer may or may not have been sent. Check the conversation before you answer again.</string>
+    <string name="chat_card_request_changed">This request changed. Review it again.</string>
     <string name="chat_card_tap_again">The card changed before your tap. Tap again.</string>
     <string name="chat_card_result_unknown">It is not known whether the card took that. Check the card before you try again.</string>
     <string name="chat_card_input_not_applied">Your last change to the card was not applied.</string>

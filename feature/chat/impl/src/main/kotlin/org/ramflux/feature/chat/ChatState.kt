@@ -4,6 +4,7 @@
 package org.ramflux.feature.chat
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
+import org.ramflux.data.cards.CardImageSource
 import org.ramflux.data.cards.CardState
 import org.ramflux.designsystem.UiText
 /** Timeline entries carry typed values; the screen formats times and dates for the current locale. */
@@ -26,7 +27,9 @@ import org.ramflux.designsystem.UiText
     val ref: String,
     val state: CardState,
     val staleKey: String? = null,
-    val staleSeq: Long = 0
+    val staleSeq: Long = 0,
+    /** Where this account's card images are read (the object API); images are unavailable without it. */
+    val images: CardImageSource = CardImageSource.None
 ) : TimelineItem {
     override fun toString() = "CardItem(<redacted>)"
 }
