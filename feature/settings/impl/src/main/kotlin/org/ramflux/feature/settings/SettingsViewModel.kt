@@ -848,6 +848,8 @@ class SettingsViewModel @Inject constructor(
                 val confirmed = account(expected, generation, selected.id) ?: return@launch
                 if (serial != reads) return@launch
                 activeAccount = confirmed.id
+                // A page opened before the account was known reads its lock now that the account is.
+                if (local.value.page == SettingsPage.APP_LOCK) readAppLock()
                 local.update {
                     it.copy(
                         accountLabel = confirmed.label ?: confirmed.id,

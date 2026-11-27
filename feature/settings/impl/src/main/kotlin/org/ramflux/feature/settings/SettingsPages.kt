@@ -486,7 +486,8 @@ internal fun LazyListScope.appLockPage(state: SettingsState, onAction: (Settings
                     onChecked = { onAction(SettingsAction.SetAppLock(it)) },
                     enabled = switchUsable,
                     label = stringResource(R.string.settings_app_lock_switch),
-                    tag = "app-lock-switch"
+                    tag = "app-lock-switch",
+                    stateKnown = lock.loaded
                 )
             }
         }

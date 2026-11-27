@@ -117,6 +117,12 @@ class FakeAccountSecurity : AccountSecurityRepository {
         this.policy = ClientResult.Ready(policy)
         return this.policy
     }
+    var appLock: ClientResult<AppLockStatus> = ClientResult.Unavailable(ClientFeature.SETTINGS)
+    var appLockReads = 0
+    override suspend fun appLockState(account: String): ClientResult<AppLockStatus> {
+        appLockReads++
+        return appLock
+    }
     override suspend fun changeAccountCode(account: String, current: CharArray, next: CharArray): ClientResult<Unit> {
         codes += String(current) to String(next)
         current.fill('\u0000')

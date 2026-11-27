@@ -27,6 +27,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import org.ramflux.designsystem.LocalRFTheme
 
@@ -37,10 +40,13 @@ fun KitSwitch(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     label: String = "",
-    tag: String? = null
+    tag: String? = null,
+    // False while the state is not read yet: the switch then exposes no on or off to accessibility and tests.
+    stateKnown: Boolean = true
 ) {
     val theme = LocalRFTheme.current
-    HitBox(tag, enabled, { onChecked(!checked) }, modifier.alpha(if (enabled) 1f else RfMetrics.disabledAlpha), Role.Switch, label) {
+    val exposed = modifier.semantics { if (stateKnown) this[SemanticsProperties.ToggleableState] = ToggleableState(checked) }
+    HitBox(tag, enabled, { onChecked(!checked) }, exposed.alpha(if (enabled) 1f else RfMetrics.disabledAlpha), Role.Switch, label) {
         Box(
             Modifier
                 .size(dp(RfMetrics.switchWidth), dp(RfMetrics.switchHeight))
