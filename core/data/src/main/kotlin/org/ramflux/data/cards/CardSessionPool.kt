@@ -131,6 +131,9 @@ interface CardSessionRepository {
 
     /** Releases a card that left the timeline window. */
     suspend fun dispose(account: String, ref: String)
+
+    /** The image bytes of this account's cards, read through the object API; see [CardImageSource]. */
+    fun images(account: String): CardImageSource = CardImageSource.None
 }
 
 /** For hosts without the card runtime: every call is the typed unavailable state. */
@@ -150,16 +153,21 @@ class UnavailableCardSessionRepository : CardSessionRepository {
     override suspend fun dispose(account: String, ref: String) = Unit
 }
 
-/** Lifecycle the client drives: suspend every resumed card before the client goes to the background, resume on return. */
+/**
+ * Lifecycle the client drives: suspend every resumed card before the client goes to the background, resume on return.
+ * [locked] runs when the app lock engages: core has dropped every session, so the handles are forgotten locally with no bus call.
+ */
 internal interface CardLifecycleHooks {
     suspend fun background()
     suspend fun foreground()
+    suspend fun locked()
 }
 
 /**
- * Per-account card sessions. At most [MAX_RESUMED] cards hold a runtime VM (the least recently used are suspended and keep
- * their last tree); at most [MAX_OPEN] cards are held (the least recently used are disposed). Every change of one account
- * runs under that account's [Mutex]; a surface event for an account reaches the same pool through [watch].
+ * Card sessions of every account in this process. At most [MAX_RESUMED] cards hold a runtime VM in all accounts together
+ * (core's cap is per process; the least recently used are suspended and keep their last tree); at most [MAX_OPEN] cards are
+ * held per account (the least recently used are disposed). Every change of one account runs under that account's [Mutex]; a
+ * surface event for an account reaches the same pool through [watch].
  */
 internal class CardSessionPool(
     private val transport: RepositoryTransport,
@@ -178,7 +186,10 @@ internal class CardSessionPool(
     }
 
     private val client = CardSessionClient(transport)
+    private val approvals = CardApprovals(transport)
+    private val imageLoader = CardImageLoader(transport)
     private val guard = Any()
+    private var tick = 0L
     private val accounts = HashMap<String, Account>()
 
     /** Accounts that signed out or were removed; no entry is created for them until [admit] (an explicit sign-in). */
@@ -239,6 +250,12 @@ internal class CardSessionPool(
         var session: Long? = null
         var resumeOnForeground = false
 
+        /** Use order across every account (guarded by the pool guard): the lowest resumed value is suspended first. */
+        var used = 0L
+
+        /** An edit was applied since the session was opened: a draft may be on screen (spec 4.20 notice when it is lost). */
+        var drafted = false
+
         /**
          * The stamps the held tree passed through while absorbing replies to this card's own events, oldest first (the first
          * is the tree the chain started from), each with the node signatures of that tree. Any outside change (update,
@@ -248,6 +265,8 @@ internal class CardSessionPool(
 
         fun resetChain() = chain.clear()
     }
+
+    override fun images(account: String): CardImageSource = imageLoader.source(account)
 
     override suspend fun availability(): ClientResult<Unit> =
         if (transport.cardRuntimeAvailable()) ClientResult.Ready(Unit)
@@ -291,7 +310,7 @@ internal class CardSessionPool(
             when {
                 held == null -> open(acc, account, ref, locale, dark)
                 held.state.resumed -> ClientResult.Ready(Unit)
-                else -> resume(acc, account, held)
+                else -> resume(acc, account, held, tap = true)
             }
         }
     }
@@ -459,12 +478,43 @@ internal class CardSessionPool(
         // The tree moved on after the person acted: only an event that follows this card's own events is re-sent.
         if (tree.stamp != op.seen && !rebasable(slot, tree, item, op)) return ClientResult.Ready(staleDropped())
         return when (val call = client.event(account, session, tree.tokenFor(op.key), op.event)) {
-            is CardCall.Failed -> ClientResult.Failed(call.problem)
+            is CardCall.Failed -> notApplied(acc, account, slot, call.problem, droppable = true)
             is CardCall.Replied -> {
+                if (batchMissing(call.reply)) return protocolError(slot)
                 if (!absorbOwn(slot, call.reply, tree, item.seq, input)) reread(acc, account, slot)
                 ClientResult.Ready(call.reply)
             }
         }
+    }
+
+    /**
+     * A failed event, slot answer or submit. A dropped session (expired, inactive, or the account locked) is forgotten with
+     * its last tree kept read-only, and the next tap opens the card again; the operation reads as dropped, so the control
+     * reverts. A stale token re-reads the card. Anything else is the caller's failure as it is. [droppable] is false for a
+     * submit, which is never reported as dropped and never retried.
+     */
+    private suspend fun notApplied(acc: Account, account: String, slot: Slot, problem: ClientProblem, droppable: Boolean): ClientResult<CardReply> {
+        val token = problem.cardToken()
+        return when {
+            token == EXPIRED || token == INACTIVE || problem.isAppLocked() -> {
+                forgetHandle(slot)
+                if (droppable) ClientResult.Ready(staleDropped()) else ClientResult.Failed(problem)
+            }
+            token == STALE && droppable -> {
+                reread(acc, account, slot)
+                ClientResult.Ready(staleDropped())
+            }
+            else -> ClientResult.Failed(problem)
+        }
+    }
+
+    /** Core promises a batch on every event and slot reply that may render; a reply without one is a protocol error. */
+    private fun batchMissing(reply: CardReply): Boolean = reply.renderAllowed && reply.batch == null
+
+    /** The reply broke the batch invariant: nothing is applied, the stamp chain ends, and the outcome is not known. */
+    private fun protocolError(slot: Slot): ClientResult<CardReply> {
+        slot.resetChain()
+        return failed(CardSessionClient.INVALID_CODE)
     }
 
     /**
@@ -513,10 +563,33 @@ internal class CardSessionPool(
         val slot = touchSlot(acc, ref)?.takeIf { it.state.resumed } ?: return ClientResult.Ready(staleDropped())
         val session = slot.session ?: return ClientResult.Ready(staleDropped())
         return when (val call = client.slot(account, session, op.token, op.slotId, op.requestId, op.outcome)) {
-            is CardCall.Failed -> ClientResult.Failed(call.problem)
+            is CardCall.Failed -> notApplied(acc, account, slot, call.problem, droppable = true)
             is CardCall.Replied -> {
+                if (batchMissing(call.reply)) return protocolError(slot)
                 answered(acc, account, slot, call.reply, item.seq)
-                ClientResult.Ready(call.reply)
+                finishApproval(acc, account, slot, call.reply)
+            }
+        }
+    }
+
+    /**
+     * An approval decision with a `task_resolve` is finished here: the signed decision, then the task decision, both from
+     * core's own request and body. The card keeps "waiting" until the signed update or the task change arrives. A request that
+     * changed (typed refusal) ends the wait, re-reads the card and answers `approval_changed`; it is never retried here.
+     */
+    private suspend fun finishApproval(acc: Account, account: String, slot: Slot, reply: CardReply): ClientResult<CardReply> {
+        val request = reply.hostRequest
+        if (reply.result != "approval_decision" || request == null) return ClientResult.Ready(reply)
+        return when (val finished = approvals.finish(account, request)) {
+            CardApprovals.Result.Done, CardApprovals.Result.NotApplicable -> ClientResult.Ready(reply)
+            CardApprovals.Result.Changed -> {
+                publish(slot, slot.state.copy(awaitingDecision = false))
+                refresh(acc, account, slot)
+                ClientResult.Ready(CardReply(APPROVAL_CHANGED, reply.session, true, "", null, null, null, false))
+            }
+            is CardApprovals.Result.Failed -> {
+                publish(slot, slot.state.copy(awaitingDecision = false))
+                ClientResult.Failed(finished.problem)
             }
         }
     }
@@ -534,7 +607,7 @@ internal class CardSessionPool(
         return when (val call = client.submit(account, session)) {
             is CardCall.Failed -> {
                 publish(slot, slot.state.copy(lifecycle = CardLifecycle.READY))
-                ClientResult.Failed(call.problem)
+                notApplied(acc, account, slot, call.problem, droppable = false)
             }
             is CardCall.Replied -> {
                 if (!absorb(slot, call.reply)) reread(acc, account, slot)
@@ -570,8 +643,8 @@ internal class CardSessionPool(
     }
 
     /**
-     * The account left this device (sign-out or removal): its sessions are disposed and its slots dropped, so no draft or
-     * tree outlives it.
+     * The account left this device (sign-out or removal): its slots, trees and images are dropped, so no draft or tree outlives
+     * it. Core already dropped the sessions, so nothing is sent.
      */
     suspend fun forget(account: String) {
         if (!usable(account)) return
@@ -584,13 +657,14 @@ internal class CardSessionPool(
             if (acc.retired) return
             // Anything queued on this entry now finds it retired and returns without opening a runtime session.
             acc.retired = true
-            val held = synchronized(guard) {
+            // Core dropped the account's sessions with the sign-out or removal: the handles are forgotten, never disposed.
+            synchronized(guard) {
                 acc.watch?.cancel()
                 acc.watch = null
-                acc.slots.values.toList().also { acc.slots.clear() }
+                acc.slots.clear()
+                if (accounts[account] === acc) accounts.remove(account)
             }
-            for (slot in held) slot.session?.let { client.dispose(account, it) }
-            synchronized(guard) { if (accounts[account] === acc) accounts.remove(account) }
+            imageLoader.releaseAccount(account)
             counter.value = counter.value + 1
         }
     }
@@ -613,15 +687,41 @@ internal class CardSessionPool(
 
     override suspend fun foreground() {
         val held = synchronized(guard) { accounts.entries.map { it.key to it.value } }
+        val waiting = ArrayList<Triple<String, Account, Slot>>()
         for ((name, acc) in held) acc.exclusive(name, Unit) {
-            val waiting = synchronized(guard) { acc.slots.values.filter { it.resumeOnForeground }.reversed() }
             if (synchronized(guard) { acc.slots.isNotEmpty() }) startWatch(name)
-            for (slot in waiting) {
-                slot.resumeOnForeground = false
+            synchronized(guard) {
+                for (slot in acc.slots.values.filter { it.resumeOnForeground }) {
+                    slot.resumeOnForeground = false
+                    waiting.add(Triple(name, acc, slot))
+                }
             }
-            for (slot in waiting.take(MAX_RESUMED)) {
-                if (!slot.state.resumed) resume(acc, name, slot)
+        }
+        // The process holds at most MAX_RESUMED VMs: the most recently used cards of every account come back first.
+        for ((name, acc, slot) in waiting.sortedByDescending { it.third.used }.take(MAX_RESUMED)) {
+            acc.exclusive(name, Unit) { if (!slot.state.resumed) resume(acc, name, slot, tap = false) }
+        }
+    }
+
+    /**
+     * The app lock engaged: core dropped every card session. Each handle is forgotten here with no bus call (a call on a locked
+     * account only fails), the last trees stay on screen read-only, and the images are released. A card opens again on the
+     * next tap after the lock lifts, never by itself.
+     */
+    override suspend fun locked() {
+        val held = synchronized(guard) { accounts.entries.map { it.key to it.value } }
+        for ((name, acc) in held) {
+            acc.exclusive(name, Unit) {
+                synchronized(guard) {
+                    acc.watch?.cancel()
+                    acc.watch = null
+                    for (slot in acc.slots.values.toList()) {
+                        slot.resumeOnForeground = false
+                        forgetHandle(slot)
+                    }
+                }
             }
+            imageLoader.releaseAccount(name)
         }
     }
 
@@ -644,7 +744,7 @@ internal class CardSessionPool(
     }
 
     /** Reads the card and makes it most recently used. Used by show, event, slot and submit only. */
-    private fun touchSlot(acc: Account, ref: String): Slot? = synchronized(guard) { acc.slots[ref] }
+    private fun touchSlot(acc: Account, ref: String): Slot? = synchronized(guard) { acc.slots[ref]?.also { it.used = ++tick } }
 
     /** Finds the card without changing the access order (iteration does not reorder a LinkedHashMap). */
     private fun peekSlot(acc: Account, ref: String): Slot? = synchronized(guard) { acc.slots.values.firstOrNull { it.ref == ref } }
@@ -652,16 +752,20 @@ internal class CardSessionPool(
     private suspend fun open(acc: Account, account: String, ref: String, locale: String, dark: Boolean): ClientResult<Unit> {
         makeRoom(acc, account, except = ref)
         var call = client.open(account, ref, locale, dark)
-        if (isLimit(call)) {
-            suspendLeastRecent(acc, account, except = null)
-            call = client.open(account, ref, locale, dark)
-        }
+        // The process holds at most MAX_RESUMED VMs: free the least recently used one of any account and try once more.
+        if (call.token() == LIMIT_EXCEEDED && suspendLeastRecent(acc, account, except = ref)) call = client.open(account, ref, locale, dark)
+        // The account holds 32 sessions: dispose the card used least recently and try once more.
+        if (call.token() == SESSION_LIMIT && disposeLeastRecent(acc, account, except = ref)) call = client.open(account, ref, locale, dark)
+        if (call.token() == LIMIT_EXCEEDED || call.token() == SESSION_LIMIT) return overLimit(acc, ref, locale, dark)
         return when (call) {
             is CardCall.Failed -> ClientResult.Failed(call.problem)
             is CardCall.Replied -> {
                 // A refused open is held too: its state says why the card shows only the fallback text.
                 val slot = Slot(ref, locale, dark, CardState(ref, CardLifecycle.UNAVAILABLE, "", false, null, false, null, false, false))
-                synchronized(guard) { acc.slots[ref] = slot }
+                synchronized(guard) {
+                    slot.used = ++tick
+                    acc.slots[ref] = slot
+                }
                 absorb(slot, call.reply)
                 enforceResumed(acc, account, except = ref)
                 startWatch(account)
@@ -670,14 +774,37 @@ internal class CardSessionPool(
         }
     }
 
-    private suspend fun resume(acc: Account, account: String, slot: Slot): ClientResult<Unit> {
+    /**
+     * The card could not get a runtime slot after the one retry: it stays read-only with the spec 3.4 over-limit line, keeps
+     * the tree it had, and the next tap asks again.
+     */
+    private fun overLimit(acc: Account, ref: String, locale: String, dark: Boolean): ClientResult<Unit> {
+        val slot = synchronized(guard) {
+            acc.slots[ref] ?: Slot(ref, locale, dark, CardState(ref, CardLifecycle.UNAVAILABLE, "", false, null, false, null, false, false))
+                .also { acc.slots[ref] = it }
+        }
+        publish(slot, slot.state.copy(lifecycle = CardLifecycle.OVER_LIMIT, resumed = false, hostRequest = null, awaitingDecision = false))
+        return ClientResult.Ready(Unit)
+    }
+
+    /**
+     * Resumes a suspended card. A dropped session (expired, inactive, or the account closed) is opened again only when [tap] says
+     * a person asked for it; otherwise the handle is forgotten and the last tree stays read-only until the next tap.
+     */
+    private suspend fun resume(acc: Account, account: String, slot: Slot, tap: Boolean): ClientResult<Unit> {
         val session = slot.session ?: return reopen(acc, account, slot)
         var call = client.resume(account, session)
-        if (isLimit(call)) {
-            suspendLeastRecent(acc, account, except = slot.ref)
-            call = client.resume(account, session)
+        // At the process cap core answers `resume` with an untyped invalid-argument: free a slot and try once more.
+        if (resumeCapped(call) && suspendLeastRecent(acc, account, except = slot.ref)) call = client.resume(account, session)
+        if (resumeCapped(call)) {
+            // Over the limit: the session is kept for the next tap.
+            publish(slot, slot.state.copy(lifecycle = CardLifecycle.OVER_LIMIT, resumed = false, hostRequest = null))
+            return ClientResult.Ready(Unit)
         }
-        if (isInactive(call)) return reopen(acc, account, slot)
+        if (isGone(call)) {
+            forgetHandle(slot)
+            return if (tap) reopen(acc, account, slot) else ClientResult.Ready(Unit)
+        }
         // Any other failure keeps the runtime session, and the draft with it, for the next attempt.
         return when (call) {
             is CardCall.Failed -> ClientResult.Failed(call.problem)
@@ -690,19 +817,39 @@ internal class CardSessionPool(
     }
 
     /**
-     * The runtime handle is gone or the account closed: a fresh open replaces the held card. The held tree stays on
-     * screen until the open answers, so a failed reopen keeps the last tree for the next attempt.
+     * The runtime handle is gone: a fresh open replaces the held card (core drops an older session of the same surface
+     * itself, so nothing is disposed). The held tree stays on screen until the open answers, so a failed reopen keeps it.
      */
     private suspend fun reopen(acc: Account, account: String, slot: Slot): ClientResult<Unit> {
-        slot.session?.let { client.dispose(account, it) }
         slot.session = null
         return open(acc, account, slot.ref, slot.locale, slot.dark)
+    }
+
+    /**
+     * Forgets the runtime handle without a bus call (core already dropped the session) and keeps the last tree read-only. If an
+     * edit may have been on screen, the spec 4.20 discarded-draft notice is shown with it.
+     */
+    private fun forgetHandle(slot: Slot) {
+        slot.resetChain()
+        slot.session = null
+        val state = slot.state
+        val kept = state.lifecycle in setOf(CardLifecycle.CONSUMED, CardLifecycle.CLOSED, CardLifecycle.SUPERSEDED, CardLifecycle.OUT_OF_SYNC)
+        publish(
+            slot,
+            state.copy(
+                resumed = false,
+                lifecycle = if (kept) state.lifecycle else CardLifecycle.SUSPENDED,
+                hostRequest = null,
+                awaitingDecision = false,
+                draftConflict = state.draftConflict || (slot.drafted && state.tree != null),
+            ),
+        )
     }
 
     /** Full-tree re-read: the held tree no longer matches the runtime, so the card is suspended and resumed. */
     private suspend fun reread(acc: Account, account: String, slot: Slot) {
         if (slot.state.resumed) suspendSlot(acc, account, slot)
-        if (slot.session != null) resume(acc, account, slot)
+        if (slot.session != null) resume(acc, account, slot, tap = false)
     }
 
     private suspend fun refresh(acc: Account, account: String, slot: Slot) {
@@ -728,21 +875,53 @@ internal class CardSessionPool(
                 true
             }
             is CardCall.Failed -> {
-                client.dispose(account, session)
-                slot.session = null
-                publish(slot, slot.state.copy(resumed = false, lifecycle = CardLifecycle.SUSPENDED, hostRequest = null, awaitingDecision = false))
+                if (isGone(call)) {
+                    // Core already dropped the session: nothing to dispose; the tree stays and the next tap opens the card.
+                    forgetHandle(slot)
+                } else {
+                    client.dispose(account, session)
+                    slot.session = null
+                    publish(slot, slot.state.copy(resumed = false, lifecycle = CardLifecycle.SUSPENDED, hostRequest = null, awaitingDecision = false))
+                }
                 true
             }
         }
     }
 
+    /**
+     * Suspends the resumed card used least recently, of any account (core's VM cap is per process). The calling account's lock is
+     * already held; another account's lock is only tried, never waited for, so two accounts that both need a slot cannot wait on
+     * each other. False when no card could be suspended.
+     */
     private suspend fun suspendLeastRecent(acc: Account, account: String, except: String?): Boolean {
-        val victim = synchronized(guard) { acc.slots.values.firstOrNull { it.state.resumed && it.ref != except } } ?: return false
-        return suspendSlot(acc, account, victim)
+        val candidates = synchronized(guard) {
+            accounts.entries
+                .flatMap { (name, other) ->
+                    other.slots.values.filter { it.state.resumed && !(other === acc && it.ref == except) }.map { Triple(name, other, it) }
+                }
+                .sortedBy { it.third.used }
+        }
+        for ((name, other, slot) in candidates) {
+            if (other === acc) return suspendSlot(acc, account, slot)
+            if (!other.lock.tryLock()) continue
+            try {
+                if (!other.retired && slot.state.resumed) return suspendSlot(other, name, slot)
+            } finally {
+                other.lock.unlock()
+            }
+        }
+        return false
+    }
+
+    /** Disposes the card of this account used least recently (the account is at core's session cap). */
+    private suspend fun disposeLeastRecent(acc: Account, account: String, except: String): Boolean {
+        val victim = synchronized(guard) { acc.slots.values.firstOrNull { it.ref != except } } ?: return false
+        disposeSlot(acc, account, victim)
+        return true
     }
 
     private suspend fun enforceResumed(acc: Account, account: String, except: String) {
-        while (synchronized(guard) { acc.slots.values.count { it.state.resumed } } > MAX_RESUMED) {
+        while (synchronized(guard) { accounts.values.sumOf { other -> other.slots.values.count { it.state.resumed } } } > MAX_RESUMED) {
             if (!suspendLeastRecent(acc, account, except)) break
         }
     }
@@ -757,11 +936,16 @@ internal class CardSessionPool(
 
     private suspend fun disposeSlot(acc: Account, account: String, slot: Slot) {
         synchronized(guard) { acc.slots.remove(slot.ref) }
+        imageLoader.release(account, slot.ref)
         slot.session?.let { client.dispose(account, it) }
         counter.value = counter.value + 1
     }
 
-    /** A signed update or a re-read of the same runtime session. Returns false when the batch does not fit the held tree. */
+    /**
+     * A signed update, a re-read of the same runtime session, or the reply to an event or slot answer. Every event and slot
+     * reply that may render carries a batch (the mounted tree when nothing changed); applying it replaces the held tree and its
+     * host slots. Returns false when the batch does not fit the held tree.
+     */
     private fun absorb(slot: Slot, reply: CardReply): Boolean {
         // Any change that is not the answer to this card's own event (the caller restores the chain for those) ends the chain.
         slot.resetChain()
@@ -770,6 +954,7 @@ internal class CardSessionPool(
         when (reply.result) {
             "opened", "resumed" -> {
                 slot.session = reply.session
+                if (reply.result == "opened") slot.drafted = false
                 val tree = if (reply.renderAllowed) reply.batch?.let { CardTree.EMPTY.apply(it) } else null
                 publish(slot, current.copy(
                     fallback = fallback,
@@ -782,7 +967,7 @@ internal class CardSessionPool(
                     draftConflict = false,
                 ))
             }
-            "updated", "presented", "edited", "validation", "open_url" -> {
+            "updated", "presented", "edited", "validation", "open_url", "stale_dropped", "pending_submit", "approval_decision" -> {
                 if (!reply.renderAllowed) {
                     publish(slot, current.copy(fallback = fallback, renderAllowed = false, tree = null, resumed = false, lifecycle = CardLifecycle.UNAVAILABLE, hostRequest = null))
                     return true
@@ -790,28 +975,25 @@ internal class CardSessionPool(
                 val batch = reply.batch
                 val tree = if (batch == null) current.tree else (current.tree?.apply(batch) ?: return false)
                 val signed = reply.result == "updated"
+                if (reply.result == "edited" || reply.result == "validation") slot.drafted = true
                 publish(slot, current.copy(
                     fallback = fallback,
                     tree = tree,
                     lifecycle = tree?.let(::lifecycleOf) ?: current.lifecycle,
                     hostRequest = if (reply.result == "open_url") reply.hostRequest else if (signed) null else current.hostRequest,
-                    awaitingDecision = if (signed) false else current.awaitingDecision,
+                    awaitingDecision = if (reply.result == "approval_decision") true else if (signed) false else current.awaitingDecision,
                     draftConflict = reply.draftConflict,
                 ))
             }
             "submitted" -> publish(slot, current.copy(lifecycle = CardLifecycle.CONSUMED, draftConflict = reply.draftConflict))
-            "approval_decision" -> publish(slot, current.copy(awaitingDecision = true, hostRequest = null))
             "suspended" -> publish(slot, current.copy(resumed = false, lifecycle = CardLifecycle.SUSPENDED, hostRequest = null))
             "superseded" -> publish(slot, current.copy(resumed = false, lifecycle = CardLifecycle.SUPERSEDED, hostRequest = null))
-            "refused" -> publish(slot, current.copy(
-                lifecycle = when (reply.reason) {
-                    "card_session_limit" -> CardLifecycle.OVER_LIMIT
-                    "card_session_inactive" -> CardLifecycle.CLOSED
-                    "card_superseded" -> CardLifecycle.SUPERSEDED
-                    else -> current.lifecycle
-                },
-                resumed = if (reply.reason == "card_session_inactive" || reply.reason == "card_superseded") false else current.resumed,
-            ))
+            "refused" -> when (reply.reason) {
+                // No tree behind the session: the handle is forgotten, the last tree stays read-only, the next tap reopens.
+                INACTIVE -> forgetHandle(slot)
+                "card_superseded" -> publish(slot, current.copy(lifecycle = CardLifecycle.SUPERSEDED, resumed = false))
+                else -> Unit
+            }
             // Pending or stale results change nothing the host shows; the caller reads the submit result.
             else -> Unit
         }
@@ -841,11 +1023,19 @@ internal class CardSessionPool(
 
     private fun lifecycleOf(tree: CardTree): CardLifecycle = if (tree.generating) CardLifecycle.GENERATING else CardLifecycle.READY
 
-    private fun isLimit(call: CardCall): Boolean = call is CardCall.Replied && call.reply.result == "refused" && call.reply.reason == "card_session_limit"
+    private fun CardCall.token(): String? = (this as? CardCall.Failed)?.problem?.cardToken()
 
-    /** The runtime no longer holds the session: the explicit inactive refusal, or a failure that names a closed (locked) account. */
-    private fun isInactive(call: CardCall): Boolean =
-        (call is CardCall.Failed && call.problem.isAppLocked()) || (call is CardCall.Replied && call.reply.result == "refused" && call.reply.reason == "card_session_inactive")
+    /** `resume` at the process cap: core leaves it untyped, so any invalid-argument that is not a typed session refusal counts. */
+    private fun resumeCapped(call: CardCall): Boolean {
+        val problem = (call as? CardCall.Failed)?.problem ?: return false
+        return problem.cardToken() == LIMIT_EXCEEDED || (problem.statusName == INVALID_ARGUMENT && problem.check !in SESSION_REFUSALS)
+    }
+
+    /** The runtime no longer holds the session: dropped (expired), never seen or without a tree (inactive), or the account is closed (locked). */
+    private fun isGone(call: CardCall): Boolean {
+        if (call is CardCall.Failed) return call.problem.cardToken().let { it == EXPIRED || it == INACTIVE } || call.problem.isAppLocked()
+        return call is CardCall.Replied && call.reply.result == "refused" && call.reply.reason == INACTIVE
+    }
 
     private fun startWatch(account: String) {
         val acc = accountOf(account) ?: return
@@ -930,6 +1120,16 @@ internal class CardSessionPool(
         private const val MAX_CURSOR = 8192
         private const val MAX_ID = 256
         private const val FAILED_CODE = 16
+        private const val EXPIRED = "card_session_expired"
+        private const val INACTIVE = "card_session_inactive"
+        private const val SESSION_LIMIT = "card_session_limit"
+        private const val STALE = "card_session_stale"
+        private const val LIMIT_EXCEEDED = "card_limit_exceeded"
+        private const val INVALID_ARGUMENT = "InvalidArgument"
+        private const val APPROVAL_CHANGED = "approval_changed"
+
+        /** Every typed `card_session_*` refusal: an invalid-argument carrying none of these is the untyped resume cap. */
+        private val SESSION_REFUSALS = setOf(EXPIRED, INACTIVE, SESSION_LIMIT, STALE, "card_session_refused", "card_session_busy")
         private val WATCH_TOPICS = listOf("surface.changed", "surface.rejected", "surface.resync", "surface.rpc.conflict")
 
         private val json = Json { ignoreUnknownKeys = true }

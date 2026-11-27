@@ -32,7 +32,7 @@ internal fun CardView(card: CardItem, cap: Dp, modifier: Modifier, onAction: (Ch
         staleKey = card.staleKey,
         staleSeq = card.staleSeq
     )
-    CardRenderer(input, actions, cap, modifier)
+    CardRenderer(input, actions, cap, modifier, card.images)
 }
 
 /** The chat's side of one card: each call becomes one [ChatAction] for the card's ref. */

@@ -35,7 +35,8 @@ data class CardStamp(val session: Long, val signedVersion: Long, val treeVersion
 /**
  * The client copy of one card's native tree. The only way to change it is [apply]: an atomic
  * `ramflux.card.mutations.v1` batch, checked against the held session and version. A batch that does not fit
- * returns null and the held tree stays as it was; the caller then re-reads the whole tree.
+ * returns null and the held tree stays as it was; the caller then re-reads the whole tree. A batch with no mutations at
+ * the held version is the mounted tree (every event and slot reply carries one): it replaces the host slots and lifecycle.
  */
 class CardTree private constructor(
     val session: Long,
@@ -73,9 +74,11 @@ class CardTree private constructor(
         val previous = batch.long("previous_version") ?: return null
         val version = batch.long("version") ?: return null
         // The empty tree (treeVersion 0) takes any session: it is the base of an open or resume batch.
-        if (previous != treeVersion || version <= previous) return null
+        if (previous != treeVersion || version < previous) return null
         if (treeVersion != 0L && batchSession != session) return null
         val ops = batch.array("mutations") ?: return null
+        // The mounted tree of an event or slot reply: same version, no mutations, current host slots and lifecycle.
+        if (version == previous && (ops.isNotEmpty() || treeVersion == 0L)) return null
         if (ops.size > MAX_OPS || batch.toString().toByteArray(Charsets.UTF_8).size > MAX_BYTES) return null
         val work = LinkedHashMap<String, Working>()
         nodes.values.forEach { work[it.key] = Working(it, it.children.toMutableList()) }

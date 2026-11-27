@@ -139,14 +139,15 @@ class CardSessionPoolTest {
         assertEquals(1, bus.secretCalls)
     }
 
-    @Test fun forgettingAnAccountDisposesItsSessionsAndDropsItsSlots() = runTest {
+    // Core drops the sessions of a signed-out or removed account itself, so forgetting sends no dispose any more.
+    @Test fun forgettingAnAccountDropsItsSlotsWithoutDisposingItsSessions() = runTest {
         val bus = FakeBus()
         val pool = CardSessionPool(bus, scope = this)
         pool.show(ACCOUNT, "a")
         pool.show(ACCOUNT, "b")
         pool.show("other", "c")
         pool.forget(ACCOUNT)
-        assertEquals(setOf(1L, 2L), bus.disposes.toSet())
+        assertEquals(emptySet<Long>(), bus.disposes.toSet())
         assertEquals(null, pool.state(ACCOUNT, "a"))
         assertEquals(null, pool.state(ACCOUNT, "b"))
         assertNotNull(pool.state("other", "c"))

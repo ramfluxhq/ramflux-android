@@ -11,7 +11,7 @@
     <string name="card_status_updated">已更新</string>
     <string name="card_status_out_of_sync">不同步</string>
     <string name="card_status_over_limit">超出限制</string>
-    <string name="card_over_limit_body">此内容超出显示限制。可读内容已保留，操作已停用。</string>
+    <string name="card_over_limit_body">活跃的卡片过多，请稍后重试。</string>
     <string name="card_superseded_body">你看到的版本已经变化。请先查看新版本再作决定。</string>
     <string name="card_out_of_sync_body">此卡片落后于智能体。请重新同步以查看最新版本。</string>
     <string name="card_resync">重新同步</string>
@@ -20,6 +20,7 @@
     <string name="card_link_author_note">由此会话中的智能体发送。打开前请核对地址。</string>
     <string name="card_link_privacy">打开链接会离开 Ramflux，并从网站加载页面。确认之前，Ramflux 不会替你打开。</string>
     <string name="card_link_open">打开</string>
+    <string name="card_close">关闭</string>
     <string name="card_cancel">取消</string>
     <string name="card_ok">确定</string>
     <string name="card_nothing_to_show">没有可显示的内容</string>

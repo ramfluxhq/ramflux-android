@@ -32,7 +32,7 @@ internal class DefaultClientSessionRepository(
             mutable.update { if (it.phase == ClientPhase.OPEN) it.copy(appLock = AppLockPhase.LOCKED) else it }
             refusals.launch {
                 transitions.withLock {
-                    withContext(io + NonCancellable) { if (mutable.value.phase == ClientPhase.OPEN) suspendCards() }
+                    withContext(io + NonCancellable) { if (mutable.value.phase == ClientPhase.OPEN) dropCards() }
                 }
             }
         }
@@ -125,7 +125,7 @@ internal class DefaultClientSessionRepository(
         }
         if (phase == AppLockPhase.LOCKED) {
             lockEngaged = true
-            suspendCards()
+            dropCards()
         }
         // The lock closed the account in the SDK, so every screen read behind the cover failed or saw no active account.
         // The release is a new generation: open screens clear and read again, and the navigation stack stays as it was.
@@ -158,6 +158,15 @@ internal class DefaultClientSessionRepository(
         cards.background()
     }
 
+    /**
+     * The app lock engaged: core dropped every card session, so the handles are forgotten here with no bus call. Idempotent,
+     * and the cards come back through [resumeCards] only after the lock lifts, as suspended cards that open on the next tap.
+     */
+    private suspend fun dropCards() {
+        cardsSuspended = true
+        cards.locked()
+    }
+
     /** Resumes suspended cards only when the client is open and the app lock is open. */
     private suspend fun resumeCards() {
         val current = mutable.value
@@ -176,4 +185,5 @@ internal class DefaultClientSessionRepository(
 private object NoCardLifecycle : CardLifecycleHooks {
     override suspend fun background() = Unit
     override suspend fun foreground() = Unit
+    override suspend fun locked() = Unit
 }
