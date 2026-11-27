@@ -1722,6 +1722,7 @@ class RealRunFlowTest {
         }
         // Dark: the same gallery with the Dark switch on; the runtime presents the dark theme to every held card. The
         // list is left on the Image cards by the pages above, so it goes back to the top before the switch is looked for.
+        if (ui.find("card-gallery", 10_000) == null) fail("the card gallery is not in front after the conformance pages: ${ui.screen()}")
         ui.scrollToTop()
         if (!ui.scrollToTag("card-gallery-dark")) fail("the card gallery has no Dark switch: ${ui.screen()}")
         ui.tap("card-gallery-dark", 10_000)

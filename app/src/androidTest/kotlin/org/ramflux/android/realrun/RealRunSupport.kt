@@ -281,11 +281,17 @@ class Ui(private val control: PeerControl) {
         return false
     }
 
-    /** Scrolls the first scrollable view of the app back to its top; a list that is not scrollable is left as it is. */
+    /**
+     * Swipes the app's content back to its top; a screen without a scrollable view is left as it is. The drags run through
+     * the middle of the screen: a drag that starts at the list's top edge lands in the status bar, which opens the shade
+     * and hides the app from UiAutomator.
+     */
     fun scrollToTop() {
-        val list = device.findObject(By.pkg(packageName).scrollable(true)) ?: return
-        repeat(30) {
-            runCatching { list.scroll(androidx.test.uiautomator.Direction.UP, 1f) }
+        device.findObject(By.pkg(packageName).scrollable(true)) ?: return
+        val x = device.displayWidth / 2
+        repeat(SCROLL_TO_TOP_SWIPES) {
+            device.swipe(x, device.displayHeight / 5, x, device.displayHeight * 4 / 5, 25)
+            Thread.sleep(300)
         }
         device.waitForIdle()
     }
@@ -554,6 +560,7 @@ class Ui(private val control: PeerControl) {
         const val POLL = 300L
         private const val OPEN_ATTEMPTS = 3
         private const val OPEN_WAIT = 5_000L
+        private const val SCROLL_TO_TOP_SWIPES = 30
         private const val SETTLE = 200L
         private const val TEXT_TAPS = 10
         private const val EDIT_TEXT = "android.widget.EditText"
