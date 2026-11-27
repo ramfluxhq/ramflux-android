@@ -797,7 +797,11 @@ class ChatViewModel @Inject constructor(
     private fun resetTimeline() {
         previewCancel()
         cardJob?.cancel()
+        // The held cards of the leaving timeline are released; the runtime keeps no card for a screen that left.
+        val leaving = target?.account
+        val held = cardRefs.keys.toList()
         cardRefs.clear()
+        if (leaving != null && held.isNotEmpty()) viewModelScope.launch { held.forEach { cards.dispose(leaving, it) } }
         cardStale.clear()
         olderJob?.cancel()
         forwardJob?.cancel()
@@ -1397,10 +1401,11 @@ class ChatViewModel @Inject constructor(
                 }
                 cursor = page.next ?: return@repeat
             }
+            // The window is by creation time, not by the directory order of the pages.
             while (cardRefs.size > CARD_WINDOW) {
-                val oldest = cardRefs.keys.first()
-                cardRefs.remove(oldest)
-                cards.dispose(currentTarget.account, oldest)
+                val oldest = cardRefs.values.minByOrNull { it.createdAt ?: Long.MAX_VALUE } ?: break
+                cardRefs.remove(oldest.ref)
+                cards.dispose(currentTarget.account, oldest.ref)
             }
             if (changed && target == currentTarget) publish()
         }
@@ -1433,7 +1438,10 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val reply = (cards.event(account, action.ref, action.key, action.event) as? ClientResult.Ready)?.value ?: return@launch
             when (reply.result) {
-                "pending_submit" -> cards.submit(account, action.ref)
+                "pending_submit" -> {
+                    val submitted = cards.submit(account, action.ref)
+                    if (submitted is ClientResult.Failed) local.update { it.copy(deliveryNotice = cardSubmitFailure(submitted.problem)) }
+                }
                 "stale_dropped" -> {
                     cardStale[action.ref] = action.key to ((cardStale[action.ref]?.second ?: 0L) + 1)
                     publish()
@@ -1712,6 +1720,12 @@ private fun rank(state: String) = when (state) {
     "delivered" -> 2
     "sent" -> 1
     else -> 0
+}
+
+/** A card answer that failed: an unknown outcome is said plainly, so the user checks the conversation before resending. */
+private fun cardSubmitFailure(problem: ClientProblem): UiText = when (problem.outcome) {
+    ClientOutcome.UNKNOWN -> uiText(R.string.chat_card_submit_unknown)
+    else -> sendFailure(problem)
 }
 
 private fun sendFailure(problem: ClientProblem): UiText = when (problem.outcome) {

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Agent cards review fixes: cards stay suspended behind the app lock and resume only when the cover is released (a lock refusal suspends them first); a suspend that fails because the account closed keeps the held tree and re-opens the card on release; reading card states no longer reorders the least-recently-used cards; the timeline disposes the oldest card by creation time and releases its cards when it leaves a conversation; a slider whose bounds hold no whole number stays disabled; card links open only over http or https; a TextField keeps the typed text on its own echoes; a card answer with an unknown outcome shows a failure notice.
+
 - Agent card Slider sends its released value as a whole number inside its bounds (the runtime rejects fractions), and the card conformance compares `request_id` texts by their parsed JSON, so trees with host slots (Image, Approval) match the core fixtures; failed host slots are written in full to `card-host-slots.json`, and real-run flow 21 scrolls the gallery to the top before it looks for the Dark switch.
 
 - Card gallery conformance: the gallery applies the runtime's callback payload (not the `{session, payload}` envelope), so open batches apply to the empty tree; a JVM test applies every host fixture to `CardTree.EMPTY`. Check A still records when a batch fails, checks B and C still run, every failure carries expected and actual excerpts, the RTL row reads NOT AVAILABLE, and flow 21 captures five dark gallery pages. The native build no longer packages the ramflux-card copy of `libramflux_sdk.so` in the APKs.

@@ -29,6 +29,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -102,7 +103,12 @@ internal fun CardTextField(node: CardNode, ctx: CardContext) {
     val treeValue = node.attrs.str("value").orEmpty()
     val staleHere = ctx.input.staleKey == key
     val staleSeq = if (staleHere) ctx.input.staleSeq else 0L
-    var draft by remember(key, treeValue, staleSeq) { mutableStateOf(treeValue) }
+    var draft by remember(key, staleSeq) { mutableStateOf(treeValue) }
+    // An echo of a value this field sent is the own change coming back: the visible text stays as typed.
+    val sent = remember(key) { UnechoedValues() }
+    LaunchedEffect(treeValue) {
+        if (sent.onTreeValue(treeValue)) draft = treeValue
+    }
     var focused by remember(key) { mutableStateOf(false) }
     var touched by remember(key) { mutableStateOf(false) }
     val enabled = ctx.live && node.attrs.bool("disabled") != true
@@ -116,6 +122,7 @@ internal fun CardTextField(node: CardNode, ctx: CardContext) {
         onValue = { value ->
             if (enabled) {
                 draft = value
+                sent.sent(value)
                 ctx.event(key, CardEvent.Input(fieldValue(value, number)))
             }
         },
@@ -127,6 +134,30 @@ internal fun CardTextField(node: CardNode, ctx: CardContext) {
         error = error?.takeIf { touched || (staleHere && staleSeq > 0) },
         enabled = enabled
     )
+}
+
+/**
+ * Values a text field sent that the tree has not echoed yet, oldest first. Echoes that never come (the card was
+ * suspended) are bounded by [limit], so the list cannot grow without bound.
+ */
+internal class UnechoedValues(private val limit: Int = 64) {
+    private val values = ArrayList<String>()
+
+    fun sent(value: String) {
+        values.add(value)
+        if (values.size > limit) values.removeAt(0)
+    }
+
+    /** True when [treeValue] replaces the visible text: it is not an echo of a value sent here. */
+    fun onTreeValue(treeValue: String): Boolean {
+        val echo = values.indexOf(treeValue)
+        if (echo >= 0) {
+            values.subList(0, echo + 1).clear()
+            return false
+        }
+        values.clear()
+        return true
+    }
 }
 
 private fun fieldValue(value: String, number: Boolean): JsonPrimitive {
@@ -251,10 +282,13 @@ internal fun CardSlider(node: CardNode, ctx: CardContext) {
     val theme = LocalRFTheme.current
     val key = node.key
     val min = node.attrs.num("min") ?: 0.0
-    val max = (node.attrs.num("max") ?: 100.0).coerceAtLeast(min + 1e-6)
+    val rawMax = node.attrs.num("max") ?: 100.0
+    val max = rawMax.coerceAtLeast(min + 1e-6)
+    val whole = sliderWholeBounds(min, rawMax)
     val treeValue = (node.attrs.num("value") ?: min).toFloat()
     var draft by remember(key, treeValue) { mutableFloatStateOf(treeValue) }
-    val enabled = ctx.live && node.attrs.bool("disabled") != true
+    // Untrusted bounds may hold no whole number (min 0.2, max 0.8): nothing can be sent, so the slider stays disabled.
+    val enabled = ctx.live && node.attrs.bool("disabled") != true && whole != null
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             KitText(
@@ -268,14 +302,21 @@ internal fun CardSlider(node: CardNode, ctx: CardContext) {
             value = draft,
             onValueChange = { if (enabled) draft = it },
             onValueChangeFinished = {
-                val whole = draft.roundToLong().coerceIn(ceil(min).toLong(), floor(max).toLong())
-                if (enabled) ctx.event(key, CardEvent.Input(JsonPrimitive(whole)))
+                if (enabled && whole != null) ctx.event(key, CardEvent.Input(JsonPrimitive(draft.roundToLong().coerceIn(whole))))
             },
             valueRange = min.toFloat()..max.toFloat(),
             enabled = enabled
         )
         node.attrs.firstError()?.let { KitMeta(it) }
     }
+}
+
+/** The whole numbers a slider may send within [min, max], or null when the bounds hold none (or are not finite). */
+internal fun sliderWholeBounds(min: Double, max: Double): LongRange? {
+    if (!min.isFinite() || !max.isFinite()) return null
+    val lowest = ceil(min).toLong()
+    val highest = floor(max).toLong()
+    return if (lowest <= highest) lowest..highest else null
 }
 
 /**

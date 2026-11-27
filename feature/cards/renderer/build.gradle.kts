@@ -3,6 +3,7 @@
 
 plugins {
     id("ramflux.android.compose")
+    id("ramflux.android.testing")
     alias(libs.plugins.kotlin.serialization)
 }
 dependencies {

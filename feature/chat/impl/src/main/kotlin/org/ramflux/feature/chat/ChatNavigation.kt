@@ -149,7 +149,11 @@ fun ChatNavigation(
                 ChatEvent.Storage -> openStorage?.invoke()
                 is ChatEvent.Copy -> clipboard.setText(AnnotatedString(event.text))
                 is ChatEvent.OpenUrl -> runCatching {
-                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(event.url)))
+                    // Only web links leave the app; any other scheme in a card link is dropped.
+                    val uri = android.net.Uri.parse(event.url)
+                    if (uri.scheme.equals("https", ignoreCase = true) || uri.scheme.equals("http", ignoreCase = true)) {
+                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
+                    }
                 }
             }
         }
