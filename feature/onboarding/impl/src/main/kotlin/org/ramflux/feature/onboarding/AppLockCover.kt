@@ -3,6 +3,7 @@
 
 package org.ramflux.feature.onboarding
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -35,11 +37,13 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -74,7 +78,16 @@ data class AppLockCoverState(
     val waitSecs: Long = 0L,
     val exhausted: Boolean = false,
     /** The locked account whose recovery phrase the cover shows in place of the code form; null while the code form shows. */
-    val recoveryAccount: String? = null
+    val recoveryAccount: String? = null,
+    /** Why the recovery went back to its first step (phrase mismatch, expired, failed); shown above the form. */
+    val recoveryNotice: UiText? = null,
+    /** The phrase was accepted and core granted one code try after the wait: the countdown reads as that. */
+    val phraseAccepted: Boolean = false,
+    /** The remove-from-this-device confirmation is open for the locked account; [removeName] is its display name if known. */
+    val removeOpen: Boolean = false,
+    val removeName: String? = null,
+    val removing: Boolean = false,
+    val removeFailed: Boolean = false
 )
 
 /**
@@ -90,6 +103,10 @@ class AppLockViewModel @Inject constructor(
 ) : ViewModel() {
     private val local = MutableStateFlow(AppLockCoverState())
     private var waitJob: Job? = null
+    private val removedChannel = Channel<Unit>(Channel.BUFFERED)
+
+    /** One item after the locked account was removed from this device; the cover is already gone or going. */
+    val removed = removedChannel.receiveAsFlow()
 
     init {
         // Any account change (unlock, switch, lock, sign-out) can change which account the lock applies to.
@@ -128,17 +145,108 @@ class AppLockViewModel @Inject constructor(
         local.update { it.copy(recoveryAccount = null) }
     }
 
-    /** A recovered account is opened by the normal path: the lock is read again, and the cover lowers only if it lifts. */
+    /**
+     * A recovered account is opened by the normal path: the lock is read again, and the cover lowers only when core's state
+     * says it lifted (never on the reply alone). If it still reads locked, the cover returns to its lock page.
+     */
     fun recovered() {
-        resetCover()
-        viewModelScope.launch { session.recheckAppLock() }
+        viewModelScope.launch {
+            session.recheckAppLock()
+            val status = session.status.value
+            val account = status.appLockAccount
+            if (status.coverPhase() == AppLockPhase.LOCKED && account != null) {
+                local.update { it.copy(recoveryAccount = null, recoveryNotice = null) }
+                readThrottle(account)
+            }
+        }
+    }
+
+    /**
+     * A refused recovery confirmation. Core consumed the ceremony. A wait or a wrong code ends the recovery and reads core's
+     * state again; a wrong phrase, an expiry or any other failure goes back to the first step (the form calls `begin` again).
+     * Returns true when the recovery restarts.
+     */
+    fun recoveryRefused(refusal: AccountCodeRefusal?): Boolean {
+        val account = session.status.value.appLockAccount
+        if (local.value.recoveryAccount == null || account == null) return false
+        when (refusal) {
+            AccountCodeRefusal.RETRY_LATER -> {
+                local.update { it.copy(recoveryAccount = null, recoveryNotice = null, phraseAccepted = true, notice = null) }
+                viewModelScope.launch { readThrottle(account) }
+            }
+            AccountCodeRefusal.WRONG_CODE -> {
+                local.update {
+                    it.copy(recoveryAccount = null, recoveryNotice = null, notice = uiText(R.string.app_lock_code_wrong))
+                }
+                viewModelScope.launch { readThrottle(account) }
+            }
+            AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> {
+                local.update { it.copy(recoveryAccount = null, recoveryNotice = null, notice = null) }
+                viewModelScope.launch { readThrottle(account) }
+            }
+            else -> {
+                val line = when (refusal) {
+                    AccountCodeRefusal.RECOVERY_PHRASE_MISMATCH -> uiText(R.string.app_lock_phrase_wrong)
+                    AccountCodeRefusal.RECOVERY_EXPIRED -> uiText(R.string.app_lock_recovery_expired)
+                    else -> uiText(R.string.app_lock_unlock_failed)
+                }
+                local.update { it.copy(recoveryNotice = line) }
+                return true
+            }
+        }
+        return false
+    }
+
+    /** Opens the remove-from-this-device confirmation of the locked account; its name is read when core admits the read. */
+    fun requestRemove() {
+        val account = session.status.value.appLockAccount ?: return
+        local.update { it.copy(removeOpen = true, removeName = null, removing = false, removeFailed = false) }
+        viewModelScope.launch {
+            val name = (accounts.list() as? ClientResult.Ready)?.value?.accounts?.firstOrNull { it.id == account }?.label
+            if (session.status.value.appLockAccount == account) local.update { it.copy(removeName = name) }
+        }
+    }
+
+    fun cancelRemove() {
+        if (local.value.removing) return
+        local.update { it.copy(removeOpen = false, removeName = null, removeFailed = false) }
+    }
+
+    /**
+     * Removes the locked account and its local data from this device. The account id is the lock's account, never typed;
+     * on success the lock is read again, so the cover shows the next locked account or hands over to the picker or
+     * onboarding. On failure nothing changed and the dialog says so.
+     */
+    fun confirmRemove() {
+        val account = session.status.value.appLockAccount ?: return
+        if (!local.value.removeOpen || local.value.removing) return
+        local.update { it.copy(removing = true, removeFailed = false) }
+        viewModelScope.launch {
+            try {
+                when (accounts.removeLocal(account)) {
+                    is ClientResult.Ready -> {
+                        resetCover()
+                        removedChannel.send(Unit)
+                        session.recheckAppLock()
+                    }
+                    else -> local.update { it.copy(removeFailed = true) }
+                }
+            } finally {
+                local.update { it.copy(removing = false) }
+            }
+        }
     }
 
     /** Ends what the cover showed for the lock: the wait countdown, the exhausted route, the notice and any recovery. */
     private fun resetCover() {
         waitJob?.cancel()
         waitJob = null
-        local.update { it.copy(waitSecs = 0L, exhausted = false, notice = null, recoveryAccount = null) }
+        local.update {
+            it.copy(
+                waitSecs = 0L, exhausted = false, notice = null, recoveryAccount = null, recoveryNotice = null,
+                phraseAccepted = false, removeOpen = false, removeName = null, removing = false, removeFailed = false
+            )
+        }
     }
 
     /** Reads the lock again, or reopens the session when it failed: an UNKNOWN cover answers with the next state read. */
@@ -161,7 +269,7 @@ class AppLockViewModel @Inject constructor(
             local.update { it.copy(notice = uiText(R.string.ui_enter_the_account_code)) }
             return
         }
-        local.update { it.copy(busy = true, notice = null) }
+        local.update { it.copy(busy = true, notice = null, phraseAccepted = false) }
         viewModelScope.launch {
             try {
                 // The locked account is not the active one: its id comes from the lock read, never from the active account.
@@ -206,9 +314,7 @@ class AppLockViewModel @Inject constructor(
                 readThrottle(account)
             }
             AccountCodeRefusal.RETRY_LATER -> readThrottle(account)
-            AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> local.update {
-                it.copy(exhausted = true, notice = codeText(AccountCodeRefusal.ATTEMPTS_EXHAUSTED, null))
-            }
+            AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> local.update { it.copy(exhausted = true, notice = null) }
             else -> local.update {
                 it.copy(
                     notice = problem.accountCodeRefusal()?.let { refusal -> codeText(refusal, problem.retryAfterSecs) }
@@ -218,13 +324,17 @@ class AppLockViewModel @Inject constructor(
         }
     }
 
-    /** Reads the throttle core holds now and counts it down; the field stays disabled until the count ends. */
+    /** Reads the state core holds now (exhausted or a throttle) and counts a wait down; the field stays disabled until it ends. */
     private suspend fun readThrottle(account: String) {
         val status = (security.appLockState(account) as? ClientResult.Ready)?.value ?: return
         if (status.codeAttemptsExhausted) {
-            local.update { it.copy(exhausted = true, notice = codeText(AccountCodeRefusal.ATTEMPTS_EXHAUSTED, null)) }
+            waitJob?.cancel()
+            waitJob = null
+            local.update { it.copy(exhausted = true, waitSecs = 0L, phraseAccepted = false) }
             return
         }
+        // The field returns only when core's state says the account is not exhausted.
+        local.update { it.copy(exhausted = false) }
         val waitMs = status.codeRetryAfterMs?.takeIf { it > 0L } ?: return
         val deadline = System.nanoTime() + waitMs * 1_000_000L
         waitJob?.cancel()
@@ -233,7 +343,10 @@ class AppLockViewModel @Inject constructor(
                 val left = (deadline - System.nanoTime()).coerceAtLeast(0L)
                 val secs = (left + 999_999_999L) / 1_000_000_000L
                 local.update { it.copy(waitSecs = secs) }
-                if (secs == 0L) break
+                if (secs == 0L) {
+                    local.update { it.copy(phraseAccepted = false) }
+                    break
+                }
                 delay(1_000L)
             }
         }
@@ -276,6 +389,14 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
         }
     }
     val recovering = ui.recoveryAccount
+    val removedNotice = stringResource(R.string.ui_account_removed)
+    val context = LocalContext.current
+    LaunchedEffect(vm) {
+        vm.removed.collect { Toast.makeText(context, removedNotice, Toast.LENGTH_LONG).show() }
+    }
+    if (ui.removeOpen && ui.phase == AppLockPhase.LOCKED) {
+        RemoveAccountDialog(ui.removeName, ui.removing, ui.removeFailed, onConfirm = vm::confirmRemove, onDismiss = vm::cancelRemove)
+    }
     when (ui.phase) {
         AppLockPhase.OPEN -> Unit
         AppLockPhase.UNKNOWN -> CoverSurface {
@@ -288,7 +409,13 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
         }
         AppLockPhase.LOCKED -> {
             if (recovering != null) {
-                LockRecovery(recovering, onBack = vm::endRecovery, onRecovered = vm::recovered)
+                LockRecovery(
+                    recovering,
+                    notice = ui.recoveryNotice,
+                    onBack = vm::endRecovery,
+                    onRecovered = vm::recovered,
+                    onRefused = vm::recoveryRefused
+                )
             } else {
                 CoverSurface {
                     Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
@@ -299,7 +426,13 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
                         )
                         Text(stringResource(R.string.app_lock_body), style = MaterialTheme.typography.bodyLarge)
                         if (ui.exhausted) {
-                            // No code field after too many wrong codes: only the recovery phrase opens the account.
+                            // No code field after too many wrong codes: recover with the phrase, or remove the account here.
+                            Text(
+                                stringResource(R.string.app_lock_exhausted_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.testTag("app-lock-exhausted")
+                            )
+                            Text(stringResource(R.string.app_lock_exhausted_body), style = MaterialTheme.typography.bodyMedium)
                             ui.notice?.let {
                                 Text(
                                     it.render(),
@@ -313,6 +446,13 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
                                 Modifier.fillMaxWidth(),
                                 tag = "app-lock-restore"
                             )
+                            KitButton(
+                                stringResource(R.string.app_lock_remove),
+                                { vm.requestRemove() },
+                                Modifier.fillMaxWidth(),
+                                kind = KitButtonKind.Destructive,
+                                tag = "app-lock-remove"
+                            )
                         } else {
                             val waiting = ui.waitSecs > 0L
                             AccountCodeField(
@@ -325,7 +465,10 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
                             if (waiting) {
                                 val wait = "%02d:%02d".format(ui.waitSecs / 60, ui.waitSecs % 60)
                                 Text(
-                                    stringResource(R.string.app_lock_wait, wait),
+                                    stringResource(
+                                        if (ui.phraseAccepted) R.string.app_lock_phrase_accepted else R.string.app_lock_wait,
+                                        wait
+                                    ),
                                     style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.testTag("app-lock-wait")
                                 )
@@ -358,7 +501,13 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
  * code form; a recovered account goes through the normal unlock path.
  */
 @Composable
-private fun LockRecovery(account: String, onBack: () -> Unit, onRecovered: () -> Unit) {
+private fun LockRecovery(
+    account: String,
+    notice: UiText?,
+    onBack: () -> Unit,
+    onRecovered: () -> Unit,
+    onRefused: (AccountCodeRefusal?) -> Boolean
+) {
     val theme = LocalRFTheme.current
     val ceremony = hiltViewModel<OnboardingViewModel>(key = "app-lock-recovery")
     val state by ceremony.state.collectAsStateWithLifecycle()
@@ -373,7 +522,14 @@ private fun LockRecovery(account: String, onBack: () -> Unit, onRecovered: () ->
     }
     LaunchedEffect(account) { ceremony.requestRecovery(account) }
     LaunchedEffect(ceremony) {
-        ceremony.events.collect { event -> if (event is OnboardingEvent.AccountSelected) onRecovered() }
+        ceremony.events.collect { event ->
+            when (event) {
+                is OnboardingEvent.AccountSelected -> onRecovered()
+                // Back to the first step: `begin` again re-reads the fingerprint. The typed buffers are already cleared.
+                is OnboardingEvent.RecoveryRefused -> if (onRefused(event.refusal)) ceremony.requestRecovery(account)
+                else -> Unit
+            }
+        }
     }
     val leave = {
         ceremony.onAction(OnboardingAction.Back)
@@ -382,10 +538,10 @@ private fun LockRecovery(account: String, onBack: () -> Unit, onRecovered: () ->
     BackHandler(onBack = leave)
     CoverSurface {
         Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp), modifier = Modifier.testTag("app-lock-recovery")) {
-            Text(stringResource(R.string.ui_recover_account), style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.app_lock_recover_title), style = MaterialTheme.typography.headlineSmall)
             if (state.busy) Text(stringResource(R.string.ui_please_wait), style = MaterialTheme.typography.bodyMedium)
-            state.notice?.let {
-                Text(it.message.render(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("app-lock-notice"))
+            (notice ?: state.notice?.message)?.let {
+                Text(it.render(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("app-lock-notice"))
             }
             if (state.recovery != null) {
                 RecoverPage(state, entry, ceremony::onAction)

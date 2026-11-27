@@ -34,6 +34,7 @@ fun OnboardingNavigation(
         vm.events.collect { event ->
             when (event) {
                 OnboardingEvent.Back -> onBack()
+                is OnboardingEvent.RecoveryRefused -> Unit
                 is OnboardingEvent.AccountSelected -> onAccountSelected(event.id)
                 is OnboardingEvent.AccountCreated -> onAccountCreated(event.id)
                 OnboardingEvent.RestoreBackup -> onRestoreBackup()
