@@ -59,12 +59,12 @@ class SettingsScreenTest {
         compose.setContent {
             RamfluxTheme { SettingsScreen(state, {}) }
         }
-        compose.onNodeWithTag("app-lock-switch-hit")
+        compose.onNodeWithTag("app-lock-switch", useUnmergedTree = true)
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ToggleableState))
         compose.runOnIdle { state = state.copy(appLock = SettingsAppLock(loaded = true, enabled = true)) }
-        compose.onNodeWithTag("app-lock-switch-hit").assertIsOn()
+        compose.onNodeWithTag("app-lock-switch", useUnmergedTree = true).assertIsOn()
         compose.runOnIdle { state = state.copy(appLock = SettingsAppLock(loaded = true, enabled = false)) }
-        compose.onNodeWithTag("app-lock-switch-hit").assertIsOff()
+        compose.onNodeWithTag("app-lock-switch", useUnmergedTree = true).assertIsOff()
     }
 
     @Test fun noAccountDevicesExplainsBothLocalesAndEmitsAccountActionWithoutPrivateReads() {

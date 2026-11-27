@@ -45,8 +45,16 @@ fun KitSwitch(
     stateKnown: Boolean = true
 ) {
     val theme = LocalRFTheme.current
-    val exposed = modifier.semantics { if (stateKnown) this[SemanticsProperties.ToggleableState] = ToggleableState(checked) }
-    HitBox(tag, enabled, { onChecked(!checked) }, exposed.alpha(if (enabled) 1f else RfMetrics.disabledAlpha), Role.Switch, label) {
+    val state = Modifier.semantics { if (stateKnown) this[SemanticsProperties.ToggleableState] = ToggleableState(checked) }
+    HitBox(
+        tag,
+        enabled,
+        { onChecked(!checked) },
+        modifier.alpha(if (enabled) 1f else RfMetrics.disabledAlpha),
+        Role.Switch,
+        label,
+        inner = state
+    ) {
         Box(
             Modifier
                 .size(dp(RfMetrics.switchWidth), dp(RfMetrics.switchHeight))
