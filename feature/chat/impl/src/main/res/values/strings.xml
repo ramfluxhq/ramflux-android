@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="ui_account_access_is_unavailable_value">Account access is unavailable: %1$s</string>
     <string name="ui_account_state_could_not_be_read_code_value">Account state could not be read (%1$s).</string>
     <string name="ui_back">Back</string>
@@ -396,8 +396,8 @@
     </plurals>
     <string name="group_chat_hint_agent_mobile">You can add an agent from your desktop to keep the group open for joins.</string>
     <string name="group_chat_hint_agent_invite">Get invite link</string>
-    <string name="group_quota_post">%1$d of %2$d messages left today</string>
-    <string name="group_quota_post_first_day">First day: %1$d of %2$d messages left</string>
+    <string name="group_quota_post" tools:ignore="PluralsCandidate">%1$d of %2$d messages left today</string>
+    <string name="group_quota_post_first_day" tools:ignore="PluralsCandidate">First day: %1$d of %2$d messages left</string>
     <string name="group_chat_quota_resets">Resets %1$s</string>
     <string name="group_privacy_delay_eta">Messages you send now go out around %1$s.</string>
     <string name="group_chat_error_not_admin">Only admins can do this.</string>

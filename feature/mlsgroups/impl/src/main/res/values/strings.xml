@@ -161,7 +161,7 @@
         <item quantity="one">%d join request</item>
         <item quantity="other">%d join requests</item>
     </plurals>
-    <string name="group_requests_entry_more">More than %1$d join requests</string>
+    <string name="group_requests_entry_more" tools:ignore="PluralsCandidate">More than %1$d join requests</string>
     <string name="group_requests_empty">No pending requests</string>
     <string name="group_requests_requested">Asked %1$s</string>
     <string name="group_requests_expires">Expires %1$s</string>
@@ -236,7 +236,7 @@
     <string name="group_hint_agent_mobile">You can add an agent from your desktop to keep the group open for joins.</string>
     <string name="group_hint_agent_invite">Get invite link</string>
     <string name="group_join_pending_online_note">This group admits new members only while a member\'s device or an agent is online.</string>
-    <string name="group_quota_commit">%1$d of %2$d group changes left today on this device</string>
+    <string name="group_quota_commit" tools:ignore="PluralsCandidate">%1$d of %2$d group changes left today on this device</string>
     <string name="group_quota_resets">Resets %1$s</string>
     <string name="group_privacy_delay_info">Messages are sent with a short random delay for privacy.</string>
 </resources>
