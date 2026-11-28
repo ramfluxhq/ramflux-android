@@ -21,7 +21,9 @@ data class ConversationSummary(
     /** True when no name is known and [title] is a short identifier; the screen isolates it left to right. */
     val titleIsIdentifier: Boolean = false,
     /** The direct peer carries the SDK-verified AI marker. */
-    val ai: Boolean = false
+    val ai: Boolean = false,
+    /** The direct peer's contact identifier (the route's root commitment), when the directory row names it. */
+    val peer: String? = null
 )
 data class ConversationPage(val rows: List<ConversationSummary>, val nextCursor: String?)
 

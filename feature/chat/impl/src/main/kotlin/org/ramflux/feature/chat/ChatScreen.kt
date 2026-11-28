@@ -54,6 +54,8 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 import org.ramflux.data.ChatReaction
+import org.ramflux.data.IdentityReviewError
+import org.ramflux.data.IdentityState
 import org.ramflux.designsystem.Bidi
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
@@ -62,12 +64,16 @@ import org.ramflux.designsystem.kit.KitAvatar
 import org.ramflux.designsystem.kit.KitAvatarKind
 import org.ramflux.designsystem.kit.KitBubble
 import org.ramflux.designsystem.kit.KitBubbleKind
+import org.ramflux.designsystem.kit.KitButton
+import org.ramflux.designsystem.kit.KitButtonKind
 import org.ramflux.designsystem.kit.KitChatHeader
 import org.ramflux.designsystem.kit.KitComposer
 import org.ramflux.designsystem.kit.KitContextMenu
 import org.ramflux.designsystem.kit.KitDateChip
 import org.ramflux.designsystem.kit.KitEmpty
 import org.ramflux.designsystem.kit.KitFailedMark
+import org.ramflux.designsystem.kit.KitIdentityChangeSheet
+import org.ramflux.designsystem.kit.KitIdentityNotice
 import org.ramflux.designsystem.kit.KitMenuEntry
 import org.ramflux.designsystem.kit.KitMeta
 import org.ramflux.designsystem.kit.KitPageHeader
@@ -75,8 +81,10 @@ import org.ramflux.designsystem.kit.KitReaction
 import org.ramflux.designsystem.kit.KitReactionBar
 import org.ramflux.designsystem.kit.KitRow
 import org.ramflux.designsystem.kit.KitRowTrailing
+import org.ramflux.designsystem.kit.KitSecurityWarning
 import org.ramflux.designsystem.kit.KitTipBar
 import org.ramflux.designsystem.kit.KitUnreadDivider
+import org.ramflux.designsystem.kit.KitWarningTone
 import org.ramflux.designsystem.kit.kitBubbleCap
 import org.ramflux.designsystem.render
 import org.ramflux.designsystem.uiText
@@ -122,6 +130,9 @@ fun ChatScreen(
                 state.headerProblem?.let { problem ->
                     KitTipBar(problem.render(), "circle-alert", Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp))
                 }
+                if (state.groupId == null && state.identityState == IdentityState.CHANGED) {
+                    IdentityBanner(state, onAction)
+                }
                 if (state.queued) {
                     KitTipBar(
                         stringResource(R.string.chat_offline_notice),
@@ -137,6 +148,7 @@ fun ChatScreen(
                     }
                 }
                 Notices(state)
+                if (state.sendBlocked && state.identityState == IdentityState.CHANGED) IdentityComposerPrompt(state, onAction)
                 Composer(state, onAction, bottomInset) {
                     keyboard?.hide()
                     focus.clearFocus()
@@ -154,7 +166,68 @@ fun ChatScreen(
             state.gallery?.let { Gallery(it, onAction) }
             state.preview?.let { SendPreviewSheet(it, onAction) }
             state.forward?.let { ForwardChooser(it, onAction) }
+            state.review?.let { sheet ->
+                KitIdentityChangeSheet(
+                    name = state.peerName.orEmpty(),
+                    username = sheet.username,
+                    ai = sheet.aiFlag,
+                    accepting = sheet.accepting,
+                    waiting = sheet.newAnchor == null,
+                    notice = when (sheet.error) {
+                        IdentityReviewError.ALREADY_HANDLED -> KitIdentityNotice.AlreadyHandled
+                        IdentityReviewError.CHANGED_AGAIN -> KitIdentityNotice.ChangedAgain
+                        IdentityReviewError.FAILED -> KitIdentityNotice.Failed
+                        null -> null
+                    },
+                    onAccept = { onAction(ChatAction.AcceptIdentity) },
+                    onLater = { onAction(ChatAction.LaterIdentity) }
+                )
+            }
         }
+    }
+}
+
+/** The identity banner (board B10 look): shown while the peer's identity is changed. It has no dismiss; only a review ends it. */
+@Composable
+private fun IdentityBanner(state: ChatState, onAction: (ChatAction) -> Unit) {
+    val gap = LocalRFTheme.current.gap
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = gap.dp, vertical = (gap * .5f).dp).testTag("identity-banner"),
+        verticalArrangement = Arrangement.spacedBy((gap * .5f).dp)
+    ) {
+        KitSecurityWarning(
+            stringResource(R.string.identity_state_changed),
+            uiText(R.string.identity_changed_banner, UiText.Untrusted(state.peerName.orEmpty())).render(),
+            KitWarningTone.Warning
+        )
+        KitButton(
+            stringResource(R.string.identity_changed_review),
+            { onAction(ChatAction.ReviewIdentity) },
+            kind = KitButtonKind.Secondary,
+            tag = "identity-review"
+        )
+    }
+}
+
+/** Above the composer after `identity_change_pending`: the message is kept as a failed bubble and is never sent again by itself. */
+@Composable
+private fun IdentityComposerPrompt(state: ChatState, onAction: (ChatAction) -> Unit) {
+    val gap = LocalRFTheme.current.gap
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = gap.dp, vertical = (gap * .5f).dp).testTag("identity-composer-prompt"),
+        verticalArrangement = Arrangement.spacedBy((gap * .5f).dp)
+    ) {
+        KitSecurityWarning(
+            stringResource(R.string.identity_state_changed),
+            uiText(R.string.identity_send_blocked, UiText.Untrusted(state.peerName.orEmpty())).render(),
+            KitWarningTone.Warning
+        )
+        KitButton(
+            stringResource(R.string.identity_changed_review),
+            { onAction(ChatAction.ReviewIdentity) },
+            kind = KitButtonKind.Secondary,
+            tag = "identity-review-composer"
+        )
     }
 }
 
@@ -308,7 +381,9 @@ private fun Timeline(state: ChatState, stamps: Stamps, anchors: BubbleAnchors, o
     }
     LaunchedEffect(newestShown, list) {
         val shown = (newestShown until list.size).firstNotNullOfOrNull { index ->
-            ((list[index].entry as? Entry.Row)?.item as? MessageItem)?.takeIf { it.delivery == null }
+            ((list[index].entry as? Entry.Row)?.item as? MessageItem)?.takeIf {
+                it.delivery == null && !it.id.startsWith(IDENTITY_LINE)
+            }
         }
         if (shown != null) onAction(ChatAction.Shown(shown.id))
     }

@@ -34,7 +34,9 @@ fun ExactConversationRow(
     timestamp: String,
     unread: String,
     isUnread: Boolean,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    /** The accessibility text of a warning glyph beside the title (a contact whose identity changed); null shows none. */
+    warning: String? = null
 ) {
     val theme = LocalRFTheme.current
     val layout = LocalRFLayout.current
@@ -69,6 +71,9 @@ fun ExactConversationRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (warning != null) {
+                    org.ramflux.designsystem.kit.KitIcon("triangle-alert", 16f, theme.warning, description = warning)
+                }
                 Text(timestamp, color = theme.secondary, fontSize = theme.size_mobile_caption.sp)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp)) {

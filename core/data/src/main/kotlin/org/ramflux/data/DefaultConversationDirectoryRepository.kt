@@ -105,7 +105,7 @@ internal class DefaultConversationDirectoryRepository(
         val shown = sdkTitle ?: named ?: if (identifier) PeerDirectory.shortIdentifier(peer, id) else id
         return ConversationSummary(
             id, shown, unread, archived, isUnread, lastActivity, muted, group, groupId.takeIf { group },
-            titleIsIdentifier = identifier, ai = known?.ai == true
+            titleIsIdentifier = identifier, ai = known?.ai == true, peer = peer.takeIf { isDirect() }
         )
     }
 

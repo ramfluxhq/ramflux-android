@@ -43,4 +43,6 @@
     <string name="ui_retry">重试加载</string>
     <!-- Footnote above the load more button: order is recent-first only within the loaded part of the list. -->
     <string name="ui_sorted_within_loaded">按最近活动排序，仅限已加载的会话。</string>
+    <!-- Accessibility text of the warning glyph on a conversation whose contact's identity changed. -->
+    <string name="identity_state_changed">身份已更改</string>
 </resources>
