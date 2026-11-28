@@ -47,6 +47,7 @@ class EventHub internal constructor(
     private val reset: suspend (ULong) -> CoreResult<JsonObject>,
     private val scope: CoroutineScope,
     private val capacity: Int = SUBSCRIBER_CAPACITY,
+    private val detach: suspend () -> Unit = {},
 ) {
     private class Subscriber(val account: String?, val topics: Set<String>, val channel: Channel<CoreUpdate>)
 
@@ -122,6 +123,9 @@ class EventHub internal constructor(
         }
         try {
             pending.forEach { it.join() }
+            // A pump that ended on its own (a refused subscribe, a lock) can leave core's attended mark behind with no
+            // subscription the hub knows of: with no pump running, the core subscription is closed explicitly.
+            if (synchronized(lock) { pump == null }) detach()
             return block()
         } finally {
             withContext(NonCancellable) {
