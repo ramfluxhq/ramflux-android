@@ -243,7 +243,7 @@
     <string name="ui_remove_dialog_cancel">取消</string>
     <string name="ui_account_removed">已从本设备移除 %1$s。</string>
     <string name="ui_account_removed_unnamed">已从本设备移除此账户。</string>
-    <string name="ui_unknown_name">未知</string>
+    <string name="ui_account_name_fallback">账户</string>
     <string name="ui_your_accounts">你的账户</string>
     <string name="ui_add_another_account">添加其他账户</string>
     <string name="ui_details">详细信息</string>

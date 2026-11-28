@@ -24,7 +24,7 @@ import org.ramflux.feature.onboarding.impl.R
 /**
  * The account a lock or remove screen acts on (D-2): the avatar initial, the display name as the title line, and one
  * secondary line under it. [status] is "Locked" on the lock page; the remove dialog passes the short id line [accountId]
- * instead. A name that could not be read is "Unknown", never an id.
+ * instead. A name that could not be read is the neutral word "Account" with a blank initial, never "Unknown" and never an id.
  */
 @Composable
 internal fun AccountIdentity(
@@ -36,13 +36,14 @@ internal fun AccountIdentity(
     statusTag: String? = null
 ) {
     val theme = LocalRFTheme.current
-    val shown = name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.ui_unknown_name)
+    val known = name?.takeIf { it.isNotBlank() }
+    val shown = known ?: stringResource(R.string.ui_account_name_fallback)
     Row(
         modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(theme.gap.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        KitAvatar(shown.take(1), 48f, KitAvatarKind.Person)
+        KitAvatar(known?.take(1) ?: "", 48f, KitAvatarKind.Person)
         Column(Modifier.weight(1f)) {
             Text(shown, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag(nameTag))
             status?.let {
