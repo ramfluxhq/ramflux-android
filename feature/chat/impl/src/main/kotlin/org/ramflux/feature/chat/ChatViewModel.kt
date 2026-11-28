@@ -13,8 +13,6 @@ import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonPrimitive
 import org.ramflux.data.*
 import org.ramflux.data.cards.CardEvent
@@ -39,7 +37,7 @@ class ChatViewModel @Inject constructor(
     private val stager: MediaStager,
     private val queue: MediaTransfers,
     private val cards: CardSessionRepository,
-    private val outboxStore: ChatOutboxRepository = NoChatOutbox,
+    private val coordinator: ChatOutboxCoordinator = noOutbox(),
     private val identity: ContactIdentityRepository = UnavailableContactIdentity
 ) : ViewModel() {
     /** For hosts without an application-wide transfer queue: downloads then end with this chat. */
@@ -61,7 +59,7 @@ class ChatViewModel @Inject constructor(
         identity: ContactIdentityRepository = UnavailableContactIdentity
     ) : this(
         history, accounts, session, drafts, UnavailableMediaRepository(), NoMediaStager, localQueue(UnavailableMediaRepository(), session),
-        UnavailableCardSessionRepository(), NoChatOutbox, identity
+        UnavailableCardSessionRepository(), noOutbox(), identity
     )
 
     private data class Target(val account: String, val conversation: String, val group: String?)
@@ -79,7 +77,6 @@ class ChatViewModel @Inject constructor(
     /** The target whose sealed outbox was read back; until then nothing is written over it. */
     private var outboxRestored: Target? = null
     private var persistedOutbox: List<QueuedSend>? = null
-    private val outboxWrites = Mutex()
 
     /** The SDK reported sending available for the open conversation (queued sends may go). */
     private var sendReady = false
@@ -147,6 +144,9 @@ class ChatViewModel @Inject constructor(
 
     /** The direct peer's contact identifier of the open conversation, as the header reported it. */
     private var peerRoot: String? = null
+
+    /** A blocked direct send tapped before the header named the peer: it is retried once the header read has run. */
+    private var pendingRetry: String? = null
 
     /** The change the peer's last `contact.identity_changed` event (or status read) delivered and the person has not accepted. */
     private var pendingChange: IdentityChange? = null
@@ -454,6 +454,10 @@ class ChatViewModel @Inject constructor(
                 val facts = (header as? ClientResult.Ready)?.value
                 if (currentTarget.group == null) {
                     peerRoot = facts?.peer
+                    pendingRetry?.let { waiting ->
+                        pendingRetry = null
+                        if (peerRoot != null) retry(waiting)
+                    }
                     facts?.peer?.let { watchIdentity(currentTarget, it) }
                 }
                 local.update {
@@ -569,20 +573,26 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             if (!accountStillOpen(currentTarget, generation)) return@launch
             val staged = outgoing.staged
+            // The coordinator runs the send in the application scope and records a refusal in the store before it returns, so
+            // nothing below is needed for the refusal to survive this screen.
             val sent = if (staged.isEmpty()) {
-                history.send(currentTarget.account, currentTarget.conversation, outgoing.text, outgoing.operation)
+                coordinator.send(currentTarget.account, currentTarget.conversation, id, outgoing.operation) {
+                    history.send(currentTarget.account, currentTarget.conversation, outgoing.text, outgoing.operation)
+                }
             } else {
                 // The application queue owns the upload, so it goes on when this chat closes.
-                queue.upload(
-                    currentTarget.account,
-                    MediaDestination(currentTarget.conversation, currentTarget.group),
-                    outgoing.text,
-                    staged,
-                    outgoing.operation
-                )
+                coordinator.send(currentTarget.account, currentTarget.conversation, id, outgoing.operation) {
+                    queue.upload(
+                        currentTarget.account,
+                        MediaDestination(currentTarget.conversation, currentTarget.group),
+                        outgoing.text,
+                        staged,
+                        outgoing.operation
+                    )
+                }
             }
             if (target != currentTarget || generation != session.status.value.generation) {
-                if (sent is ClientResult.Failed && SendBlock.of(sent.problem) != null) blockAfterClose(currentTarget, id, outgoing)
+                if (target == currentTarget && sent is ClientResult.Failed && SendBlock.of(sent.problem) != null) markBlocked(outgoing.operation)
                 return@launch
             }
             when (sent) {
@@ -645,27 +655,18 @@ class ChatViewModel @Inject constructor(
     }
 
     /**
-     * A refusal for a pending identity change that arrives after the chat closed (or the account locked) still marks the send
-     * blocked: in memory when the same chat is still held, otherwise in its persisted outbox row, so a later open never
-     * resends it by itself.
+     * A refusal that reached this screen after its generation changed (lock and unlock) blocks every row of that operation,
+     * including the copy restored after the unlock. The store was already written by the coordinator.
      */
-    private fun blockAfterClose(closed: Target, id: String, outgoing: Outgoing) {
-        outgoing.blocked = true
-        if (target == closed) {
-            if (outbox[id] === outgoing) {
-                outgoing.delivery = LocalDelivery.FAILED
-                publish()
-            }
-            return
+    private fun markBlocked(operation: String) {
+        var changed = false
+        for (outgoing in outbox.values) {
+            if (outgoing.operation != operation) continue
+            outgoing.blocked = true
+            outgoing.delivery = LocalDelivery.FAILED
+            changed = true
         }
-        viewModelScope.launch(NonCancellable) {
-            outboxWrites.withLock {
-                val stored = outboxStore.load(closed.account, closed.conversation)
-                if (stored.any { it.id == id }) {
-                    outboxStore.save(closed.account, closed.conversation, stored.map { if (it.id == id) it.copy(blocked = true) else it })
-                }
-            }
-        }
+        if (changed) publish()
     }
 
     private fun retry(id: String) {
@@ -680,8 +681,14 @@ class ChatViewModel @Inject constructor(
             when (local.value.identityState) {
                 IdentityState.CHANGED -> holdBlocked()
                 IdentityState.UNKNOWN -> if (root == null) {
-                    // No peer identity to read (not a direct chat): the explicit tap sends, and the SDK stays the gate.
-                    resend(currentTarget, id)
+                    if (currentTarget.group != null) {
+                        // No peer identity to read (not a direct chat): the explicit tap sends, and the SDK stays the gate.
+                        resend(currentTarget, id)
+                    } else {
+                        // A direct chat whose header has not named the peer yet: nothing is sent before the identity can be read.
+                        pendingRetry = id
+                        if (request?.isActive == true) needsRefresh = true else read()
+                    }
                 } else {
                     readIdentity(currentTarget, root, afterAccept = false) { read ->
                         if (read == null || read == IdentityState.CHANGED) holdBlocked() else resend(currentTarget, id)
@@ -704,7 +711,8 @@ class ChatViewModel @Inject constructor(
         val outgoing = outbox[id] ?: return
         if (outgoing.delivery == LocalDelivery.SENDING || session.status.value.phase != ClientPhase.OPEN) return
         // An uncertain outcome is retried under the same operation id so the SDK can reconcile it.
-        val again = if (outgoing.definite) outgoing.copy(operation = UUID.randomUUID().toString()) else outgoing
+        // A refusal is a definite non-send and its operation is never sent again, so a blocked row always gets a new one.
+        val again = if (outgoing.definite || outgoing.blocked) outgoing.copy(operation = UUID.randomUUID().toString()) else outgoing
         again.delivery = LocalDelivery.SENDING
         again.blocked = false
         outbox[id] = again
@@ -859,7 +867,7 @@ class ChatViewModel @Inject constructor(
      */
     private fun restoreOutbox(next: Target) {
         viewModelScope.launch {
-            val stored = outboxStore.load(next.account, next.conversation)
+            val stored = coordinator.load(next.account, next.conversation)
             if (target != next || session.status.value.phase != ClientPhase.OPEN) return@launch
             for (send in stored) {
                 if (send.id in outbox || outbox.size >= OUTBOX_LIMIT) continue
@@ -896,9 +904,7 @@ class ChatViewModel @Inject constructor(
         }
         if (snapshot == persistedOutbox) return
         persistedOutbox = snapshot
-        viewModelScope.launch(
-            NonCancellable
-        ) { outboxWrites.withLock { outboxStore.save(current.account, current.conversation, snapshot) } }
+        coordinator.persist(current.account, current.conversation, snapshot)
     }
 
     /** The read-model page has no read position; the reader-scoped unread count places the divider. */
@@ -944,6 +950,7 @@ class ChatViewModel @Inject constructor(
         unreadAtOpen = 0
         dividerPlaced = false
         peerRoot = null
+        pendingRetry = null
         pendingChange = null
         serviceLines.clear()
         lineKeys.clear()
@@ -2018,6 +2025,8 @@ internal fun forwardable(row: MessageItem) = row.delivery == null && !row.delete
 private val UNFORWARDABLE = setOf(AttachmentStatus.REVOKED, AttachmentStatus.EXPIRED, AttachmentStatus.NOT_ON_DEVICE)
 private const val WINDOW = 1_000
 private const val DRAFT_DEBOUNCE_MS = 400L
+
+private fun noOutbox() = ChatOutboxCoordinator(NoChatOutbox, CoroutineScope(SupervisorJob() + Dispatchers.Main))
 
 private object NoChatOutbox : ChatOutboxRepository {
     override suspend fun load(account: String, conversation: String): List<QueuedSend> = emptyList()

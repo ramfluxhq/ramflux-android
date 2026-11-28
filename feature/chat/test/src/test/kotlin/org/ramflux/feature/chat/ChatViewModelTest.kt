@@ -28,6 +28,12 @@ class ChatViewModelTest {
     private fun TestScope.observe(vm: ChatViewModel) {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
     }
+    private val coordinators = java.util.IdentityHashMap<ChatOutboxRepository, ChatOutboxCoordinator>()
+
+    /** One coordinator per store, as in the application: view models over one store share it. */
+    private fun TestScope.coordinator(store: ChatOutboxRepository): ChatOutboxCoordinator =
+        coordinators.getOrPut(store) { ChatOutboxCoordinator(store, backgroundScope) }
+
     private fun TestScope.load(vm: ChatViewModel) {
         vm.onAction(ChatAction.Load("a", "c"))
         runCurrent()
@@ -358,7 +364,7 @@ class ChatViewModelTest {
             val session = FakeChatSession()
             return ChatViewModel(
                 history, FakeChatAccounts(), session, FakeChatDrafts(), media, FakeChatStager(),
-                MediaTransfers(media, session, backgroundScope), FakeChatCards(), outbox
+                MediaTransfers(media, session, backgroundScope), FakeChatCards(), coordinator(outbox)
             )
         }
         val first = model()
@@ -398,7 +404,7 @@ class ChatViewModelTest {
             val session = FakeChatSession()
             return ChatViewModel(
                 history, FakeChatAccounts(), session, FakeChatDrafts(), media, FakeChatStager(),
-                MediaTransfers(media, session, backgroundScope), FakeChatCards(), outbox
+                MediaTransfers(media, session, backgroundScope), FakeChatCards(), coordinator(outbox)
             )
         }
         val first = model()
@@ -455,7 +461,7 @@ class ChatViewModelTest {
         val session = FakeChatSession()
         return ChatViewModel(
             history, FakeChatAccounts(), session, FakeChatDrafts(), media, stager,
-            MediaTransfers(media, session, backgroundScope), FakeChatCards(), outbox, identity
+            MediaTransfers(media, session, backgroundScope), FakeChatCards(), coordinator(outbox), identity
         )
     }
 
@@ -572,6 +578,240 @@ class ChatViewModelTest {
         assertEquals(1, history.sends)
     }
 
+    private fun refusal() = ClientResult.Failed(
+        ClientProblem(ClientFailureKind.FAILED, 4, ClientOutcome.REFUSED, statusName = SendBlock.IDENTITY_CHANGE_PENDING)
+    )
+
+    private fun TestScope.chatModel(
+        history: FakeChatHistory,
+        media: FakeChatMedia,
+        session: FakeChatSession,
+        stager: FakeChatStager,
+        coordinator: ChatOutboxCoordinator,
+        identity: ContactIdentityRepository = UnavailableContactIdentity
+    ) = ChatViewModel(
+        history, FakeChatAccounts(), session, FakeChatDrafts(), media, stager,
+        MediaTransfers(media, session, backgroundScope), FakeChatCards(), coordinator, identity
+    )
+
+    @Test fun aRefusalDuringLockIsPersistedBlockedAndNotResentAfterUnlock() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            sendGate = CompletableDeferred()
+            sendResult = refusal()
+        }
+        val outbox = FakeChatOutbox()
+        val session = FakeChatSession()
+        val vm = chatModel(history, FakeChatMedia(), session, FakeChatStager(), coordinator(outbox))
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Draft("in flight"))
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        session.status.value = ClientSnapshot(ClientPhase.CLOSED, 1)
+        runCurrent()
+        history.sendGate?.complete(Unit)
+        runCurrent()
+        assertEquals(listOf(true), outbox.stored["a/c"].orEmpty().map { it.blocked })
+        // The change is accepted elsewhere and the account unlocks: nothing is sent by itself.
+        history.sendGate = null
+        history.sendResult = ClientResult.Ready(SendReceipt("sent"))
+        session.status.value = ClientSnapshot(ClientPhase.OPEN, 2)
+        runCurrent()
+        assertEquals(1, history.sends)
+        assertEquals(LocalDelivery.FAILED, (vm.state.value.rows.single() as MessageItem).delivery)
+        assertTrue(outbox.stored["a/c"].orEmpty().single().blocked)
+    }
+
+    @Test fun aRefusalAfterCloseRacingAReopenIsNotResent() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            sendGate = CompletableDeferred()
+            sendResult = refusal()
+        }
+        val outbox = FakeChatOutbox()
+        val vm = chatModel(history, FakeChatMedia(), FakeChatSession(), FakeChatStager(), coordinator(outbox))
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Draft("in flight"))
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        vm.onAction(ChatAction.Load("a", "other"))
+        runCurrent()
+        outbox.gate = CompletableDeferred()
+        history.sendGate?.complete(Unit)
+        runCurrent()
+        history.sendGate = null
+        history.sendResult = ClientResult.Ready(SendReceipt("sent"))
+        vm.onAction(ChatAction.Load("a", "c"))
+        runCurrent()
+        outbox.gate?.complete(Unit)
+        runCurrent()
+        assertEquals(1, history.sends)
+        assertTrue(outbox.stored["a/c"].orEmpty().single().blocked)
+        assertEquals(LocalDelivery.FAILED, (vm.state.value.rows.single() as MessageItem).delivery)
+    }
+
+    @Test fun backDuringAMediaUploadThenRefusalBlocksTheReopenedSend() = runTest(timeout = 5.seconds) {
+        val dir = java.nio.file.Files.createTempDirectory("outbox-media").toFile()
+        try {
+            val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+            val media = FakeChatMedia().apply {
+                sendGate = CompletableDeferred()
+                sendResult = refusal()
+            }
+            val stager = FakeChatStager().apply { directory = dir }
+            val outbox = FakeChatOutbox()
+            val coordinator = coordinator(outbox)
+            val session = FakeChatSession()
+            val owner = androidx.lifecycle.ViewModelStore()
+            val first = androidx.lifecycle.ViewModelProvider(
+                owner,
+                object : androidx.lifecycle.ViewModelProvider.Factory {
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                        chatModel(history, media, session, stager, coordinator) as T
+                }
+            )[ChatViewModel::class.java]
+            observe(first)
+            runCurrent()
+            load(first)
+            first.onAction(ChatAction.Picked(listOf("content://photo"), PickSource.CAMERA))
+            runCurrent()
+            assertEquals(1, media.sent.size)
+            // Back: the screen's scope is cancelled while the upload runs.
+            owner.clear()
+            runCurrent()
+            media.sendGate?.complete(Unit)
+            runCurrent()
+            media.sendGate = null
+            media.sendResult = ClientResult.Ready(SendReceipt("media"))
+            val second = chatModel(history, media, session, stager, coordinator)
+            observe(second)
+            runCurrent()
+            load(second)
+            runCurrent()
+            assertEquals("nothing is sent again by itself", 1, media.sent.size)
+            val row = second.state.value.rows.single() as MessageItem
+            assertEquals(LocalDelivery.FAILED, row.delivery)
+            assertTrue(outbox.stored["a/c"].orEmpty().single().blocked)
+            second.onAction(ChatAction.Retry(row.id))
+            runCurrent()
+            assertEquals(2, media.sent.size)
+            assertNotEquals("a resend after a refusal uses a new operation", media.sentOperations[0], media.sentOperations[1])
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test fun reopenBeforeTheRefusalJoinsTheInFlightUpload() = runTest(timeout = 5.seconds) {
+        val dir = java.nio.file.Files.createTempDirectory("outbox-media").toFile()
+        try {
+            val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+            val media = FakeChatMedia().apply {
+                sendGate = CompletableDeferred()
+                sendResult = refusal()
+            }
+            val stager = FakeChatStager().apply { directory = dir }
+            val outbox = FakeChatOutbox()
+            val coordinator = coordinator(outbox)
+            val session = FakeChatSession()
+            val first = chatModel(history, media, session, stager, coordinator)
+            observe(first)
+            runCurrent()
+            load(first)
+            first.onAction(ChatAction.Picked(listOf("content://photo"), PickSource.CAMERA))
+            runCurrent()
+            assertEquals(1, media.sent.size)
+            val second = chatModel(history, media, session, stager, coordinator)
+            observe(second)
+            runCurrent()
+            load(second)
+            runCurrent()
+            assertEquals("the reopened copy joins the running upload", 1, media.sent.size)
+            media.sendGate?.complete(Unit)
+            runCurrent()
+            assertEquals(1, media.sent.size)
+            assertEquals(LocalDelivery.FAILED, (second.state.value.rows.single() as MessageItem).delivery)
+            assertTrue(outbox.stored["a/c"].orEmpty().single().blocked)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test fun aBlockedRowAfterProcessDeathIsNotResent() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            heading = ClientResult.Ready(ConversationHeader(null, peer = "peer"))
+            sendResult = refusal()
+        }
+        val outbox = FakeChatOutbox()
+        val first = chatModel(history, FakeChatMedia(), FakeChatSession(), FakeChatStager(), coordinator(outbox), ScriptedIdentity(IdentityState.VERIFIED))
+        observe(first)
+        runCurrent()
+        load(first)
+        first.onAction(ChatAction.Draft("held"))
+        first.onAction(ChatAction.Send)
+        runCurrent()
+        val stored = outbox.stored["a/c"].orEmpty().single()
+        assertTrue(stored.blocked)
+        // A new process: a new coordinator over the same sealed store.
+        history.sendResult = ClientResult.Ready(SendReceipt("sent"))
+        val later = chatModel(
+            history, FakeChatMedia(), FakeChatSession(), FakeChatStager(), ChatOutboxCoordinator(outbox, backgroundScope),
+            ScriptedIdentity(IdentityState.VERIFIED)
+        )
+        observe(later)
+        runCurrent()
+        load(later)
+        runCurrent()
+        assertEquals(1, history.sends)
+        assertEquals(LocalDelivery.FAILED, (later.state.value.rows.single() as MessageItem).delivery)
+        later.onAction(ChatAction.Retry(stored.id))
+        runCurrent()
+        assertEquals(2, history.sends)
+        assertNotEquals(stored.operation, history.sentOperations.last())
+    }
+
+    @Test fun retryInADirectChatWaitsForTheHeader() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            heading = ClientResult.Ready(ConversationHeader(null, peer = "peer"))
+            sendResult = refusal()
+        }
+        val outbox = FakeChatOutbox()
+        val first = chatModel(history, FakeChatMedia(), FakeChatSession(), FakeChatStager(), coordinator(outbox), ScriptedIdentity(IdentityState.VERIFIED))
+        observe(first)
+        runCurrent()
+        load(first)
+        first.onAction(ChatAction.Draft("held"))
+        first.onAction(ChatAction.Send)
+        runCurrent()
+        val id = outbox.stored["a/c"].orEmpty().single().id
+        history.sendResult = ClientResult.Ready(SendReceipt("sent"))
+        // The header cannot be read: the tap sends nothing.
+        history.heading = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
+        val later = chatModel(
+            history, FakeChatMedia(), FakeChatSession(), FakeChatStager(), ChatOutboxCoordinator(outbox, backgroundScope),
+            ScriptedIdentity(IdentityState.UNKNOWN)
+        )
+        observe(later)
+        runCurrent()
+        load(later)
+        runCurrent()
+        later.onAction(ChatAction.Retry(id))
+        runCurrent()
+        assertEquals("a failed header read sends nothing", 1, history.sends)
+        assertEquals(LocalDelivery.FAILED, (later.state.value.rows.single() as MessageItem).delivery)
+        // The header now names the peer and the status is unknown: the tap sends once.
+        history.heading = ClientResult.Ready(ConversationHeader(null, peer = "peer"))
+        later.onAction(ChatAction.Retry(id))
+        runCurrent()
+        assertEquals(2, history.sends)
+    }
+
     @Test fun anAlreadyHandledAcceptNeverClearsANewerPendingChange() = runTest(timeout = 5.seconds) {
         class Identity : ContactIdentityRepository {
             val signals = MutableSharedFlow<IdentitySignal>(extraBufferCapacity = 4)
@@ -589,7 +829,7 @@ class ChatViewModelTest {
         val session = FakeChatSession()
         val vm = ChatViewModel(
             history, FakeChatAccounts(), session, FakeChatDrafts(), media, FakeChatStager(),
-            MediaTransfers(media, session, backgroundScope), FakeChatCards(), FakeChatOutbox(), identity
+            MediaTransfers(media, session, backgroundScope), FakeChatCards(), coordinator(FakeChatOutbox()), identity
         )
         observe(vm)
         runCurrent()
