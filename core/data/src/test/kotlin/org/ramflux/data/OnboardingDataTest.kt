@@ -4,6 +4,7 @@
 package org.ramflux.data
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
@@ -97,6 +98,38 @@ class OnboardingDataTest {
             assertEquals(listOf(1), revisions)
             watch.cancel()
             assertTrue(abi.returnedBuffers.all { buffer -> buffer.all { it == 0.toByte() } })
+        } finally { client.close() }
+    }
+
+    @Test fun aSwitchAnAccountLockASignOutAndARemovalClearTheMlsStateOfTheAccountsTheyLeave() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi().apply { completionBody = buildJsonObject {
+            put("account_details", buildJsonArray {
+                add(buildJsonObject { put("id", "a"); put("display_name", "Work"); put("state", "unlocked") })
+                add(buildJsonObject { put("id", "b"); put("display_name", "Home"); put("state", "unlocked") })
+            }); put("active_account_id", "a")
+        } }
+        val client = (CoreClient.open(abi, "/test/onboarding", "a".repeat(64)) as CoreResult.Success).value
+        try {
+            val stores = AccountScopedStores()
+            val mls = MlsGroupSession(UnavailableMlsGroups, backgroundScope).also { it.attach(stores) }
+            val repo = DefaultAccountAccessRepository(SdkRepositoryTransport { client }, stores)
+            mls.groups("a")
+            mls.groups("b")
+            // A switch to b clears a, the account left behind; b was not purged, so its epoch stays.
+            assertTrue(repo.select("b") is ClientResult.Ready)
+            assertEquals(1L, mls.epoch("a").first())
+            assertEquals(0L, mls.epoch("b").first())
+            // Back to a: b is cleared, and a is admitted (its epoch moves once more).
+            assertTrue(repo.select("a") is ClientResult.Ready)
+            assertEquals(2L, mls.epoch("a").first())
+            assertEquals(1L, mls.epoch("b").first())
+            // The account lock, sign-out and removal each clear the account they act on.
+            assertTrue(repo.lock("a") is ClientResult.Ready)
+            assertEquals(3L, mls.epoch("a").first())
+            assertTrue(repo.signOut("b") is ClientResult.Ready)
+            assertEquals(2L, mls.epoch("b").first())
+            assertTrue(repo.removeLocal("a") is ClientResult.Ready)
+            assertEquals(4L, mls.epoch("a").first())
         } finally { client.close() }
     }
 

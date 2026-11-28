@@ -1444,4 +1444,44 @@ class ChatViewModelTest {
         assertEquals(ComposerMode.REPLY, vm.state.value.composer)
         assertEquals("m", vm.state.value.actionTarget)
     }
+
+    // ---- the MLS group chat and the lock (F-1, F-3, F-4) -----------------------------------------------------------------
+
+    private fun <T> TestScope.mlsTaking(flow: Flow<T>): MutableList<T> {
+        val got = mutableListOf<T>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { flow.collect { got += it } }
+        return got
+    }
+
+    @Test fun anMlsGroupChatDropsItsDraftOnLockAndCloses() = runTest(timeout = 5.seconds) {
+        val session = MlsGroupSession(UnavailableMlsGroups, backgroundScope)
+        val vm = MlsGroupChatViewModel(session, InMemoryMlsGroupNotices())
+        mlsTaking(vm.state)
+        val events = mlsTaking(vm.events)
+        vm.onAction(ChatAction.Load("a", "g", "g", null))
+        vm.onAction(ChatAction.Draft("not sent yet"))
+        runCurrent()
+        assertEquals("not sent yet", vm.state.value.draft)
+        session.appLocked("a")
+        runCurrent()
+        assertEquals("", vm.state.value.draft)
+        assertEquals(listOf<ChatEvent>(ChatEvent.Back), events)
+    }
+
+    @Test fun anMlsGroupChatNotShownAtTheLockKeepsNoBackForItsNextOpen() = runTest(timeout = 5.seconds) {
+        val session = MlsGroupSession(UnavailableMlsGroups, backgroundScope)
+        val vm = MlsGroupChatViewModel(session, InMemoryMlsGroupNotices())
+        mlsTaking(vm.state)
+        vm.onAction(ChatAction.Load("a", "g", "g", null))
+        vm.onAction(ChatAction.Draft("not sent yet"))
+        runCurrent()
+        session.appLocked("a")
+        session.appUnlocked()
+        runCurrent()
+        val events = mlsTaking(vm.events)
+        vm.onAction(ChatAction.Load("a", "g", "g", null))
+        runCurrent()
+        assertEquals(emptyList<ChatEvent>(), events)
+        assertEquals("", vm.state.value.draft)
+    }
 }

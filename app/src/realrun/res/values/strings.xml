@@ -58,6 +58,7 @@
     <string name="mls_admin_stale_read">Stale info read</string>
     <string name="mls_admin_lock_now">Lock now</string>
     <string name="mls_admin_unlock">Unlock</string>
+    <string name="mls_admin_lock_later">Lock in 8 s</string>
     <string name="mls_group_f3_1">Requests: approve, decline, paced, close early, pending, expiry</string>
     <string name="mls_group_f3_2">Requests paging, 230 rows, page 2 fails once</string>
     <string name="mls_group_f3_3">Owner member actions, event first, double tap</string>

@@ -12,6 +12,28 @@ import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.ramflux.data.*
+import org.ramflux.feature.mlsgroups.MlsCreateAction
+import org.ramflux.feature.mlsgroups.MlsCreateEvent
+import org.ramflux.feature.mlsgroups.MlsCreateViewModel
+import org.ramflux.feature.mlsgroups.MlsGroupsAction
+import org.ramflux.feature.mlsgroups.MlsGroupsViewModel
+import org.ramflux.feature.mlsgroups.MlsInfoAction
+import org.ramflux.feature.mlsgroups.MlsInfoEvent
+import org.ramflux.feature.mlsgroups.MlsInfoViewModel
+import org.ramflux.feature.mlsgroups.MlsInviteAction
+import org.ramflux.feature.mlsgroups.MlsInviteEvent
+import org.ramflux.feature.mlsgroups.MlsInviteViewModel
+import org.ramflux.feature.mlsgroups.MlsMembersAction
+import org.ramflux.feature.mlsgroups.MlsMembersEvent
+import org.ramflux.feature.mlsgroups.MlsMembersUi
+import org.ramflux.feature.mlsgroups.MlsMembersViewModel
+import org.ramflux.feature.mlsgroups.MlsRequestsAction
+import org.ramflux.feature.mlsgroups.MlsRequestsEvent
+import org.ramflux.feature.mlsgroups.MlsRequestsViewModel
+import org.ramflux.feature.mlsgroups.MlsSettingsAction
+import org.ramflux.feature.mlsgroups.MlsSettingsEvent
+import org.ramflux.feature.mlsgroups.MlsSettingsUi
+import org.ramflux.feature.mlsgroups.MlsSettingsViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 class GroupsViewModelTest {
     @get:Rule val main = object : TestWatcher() {
@@ -277,5 +299,175 @@ class GroupsViewModelTest {
         vm.onAction(GroupsAction.Back)
         runCurrent()
         assertEquals(listOf(GroupsEvent.Back), events)
+    }
+
+    // ---- MLS group screens: nothing survives a lock (F-1), the create form across accounts (F-2), a screen opened while its
+    // account is purged (F-3), and no stale Back for a screen that is not shown (F-4).
+
+    private class MlsRepo : MlsGroupRepository by UnavailableMlsGroups {
+        var lists = 0
+        var infos = 0
+        override suspend fun list(account: String, cursor: String?): ClientResult<MlsGroupPage<MlsGroup>> {
+            lists += 1
+            return ClientResult.Ready(MlsGroupPage(emptyList(), null))
+        }
+        override suspend fun info(account: String, groupId: String): ClientResult<MlsGroup> {
+            infos += 1
+            return UnavailableMlsGroups.info(account, groupId)
+        }
+    }
+
+    private fun <T> TestScope.taking(flow: Flow<T>): MutableList<T> {
+        val got = mutableListOf<T>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { flow.collect { got += it } }
+        return got
+    }
+
+    @Test fun mlsGroupsDropTheJoinSheetAndTypedLinkOnLockAndReadTheListAgainAfterTheUnlock() = runTest(timeout = 5.seconds) {
+        val repo = MlsRepo()
+        val session = MlsGroupSession(repo, backgroundScope)
+        val vm = MlsGroupsViewModel(session)
+        taking(vm.state)
+        taking(vm.events)
+        vm.onAction(MlsGroupsAction.Open("a"))
+        vm.onAction(MlsGroupsAction.OpenJoin)
+        vm.onAction(MlsGroupsAction.Link("rfinv-typed"))
+        runCurrent()
+        assertEquals("rfinv-typed", vm.state.value.join?.link)
+        val reads = repo.lists
+        session.appLocked("a")
+        runCurrent()
+        assertNull(vm.state.value.join)
+        assertEquals("nothing is read while the account is purged", reads, repo.lists)
+        session.appUnlocked()
+        runCurrent()
+        assertEquals("the list on screen reads again once admitted", reads + 1, repo.lists)
+        assertNull(vm.state.value.join)
+    }
+
+    @Test fun mlsCreateKeepsNoFormAcrossAnAccountChangeAndClosesOnLock() = runTest(timeout = 5.seconds) {
+        val session = MlsGroupSession(MlsRepo(), backgroundScope)
+        val vm = MlsCreateViewModel(session)
+        taking(vm.state)
+        val events = taking(vm.events)
+        vm.onAction(MlsCreateAction.Open("a"))
+        vm.onAction(MlsCreateAction.Name("Team A"))
+        vm.onAction(MlsCreateAction.Approval(false))
+        runCurrent()
+        assertEquals("Team A", vm.state.value.name)
+        vm.onAction(MlsCreateAction.Open("b"))
+        runCurrent()
+        assertEquals("", vm.state.value.name)
+        assertTrue(vm.state.value.approval)
+        vm.onAction(MlsCreateAction.Name("Team B"))
+        runCurrent()
+        session.appLocked("b")
+        runCurrent()
+        assertEquals("", vm.state.value.name)
+        assertEquals(listOf(MlsCreateEvent.Back), events)
+    }
+
+    @Test fun mlsInfoDropsTheLeaveConfirmationOnLockAndCloses() = runTest(timeout = 5.seconds) {
+        val session = MlsGroupSession(MlsRepo(), backgroundScope)
+        val vm = MlsInfoViewModel(session)
+        taking(vm.state)
+        val events = taking(vm.events)
+        vm.onAction(MlsInfoAction.Open("a", "g"))
+        vm.onAction(MlsInfoAction.AskLeave)
+        runCurrent()
+        assertTrue(vm.state.value.confirmLeave)
+        session.appLocked("a")
+        runCurrent()
+        assertFalse(vm.state.value.confirmLeave)
+        assertEquals(listOf(MlsInfoEvent.Back), events)
+    }
+
+    @Test fun mlsSettingsDropTheTypedNameOnLockAndClose() = runTest(timeout = 5.seconds) {
+        val session = MlsGroupSession(MlsRepo(), backgroundScope)
+        val vm = MlsSettingsViewModel(session)
+        val events = taking(vm.events)
+        vm.onAction(MlsSettingsAction.Open("a", "g"))
+        vm.onAction(MlsSettingsAction.Draft("Typed name"))
+        runCurrent()
+        assertEquals("Typed name", vm.state.value.draft)
+        session.appLocked("a")
+        runCurrent()
+        assertEquals(MlsSettingsUi(), vm.state.value)
+        assertEquals(listOf(MlsSettingsEvent.Back), events)
+    }
+
+    @Test fun mlsMembersDropTheSearchAndMenuOnLockAndClose() = runTest(timeout = 5.seconds) {
+        val session = MlsGroupSession(MlsRepo(), backgroundScope)
+        val vm = MlsMembersViewModel(session)
+        val events = taking(vm.events)
+        vm.onAction(MlsMembersAction.Open("a", "g"))
+        vm.onAction(MlsMembersAction.Search("ana"))
+        vm.onAction(MlsMembersAction.OpenMenu("anchor-1"))
+        runCurrent()
+        assertEquals("ana", vm.state.value.query)
+        session.appLocked("a")
+        runCurrent()
+        assertEquals(MlsMembersUi(), vm.state.value)
+        assertEquals(listOf(MlsMembersEvent.Back), events)
+    }
+
+    @Test fun mlsRequestsCloseOnLock() = runTest(timeout = 5.seconds) {
+        val session = MlsGroupSession(MlsRepo(), backgroundScope)
+        val vm = MlsRequestsViewModel(session)
+        val events = taking(vm.events)
+        vm.onAction(MlsRequestsAction.Open("a", "g"))
+        runCurrent()
+        session.appLocked("a")
+        runCurrent()
+        assertEquals(listOf(MlsRequestsEvent.Back), events)
+    }
+
+    @Test fun mlsInviteDropsTheRevokeConfirmationOnLockAndCloses() = runTest(timeout = 5.seconds) {
+        val session = MlsGroupSession(MlsRepo(), backgroundScope)
+        val vm = MlsInviteViewModel(session, InMemoryMlsGroupNotices())
+        val events = taking(vm.events)
+        vm.onAction(MlsInviteAction.Open("a", "g", fromCreate = false))
+        vm.onAction(MlsInviteAction.AskRevoke("inv-1"))
+        runCurrent()
+        assertEquals("inv-1", vm.state.value.confirmRevoke)
+        session.appLocked("a")
+        runCurrent()
+        assertNull(vm.state.value.confirmRevoke)
+        assertNull(vm.state.value.link)
+        assertEquals(listOf(MlsInviteEvent.Back), events)
+    }
+
+    @Test fun anMlsScreenNotShownAtTheLockIsNotClosedWhenOpenedAgainAfterTheUnlock() = runTest(timeout = 5.seconds) {
+        val repo = MlsRepo()
+        val session = MlsGroupSession(repo, backgroundScope)
+        val vm = MlsInfoViewModel(session)
+        vm.onAction(MlsInfoAction.Open("a", "g"))
+        vm.onAction(MlsInfoAction.AskLeave)
+        runCurrent()
+        session.appLocked("a")
+        runCurrent()
+        session.appUnlocked()
+        runCurrent()
+        // The screen comes back: no Back is waiting for it, and it reads the group again.
+        val events = taking(vm.events)
+        val reads = repo.infos
+        vm.onAction(MlsInfoAction.Open("a", "g"))
+        runCurrent()
+        assertEquals(emptyList<MlsInfoEvent>(), events)
+        assertEquals(reads + 1, repo.infos)
+        assertFalse(vm.state.value.confirmLeave)
+    }
+
+    @Test fun anMlsScreenOpenedWhileItsAccountIsPurgedClosesOnceTheAccountIsAdmitted() = runTest(timeout = 5.seconds) {
+        val session = MlsGroupSession(MlsRepo(), backgroundScope)
+        session.appLocked("a")
+        val vm = MlsInfoViewModel(session)
+        val events = taking(vm.events)
+        vm.onAction(MlsInfoAction.Open("a", "g"))
+        runCurrent()
+        assertEquals(emptyList<MlsInfoEvent>(), events)
+        session.appUnlocked()
+        runCurrent()
+        assertEquals(listOf(MlsInfoEvent.Back), events)
     }
 }

@@ -905,4 +905,106 @@ class MlsGroupSessionTest {
         }
         assertEquals(0, wrong)
     }
+
+    // ---- D-1: the lock, account and admit triggers -------------------------------------------------------------------
+
+    @Test fun theAppLockClearsEverySeenAccountAndItsReleaseAdmitsOnlyThoseStillHeld() = runTest {
+        val fake = Fake()
+        val s = MlsGroupSession(fake, scope(this))
+        s.loadGroups("a")
+        s.groups("b")
+        assertEquals(1, fake.count("list"))
+        // The refusal named no account: every account this process has seen is cleared.
+        s.appLocked(null)
+        assertEquals(1L, s.epoch("a").first())
+        assertEquals(1L, s.epoch("b").first())
+        s.loadGroups("a")
+        assertEquals("a purged account makes no call", 1, fake.count("list"))
+        // b signs out while the lock is up: the release must not admit it.
+        s.clearAccount("b")
+        s.appUnlocked()
+        assertEquals("the admit moves the epoch once more", 2L, s.epoch("a").first())
+        assertEquals(2L, s.epoch("b").first())
+        s.loadGroups("a")
+        assertEquals(2, fake.count("list"))
+        s.loadGroups("b")
+        assertEquals(2, fake.count("list"))
+    }
+
+    @Test fun theAppLockOfOneAccountLeavesTheOthersAlone() = runTest {
+        val s = MlsGroupSession(Fake(), scope(this))
+        s.groups("a")
+        s.groups("b")
+        s.appLocked("a")
+        assertEquals(1L, s.epoch("a").first())
+        assertEquals(0L, s.epoch("b").first())
+        s.appUnlocked()
+        assertEquals(2L, s.epoch("a").first())
+        // A second release has nothing left to admit.
+        s.appUnlocked()
+        assertEquals(2L, s.epoch("a").first())
+    }
+
+    @Test fun aSwitchClearsEveryOtherAccountAndAnAdmitMovesOnlyAPurgedOne() = runTest {
+        val fake = Fake()
+        val s = MlsGroupSession(fake, scope(this))
+        s.groups("a")
+        s.loadGroups("b")
+        s.switched("a")
+        assertEquals(0L, s.epoch("a").first())
+        assertEquals(1L, s.epoch("b").first())
+        // Switching to the active account again changes nothing; an admit of an account that is not purged moves nothing.
+        s.switched("a")
+        s.admit("a")
+        assertEquals(0L, s.epoch("a").first())
+        assertEquals(1L, s.epoch("b").first())
+        // Back to b: a screen of b opened while it was purged sees the epoch move and closes.
+        s.admit("b")
+        assertEquals(2L, s.epoch("b").first())
+        s.loadGroups("b")
+        assertEquals(2, fake.count("list"))
+    }
+
+    @Test fun anAppLockedAccountSwitchedAwayFromIsNotAdmittedByTheRelease() = runTest {
+        val fake = Fake()
+        val s = MlsGroupSession(fake, scope(this))
+        s.groups("a")
+        s.groups("b")
+        s.appLocked(null)
+        s.switched("b")
+        s.appUnlocked()
+        s.loadGroups("a")
+        assertEquals(0, fake.count("list"))
+        s.loadGroups("b")
+        assertEquals(1, fake.count("list"))
+    }
+
+    @Test fun attachRegistersEveryAccountTrigger() = runTest {
+        val fake = Fake()
+        val s = MlsGroupSession(fake, scope(this))
+        val stores = AccountScopedStores()
+        s.attach(stores)
+        s.groups("a")
+        // Sign-out and removal purge the account before it closes.
+        assertTrue(stores.purgeBeforeClose("a"))
+        assertEquals(1L, s.epoch("a").first())
+        s.loadGroups("a")
+        assertEquals(0, fake.count("list"))
+        // An unlock or a switch admits it.
+        stores.admit("a")
+        runCurrent()
+        assertEquals(2L, s.epoch("a").first())
+        s.loadGroups("a")
+        assertEquals(1, fake.count("list"))
+        stores.accountLocked("a")
+        assertEquals(3L, s.epoch("a").first())
+        stores.admit("a")
+        runCurrent()
+        stores.switched("b")
+        assertEquals(5L, s.epoch("a").first())
+        stores.appLocked("b")
+        assertEquals(1L, s.epoch("b").first())
+        stores.appUnlocked()
+        assertEquals(2L, s.epoch("b").first())
+    }
 }

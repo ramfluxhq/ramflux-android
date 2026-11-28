@@ -4,6 +4,7 @@
 plugins { id("ramflux.android.testing") }
 dependencies {
     testImplementation(project(":feature:groups:impl"))
+    testImplementation(project(":feature:mlsgroups:impl"))
     testImplementation(project(":core:data"))
     testImplementation(project(":core:designsystem"))
     testImplementation(libs.collections.immutable)

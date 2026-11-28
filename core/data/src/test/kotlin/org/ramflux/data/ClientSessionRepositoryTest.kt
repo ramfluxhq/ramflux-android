@@ -5,6 +5,7 @@ package org.ramflux.data
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -199,6 +200,53 @@ class ClientSessionRepositoryTest {
         assertEquals(listOf("background"), cards.calls)
         repository.recheckAppLock()
         assertEquals(listOf("background", "foreground"), cards.calls)
+    }
+    @Test fun theAppLockEngagingAndOpeningReachesTheAccountScopedHostState() = runTest(timeout = 5.seconds) {
+        var refused: (() -> Unit)? = null
+        val readings = ArrayDeque(listOf(
+            AppLockReading(AppLockPhase.LOCKED, enabled = true, account = "acct"),
+            AppLockReading(AppLockPhase.OPEN, enabled = true, foreground = false),
+            AppLockReading(AppLockPhase.OPEN, enabled = true, foreground = false),
+        ))
+        val driver = object : ClientLifecycleDriver {
+            override suspend fun open(): ClientResult<Unit> = ClientResult.Ready(Unit)
+            override suspend fun suspend(): ClientResult<Unit> = ClientResult.Ready(Unit)
+            override suspend fun appLockRead(): AppLockReading = readings.removeFirst()
+            override fun onAppLockRefused(listener: () -> Unit) {
+                refused = listener
+            }
+        }
+        val heard = mutableListOf<String>()
+        val stores = AccountScopedStores().apply {
+            onActivity(object : AccountActivityListener {
+                override suspend fun appLocked(account: String?) { heard += "locked:$account" }
+                override suspend fun appUnlocked() { heard += "unlocked" }
+                override suspend fun accountLocked(account: String) { heard += "account:$account" }
+                override suspend fun switched(active: String) { heard += "switched:$active" }
+            })
+        }
+        val mls = MlsGroupSession(UnavailableMlsGroups, backgroundScope).also { it.attach(stores) }
+        mls.groups("acct")
+        mls.groups("other")
+        val repository = DefaultClientSessionRepository(driver, StandardTestDispatcher(testScheduler), stores = stores)
+        // The lock read engages the lock for the named account: next to the cards, the MLS state of that account is dropped.
+        repository.foreground()
+        assertEquals(listOf("locked:acct"), heard)
+        assertEquals(1L, mls.epoch("acct").first())
+        assertEquals(0L, mls.epoch("other").first())
+        // The release admits it again (and moves the epoch, so a screen opened under the cover closes).
+        repository.recheckAppLock()
+        assertEquals(listOf("locked:acct", "unlocked"), heard)
+        assertEquals(2L, mls.epoch("acct").first())
+        // A later open read is no release.
+        repository.recheckAppLock()
+        assertEquals(listOf("locked:acct", "unlocked"), heard)
+        // A refusal that names no account drops every account's state.
+        refused?.invoke()
+        advanceUntilIdle()
+        assertEquals(listOf("locked:acct", "unlocked", "locked:null"), heard)
+        assertEquals(3L, mls.epoch("acct").first())
+        assertEquals(1L, mls.epoch("other").first())
     }
 }
 

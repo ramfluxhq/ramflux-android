@@ -483,8 +483,12 @@ internal class FixtureMlsAdmin(
             FixtureControl(
                 "mls-f312-lock",
                 R.string.mls_admin_lock_now
-            ) { session, _ -> scope.launch { session.clearAccount(GALLERY_ACCOUNT) } },
-            FixtureControl("mls-f312-unlock", R.string.mls_admin_unlock) { session, _ -> session.admitInOrder(GALLERY_ACCOUNT) }
+            ) { session, _ -> scope.launch { session.appLocked(GALLERY_ACCOUNT) } },
+            FixtureControl("mls-f312-unlock", R.string.mls_admin_unlock) { session, _ -> scope.launch { session.appUnlocked() } },
+            // A sheet is its own window above the controls: the lock lands while it is open, as the app lock would.
+            FixtureControl("mls-f312-lock-later", R.string.mls_admin_lock_later) { session, _ ->
+                later(8 * SEC) { session.appLocked(GALLERY_ACCOUNT) }
+            }
         )
         else -> emptyList()
     }

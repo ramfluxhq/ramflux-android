@@ -554,7 +554,10 @@ internal class MlsGroupWalk(private val ui: Ui, private val control: PeerControl
         counters("F3-11")
     }
 
-    /** Lock during actions: every confirmation and screen closes and nothing comes back after the unlock. */
+    /**
+     * Lock during actions: every confirmation and screen closes and nothing comes back after the unlock. The lock is the session's
+     * app-lock entry (`appLocked`, `appUnlocked`), on the requests, invite, settings and member screens and the join sheet.
+     */
     private fun w312() {
         openFixture("F3-12")
         openView("requests")
@@ -585,7 +588,87 @@ internal class MlsGroupWalk(private val ui: Ui, private val control: PeerControl
         Thread.sleep(EVENT_SETTLE)
         absent("mls-request-phase-0")
         shot("w3-12", "e-late-reply-dropped")
+        // The invite panel: the link and its QR go with the lock.
+        menu()
+        openView("invites")
+        tap("mls-invite-new")
+        appears("mls-invite-link", EVENT_WAIT)
+        appears("mls-invite-qr")
+        shot("w3-12", "f-invite-link-before-lock")
+        tap("mls-f312-lock")
+        need("mls-group-view-chat", EVENT_WAIT)
+        absent("mls-invite-link")
+        absent("mls-invite-qr")
+        shot("w3-12", "g-invite-closed-by-lock")
+        tap("mls-f312-unlock")
+        openView("invites")
+        need("mls-invite-new", EVENT_WAIT)
+        absent("mls-invite-revoke-confirm")
+        shot("w3-12", "h-invite-reopened")
+        // Settings: the typed name and the approval-off confirmation go with the lock.
+        menu()
+        openView("settings")
+        need("mls-settings-name")
+        ui.fill("mls-settings-name", DRAFT_NAME)
+        tap("mls-settings-approval")
+        need("mls-settings-confirm")
+        shot("w3-12", "i-settings-draft-and-confirm-before-lock")
+        tap("mls-f312-lock")
+        need("mls-group-view-chat", EVENT_WAIT)
+        absent("mls-settings-confirm")
+        shot("w3-12", "j-settings-closed-by-lock")
+        tap("mls-f312-unlock")
+        openView("settings")
+        need("mls-settings-name", EVENT_WAIT)
+        absent("mls-settings-confirm")
+        if (ui.field("mls-settings-name").text == DRAFT_NAME) fail("the typed name survived the lock: ${ui.screen()}")
+        shot("w3-12", "k-settings-reopened-no-draft")
+        // Members: the action menu and its confirmation go with the lock.
+        menu()
+        openView("members")
+        need("mls-member-menu-2")
+        tap("mls-member-menu-2")
+        tap("mls-member-action-remove")
+        need("mls-member-confirm")
+        shot("w3-12", "l-member-confirm-before-lock")
+        tap("mls-f312-lock")
+        need("mls-group-view-chat", EVENT_WAIT)
+        absent("mls-member-confirm")
+        shot("w3-12", "m-members-closed-by-lock")
+        tap("mls-f312-unlock")
+        openView("members")
+        need("mls-member-menu-2", EVENT_WAIT)
+        absent("mls-member-confirm")
+        absent("mls-member-menu")
+        shot("w3-12", "n-members-reopened")
+        // The join sheet is its own window above the controls: the lock is armed first and lands while a link is typed.
+        menu()
+        openView("list")
+        need("mls-join-open")
+        tap("mls-f312-lock-later")
+        tap("mls-join-open")
+        need("mls-join-field")
+        ui.fill("mls-join-field", TYPED_LINK)
+        shot("w3-12", "o-join-link-typed-before-lock")
+        gone("mls-join-sheet", LOCK_LATER_WAIT)
+        shot("w3-12", "p-join-closed-by-lock")
+        tap("mls-f312-unlock")
+        tap("mls-join-open")
+        need("mls-join-field")
+        if (ui.field("mls-join-field").text == TYPED_LINK) fail("the typed link survived the lock: ${ui.screen()}")
+        shot("w3-12", "q-join-reopened-empty")
+        tap("mls-join-close")
+        gone("mls-join-sheet")
         counters("F3-12")
+    }
+
+    /** Back from the open view to the fixture menu, never past it. */
+    private fun menu() {
+        repeat(HOME_BACKS) {
+            if (ui.find("mls-group-view-chat", SHORT_FIND) != null) return
+            back()
+        }
+        fail("the fixture menu did not come back: ${ui.screen()}")
     }
 
     /** The admission hint: the chat banner, the group info row with "Get invite link", the invite panel's approval-off note. */
@@ -658,6 +741,9 @@ internal class MlsGroupWalk(private val ui: Ui, private val control: PeerControl
         const val SHORT_FIND = 400L
         const val SETTLE = 600L
         const val FLIGHT = 400L
+        const val DRAFT_NAME = "Typed before the lock"
+        const val TYPED_LINK = "rfinv-typed-before-lock"
+        const val LOCK_LATER_WAIT = 20_000L
         const val EVENT_SETTLE = 2_500L
         const val PUSH_REPLY = 1_500L
         const val WARNING_SETTLE = 900L

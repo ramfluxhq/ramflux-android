@@ -56,6 +56,7 @@
     <string name="mls_admin_stale_read">过期的信息读取</string>
     <string name="mls_admin_lock_now">立即锁定</string>
     <string name="mls_admin_unlock">解锁</string>
+    <string name="mls_admin_lock_later">8 秒后锁定</string>
     <string name="mls_group_f3_1">申请：批准、拒绝、限速、提前关闭、待处理、过期</string>
     <string name="mls_group_f3_2">申请分页，230 条，第 2 页失败一次</string>
     <string name="mls_group_f3_3">群主成员操作，事件先到，连点</string>
