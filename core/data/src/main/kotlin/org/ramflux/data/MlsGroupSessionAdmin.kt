@@ -40,7 +40,6 @@ fun MlsGroupSession.loadRequests(account: String, group: String) = launchFor(acc
             } to next
         }
     } ?: return@launchFor
-    if (gen == null) return@launchFor
     val result = repository.requests(account, group, null, MlsAdminRules.REQUEST_LIMIT)
     update(account, epoch) { a ->
         a.withGroup(group) { g ->
@@ -80,7 +79,6 @@ fun MlsGroupSession.loadMoreRequests(account: String, group: String) = launchFor
             a.withGroup(group) { it.copy(admin = it.admin.copy(requests = r.copy(loadingMore = true, pageFailure = null))) } to (r.cursor to r.pageGen)
         }
     } ?: return@launchFor
-    if (start == null) return@launchFor
     val result = repository.requests(account, group, start.first, MlsAdminRules.REQUEST_LIMIT)
     update(account, epoch) { a ->
         a.withGroup(group) { g ->
@@ -191,15 +189,13 @@ fun MlsGroupSession.setApproval(account: String, group: String, approval: Boolea
     ) { repository.setApproval(account, group, approval) }
 }
 
-/** One tap on the confirmed "Undo this change" for the head commit at [logSeq] (or the one `head_commit_rejected` names). */
+/** One tap on the confirmed "Undo this change" for the commit at [logSeq] that was the head when the tap happened. */
 fun MlsGroupSession.voidCommit(account: String, group: String, logSeq: Long) = launchFor(account) { epoch ->
     runCommit(
         account, epoch, group, MlsAdminKind.VOID, logSeq.toString(), null,
-        allowed = { g ->
-            val rejected = g.admin.warnings.items.values.any { it is MlsGroupWarning.HeadCommitRejected && it.logSeq == logSeq }
-            g.info.group?.let { MlsAdminRules.isAdmin(it.myRole) } == true &&
-                (MlsAdminRules.headCommit(g.timeline.window, g.admin.voided) == logSeq || rejected)
-        },
+        // The head-commit rule picks the row that offers "Undo this change" (the caller applies it when the tap happens); the SDK is
+        // the authority on whether the commit is still the head, and answers `void_not_head{head_log_seq}` when it moved (2.6).
+        allowed = { g -> g.info.group?.let { MlsAdminRules.isAdmin(it.myRole) } == true },
     ) { repository.voidCommit(account, group, logSeq) }
 }
 
@@ -248,7 +244,6 @@ private suspend fun MlsGroupSession.runCommit(
             } to action
         }
     } ?: return
-    if (started == null) return
     val result = call()
     withContext(NonCancellable) {
         update(account, epoch) { a -> a.withGroup(group) { finishCommit(it, started, result) } }
@@ -330,7 +325,7 @@ fun MlsGroupSession.setPush(account: String, group: String, push: MlsGroupPush) 
                 when (result) {
                     is ClientResult.Ready -> g.copy(
                         admin = cleared,
-                        info = g.info.copy(group = g.info.group?.copy(push = result.value)),
+                        info = g.info.copy(group = g.info.group.copy(push = result.value)),
                     )
                     else -> g.copy(admin = cleared.copy(pushFailure = failure(result)))
                 }
@@ -350,7 +345,6 @@ fun MlsGroupSession.skipCatchUp(account: String, group: String) = launchFor(acco
             a.withGroup(group) { it.copy(admin = it.admin.copy(catchUp = record.copy(skipping = true, skipFromVersion = record.version, skipFailure = null))) } to record.version
         }
     } ?: return@launchFor
-    if (from == null) return@launchFor
     val result = repository.skipCatchUp(account, group)
     withContext(NonCancellable) {
         update(account, epoch) { a ->
@@ -508,7 +502,7 @@ internal suspend fun MlsGroupSession.reloadAfterRejoin(account: String, epoch: L
             a.withGroup(group) { it.copy(timeline = it.timeline.copy(window = window, loaded = false, loading = true, failure = null)) } to window.gen
         }
     } ?: return
-    if (gen != null) loadNewest(account, epoch, group, gen)
+    loadNewest(account, epoch, group, gen)
     scheduleInfo(account, epoch, group)
 }
 

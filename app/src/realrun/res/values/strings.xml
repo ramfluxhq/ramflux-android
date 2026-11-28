@@ -48,4 +48,27 @@
     <string name="mls_group_f2_9">Scale, 1000 members, 20000 posts</string>
     <string name="mls_group_f2_10">Delete own post</string>
     <string name="mls_group_f2_11">Unavailable at the current pin</string>
+    <string name="mls_admin_section">Admin (M3)</string>
+    <string name="mls_admin_view_requests">Join requests</string>
+    <string name="mls_admin_view_settings">Group settings</string>
+    <string name="mls_admin_next_warning">Next warning</string>
+    <string name="mls_admin_clear_warning">Clear warning</string>
+    <string name="mls_admin_head_rejected">Head commit rejected</string>
+    <string name="mls_admin_stale_read">Stale info read</string>
+    <string name="mls_admin_lock_now">Lock now</string>
+    <string name="mls_admin_unlock">Unlock</string>
+    <string name="mls_group_f3_1">Requests: approve, decline, paced, close early, pending, expiry</string>
+    <string name="mls_group_f3_2">Requests paging, 230 rows, page 2 fails once</string>
+    <string name="mls_group_f3_3">Owner member actions, event first, double tap</string>
+    <string name="mls_group_f3_4">Admin member actions, stale role</string>
+    <string name="mls_group_f3_5">Admin slot busy, 3 s reply</string>
+    <string name="mls_group_f3_6">Settings and push mode</string>
+    <string name="mls_group_f3_7">Catch-up, skip, late and indeterminate variants</string>
+    <string name="mls_group_f3_8">Warnings, stepped by buttons, stale read</string>
+    <string name="mls_group_f3_9">Quota and privacy delay</string>
+    <string name="mls_group_f3_10">Void the head commit, not-head variant</string>
+    <string name="mls_group_f3_11">Removed during an action</string>
+    <string name="mls_group_f3_12">Lock during actions</string>
+    <string name="mls_group_f3_13">Admission hint, open house</string>
+    <string name="mls_group_f3_14">Unavailable at the current pin</string>
 </resources>

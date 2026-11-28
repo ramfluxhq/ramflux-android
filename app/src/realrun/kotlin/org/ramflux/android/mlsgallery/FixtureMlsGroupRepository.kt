@@ -29,6 +29,7 @@ import org.ramflux.data.MlsGroupPendingReason
 import org.ramflux.data.MlsGroupPost
 import org.ramflux.data.MlsGroupPostKind
 import org.ramflux.data.MlsGroupPostState
+import org.ramflux.data.MlsGroupPush
 import org.ramflux.data.MlsGroupQueuedReason
 import org.ramflux.data.MlsGroupQuota
 import org.ramflux.data.MlsGroupRead
@@ -54,6 +55,10 @@ internal class FixtureMlsGroupRepository(private val fixture: MlsGroupFixture, p
     val asked: StateFlow<Map<String, Int>> = counts
     private val bus = MutableSharedFlow<MlsGroupSignal>(extraBufferCapacity = 64)
 
+    /** The scripted M3 answers (join requests, member actions, settings, push, catch-up, void) and the controls of F3-8 and F3-12. */
+    private val admin = FixtureMlsAdmin(fixture.id, scope, bus, ::hit)
+    val controls: List<FixtureControl> get() = admin.controls
+
     private val unavailable = fixture.id == "F2-11"
     private val joined = mutableListOf<MlsGroup>()
     private val gone = mutableSetOf<String>()
@@ -78,7 +83,7 @@ internal class FixtureMlsGroupRepository(private val fixture: MlsGroupFixture, p
     override fun events(account: String): Flow<MlsGroupSignal> = bus
 
     private fun baseRows(): List<MlsGroup> {
-        val rows = if (fixture.id == "F2-1") listGroups() else listGroups().take(3)
+        val rows = if (fixture.id == "F2-1") listGroups() else listGroups().take(3) + if (admin.active) adminGroups() else emptyList()
         return (rows + joined + created.values).filter { it.groupId !in gone }
     }
 
@@ -103,7 +108,11 @@ internal class FixtureMlsGroupRepository(private val fixture: MlsGroupFixture, p
         if (groupId in gone) return fail("not_member")
         val row = baseRows().firstOrNull { it.groupId == groupId }
             ?: if (groupId == G_LARGE) group(G_LARGE, "Large group", MlsGroupRole.OWNER, 1000, activity = NOW_BASE) else null
-        return row?.let { ClientResult.Ready(it) } ?: fail("not_member")
+        if (row == null) return fail("not_member")
+        admin.onInfo(groupId)
+        val shown = admin.decorate(row)
+        // F3-8: a read that was issued before a warning was cleared answers after it and still lists the warning.
+        return if (admin.infoDelay()) ClientResult.Ready(shown.copy(warnings = admin.staleWarnings())) else ClientResult.Ready(shown)
     }
 
     override suspend fun create(account: String, name: String, approval: Boolean): ClientResult<MlsGroupCreated> {
@@ -213,6 +222,7 @@ internal class FixtureMlsGroupRepository(private val fixture: MlsGroupFixture, p
     override suspend fun members(account: String, groupId: String, cursor: String?): ClientResult<MlsGroupPage<MlsGroupMember>> {
         hit("group.members")
         if (unavailable) return off()
+        admin.rosterPage(groupId, cursor)?.let { return it }
         val total = totalMembers(groupId)
         val index = cursor?.removePrefix("p")?.toIntOrNull()?.minus(1) ?: 0
         if (index == 2 && fixture.id == "F2-2" && !membersFailedOnce) {
@@ -225,7 +235,7 @@ internal class FixtureMlsGroupRepository(private val fixture: MlsGroupFixture, p
         return ClientResult.Ready(MlsGroupPage(rows, if (to < total) "p" + (index + 2) else null))
     }
 
-    private fun totalPosts(group: String): Long = when {
+    private fun totalPosts(group: String): Long = admin.totalPosts(group) ?: when {
         group == G_LARGE -> 20_000L
         group == G_DESIGN && fixture.id == "F2-4" -> 3L
         group == G_DESIGN -> 260L
@@ -234,8 +244,9 @@ internal class FixtureMlsGroupRepository(private val fixture: MlsGroupFixture, p
 
     private fun posts(group: String, from: Long, to: Long): List<MlsGroupPost> {
         val total = totalPosts(group)
-        val base = (from..to).filter { it in 1..total }.map { if (group == G_BOOK) bookPost(it) else postAt(it, total) }
-        return base + (extra[group].orEmpty().filter { (it.logSeq ?: 0L) in from..to })
+        val base = (from..to).filter { it in maxOf(1L, if (admin.active) admin.floor() else 1L)..total }
+            .map { admin.postOverride(group, it) ?: if (group == G_BOOK) bookPost(it) else postAt(it, total) }
+        return base + (extra[group].orEmpty().filter { (it.logSeq ?: 0L) in from..to }) + admin.extraPosts(group, from, to)
     }
 
     private fun bookPost(seq: Long) = MlsGroupPost(
@@ -254,7 +265,7 @@ internal class FixtureMlsGroupRepository(private val fixture: MlsGroupFixture, p
         hit("group.history")
         if (unavailable) return off()
         if (fixture.id == "F2-7" && groupId == G_BOOK) script()
-        val total = totalPosts(groupId) + extra[groupId].orEmpty().size
+        val total = maxOf(totalPosts(groupId) + extra[groupId].orEmpty().size, admin.extraNewest(groupId))
         val rows: List<MlsGroupPost>
         val more: Boolean
         when {
@@ -263,17 +274,19 @@ internal class FixtureMlsGroupRepository(private val fixture: MlsGroupFixture, p
                 more = false
             }
             beforeLogSeq != null -> {
-                val start = maxOf(1L, beforeLogSeq - limit)
+                val low = if (admin.active) admin.floor() else 1L
+                val start = maxOf(low, beforeLogSeq - limit)
                 rows = posts(groupId, start, beforeLogSeq - 1)
-                more = start > 1
+                more = start > low
             }
             else -> {
-                val start = maxOf(1L, total - limit + 1)
+                val low = if (admin.active) admin.floor() else 1L
+                val start = maxOf(low, total - limit + 1)
                 rows = posts(groupId, start, total)
-                more = start > 1
+                more = start > low
             }
         }
-        return ClientResult.Ready(MlsGroupHistory(rows, 1, total, more))
+        return ClientResult.Ready(MlsGroupHistory(rows, if (admin.active) admin.floor() else 1L, total, more))
     }
 
     override suspend fun send(
@@ -286,6 +299,7 @@ internal class FixtureMlsGroupRepository(private val fixture: MlsGroupFixture, p
         hit("group.send")
         if (unavailable) return off()
         sends += 1
+        admin.onSend(groupId)
         val total = totalPosts(groupId) + extra[groupId].orEmpty().size
         val id = "p-send-$sends"
         fun own(seq: Long) = MlsGroupPost(
@@ -372,6 +386,18 @@ internal class FixtureMlsGroupRepository(private val fixture: MlsGroupFixture, p
         }
         return ClientResult.Ready(Unit)
     }
+
+    override suspend fun requests(account: String, groupId: String, cursor: String?, limit: Int) = admin.requests(groupId, cursor)
+    override suspend fun approveRequest(account: String, groupId: String, requestId: String) = admin.approve(groupId, requestId)
+    override suspend fun declineRequest(account: String, groupId: String, requestId: String) = admin.decline(groupId, requestId)
+    override suspend fun setRole(account: String, groupId: String, anchor: String, role: MlsGroupRole) = admin.role(groupId, anchor, role)
+    override suspend fun removeMember(account: String, groupId: String, anchor: String) = admin.remove(groupId, anchor)
+    override suspend fun banMember(account: String, groupId: String, anchor: String) = admin.ban(groupId, anchor)
+    override suspend fun setName(account: String, groupId: String, name: String) = admin.name(groupId, name)
+    override suspend fun setApproval(account: String, groupId: String, approval: Boolean) = admin.approval(groupId, approval)
+    override suspend fun setPush(account: String, groupId: String, push: MlsGroupPush) = admin.push(groupId, push)
+    override suspend fun skipCatchUp(account: String, groupId: String) = admin.skip(groupId)
+    override suspend fun voidCommit(account: String, groupId: String, logSeq: Long) = admin.void(groupId, logSeq)
 
     /** F2-7: the service events, one every two seconds, ending with the removal of this member from "Book club". */
     private fun script() {

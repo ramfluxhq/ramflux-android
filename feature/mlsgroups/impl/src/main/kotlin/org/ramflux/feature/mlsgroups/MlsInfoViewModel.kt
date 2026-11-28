@@ -114,7 +114,7 @@ class MlsInfoViewModel(private val session: MlsGroupSession) : ViewModel() {
                 requestCount = if (MlsAdminRules.requestsEligible(group, timeline.readOnly)) requests.rows.size else null,
                 requestsMore = requests.cursor != null,
                 settingsEntry = isAdmin,
-                push = if (group != null && !readOnly) MlsPushUi(group.push, admin.pushSaving, admin.pushFailure != null) else null,
+                push = if (group != null && !readOnly) MlsPushUi(group.push, admin.pushSaving, admin.pushFailure) else null,
                 commitQuota = group?.quotaCommit?.takeIf { !readOnly && MlsAdminRules.quotaLineVisible(it) }
                     ?.let { MlsQuotaLineUi(it.remaining, it.limit, it.firstDay, it.resetsAt) },
                 privacyDelay = group != null && !readOnly && group.privacyDelayArmed,

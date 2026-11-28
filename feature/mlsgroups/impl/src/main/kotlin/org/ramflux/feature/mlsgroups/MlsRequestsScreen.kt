@@ -100,7 +100,13 @@ fun MlsRequestsScreen(state: MlsRequestsUi, onAction: (MlsRequestsAction) -> Uni
                     tag = "mls-requests-approval-off"
                 )
                 state.loadFailure != null && state.rows.isEmpty() -> ErrorBar(
-                    stringResource(R.string.group_requests_load_error),
+                    if (state.loadFailure.unavailable) {
+                        failureText(
+                            state.loadFailure
+                        )
+                    } else {
+                        stringResource(R.string.group_requests_load_error)
+                    },
                     { onAction(MlsRequestsAction.Retry) }
                 )
                 !state.loaded && state.rows.isEmpty() -> KitMeta(

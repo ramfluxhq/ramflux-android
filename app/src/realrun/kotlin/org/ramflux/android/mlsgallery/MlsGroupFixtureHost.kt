@@ -18,6 +18,8 @@ import org.ramflux.feature.mlsgroups.MlsGroupsViewModel
 import org.ramflux.feature.mlsgroups.MlsInfoViewModel
 import org.ramflux.feature.mlsgroups.MlsInviteViewModel
 import org.ramflux.feature.mlsgroups.MlsMembersViewModel
+import org.ramflux.feature.mlsgroups.MlsRequestsViewModel
+import org.ramflux.feature.mlsgroups.MlsSettingsViewModel
 
 /**
  * The session, the scripted repository and the real MLS group view models of one opened fixture. The view models are the product
@@ -43,6 +45,8 @@ internal class MlsGroupFixtureHost(val fixture: MlsGroupFixture) {
     fun invites() = model("invites") { MlsInviteViewModel(session, notices) }
     fun info() = model("info") { MlsInfoViewModel(session) }
     fun members() = model("members") { MlsMembersViewModel(session) }
+    fun requests() = model("requests") { MlsRequestsViewModel(session) }
+    fun settings() = model("settings") { MlsSettingsViewModel(session) }
     fun chat(key: String) = model("chat-$key") { MlsGroupChatViewModel(session, notices) }
 
     fun close() {

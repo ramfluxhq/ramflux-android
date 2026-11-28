@@ -146,7 +146,7 @@ sealed interface MlsSettingsEvent {
 
 /** The push picker: this device's confirmed mode and the one being saved. Shown to every member of a group that is not read-only. */
 @Immutable
-data class MlsPushUi(val value: MlsGroupPush, val saving: MlsGroupPush?, val failed: Boolean)
+data class MlsPushUi(val value: MlsGroupPush, val saving: MlsGroupPush?, val failure: MlsFailure?)
 
 /** A quota line of group info (the commit quota). */
 @Immutable

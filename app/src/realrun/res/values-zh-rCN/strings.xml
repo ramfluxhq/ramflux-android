@@ -46,4 +46,27 @@
     <string name="mls_group_f2_9">规模，1000 位成员，20000 条消息</string>
     <string name="mls_group_f2_10">删除自己的消息</string>
     <string name="mls_group_f2_11">当前版本不可用</string>
+    <string name="mls_admin_section">管理（M3）</string>
+    <string name="mls_admin_view_requests">加入申请</string>
+    <string name="mls_admin_view_settings">群组设置</string>
+    <string name="mls_admin_next_warning">下一条警告</string>
+    <string name="mls_admin_clear_warning">清除警告</string>
+    <string name="mls_admin_head_rejected">头部提交被拒绝</string>
+    <string name="mls_admin_stale_read">过期的信息读取</string>
+    <string name="mls_admin_lock_now">立即锁定</string>
+    <string name="mls_admin_unlock">解锁</string>
+    <string name="mls_group_f3_1">申请：批准、拒绝、限速、提前关闭、待处理、过期</string>
+    <string name="mls_group_f3_2">申请分页，230 条，第 2 页失败一次</string>
+    <string name="mls_group_f3_3">群主成员操作，事件先到，连点</string>
+    <string name="mls_group_f3_4">管理员成员操作，过期角色</string>
+    <string name="mls_group_f3_5">管理操作占用，3 秒回复</string>
+    <string name="mls_group_f3_6">设置与推送模式</string>
+    <string name="mls_group_f3_7">同步、跳过、迟到与未知总数变体</string>
+    <string name="mls_group_f3_8">警告，按钮逐步触发，过期读取</string>
+    <string name="mls_group_f3_9">配额与隐私延迟</string>
+    <string name="mls_group_f3_10">撤销头部提交，非头部变体</string>
+    <string name="mls_group_f3_11">操作期间被移出</string>
+    <string name="mls_group_f3_12">操作期间锁定</string>
+    <string name="mls_group_f3_13">加入提示，开放群组</string>
+    <string name="mls_group_f3_14">当前版本不可用</string>
 </resources>

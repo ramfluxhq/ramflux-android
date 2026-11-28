@@ -51,6 +51,12 @@ import org.ramflux.feature.mlsgroups.MlsInviteScreen
 import org.ramflux.feature.mlsgroups.MlsMembersAction
 import org.ramflux.feature.mlsgroups.MlsMembersEvent
 import org.ramflux.feature.mlsgroups.MlsMembersScreen
+import org.ramflux.feature.mlsgroups.MlsRequestsAction
+import org.ramflux.feature.mlsgroups.MlsRequestsEvent
+import org.ramflux.feature.mlsgroups.MlsRequestsScreen
+import org.ramflux.feature.mlsgroups.MlsSettingsAction
+import org.ramflux.feature.mlsgroups.MlsSettingsEvent
+import org.ramflux.feature.mlsgroups.MlsSettingsScreen
 import org.ramflux.feature.mlsgroups.rememberMlsLinkActions
 
 private const val V_LIST = "list"
@@ -59,18 +65,21 @@ private const val V_INVITES = "invites"
 private const val V_INFO = "info"
 private const val V_MEMBERS = "members"
 private const val V_CHAT = "chat"
+private const val V_REQUESTS = "requests"
+private const val V_SETTINGS = "settings"
 
 /** The wire methods whose call counters the gallery shows (tag `mls-calls-<method>`). */
 private val METHODS = listOf(
     "group.list", "group.info", "group.create", "group.invite.create", "group.invite.list", "group.invite.revoke", "group.join",
     "group.join.pending", "group.members", "group.history", "group.send", "group.refresh", "group.mark_read", "group.message.delete",
-    "group.leave"
+    "group.leave", "group.requests.list", "group.requests.approve", "group.requests.decline", "group.role.set", "group.member.remove",
+    "group.member.ban", "group.settings.set", "group.push.set", "group.catch_up", "group.void"
 )
 
-/** One opened "Groups (M2)" fixture: the real MLS group screens over a scripted repository. */
+/** One opened "Groups (M2)" or "Admin (M3)" fixture: the real MLS group screens over a scripted repository. */
 @Composable
 internal fun MlsGroupGallery(open: String?, onOpen: (String?) -> Unit) {
-    val fixture = GROUP_FIXTURES.firstOrNull { it.id == open }
+    val fixture = (GROUP_FIXTURES + ADMIN_FIXTURES).firstOrNull { it.id == open }
     if (fixture == null) {
         onOpen(null)
         return
@@ -143,6 +152,8 @@ private fun MlsGroupFixtureScreen(host: MlsGroupFixtureHost, onExit: () -> Unit)
                         when (it) {
                             is MlsInfoEvent.Invites -> view = V_INVITES
                             is MlsInfoEvent.Members -> view = V_MEMBERS
+                            is MlsInfoEvent.Requests -> view = V_REQUESTS
+                            is MlsInfoEvent.Settings -> view = V_SETTINGS
                             MlsInfoEvent.Back -> view = null
                         }
                     }
@@ -156,6 +167,20 @@ private fun MlsGroupFixtureScreen(host: MlsGroupFixtureHost, onExit: () -> Unit)
                 LaunchedEffect(vm) { vm.events.collect { if (it == MlsMembersEvent.Back) view = null } }
                 MlsMembersScreen(state, vm::onAction, Modifier.statusBarsPadding())
             }
+            V_REQUESTS -> {
+                val vm = remember(host) { host.requests() }
+                val state by vm.state.collectAsStateWithLifecycle()
+                LaunchedEffect(vm, group) { vm.onAction(MlsRequestsAction.Open(GALLERY_ACCOUNT, group)) }
+                LaunchedEffect(vm) { vm.events.collect { if (it == MlsRequestsEvent.Back) view = null } }
+                MlsRequestsScreen(state, vm::onAction, Modifier.statusBarsPadding())
+            }
+            V_SETTINGS -> {
+                val vm = remember(host) { host.settings() }
+                val state by vm.state.collectAsStateWithLifecycle()
+                LaunchedEffect(vm, group) { vm.onAction(MlsSettingsAction.Open(GALLERY_ACCOUNT, group)) }
+                LaunchedEffect(vm) { vm.events.collect { if (it == MlsSettingsEvent.Back) view = null } }
+                MlsSettingsScreen(state, vm::onAction, Modifier.statusBarsPadding())
+            }
             else -> {
                 val vm = remember(host, group) { host.chat(group) }
                 val state by vm.state.collectAsStateWithLifecycle()
@@ -166,6 +191,9 @@ private fun MlsGroupFixtureScreen(host: MlsGroupFixtureHost, onExit: () -> Unit)
                         when (it) {
                             ChatEvent.Back -> view = null
                             ChatEvent.Details -> view = V_INFO
+                            // The invite panel and the group info are the host's: the gallery opens its own views.
+                            ChatEvent.MlsInvite -> view = V_INVITES
+                            ChatEvent.MlsAlerts -> view = V_INFO
                             else -> Unit
                         }
                     }
@@ -173,7 +201,14 @@ private fun MlsGroupFixtureScreen(host: MlsGroupFixtureHost, onExit: () -> Unit)
                 ChatScreen(state, vm::onAction, Modifier.statusBarsPadding(), showDetails = true)
             }
         }
-        if (view != null) Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(8.dp)) { Calls(host) }
+        if (view != null) {
+            Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(8.dp)) {
+                Column(horizontalAlignment = Alignment.End) {
+                    Calls(host)
+                    Controls(host, group)
+                }
+            }
+        }
     }
 }
 
@@ -182,17 +217,28 @@ private fun Menu(host: MlsGroupFixtureHost, onExit: () -> Unit, open: (String) -
     Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(host.fixture.id + " " + stringResource(host.fixture.title), style = MaterialTheme.typography.titleMedium)
         Calls(host)
+        Controls(host, host.fixture.group)
         listOf(
             V_LIST to R.string.mls_group_view_list,
             V_CREATE to R.string.mls_group_view_create,
             V_INVITES to R.string.mls_group_view_invites,
             V_INFO to R.string.mls_group_view_info,
             V_MEMBERS to R.string.mls_group_view_members,
+            V_REQUESTS to R.string.mls_admin_view_requests,
+            V_SETTINGS to R.string.mls_admin_view_settings,
             V_CHAT to R.string.mls_group_view_chat
         ).forEach { (id, label) ->
             Button({ open(id) }, Modifier.fillMaxWidth().testTag("mls-group-view-$id")) { Text(stringResource(label)) }
         }
         OutlinedButton(onExit, Modifier.fillMaxWidth().testTag("mls-back")) { Text(stringResource(R.string.mls_back)) }
+    }
+}
+
+/** The triggers a fixture needs for its walk (the warning steps of F3-8, the lock and unlock of F3-12); each runs one scripted action. */
+@Composable
+private fun Controls(host: MlsGroupFixtureHost, group: String) {
+    host.repository.controls.forEach { control ->
+        OutlinedButton({ control.run(host.session, group) }, Modifier.testTag(control.tag)) { Text(stringResource(control.label)) }
     }
 }
 

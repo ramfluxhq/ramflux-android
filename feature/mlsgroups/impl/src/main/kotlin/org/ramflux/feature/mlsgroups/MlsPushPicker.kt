@@ -50,13 +50,10 @@ internal fun MlsPushPicker(push: MlsPushUi, onChoose: (MlsGroupPush) -> Unit, mo
                 tag = "mls-push-saving"
             )
         }
-        if (push.failed) {
-            KitMeta(
-                stringResource(R.string.group_push_failed),
-                Modifier.padding(horizontal = theme.gap.dp),
-                tone = theme.danger,
-                tag = "mls-push-failed"
-            )
+        push.failure?.let {
+            // A typed unavailable result says so; any other failure keeps the old value and says the change failed.
+            val text = if (it.unavailable) failureText(it) else stringResource(R.string.group_push_failed)
+            KitMeta(text, Modifier.padding(horizontal = theme.gap.dp), tone = theme.danger, tag = "mls-push-failed")
         }
     }
 }

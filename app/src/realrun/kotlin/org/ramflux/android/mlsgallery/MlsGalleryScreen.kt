@@ -105,6 +105,16 @@ internal fun MlsGalleryScreen(dark: Boolean, onDark: (Boolean) -> Unit) {
                     }
                 }
             }
+            item { Text(stringResource(R.string.mls_admin_section), style = MaterialTheme.typography.titleMedium) }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ADMIN_FIXTURES.forEach { item ->
+                        Button({ groupOpen = item.id }, Modifier.fillMaxWidth().testTag("mls-group-fixture-" + item.id)) {
+                            Text(item.id + " " + stringResource(item.title))
+                        }
+                    }
+                }
+            }
         }
         return
     }
