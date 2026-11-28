@@ -12,8 +12,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import org.ramflux.data.*
 import org.ramflux.designsystem.UiText
-import org.ramflux.designsystem.failureDetail
-import org.ramflux.designsystem.failureWords
+import org.ramflux.designsystem.failureSentence
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.onboarding.impl.R
 
@@ -749,8 +748,7 @@ private fun ClientResult<*>.notice(unlock: Boolean = false): OnboardingNotice? =
             when {
                 problem.outcome == ClientOutcome.UNKNOWN ->
                     uiText(R.string.ui_the_outcome_is_unknown_refresh_the_current_state)
-                else -> failureWords(check)
-                    ?: uiText(R.string.ui_the_request_did_not_complete_code_value_refresh, failureDetail(problem.code, name, check))
+                else -> failureSentence(problem.code, name, check)
             },
             if (problem.outcome == ClientOutcome.UNKNOWN) OnboardingNoticeKind.UNKNOWN_OUTCOME else OnboardingNoticeKind.ERROR
         )

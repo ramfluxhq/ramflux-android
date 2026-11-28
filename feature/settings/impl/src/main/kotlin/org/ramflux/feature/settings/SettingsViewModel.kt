@@ -909,14 +909,12 @@ class SettingsViewModel @Inject constructor(
                         username = when (name) {
                             is ClientResult.Ready -> name.value.name?.let { uiText(R.string.settings_username_value, UiText.Untrusted(it)) }
                                 ?: uiText(R.string.settings_username_none)
-                            is ClientResult.Failed -> uiText(
-                                R.string.settings_username_unavailable,
-                                UiText.Data(name.problem.statusName ?: name.problem.code.toString())
-                            )
-                            is ClientResult.Unavailable -> uiText(
-                                R.string.settings_username_unavailable,
-                                UiText.Data(name.reason.name.lowercase())
-                            )
+                            // The directory's refusal reads as one sentence; its code and reason go to the log.
+                            is ClientResult.Failed -> {
+                                failureSentence(name.problem.code, name.problem.statusName, name.problem.check)
+                                uiText(R.string.settings_username_unavailable)
+                            }
+                            is ClientResult.Unavailable -> uiText(R.string.settings_username_unavailable)
                         },
                         statusProblem = when (status) {
                             is ClientResult.Ready -> null
@@ -961,7 +959,7 @@ private val DEVICE_NAME = android.os.Build.MODEL?.takeIf { it.isNotBlank() }?.ta
 private fun ClientProblem.message(): UiText = if (outcome == ClientOutcome.UNKNOWN) {
     uiText(R.string.settings_unknown_outcome)
 } else {
-    failureText(R.string.settings_read_failed, code, statusName, check)
+    failureSentence(code, statusName, check)
 }
 private fun UnavailableReason.message(): UiText = uiText(
     when (this) {

@@ -5,14 +5,14 @@
     <string name="calls_back">返回</string>
     <string name="calls_loading">正在读取通话信令…</string>
     <string name="calls_error">无法读取通话</string>
-    <string name="calls_unavailable_title">此设备暂不可用</string>
-    <string name="calls_closed">私密账号数据已关闭。</string>
-    <string name="calls_account_needed">请选择已解锁的账号</string>
-    <string name="calls_account_help">通话记录属于当前账号。</string>
-    <string name="calls_account_action">设置或选择账号</string>
+    <string name="calls_unavailable_title">本设备暂不可用</string>
+    <string name="calls_closed">私密账户数据已关闭。</string>
+    <string name="calls_account_needed">请选择已解锁的账户</string>
+    <string name="calls_account_help">通话记录属于当前账户。</string>
+    <string name="calls_account_action">设置或选择账户</string>
     <string name="calls_empty">暂无通话记录</string>
     <string name="calls_empty_help">刷新以读取最新信令记录。</string>
-    <string name="calls_no_audio">此设备未连接通话音频。</string>
+    <string name="calls_no_audio">本设备未连接通话音频。</string>
     <string name="calls_stale">上次确认的状态；发送信令前请刷新。</string>
     <string name="calls_mute">静音</string>
     <string name="calls_speaker">扬声器</string>
@@ -26,13 +26,11 @@
     <string name="calls_answer">接听</string>
     <string name="calls_hangup">结束通话</string>
     <string name="calls_start">发起通话</string>
-    <string name="calls_audio_unavailable">此设备暂不支持发起、接听和音频控制。您可以查看通话记录或结束现有通话。</string>
-    <string name="calls_unavailable">此账号上下文中的通话信令不可用。</string>
-    <string name="calls_account_changed">当前账号已更改。请重新打开通话。</string>
+    <string name="calls_audio_unavailable">本设备暂不支持发起、接听和音频控制。你可以查看通话记录或结束现有通话。</string>
+    <string name="calls_unavailable">此账户上下文中的通话信令不可用。</string>
+    <string name="calls_account_changed">当前账户已更改。请重新打开通话。</string>
     <string name="calls_pending">操作 %1$s 的结果待核对。请刷新以读取权威通话状态。</string>
     <string name="calls_invalid">返回了无效的通话记录。</string>
-    <string name="calls_unknown_outcome">结果未知（%1$s）。发送另一信令前请刷新。</string>
-    <string name="calls_error_code">通话操作失败（%1$s）。</string>
     <string name="calls_incoming">呼入</string>
     <string name="calls_outgoing">呼出</string>
     <string name="calls_unknown">状态不可用</string>
@@ -45,7 +43,7 @@
     <string name="calls_authority_refused">身份授权拒绝了此通话。</string>
     <string name="calls_relay_unavailable">中继不可用。</string>
     <string name="calls_lease_expired">媒体租约已过期。</string>
-    <string name="calls_restarted">账号服务重启后通话已结束。</string>
+    <string name="calls_restarted">账户服务重启后通话已结束。</string>
     <string name="calls_signaling_unavailable">信令传输不可用。</string>
     <string name="calls_missed">未接来电</string>
     <string name="calls_declined">已拒绝</string>
@@ -99,11 +97,10 @@
     <!-- Shown when calls are not available on this device. -->
     <string name="call_unavailable">此处无法通话。</string>
     <!-- Call failure with a numeric code; %1$s is the code. -->
-    <string name="call_failed_code">通话失败（%1$s）。</string>
-    <!-- Call failure with the SDK reason name; %1$s is the reason, shown as received. -->
-    <string name="call_failed_reason">通话失败：%1$s</string>
+    <string name="call_failed_reason">通话失败。</string>
     <!-- Name of the app in the phone's system call screens. -->
     <string name="call_system_label">Ramflux</string>
     <!-- Ongoing notification while a call carries audio; names no person. -->
     <string name="call_ongoing">通话进行中</string>
+    <string name="calls_unknown_outcome">结果暂不确定。请先确认再重试。</string>
 </resources>

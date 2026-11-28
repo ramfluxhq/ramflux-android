@@ -24,13 +24,12 @@
     <!-- Shown when the active account changed during a read -->
     <string name="agents_account_changed">The active account changed. Open Agents again.</string>
     <!-- Generic failure; %1$s is a numeric error code -->
-    <string name="agents_read_failure">Unable to read agents (%1$s).</string>
     <!-- Outcome of a change is unknown -->
     <string name="agents_unknown">The outcome is unknown. Refresh before trying again.</string>
     <!-- Empty state title of the agent directory (board MOB-D20) -->
     <string name="agents_empty_title">No agents yet</string>
     <!-- Empty state body of the agent directory (board MOB-D20) -->
-    <string name="agents_empty_body">Agents you create sync to this phone. You can view and use them here.</string>
+    <string name="agents_empty_body">Agents you create on the desktop appear here.</string>
     <!-- Tip that agents are created on the desktop -->
     <string name="agents_create_on_desktop">Create agents on your desktop</string>
     <!-- Placeholder of the agent filter field -->

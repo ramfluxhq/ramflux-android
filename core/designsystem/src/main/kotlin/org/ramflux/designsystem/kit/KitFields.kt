@@ -180,6 +180,9 @@ fun KitSearchField(
     }
 }
 
+/** A form column: at most the kit's form width (480), filling a narrower parent, so slots and fields stop stretching. */
+fun Modifier.kitFormColumn(): Modifier = widthIn(max = dp(RfMetrics.formMaxWidth)).fillMaxWidth()
+
 /**
  * Six-slot code entry (the account code). The slots show how many digits are entered, never the
  * digits, and stay left to right in every locale. The secure input itself is supplied by the host
@@ -206,7 +209,7 @@ fun KitCodeField(
     }
     val borderWidth = if (focused) RfMetrics.focusRing else RfMetrics.stroke
     Column(
-        modifier.widthIn(max = dp(RfMetrics.formMaxWidth)).fillMaxWidth()
+        modifier.kitFormColumn()
             .alpha(if (enabled) 1f else RfMetrics.fieldDisabledAlpha).kitBackdrop().kitTag(tag),
         verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.fieldGap))
     ) {

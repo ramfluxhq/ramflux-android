@@ -7,7 +7,7 @@
     <!-- Contact profile row: opens the direct conversation with this contact. -->
     <string name="contacts_message">发消息</string>
     <!-- Shown when the contact's identity does not address a direct conversation. -->
-    <string name="contacts_no_conversation">无法与此联系人打开会话。</string>
+    <string name="contacts_no_conversation">无法与此联系人打开聊天。</string>
     <string name="contacts_decline">不通过</string>
     <string name="contacts_batch">批量处理请求</string>
     <string name="contacts_back">返回</string>
@@ -16,14 +16,14 @@
     <string name="contacts_tab_sent">已发送</string>
     <string name="contacts_error">无法读取联系人</string>
     <string name="contacts_unavailable">操作不可用</string>
-    <string name="contacts_account_required">请选择已解锁的账号</string>
-    <string name="contacts_account_explanation">联系人属于当前账号。</string>
-    <string name="contacts_account_action">设置或选择账号</string>
+    <string name="contacts_account_required">请选择已解锁的账户</string>
+    <string name="contacts_account_explanation">联系人属于当前账户。</string>
+    <string name="contacts_account_action">设置或选择账户</string>
     <string name="contacts_search">按姓名或地址筛选</string>
     <string name="contacts_no_matches">没有找到匹配的联系人</string>
     <string name="contacts_empty">暂无联系人</string>
     <string name="contacts_requests_empty">暂无请求</string>
-    <string name="contacts_empty_explanation">刷新以读取最新账号记录。</string>
+    <string name="contacts_empty_explanation">刷新以读取最新账户记录。</string>
     <string name="contacts_expires">到期时间：%1$s</string>
     <string name="contacts_safety_explanation">核对新的安全号码后再继续发送；核对前发送保持暂停。</string>
     <string name="contacts_scan">扫描安全二维码</string>
@@ -31,9 +31,9 @@
     <string name="contacts_block">屏蔽</string>
     <string name="contacts_report">举报</string>
     <string name="contacts_stranger_explanation">此人不是联系人。回复不会通过联系人请求。</string>
-    <string name="contacts_sent_explanation">这是已记录的发出请求状态。此处不会自动打开会话。</string>
+    <string name="contacts_sent_explanation">这是已记录的发出请求状态。此处不会自动打开聊天。</string>
     <string name="contacts_address">身份 ID、名片或链接</string>
-    <string name="contacts_add_explanation">联系人请求需要宿主授权流程。草稿保留在此设备上。</string>
+    <string name="contacts_add_explanation">联系人请求需要在本设备上授权。草稿保留在本设备上。</string>
     <string name="contacts_find_username">查找</string>
     <string name="contacts_username_found">已找到 @%1$s</string>
     <string name="contacts_username_not_found">没有人使用这个用户名</string>
@@ -45,13 +45,12 @@
     <string name="contacts_decline_selected">不通过所选请求</string>
     <string name="contacts_reply">回复</string>
     <string name="contacts_accept">通过</string>
-    <string name="contacts_closed">私密账号数据已关闭。</string>
-    <string name="contacts_account_changed">当前账号已更改。请刷新联系人。</string>
-    <string name="contacts_invalid">账号返回了无效的联系人记录。</string>
-    <string name="contacts_read_failed">读取失败（%1$s）。</string>
+    <string name="contacts_closed">私密账户数据已关闭。</string>
+    <string name="contacts_account_changed">当前账户已更改。请刷新联系人。</string>
+    <string name="contacts_invalid">账户返回了无效的联系人记录。</string>
     <string name="contacts_action_unavailable">所需的设备批准流程尚未安装。未进行任何更改。</string>
-    <string name="contacts_custody_unavailable">此设备需要安全账号访问权限。</string>
-    <string name="contacts_sdk_unavailable">已发布的 SDK 暂不支持此操作。</string>
+    <string name="contacts_custody_unavailable">本设备需要安全账户访问权限。</string>
+    <string name="contacts_sdk_unavailable">暂不可用。</string>
     <string name="contacts_pending">待处理</string>
     <string name="contacts_accepted">已通过</string>
     <string name="contacts_declined">未通过</string>
@@ -62,9 +61,9 @@
     <string name="contacts_unverified">安全号码尚未核对</string>
     <plurals name="contacts_messages"><item quantity="other">%1$s 条待处理消息</item></plurals>
     <string name="contacts_confirm">核对联系人操作</string>
-    <string name="contacts_confirm_account">账号：%1$s</string>
+    <string name="contacts_confirm_account">账户：%1$s</string>
     <string name="contacts_deny">拒绝</string>
-    <string name="contacts_confirmed_refresh">账号已确认此操作。请刷新以读取当前联系人关系。</string>
+    <string name="contacts_confirmed_refresh">账户已确认此操作。请刷新以读取当前联系人关系。</string>
     <string name="contacts_unknown_operation">操作 %1$s 的结果未知。请刷新核对，勿重复提交。</string>
     <string name="contacts_safety_binding_unavailable">SDK 未提供此号码的核对凭据，暂时无法标记为已核对。未记录任何验证。</string>
     <string name="contacts_fingerprint">指纹：%1$s</string>
@@ -80,7 +79,7 @@
     <string name="contacts_safety_state_verified">已核对</string>
     <string name="contacts_safety_state_changed">核对后已变化</string>
     <string name="contacts_safety_state_blocked">策略禁止核对</string>
-    <string name="contacts_blocked_explanation">解除屏蔽前，您不会收到此人的消息或请求。</string>
+    <string name="contacts_blocked_explanation">解除屏蔽前，你不会收到此人的消息或请求。</string>
     <string name="contacts_verification_state">核对状态</string>
     <string name="contacts_safety_compare_title">完成号码核对</string>
     <string name="contacts_safety_changed_title">身份不一致或发生变化</string>
@@ -88,8 +87,8 @@
     <string name="contacts_numbers_match">号码一致</string>
     <string name="contacts_remove">移除联系人</string>
     <string name="contacts_unblock">解除屏蔽</string>
-    <string name="contacts_remove_explanation">将在本设备上从此账号移除该联系人。之后可以再次添加。</string>
-    <string name="contacts_block_explanation">被屏蔽的人无法向您发送消息或请求。之后可以解除屏蔽。</string>
-    <string name="contacts_unblock_explanation">此人可以再次向您发送请求。</string>
+    <string name="contacts_remove_explanation">将在本设备上从此账户移除该联系人。之后可以再次添加。</string>
+    <string name="contacts_block_explanation">被屏蔽的人无法向你发送消息或请求。之后可以解除屏蔽。</string>
+    <string name="contacts_unblock_explanation">此人可以再次向你发送请求。</string>
     <string name="contacts_verify_explanation">仅当对方设备上的号码与此完全一致时才确认。</string>
 </resources>

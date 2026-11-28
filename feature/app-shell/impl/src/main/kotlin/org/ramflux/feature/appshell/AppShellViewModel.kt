@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.ramflux.data.*
 import org.ramflux.designsystem.ThemeCatalog
-import org.ramflux.designsystem.failureText
+import org.ramflux.designsystem.failureSentence
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.app_shell.impl.R
 
@@ -113,7 +113,7 @@ private fun ClientProblem.notice(): ShellNotice = ShellNotice(
         ClientFailureKind.FAILED -> if (outcome == ClientOutcome.UNKNOWN) {
             uiText(R.string.ui_the_outcome_is_unknown_check_the_current_state)
         } else {
-            failureText(R.string.ui_the_request_did_not_complete_code_value, code, statusName, check)
+            failureSentence(code, statusName, check)
         }
     }
 )

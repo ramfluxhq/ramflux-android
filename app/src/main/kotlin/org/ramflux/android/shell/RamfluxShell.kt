@@ -133,6 +133,6 @@ private fun PaneSeparator() {
 private fun shellTabs(): List<KitTab> = listOf(
     KitTab("messages-square", stringResource(R.string.shell_tab_messages)),
     KitTab("users-round", stringResource(R.string.shell_tab_groups)),
-    KitTab("bot", stringResource(R.string.shell_tab_agents), latin = true),
+    KitTab("bot", stringResource(R.string.shell_tab_agents)),
     KitTab("ellipsis", stringResource(R.string.shell_tab_more))
 )

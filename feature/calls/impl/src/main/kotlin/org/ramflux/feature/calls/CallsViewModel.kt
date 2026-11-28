@@ -248,9 +248,9 @@ class CallsViewModel @Inject constructor(
     }
 }
 private fun ClientProblem.message() = if (outcome == ClientOutcome.UNKNOWN) {
-    uiText(R.string.calls_unknown_outcome, failureDetail(code, statusName, check))
+    uiText(R.string.calls_unknown_outcome)
 } else {
-    failureText(R.string.calls_error_code, code, statusName, check)
+    failureSentence(code, statusName, check)
 }
 private fun CallRecord.item() = CallItem(
     id, peer,

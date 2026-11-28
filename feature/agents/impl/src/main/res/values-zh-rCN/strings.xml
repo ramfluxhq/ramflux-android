@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Name of the agents feature -->
-    <string name="agents_title">Agents</string>
+    <string name="agents_title">智能体</string>
     <!-- Title of the agents tab -->
-    <string name="agents_shell_title">Agents</string>
+    <string name="agents_shell_title">智能体</string>
     <!-- Title of one agent's profile page -->
-    <string name="agents_profile">Agent 资料</string>
+    <string name="agents_profile">智能体资料</string>
     <!-- Title and button for editing an agent's name and responsibility -->
     <string name="agents_edit">编辑资料</string>
     <!-- Header action that reads the agents again -->
@@ -14,34 +14,32 @@
     <!-- Shown while an agent action runs -->
     <string name="agents_loading">正在处理…</string>
     <!-- Title when the agents cannot be read -->
-    <string name="agents_unavailable">暂时无法读取 Agent</string>
+    <string name="agents_unavailable">暂时无法读取智能体</string>
     <!-- Shown when no unlocked account is active -->
-    <string name="agents_account">需要一个已解锁的当前账号。</string>
+    <string name="agents_account">需要一个已解锁的当前账户。</string>
     <!-- Button that opens account setup -->
-    <string name="agents_setup">设置账号</string>
+    <string name="agents_setup">设置账户</string>
     <!-- Shown while private data is closed -->
     <string name="agents_closed">私密数据已关闭。</string>
     <!-- Shown when the active account changed during a read -->
-    <string name="agents_account_changed">当前账号已更改，请重新打开 Agent。</string>
+    <string name="agents_account_changed">当前账户已更改，请重新打开智能体。</string>
     <!-- Generic failure; %1$s is a numeric error code -->
-    <string name="agents_read_failure">无法读取 Agent（%1$s）。</string>
     <!-- Outcome of a change is unknown -->
     <string name="agents_unknown">结果未知。请先刷新再重试。</string>
     <!-- Empty state title of the agent directory (board MOB-D20) -->
-    <string name="agents_empty_title">还没有 Agent</string>
+    <string name="agents_empty_title">还没有智能体</string>
     <!-- Empty state body of the agent directory (board MOB-D20) -->
-    <string name="agents_empty_body">你创建的 Agent 会同步到这台手机，可以在这里查看和使用。</string>
+    <string name="agents_empty_body">你在桌面端创建的智能体会显示在这里。</string>
     <!-- Tip that agents are created on the desktop -->
-    <string name="agents_create_on_desktop">请在桌面端创建 Agent</string>
+    <string name="agents_create_on_desktop">请在桌面端创建智能体</string>
     <!-- Placeholder of the agent filter field -->
     <string name="agents_search">按名称搜索…</string>
     <!-- No agent matches the filter (board MOB-D01E) -->
-    <string name="agents_no_match">没有找到 Agent</string>
+    <string name="agents_no_match">没有找到智能体</string>
     <!-- Hint when no agent matches the filter -->
     <string name="agents_no_match_body">试试其他姓名或关键词。</string>
     <!-- The filter only searches the agents loaded so far -->
-    <string name="agents_filter_loaded_only">只搜索已加载的 Agent，滚动可加载更多。</string>
-    <!-- Agent row second line; %1$s is the agent's responsibility, %2$s its status -->
+    <string name="agents_filter_loaded_only">只搜索已加载的智能体，滚动可加载更多。</string>
     <string name="agents_row_value">%1$s · %2$s</string>
     <!-- Button that reads more agents -->
     <string name="agents_load_more">加载更多</string>
@@ -56,7 +54,7 @@
     <!-- Label of the agent's role -->
     <string name="agents_role">角色</string>
     <!-- Role of an agent with its own name and identity -->
-    <string name="agents_role_named">具名 Agent</string>
+    <string name="agents_role_named">具名智能体</string>
     <!-- Role not known to the app; %1$s is the raw role token -->
     <string name="agents_role_other">角色：%1$s</string>
     <!-- Label: who may message the agent directly -->
@@ -74,13 +72,13 @@
     <!-- Button that opens the conversation with the agent -->
     <string name="agents_message">发消息</string>
     <!-- Shown when no conversation with the agent exists on this phone -->
-    <string name="agents_no_conversation">无法打开与此 Agent 的会话：这台手机无法寻址它的身份。</string>
+    <string name="agents_no_conversation">无法打开与此智能体的聊天：这台手机无法寻址它的身份。</string>
     <!-- Button and review title for deleting an agent -->
-    <string name="agents_delete">删除 Agent</string>
+    <string name="agents_delete">删除智能体</string>
     <!-- Shown in the delete review; must state what is not removed -->
-    <string name="agents_delete_explanation">该 Agent 将在你的账号中停用，并删除其在这台手机上的数据。此操作不会删除其在桌面端的密钥，发布在你节点上的记录也会保留。</string>
+    <string name="agents_delete_explanation">该智能体将在你的账户中停用，并删除其在这台手机上的数据。此操作不会删除其在桌面端的密钥，发布在你节点上的记录也会保留。</string>
     <!-- Notice after a delete -->
-    <string name="agents_deleted">已在这台手机上删除 Agent。其桌面端密钥和节点记录未被删除。</string>
+    <string name="agents_deleted">已在这台手机上删除智能体。其桌面端密钥和节点记录未被删除。</string>
     <!-- Explains which controls are not on the phone -->
     <string name="agents_desktop_only_controls">这台手机不支持暂停、隐藏和目标设置。</string>
     <!-- Label of the agent name field -->
@@ -96,15 +94,15 @@
     <!-- Explains where a profile edit goes -->
     <string name="agents_edit_sync">更改会同步到你的其他设备。</string>
     <!-- Shown in the edit review -->
-    <string name="agents_edit_explanation">新的名称和职责将保存到你的账号，并同步到你的其他设备。</string>
+    <string name="agents_edit_explanation">新的名称和职责将保存到你的账户，并同步到你的其他设备。</string>
     <!-- Button that reviews a profile edit -->
     <string name="agents_save">检查并保存</string>
     <!-- Notice after a profile edit -->
     <string name="agents_saved">资料已保存。</string>
     <!-- Title of the confirmation dialog -->
-    <string name="agents_review">确认 Agent 更改</string>
+    <string name="agents_review">确认智能体更改</string>
     <!-- Account line in the review; %1$s is the account id -->
-    <string name="agents_review_account">账号：%1$s</string>
+    <string name="agents_review_account">账户：%1$s</string>
     <!-- Button that cancels the change -->
     <string name="agents_deny">取消</string>
     <!-- Button that confirms the change -->
@@ -114,7 +112,7 @@
     <!-- Who started a pending agent creation -->
     <string name="agents_pending_requester">你的桌面端</string>
     <!-- Title of a pending agent creation without a name -->
-    <string name="agents_pending_title">有新 Agent 等待批准</string>
+    <string name="agents_pending_title">有新智能体等待批准</string>
     <!-- Title of a pending agent creation; %1$s is the agent's name -->
     <string name="agents_pending_named">%1$s 正在等待批准</string>
     <!-- Status chip of a pending creation -->

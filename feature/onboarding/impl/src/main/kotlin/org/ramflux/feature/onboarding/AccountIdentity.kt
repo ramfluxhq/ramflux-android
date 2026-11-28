@@ -58,7 +58,7 @@ internal fun AccountIdentity(
                     shortAccountId(it),
                     style = MaterialTheme.typography.bodySmall,
                     color = theme.secondary,
-                    modifier = Modifier.testTag("$nameTag-short-id")
+                    modifier = Modifier.testTag(nameTag + "-short-id")
                 )
             }
         }

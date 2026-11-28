@@ -19,7 +19,7 @@
     <string name="shell_more_tasks">Tasks</string>
     <string name="shell_more_tasks_detail">View tasks and pending items</string>
     <string name="shell_nav_add">Add shortcut</string>
-    <string name="shell_nav_core_note">Messages, Groups, and Agents can be reordered and cannot be removed.</string>
+    <string name="shell_nav_core_note">Chats, Groups, and Agents can be reordered and cannot be removed.</string>
     <string name="shell_nav_done">Done</string>
     <string name="shell_nav_down">Move down</string>
     <string name="shell_nav_lock">Locked</string>
@@ -31,7 +31,7 @@
     <string name="shell_notices_title">Open-source notices</string>
     <string name="shell_tab_agents">Agents</string>
     <string name="shell_tab_groups">Groups</string>
-    <string name="shell_tab_messages">Messages</string>
+    <string name="shell_tab_messages">Chats</string>
     <string name="shell_tab_more">More</string>
     <string name="startup_account_on_device">Account already on this device</string>
     <string name="startup_change_node">Change node</string>

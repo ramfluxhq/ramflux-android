@@ -11,7 +11,7 @@
     <string name="shell_more_permissions">权限与访问</string>
     <string name="shell_more_permissions_detail">本设备、群组角色和本次操作</string>
     <string name="shell_more_settings">设置</string>
-    <string name="shell_more_settings_detail">账号、服务和本机偏好</string>
+    <string name="shell_more_settings_detail">账户、服务和本机偏好</string>
     <!-- More hub row: the call history, where an incoming call can be answered. -->
     <string name="shell_more_calls">通话</string>
     <!-- Value under the calls row of the More hub. -->
@@ -19,7 +19,7 @@
     <string name="shell_more_tasks">任务</string>
     <string name="shell_more_tasks_detail">查看任务与待处理事项</string>
     <string name="shell_nav_add">添加快捷入口</string>
-    <string name="shell_nav_core_note">消息、群组、Agent 可调整顺序，不能移除。</string>
+    <string name="shell_nav_core_note">聊天、群组、智能体可调整顺序，不能移除。</string>
     <string name="shell_nav_done">完成</string>
     <string name="shell_nav_down">下移</string>
     <string name="shell_nav_lock">已锁定</string>
@@ -29,9 +29,9 @@
     <string name="shell_nav_title">编辑移动导航</string>
     <string name="shell_nav_up">上移</string>
     <string name="shell_notices_title">开源声明</string>
-    <string name="shell_tab_agents">Agents</string>
+    <string name="shell_tab_agents">智能体</string>
     <string name="shell_tab_groups">群组</string>
-    <string name="shell_tab_messages">消息</string>
+    <string name="shell_tab_messages">聊天</string>
     <string name="shell_tab_more">更多</string>
     <string name="startup_account_on_device">已有本机账户</string>
     <string name="startup_change_node">更改节点</string>
@@ -42,7 +42,7 @@
     <string name="startup_device_unauthorized">设备尚未获授权</string>
     <string name="startup_device_unauthorized_detail">查看当前可用的接入方式</string>
     <string name="startup_gateway_purpose">创建账户，或继续使用已有账户。</string>
-    <string name="startup_headline">让会话与协作\n保持连接</string>
+    <string name="startup_headline">让聊天与协作\n保持连接</string>
     <string name="startup_identity">身份</string>
     <string name="startup_identity_body">连接与账户分别确认</string>
     <string name="startup_identity_title">继续使用已有身份</string>
@@ -55,7 +55,7 @@
     <string name="startup_recover">从恢复短语恢复</string>
     <string name="startup_selected_node">已选择的节点</string>
     <string name="startup_starting">正在启动</string>
-    <string name="startup_this_device">此设备</string>
+    <string name="startup_this_device">本设备</string>
     <string name="startup_unlock">解锁现有账户</string>
     <string name="startup_unlock_local_body">当前不提供远程口令表单</string>
     <string name="startup_unlock_local_note">仅在本机解锁，不会扩大权限，也不会向远程目标发送口令。</string>
@@ -67,7 +67,7 @@
     <!-- Title of the local notification for a message that arrived while the app was not in front. It must stay generic: never a sender, conversation or message text. -->
     <string name="notification_new_message">新消息</string>
     <string name="banner_preview_call">通话</string>
-    <string name="banner_preview_update">会话动态</string>
+    <string name="banner_preview_update">聊天动态</string>
     <string name="banner_preview_attachment">附件</string>
     <!-- Accessibility label of the info button next to a section title on the unlock pages. -->
     <string name="startup_info">详细信息</string>

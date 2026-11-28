@@ -28,7 +28,7 @@
     <string name="ui_link_a_device">关联设备</string>
     <string name="ui_link_device">关联设备</string>
     <string name="ui_locked">已锁定</string>
-    <string name="ui_no_accounts_are_saved_on_this_device">此设备上没有已保存的账户。</string>
+    <string name="ui_no_accounts_are_saved_on_this_device">本设备上没有已保存的账户。</string>
     <string name="ui_no_saved_nodes">没有已保存的节点。</string>
     <string name="ui_node_address">节点地址</string>
     <string name="ui_node_identity_changed">节点身份已变更</string>
@@ -40,7 +40,7 @@
     <string name="ui_please_wait">请稍候</string>
     <string name="ui_private_conversations_an_identity_you_control">私密沟通，身份由你掌控。</string>
     <string name="ui_private_data_is_closed_return_to_the_start">私有数据已关闭，请返回开始页面重新连接。</string>
-    <string name="ui_protect_this_device">保护此设备</string>
+    <string name="ui_protect_this_device">保护本设备</string>
     <string name="ui_recover_account">恢复账户</string>
     <string name="ui_recover_an_account">恢复账户</string>
     <string name="ui_return_to_edit_the_address">返回修改地址。</string>
@@ -53,7 +53,6 @@
     <string name="ui_secure_setup_is_unavailable_no_phrase_or_account">安全设置暂不可用，尚未创建恢复短语或账户。</string>
     <string name="ui_set_up_a_connection">设置连接</string>
     <string name="ui_the_outcome_is_unknown_refresh_the_current_state">操作结果未知，请先刷新当前状态再发起新请求。</string>
-    <string name="ui_the_request_did_not_complete_code_value_refresh">请求未完成（%1$s），请刷新以读取当前状态。</string>
     <string name="ui_the_saved_node_key_changed_confirmation_is_blocked">已保存节点的密钥已变更，无法确认。请联系节点运营者。</string>
     <string name="ui_this_action_is_not_available_in_this_version">此版本暂不支持此操作。</string>
     <string name="ui_this_node_cannot_be_selected_review_its_identity">无法选择此节点，请向节点运营者核实身份和可用状态。</string>
@@ -82,9 +81,9 @@
     <string name="ui_recovery_word_position">第 %1$d 个词</string>
     <string name="ui_account_created_detail">账户已在本机解锁。</string>
     <string name="ui_continue_into_the_account">继续</string>
-    <string name="ui_n01_header">创建账号</string>
-    <string name="ui_n01_button">创建账号</string>
-    <string name="ui_n01_name_helper">此名称用于新账号，之后可以修改。</string>
+    <string name="ui_n01_header">创建账户</string>
+    <string name="ui_n01_button">创建账户</string>
+    <string name="ui_n01_name_helper">此名称用于新账户，之后可以修改。</string>
     <string name="ui_n01_nodes">节点</string>
     <string name="ui_n01_official_node">Ramflux 官方节点</string>
     <string name="ui_n01_selected_node">已选择的节点</string>
@@ -126,7 +125,6 @@
     <string name="ui_enter_the_phrase_and_code">请输入 24 个词的恢复短语和账户码。</string>
     <!-- Button shown after the code attempts are exhausted. -->
     <string name="ui_recover_with_phrase">用恢复短语恢复</string>
-    <!-- Refusal with a wait: the SDK reports how many seconds remain before the next code try. -->
     <plurals name="ui_code_retry_later">
         <item quantity="other">输错次数过多。请在 %d 秒后重试。</item>
     </plurals>
@@ -145,7 +143,7 @@
     <!-- Label of the archive passphrase field. -->
     <string name="backup_passphrase">备份密码</string>
     <!-- Rule for the archive passphrase; it is not the account code. -->
-    <string name="backup_passphrase_help">备份文件有独立的密码：至少 15 个字符，且不能是常见密码。它不是你的六位账户密码。</string>
+    <string name="backup_passphrase_help">备份文件有独立的密码：至少 15 个字符，且不能是常见密码。它不是你的六位账户码。</string>
     <!-- Button that writes the backup. -->
     <string name="backup_create_confirm">开始备份</string>
     <!-- Shown while an archive is copied or checked. -->
@@ -171,7 +169,7 @@
     <!-- The archive's account is new here: set a code. -->
     <string name="backup_new_account_help">这会在本手机上将其恢复为新账户。请设置在此打开它的六位数字密码。</string>
     <!-- Label of the new account code. -->
-    <string name="backup_new_code">新账户密码</string>
+    <string name="backup_new_code">新账户码</string>
     <!-- Button that restores as a new account. -->
     <string name="backup_install_new">恢复账户</string>
     <!-- Job row title: a backup. -->
@@ -192,9 +190,7 @@
     <string name="backup_state_failed">失败</string>
     <!-- Job state: cancelled. -->
     <string name="backup_state_cancelled">已取消</string>
-    <!-- Progress; %1$d is a percentage, %2$s the SDK's current step name. -->
     <string name="backup_progress">%1$d%% · %2$s</string>
-    <!-- Progress without a total; %1$s is the SDK's current step name. -->
     <string name="backup_progress_open">进行中 · %1$s</string>
     <!-- Button that cancels a job. -->
     <string name="backup_cancel">取消</string>
@@ -221,11 +217,8 @@
     <!-- Generic backup failure. -->
     <string name="backup_failed">备份操作未成功。</string>
     <!-- Code page heading: %1$s is the display name of the account being unlocked. -->
-    <!-- Button after the SDK refused to open a locked account for a reason other than the code; it removes the account and its local data from this phone, nothing on the node. -->
     <string name="ui_forget_account_on_device">从本机移除此账户</string>
-    <!-- Account created step: the SDK reports the new account's network session as still being set up. -->
     <string name="ui_created_network_connecting">正在连接网络…</string>
-    <!-- Account created step: the SDK reports the new account's network session as live. -->
     <string name="ui_created_network_connected">已连接网络</string>
     <!-- Account created step: the network session did not become live while the step was shown. -->
     <string name="ui_created_network_not_confirmed">网络连接尚未确认。账户在本机可用，连接后消息会发出。</string>

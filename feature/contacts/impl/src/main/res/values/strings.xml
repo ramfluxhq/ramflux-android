@@ -48,10 +48,9 @@
     <string name="contacts_closed">Private account data is closed.</string>
     <string name="contacts_account_changed">The active account changed. Refresh people.</string>
     <string name="contacts_invalid">The account returned invalid contact records.</string>
-    <string name="contacts_read_failed">Read failed (%1$s).</string>
     <string name="contacts_action_unavailable">The required device approval flow is not installed. No changes were made.</string>
     <string name="contacts_custody_unavailable">Secure account access is required on this device.</string>
-    <string name="contacts_sdk_unavailable">This operation is unavailable in the published SDK.</string>
+    <string name="contacts_sdk_unavailable">Not available yet.</string>
     <string name="contacts_pending">Pending</string>
     <string name="contacts_accepted">Accepted</string>
     <string name="contacts_declined">Declined</string>

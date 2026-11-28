@@ -9,7 +9,6 @@
     <string name="cards_unsupported">Cards are not supported by this version.</string>
     <string name="cards_access">Secure account access is required to view cards.</string>
     <string name="cards_failed">Unable to check card availability</string>
-    <string name="cards_error_code">The availability check failed (%1$s).</string>
     <!-- Shown on the cards screen when agent cards are available; they appear in their conversations. -->
     <string name="cards_in_conversations">Cards appear in conversations</string>
     <!-- Body under the cards title: where agent cards and their actions are shown. -->

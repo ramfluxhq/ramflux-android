@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -68,6 +67,7 @@ import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
+import org.ramflux.designsystem.kit.kitFormColumn
 import org.ramflux.designsystem.render
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.onboarding.impl.R
@@ -648,7 +648,7 @@ private fun LockRecovery(
 
 /**
  * An opaque cover: the content under it receives no pointer input while it is up. The form column is capped at
- * [COVER_FORM_MAX_WIDTH] and centred, and scrolls, so in landscape or on a tall screen the code slots keep their size.
+ * the kit's form width (480 dp) and centred, and scrolls, so in landscape or on a tall screen the code slots keep their size.
  */
 @Composable
 private fun CoverSurface(content: @Composable () -> Unit) {
@@ -666,12 +666,10 @@ private fun CoverSurface(content: @Composable () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(Modifier.widthIn(max = COVER_FORM_MAX_WIDTH).fillMaxWidth()) { content() }
+            Box(Modifier.kitFormColumn()) { content() }
         }
     }
 }
-
-private val COVER_FORM_MAX_WIDTH = 480.dp
 
 /** Takes the pointer events the content does not handle, so nothing under the cover is pressed or scrolled. */
 private fun Modifier.consumeAllPointers(): Modifier = pointerInput(Unit) {

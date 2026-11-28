@@ -17,7 +17,7 @@
     <string name="card_resync">重新同步</string>
     <string name="card_component_unsupported">此手机不支持</string>
     <string name="card_link_title">打开此链接？</string>
-    <string name="card_link_author_note">由此会话中的智能体发送。打开前请核对地址。</string>
+    <string name="card_link_author_note">由此聊天中的智能体发送。打开前请核对地址。</string>
     <string name="card_link_privacy">打开链接会离开 Ramflux，并从网站加载页面。确认之前，Ramflux 不会替你打开。</string>
     <string name="card_link_open">打开</string>
     <string name="card_close">关闭</string>

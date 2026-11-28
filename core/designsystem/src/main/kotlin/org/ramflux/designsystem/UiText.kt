@@ -69,7 +69,7 @@ fun UiText.render(): String {
                 when {
                     days <= 0L -> DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale).format(then)
                     days == 1L -> yesterday
-                    days < DAYS_IN_WEEK -> DateTimeFormatter.ofPattern("EEE", locale).format(then)
+                    days < DAYS_IN_WEEK -> then.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale)
                     else -> DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale).format(then)
                 }
             } catch (_: java.time.DateTimeException) {

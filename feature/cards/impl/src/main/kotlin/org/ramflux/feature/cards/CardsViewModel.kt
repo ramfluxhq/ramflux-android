@@ -11,7 +11,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import org.ramflux.data.*
 import org.ramflux.data.cards.CardSessionRepository
-import org.ramflux.designsystem.failureText
+import org.ramflux.designsystem.failureSentence
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.cards.impl.R
 @HiltViewModel
@@ -87,8 +87,8 @@ class CardsViewModel @Inject constructor(
                     )
                     is ClientResult.Failed -> CardsState(
                         canCheck = true, unavailable = null,
-                        problem = failureText(
-                            R.string.cards_error_code, result.problem.code, result.problem.statusName, result.problem.check
+                        problem = failureSentence(
+                            result.problem.code, result.problem.statusName, result.problem.check
                         )
                     )
                     // Cards render in their conversations; this screen opens no content of its own.

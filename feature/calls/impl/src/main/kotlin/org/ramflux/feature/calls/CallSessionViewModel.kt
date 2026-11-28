@@ -28,7 +28,7 @@ import org.ramflux.data.ClientPhase
 import org.ramflux.data.ClientResult
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.designsystem.UiText
-import org.ramflux.designsystem.failureText
+import org.ramflux.designsystem.failureSentence
 import org.ramflux.designsystem.failureWords
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.calls.impl.R
@@ -257,8 +257,5 @@ class CallSessionViewModel @Inject constructor(
     }
 }
 
-private fun failure(code: Int, status: String?, reason: String?): UiText = if (status.isNullOrEmpty()) {
-    failureText(R.string.call_failed_code, code, null, reason)
-} else {
-    failureWords(reason) ?: uiText(R.string.call_failed_reason, UiText.Data(status))
-}
+private fun failure(code: Int, status: String?, reason: String?): UiText =
+    failureWords(reason) ?: if (status.isNullOrEmpty()) failureSentence(code, null, reason) else uiText(R.string.call_failed_reason)

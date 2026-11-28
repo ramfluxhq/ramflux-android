@@ -155,7 +155,7 @@ fun ErasableSecretField(
                 { shown = !shown },
                 kind = KitButtonKind.Text,
                 enabled = enabled,
-                tag = "$fieldTag-show"
+                tag = fieldTag + "-show"
             )
         }
     } else {

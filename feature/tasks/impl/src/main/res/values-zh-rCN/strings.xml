@@ -1,30 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="tasks_title">任务</string>
-    <string name="tasks_conversations">会话</string>
-    <string name="tasks_context">选择一个实际会话以读取其中的任务。</string>
+    <string name="tasks_conversations">聊天</string>
+    <string name="tasks_context">选择一个实际聊天以读取其中的任务。</string>
     <string name="tasks_permissions">授权与回执</string>
     <string name="tasks_back">返回</string>
     <string name="tasks_more">加载更多</string>
     <string name="tasks_loading">正在读取任务…</string>
     <string name="tasks_error">无法读取任务</string>
-    <string name="tasks_error_code">请求失败（%1$s）。</string>
     <string name="tasks_account_required">需要已解锁的当前账户。</string>
     <string name="tasks_setup">设置账户</string>
     <string name="tasks_closed">私密数据已关闭。</string>
     <string name="tasks_account_changed">当前账户已更改。请返回并刷新。</string>
-    <string name="tasks_empty">此会话中暂无任务</string>
-    <string name="tasks_no_contexts">暂无可用会话</string>
+    <string name="tasks_empty">此聊天中暂无任务</string>
+    <string name="tasks_no_contexts">暂无可用聊天</string>
     <string name="tasks_no_permissions">暂无已记录的授权或审批</string>
     <string name="tasks_stale">请刷新后再对此快照执行操作。</string>
     <string name="tasks_pending">原始操作 %1$s 尚未确定结果。</string>
     <string name="tasks_reconcile">核对原始操作</string>
-    <string name="tasks_ack">SDK 已确认收到请求。请刷新以查看实际任务状态。</string>
+    <string name="tasks_ack">请求已发送。任务状态会在此更新。</string>
     <string name="tasks_waiting">请求正在等待处理；尚未确认任务状态更改。</string>
     <string name="tasks_unknown">结果未知。请保留原始操作标识。</string>
-    <string name="tasks_create">新建 Agent 任务</string>
+    <string name="tasks_create">新建智能体任务</string>
     <string name="tasks_unavailable">经验证的操作上下文暂不可用</string>
-    <string name="tasks_unavailable_detail">启动 Agent 任务或授权介入操作需要经验证的 Agent 和审批上下文。尚未授权或执行任何操作。</string>
+    <string name="tasks_unavailable_detail">启动智能体任务或授权介入操作需要经验证的智能体和审批上下文。尚未授权或执行任何操作。</string>
     <string name="tasks_proposed">待确认</string>
     <string name="tasks_running">进行中</string>
     <string name="tasks_needs_me">需要你处理</string>
@@ -44,7 +43,7 @@
     <string name="tasks_confirm">确认</string>
     <string name="tasks_deny">拒绝</string>
     <string name="tasks_account">账户：%1$s</string>
-    <string name="tasks_conversation">会话：%1$s</string>
+    <string name="tasks_conversation">聊天：%1$s</string>
     <string name="tasks_task">任务：%1$s</string>
     <string name="tasks_version">修订版本：%1$s</string>
     <string name="tasks_requester">请求方：%1$s</string>
@@ -77,7 +76,7 @@
     <string name="tasks_pending_status">待处理</string>
     <string name="tasks_approved">已批准</string>
     <string name="tasks_denied">已拒绝</string>
-    <string name="tasks_submitted">已提交</string>
+    <string name="tasks_submitted">已发出</string>
     <string name="tasks_applied">已应用</string>
     <string name="tasks_rejected">已拒绝</string>
     <string name="tasks_expired">已过期</string>

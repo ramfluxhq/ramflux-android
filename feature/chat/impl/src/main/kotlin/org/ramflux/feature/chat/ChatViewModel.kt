@@ -25,7 +25,7 @@ import org.ramflux.data.cards.CardState
 import org.ramflux.data.cards.CardSurfaceRef
 import org.ramflux.data.cards.UnavailableCardSessionRepository
 import org.ramflux.designsystem.UiText
-import org.ramflux.designsystem.failureText
+import org.ramflux.designsystem.failureSentence
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
 
@@ -348,8 +348,7 @@ class ChatViewModel @Inject constructor(
             is ClientResult.Ready -> catalog.value
             is ClientResult.Failed -> {
                 local.value = ChatState(
-                    problem = failureText(
-                        R.string.ui_account_state_could_not_be_read_code_value,
+                    problem = failureSentence(
                         catalog.problem.code, catalog.problem.statusName, catalog.problem.check
                     ),
                     draft = local.value.draft
@@ -440,8 +439,7 @@ class ChatViewModel @Inject constructor(
                                     is ClientResult.Ready, is ClientResult.Failed -> null
                                 },
                                 problem = when (capability) {
-                                    is ClientResult.Failed -> failureText(
-                                        R.string.ui_send_availability_failed_code_value,
+                                    is ClientResult.Failed -> failureSentence(
                                         capability.problem.code, capability.problem.statusName, capability.problem.check
                                     )
                                     is ClientResult.Ready, is ClientResult.Unavailable -> null
@@ -455,8 +453,8 @@ class ChatViewModel @Inject constructor(
                     }
                     is ClientResult.Failed -> local.update {
                         it.copy(
-                            problem = failureText(
-                                R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check
+                            problem = failureSentence(
+                                result.problem.code, result.problem.statusName, result.problem.check
                             )
                         )
                     }
@@ -664,8 +662,8 @@ class ChatViewModel @Inject constructor(
                     }
                     is ClientResult.Failed -> local.update {
                         it.copy(
-                            problem = failureText(
-                                R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check
+                            problem = failureSentence(
+                                result.problem.code, result.problem.statusName, result.problem.check
                             )
                         )
                     }
@@ -1322,8 +1320,7 @@ class ChatViewModel @Inject constructor(
                             it.copy(
                                 gallery = it.gallery?.copy(
                                     loading = false,
-                                    problem = failureText(
-                                        R.string.ui_read_failed_code_value,
+                                    problem = failureSentence(
                                         result.problem.code,
                                         result.problem.statusName,
                                         result.problem.check
@@ -1611,8 +1608,8 @@ class ChatViewModel @Inject constructor(
                     it.copy(
                         forward = open.copy(
                             loading = false,
-                            problem = failureText(
-                                R.string.ui_read_failed_code_value, result.problem.code, result.problem.statusName, result.problem.check
+                            problem = failureSentence(
+                                result.problem.code, result.problem.statusName, result.problem.check
                             )
                         )
                     )
@@ -1800,8 +1797,7 @@ private fun cardSubmitFailure(problem: ClientProblem): UiText = when (problem.ou
 
 private fun sendFailure(problem: ClientProblem): UiText = when (problem.outcome) {
     ClientOutcome.UNKNOWN -> uiText(R.string.ui_send_outcome_is_unknown_refresh_before_making_another)
-    ClientOutcome.NONE, ClientOutcome.REFUSED -> failureText(
-        R.string.ui_the_message_was_not_sent_code_value,
+    ClientOutcome.NONE, ClientOutcome.REFUSED -> failureSentence(
         problem.code,
         problem.statusName,
         problem.check
@@ -1810,8 +1806,7 @@ private fun sendFailure(problem: ClientProblem): UiText = when (problem.outcome)
 
 private fun actionFailure(problem: ClientProblem): UiText = when (problem.outcome) {
     ClientOutcome.UNKNOWN -> uiText(R.string.ui_send_outcome_is_unknown_refresh_before_making_another)
-    ClientOutcome.NONE, ClientOutcome.REFUSED -> failureText(
-        R.string.ui_action_failed_code_value,
+    ClientOutcome.NONE, ClientOutcome.REFUSED -> failureSentence(
         problem.code,
         problem.statusName,
         problem.check

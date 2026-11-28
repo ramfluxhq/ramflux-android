@@ -6,7 +6,7 @@
     <string name="settings_devices">设备</string>
     <string name="settings_back">返回</string>
     <string name="settings_system">跟随系统</string>
-    <string name="settings_appearance_help">为此设备选择主题，更改会立即生效。</string>
+    <string name="settings_appearance_help">为本设备选择主题，更改会立即生效。</string>
     <string name="settings_account">账户</string>
     <string name="settings_account_needed">请打开已解锁的账户以查看状态和设备。</string>
     <string name="settings_open_account">打开账户</string>
@@ -16,14 +16,13 @@
     <string name="settings_unavailable">暂不可用</string>
     <string name="settings_action_missing">此版本尚未包含此操作。</string>
     <string name="settings_sdk_missing">此版本暂不支持此操作。</string>
-    <string name="settings_custody_missing">需要此设备上的安全账户访问支持。</string>
+    <string name="settings_custody_missing">需要本设备上的安全账户访问支持。</string>
     <string name="settings_error">无法继续</string>
-    <string name="settings_read_failed">请求未完成（%1$s）。</string>
     <string name="settings_unknown_outcome">操作结果未知，请先刷新当前状态再发起新请求。</string>
     <string name="settings_account_changed">当前账户已变更，请刷新以读取当前状态。</string>
     <string name="settings_closed">私有数据已关闭，账户详情已隐藏。</string>
     <string name="settings_empty_devices">账户组件未返回任何设备。</string>
-    <string name="settings_current_device">此设备</string>
+    <string name="settings_current_device">本设备</string>
     <string name="settings_other_device">其他设备</string>
     <string name="settings_revoke">撤销</string>
     <string name="settings_sessions">安全会话</string>
@@ -41,7 +40,7 @@
     <string name="settings_last_run">上次运行</string>
     <string name="settings_theme_missing">所选主题不可用，请选择其他主题。</string>
     <string name="settings_language">语言</string>
-    <string name="settings_language_help">仅更改此设备上的宿主界面语言。对方姓名和消息文本保持不变。</string>
+    <string name="settings_language_help">仅更改本设备上的应用语言。</string>
     <string name="settings_apply_language">应用语言</string>
     <string name="settings_permissions">系统权限</string>
     <string name="settings_permissions_help">查看系统权限实时状态与设置</string>
@@ -53,7 +52,7 @@
     <!-- Explains what locking does; the account code is six digits. -->
     <string name="settings_lock_account_help">在本机关闭你的账户数据。用六位账户码可再次打开。</string>
     <!-- Title of the confirmation before another device is revoked. -->
-    <string name="settings_revoke_confirm_title">撤销此设备？</string>
+    <string name="settings_revoke_confirm_title">撤销本设备？</string>
     <!-- Explains the consequence of revoking a device. -->
     <string name="settings_revoke_confirm_body">该设备会立即失去此账户的访问权限，它已保存的消息仍留在设备上。此操作无法撤回；如需再次使用，请重新关联。</string>
     <!-- Destructive button that revokes the device. -->
@@ -69,7 +68,7 @@
     <!-- Settings row: this account's devices and sync. -->
     <string name="settings_devices_sync">设备与同步</string>
     <!-- Value under the devices row. -->
-    <string name="settings_devices_sync_help">此设备授权、同步状态</string>
+    <string name="settings_devices_sync_help">本设备授权、同步状态</string>
     <!-- Section title on the settings page: connections and data rows. -->
     <string name="settings_group_data">连接与数据</string>
     <!-- Settings row: the nodes this phone connects to. -->
@@ -81,7 +80,7 @@
     <!-- Settings row: the media files this phone holds for the account. -->
     <string name="settings_storage">存储空间</string>
     <!-- Value under the storage row. -->
-    <string name="settings_storage_help">保存在此设备上的媒体和文件</string>
+    <string name="settings_storage_help">保存在本设备上的媒体和文件</string>
     <!-- Section title on the settings page: application rows. -->
     <string name="settings_group_app">应用</string>
     <!-- Settings row and page title: appearance and language. -->
@@ -95,7 +94,7 @@
     <!-- Section title on the account page. -->
     <string name="settings_security">安全</string>
     <!-- Row that changes the six-digit account code. -->
-    <string name="settings_change_code">修改账户密码</string>
+    <string name="settings_change_code">修改账户码</string>
     <!-- Value under the change-code row. -->
     <string name="settings_change_code_help">在此手机上打开账户的六位数字密码</string>
     <!-- Row and page title: privacy settings. -->
@@ -103,12 +102,11 @@
     <!-- Value under the privacy row. -->
     <string name="settings_privacy_help">联系人请求与开放账户</string>
     <!-- Shown after the account code was changed. -->
-    <string name="settings_code_changed">账户密码已修改。</string>
+    <string name="settings_code_changed">账户码已修改。</string>
     <!-- Label of the current account code slots. -->
-    <string name="settings_code_current">当前账户密码</string>
+    <string name="settings_code_current">当前账户码</string>
     <!-- Label of the new account code slots. -->
-    <string name="settings_code_new">新账户密码</string>
-    <!-- Help under the new code: the SDK refuses easy codes. -->
+    <string name="settings_code_new">新账户码</string>
     <string name="settings_code_new_help">六位数字，不能全部相同，也不能是连续数字。</string>
     <!-- Keypad key that deletes the last digit. -->
     <string name="settings_code_delete">删除</string>
@@ -119,17 +117,15 @@
     <!-- Refusal: the new code is too easy. -->
     <string name="settings_code_trivial">请选择不全相同、也不连续的数字。</string>
     <!-- Refusal: the new code equals the current one. -->
-    <string name="settings_code_same">新密码必须与当前密码不同。</string>
+    <string name="settings_code_same">新密码必须与当前账户码不同。</string>
     <!-- The current code was wrong or the change was refused. -->
-    <string name="settings_code_refused">账户密码未修改，请检查当前密码。</string>
+    <string name="settings_code_refused">账户码未修改，请检查当前账户码。</string>
     <!-- Section title: who can send contact requests. -->
     <string name="settings_contact_requests">联系人请求</string>
     <!-- Contact request policy: review each request. -->
-    <string name="settings_requests_manual">逐个审核请求</string>
     <!-- Help for the manual policy. -->
-    <string name="settings_requests_manual_help">新联系人需等待你的确认。</string>
+    <string name="settings_requests_manual_help">逐个审核每个请求。</string>
     <!-- Contact request policy: accept automatically. -->
-    <string name="settings_requests_auto">自动接受</string>
     <!-- Help for the auto-accept policy. -->
     <string name="settings_requests_auto_help">符合安全规则的请求会被自动接受。</string>
     <!-- Section and row: open account (reachable by anyone). -->
@@ -137,7 +133,7 @@
     <!-- Row: the account's @username. -->
     <string name="settings_username">@用户名</string>
     <!-- Value of a row whose feature the core does not offer yet. -->
-    <string name="settings_blocked_by_sdk">暂不可用：核心尚未提供</string>
+    <string name="settings_blocked_by_sdk">暂不可用。</string>
     <!-- Row and page title: link a new device to this account. -->
     <string name="settings_pairing_title">关联新设备</string>
     <!-- Value under the link-device row. -->
@@ -159,7 +155,7 @@
     <!-- Status chip on the approval card. -->
     <string name="settings_pairing_waiting">等待你的批准</string>
     <!-- Approval card title. -->
-    <string name="settings_pairing_review">批准此设备？</string>
+    <string name="settings_pairing_review">批准本设备？</string>
     <!-- Approval card scope label. -->
     <string name="settings_pairing_rights">它将可以</string>
     <!-- Button: decline the joining device. -->
@@ -194,7 +190,6 @@
     <string name="settings_pairing_expired">邀请已过期。</string>
     <!-- Pairing was rejected. -->
     <string name="settings_pairing_rejected">关联已被拒绝。</string>
-    <!-- Pairing failed; the SDK code follows. -->
     <string name="settings_pairing_failed">关联已中止。</string>
     <!-- Language row value: the language is planned, not translated. -->
     <string name="settings_language_untranslated">翻译进行中</string>
@@ -206,9 +201,7 @@
     <string name="settings_my_card_help">让联系人添加你并连接到你的节点</string>
     <!-- Explanation on the my-contact-card page. -->
     <string name="settings_my_card_explanation">用此名片添加你的联系人也会得知你的节点，这样他们发送的消息和媒体才能送达。名片七天后过期，届时请重新打开获取新名片。</string>
-    <!-- Shown while the SDK signs the contact card. -->
     <string name="settings_my_card_loading">正在准备你的联系人名片…</string>
-    <!-- Shown when the SDK refused to export the contact card. -->
     <string name="settings_my_card_failed">无法准备你的联系人名片。账户可能仍在连接节点。</string>
     <!-- Button that asks for the contact card again. -->
     <string name="settings_my_card_retry">重试</string>
@@ -240,7 +233,7 @@
     <string name="settings_username_value">@%1$s</string>
     <string name="settings_username_none">尚未认领用户名</string>
     <!-- %1$s is the directory's typed refusal code, shown as it is. -->
-    <string name="settings_username_unavailable">用户名目录不可用（%1$s）</string>
+    <string name="settings_username_unavailable">此节点暂时无法使用用户名。</string>
     <string name="settings_username_title">用户名</string>
     <string name="settings_username_claim">认领或更改用户名</string>
     <string name="settings_username_name_label">用户名</string>
@@ -261,7 +254,7 @@
     <string name="settings_username_aborted_plain">未发布。</string>
     <string name="settings_username_invalid">此用户名无效。</string>
     <string name="settings_username_taken">此用户名已被占用。</string>
-    <string name="settings_username_phrase_mismatch">恢复短语与此账号不匹配</string>
+    <string name="settings_username_phrase_mismatch">恢复短语与此账户不匹配</string>
     <string name="settings_username_retry">%1$s 秒后重试</string>
     <string name="settings_username_directory_unreachable">无法连接用户名服务；消息功能不受影响</string>
     <string name="settings_app_lock">应用锁</string>
@@ -279,7 +272,7 @@
     <string name="settings_app_lock_biometric">使用生物识别解锁</string>
     <string name="settings_app_lock_not_available">暂不可用</string>
     <string name="settings_app_lock_explain">开启后，离开一段时间，Ramflux 会在返回时要求输入账户码。</string>
-    <string name="settings_app_lock_unavailable">此设备无法使用应用锁</string>
+    <string name="settings_app_lock_unavailable">本设备无法使用应用锁</string>
     <string name="settings_app_lock_reauth_title">用账户码确认</string>
     <string name="settings_app_lock_reauth_off">输入账户码以关闭应用锁。</string>
     <string name="settings_app_lock_reauth_longer">输入账户码以延长锁定时间。</string>
@@ -296,4 +289,5 @@
     <string name="settings_code_mismatch">两次输入的账户码不一致。</string>
     <string name="settings_lock_now">立即锁定</string>
     <string name="settings_account_unknown">未知</string>
+    <string name="settings_requests_auto_switch">自动接受联系人请求</string>
 </resources>

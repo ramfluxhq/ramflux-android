@@ -19,7 +19,10 @@
     <string name="failure_detail_name">code %1$s, %2$s</string>
     <string name="failure_detail_name_reason">code %1$s, %2$s: %3$s</string>
     <!-- The SDK refused because this node has no username directory. -->
-    <string name="failure_directory_unavailable">Usernames are not available on this server yet.</string>
+    <string name="failure_directory_unavailable">Usernames are not available on this node right now.</string>
     <string name="kit_navigate_up">Navigate up</string>
     <string name="time_yesterday">Yesterday</string>
+    <string name="failure_generic">Something went wrong. Try again.</string>
+    <string name="failure_network">Can\'t reach your node. Check your connection and try again.</string>
+    <string name="failure_unsupported">Not available yet.</string>
 </resources>

@@ -299,24 +299,33 @@ private fun codeKey(target: Int, form: SettingsCodeChange, digit: Char?): Settin
 internal fun LazyListScope.privacyPage(state: SettingsState, onAction: (SettingsAction) -> Unit) {
     val privacy = state.privacy
     item("privacy-policy") {
+        val theme = LocalRFTheme.current
+        val auto = privacy.policy == ContactRequestPolicy.AUTO_ACCEPT
         SettingsGroup(stringResource(R.string.settings_contact_requests)) {
-            for (policy in ContactRequestPolicy.entries) {
-                KitRow(
-                    stringResource(
-                        if (policy == ContactRequestPolicy.MANUAL) R.string.settings_requests_manual else R.string.settings_requests_auto
-                    ),
-                    { onAction(SettingsAction.RequestPolicy(policy)) },
-                    value = stringResource(
-                        if (policy == ContactRequestPolicy.MANUAL) {
-                            R.string.settings_requests_manual_help
-                        } else {
-                            R.string.settings_requests_auto_help
-                        }
-                    ),
-                    trailing = if (privacy.policy == policy) KitRowTrailing.Check else KitRowTrailing.None,
+            // One switch (D-15): off means every request is reviewed.
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = theme.gap.dp, vertical = (theme.gap / 2).dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_requests_auto_switch))
+                    Text(
+                        stringResource(if (auto) R.string.settings_requests_auto_help else R.string.settings_requests_manual_help),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = theme.secondary
+                    )
+                }
+                KitSwitch(
+                    checked = auto,
+                    onChecked = {
+                        onAction(
+                            SettingsAction.RequestPolicy(if (it) ContactRequestPolicy.AUTO_ACCEPT else ContactRequestPolicy.MANUAL)
+                        )
+                    },
                     enabled = !privacy.loading && privacy.policy != null,
-                    divider = policy != ContactRequestPolicy.entries.last(),
-                    testTag = "policy:" + policy.wire
+                    label = stringResource(R.string.settings_requests_auto_switch),
+                    tag = "policy:auto",
+                    stateKnown = privacy.policy != null
                 )
             }
         }

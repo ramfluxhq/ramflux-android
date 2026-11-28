@@ -8,7 +8,6 @@
     <string name="tasks_more">Load more</string>
     <string name="tasks_loading">Reading tasks…</string>
     <string name="tasks_error">Unable to read tasks</string>
-    <string name="tasks_error_code">The request failed (%1$s).</string>
     <string name="tasks_account_required">An unlocked active account is required.</string>
     <string name="tasks_setup">Set up an account</string>
     <string name="tasks_closed">Private data is closed.</string>
@@ -19,7 +18,7 @@
     <string name="tasks_stale">Refresh before acting on this snapshot.</string>
     <string name="tasks_pending">Original operation %1$s is unresolved.</string>
     <string name="tasks_reconcile">Reconcile original operation</string>
-    <string name="tasks_ack">The SDK acknowledged the request. Refresh for actual task state.</string>
+    <string name="tasks_ack">Request sent. The task will update here.</string>
     <string name="tasks_waiting">The request is pending; no task transition is confirmed.</string>
     <string name="tasks_unknown">The outcome is unknown. Keep the original operation identity.</string>
     <string name="tasks_create">New Agent task</string>

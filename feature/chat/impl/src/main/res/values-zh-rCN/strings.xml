@@ -2,30 +2,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <resources>
     <string name="ui_account_access_is_unavailable_value">账户访问不可用：%1$s</string>
-    <string name="ui_account_state_could_not_be_read_code_value">无法读取账户状态（%1$s）。</string>
     <string name="ui_back">返回</string>
-    <string name="ui_conversation">会话</string>
+    <string name="ui_conversation">聊天</string>
     <string name="ui_loading_messages">正在加载消息</string>
     <string name="ui_message_content_is_unavailable">消息内容不可用。</string>
     <string name="ui_message_deleted">此消息已删除</string>
     <string name="ui_message_history_is_unavailable">消息历史不可用。</string>
     <string name="ui_no_messages">暂无消息</string>
     <string name="ui_private_data_is_closed">私有数据已关闭。</string>
-    <string name="ui_read_failed_code_value">读取失败（%1$s）。</string>
     <string name="ui_reading_private_data">正在读取私有数据…</string>
-    <string name="ui_secure_account_access_is_required_on_this_device">需要此设备上的安全账户访问支持。</string>
+    <string name="ui_secure_account_access_is_required_on_this_device">需要本设备上的安全账户访问支持。</string>
     <string name="ui_send">发送</string>
-    <string name="ui_send_availability_failed_code_value">无法获取发送可用状态（%1$s）。</string>
     <string name="ui_send_outcome_is_unknown_refresh_before_making_another">发送结果未知，请先刷新状态再发起新请求。</string>
     <string name="ui_sending_unavailable_draft_kept">发送不可用，草稿已保留。</string>
     <string name="ui_sending_unavailable_value">发送不可用：%1$s</string>
-    <string name="ui_the_active_account_changed_return_to_conversations">当前账户已变更，请返回会话列表。</string>
+    <string name="ui_the_active_account_changed_return_to_conversations">当前账户已变更，请返回聊天列表。</string>
     <string name="ui_the_feature_is_not_installed">此功能尚未安装。</string>
-    <string name="ui_the_message_was_not_sent_code_value">消息未发送（%1$s）。</string>
-    <string name="ui_the_sdk_operation_is_not_available_in_this">此版本暂不支持该操作。</string>
-    <string name="ui_this_conversation_has_no_messages">此会话暂无消息。</string>
+    <string name="ui_the_sdk_operation_is_not_available_in_this">暂不可用。</string>
+    <string name="ui_this_conversation_has_no_messages">此聊天暂无消息。</string>
     <string name="ui_unable_to_continue">无法继续</string>
-    <string name="ui_conversation_details_unavailable">会话详情不可用</string>
+    <string name="ui_conversation_details_unavailable">聊天详情不可用</string>
     <string name="ui_call_record_unavailable">通话记录 · 详情不可用</string>
     <string name="ui_attach">添加附件</string>
     <string name="ui_delivery_failed">投递失败</string>
@@ -40,7 +36,6 @@
     <string name="chat_member_fallback">成员</string>
     <string name="ui_peer_typing">对方正在输入。</string>
     <string name="ui_typing_unavailable">输入状态不可用。</string>
-    <string name="ui_action_failed_code_value">操作失败（%1$s）。</string>
     <string name="ui_cancel">取消</string>
     <string name="ui_receipt_sent">已发送</string>
     <string name="ui_receipt_delivered">已送达</string>
@@ -62,7 +57,6 @@
     <string name="chat_message_actions">消息操作</string>
     <!-- Message action that copies the message text to the clipboard. -->
     <string name="chat_action_copy">复制文字</string>
-    <!-- Status line under an own message the SDK refused or failed to send. -->
     <string name="chat_not_sent">未发送</string>
     <!-- Action next to "Not sent" that sends the same message again. -->
     <string name="chat_retry">重试</string>
@@ -70,12 +64,11 @@
     <string name="chat_discard">丢弃</string>
     <!-- Status inside an own bubble that waits for a connection before it is sent. -->
     <string name="chat_queued">待发送</string>
-    <!-- Status inside an own bubble that is being handed to the SDK. -->
     <string name="chat_sending">发送中</string>
     <!-- Notice above the timeline while messages wait for the connection to return. -->
     <string name="chat_offline_notice">当前离线 · 消息将在恢复连接后发送</string>
     <!-- Header action that opens the conversation details. -->
-    <string name="chat_conversation_details">会话详情</string>
+    <string name="chat_conversation_details">聊天详情</string>
     <!-- Header action that starts a one-to-one call. -->
     <string name="chat_call">通话</string>
     <!-- Row at the top of the timeline while an older page loads. -->
@@ -90,7 +83,6 @@
     <string name="chat_media_not_staged">所选内容无法准备发送。</string>
     <!-- Status inside a media bubble that is not on this device yet; tapping downloads it. -->
     <string name="chat_media_download">点按下载</string>
-    <!-- Status inside a media bubble while it downloads; the SDK reports no byte progress. -->
     <string name="chat_media_loading">正在下载…</string>
     <!-- Status inside a media bubble whose download failed; tapping retries. -->
     <string name="chat_media_failed">下载失败 · 点按重试</string>
@@ -99,7 +91,7 @@
     <!-- Status of an attachment the sender removed. -->
     <string name="chat_media_revoked">发送者已移除</string>
     <!-- Status of an attachment this device holds no key for (paired after it was sent). -->
-    <string name="chat_media_not_on_device">此设备无法查看</string>
+    <string name="chat_media_not_on_device">本设备无法查看</string>
     <!-- Status of an attachment from an untrusted sender; nothing is shown until tapped. -->
     <string name="chat_media_hidden">点按显示</string>
     <!-- Status inside an own media bubble while it is prepared and uploaded. -->
@@ -121,13 +113,13 @@
     <!-- Title of the confirmation before a file is opened in another app. -->
     <string name="chat_media_open_title">在其他应用中打开？</string>
     <!-- Body of the open confirmation; %1$s is the file name, shown isolated. -->
-    <string name="chat_media_open_body">%1$s 将交给此设备上的其他应用。Ramflux 之外的副本之后不会被删除。</string>
+    <string name="chat_media_open_body">%1$s 将交给本设备上的其他应用。Ramflux 之外的副本之后不会被删除。</string>
     <!-- Confirm button of the open confirmation. -->
     <string name="chat_media_open">打开</string>
     <!-- Notice after an image was saved to the photo library. -->
     <string name="chat_media_saved">已保存到相册</string>
     <!-- Notice when no app can open or save the file. -->
-    <string name="chat_media_no_app">此设备上没有可打开此文件的应用。</string>
+    <string name="chat_media_no_app">本设备上没有可打开此文件的应用。</string>
     <!-- File bubble meta line; %1$s is the file size, %2$s the transfer status. -->
     <string name="chat_file_meta">%1$s · %2$s</string>
     <!-- Attach menu entry that opens the system camera for one photo. -->
@@ -137,7 +129,7 @@
     <!-- Title of the chooser that picks the conversation to forward a message to. -->
     <string name="chat_forward_title">转发到</string>
     <!-- Shown in the forward chooser when no direct conversation can receive the message. -->
-    <string name="chat_forward_empty">没有可转发的会话</string>
+    <string name="chat_forward_empty">没有可转发的聊天</string>
     <!-- Shown in the forward chooser while the message is encrypted and sent again; no percentage is known. -->
     <string name="chat_forward_sending">正在转发…</string>
     <!-- Notice after a forwarded message was handed to the network. -->
@@ -193,7 +185,7 @@
     <!-- Viewer position in a message with several items; %1$d is the item, %2$d the count. -->
     <string name="chat_viewer_position">第 %1$d 项，共 %2$d 项</string>
     <!-- Shown in the viewer when the video cannot be played on this device. -->
-    <string name="chat_viewer_video_failed">此设备无法播放此视频。</string>
+    <string name="chat_viewer_video_failed">本设备无法播放此视频。</string>
     <!-- Elapsed and total video time; %1$s and %2$s are media times in Western digits, shown left to right. -->
     <string name="chat_viewer_time">%1$s / %2$s</string>
     <!-- Title of the conversation media gallery and its menu entry. -->
@@ -205,23 +197,23 @@
     <!-- Shown while the gallery reads older messages for media. -->
     <string name="gallery_loading">正在查找媒体…</string>
     <!-- Shown when the loaded part of the conversation has no media of the selected kind. -->
-    <string name="gallery_empty">此会话中没有媒体</string>
+    <string name="gallery_empty">此聊天中没有媒体</string>
     <!-- Title of the media storage screen and its menu entry. -->
     <string name="storage_title">存储空间</string>
     <!-- Row with the bytes of decrypted media this account keeps on this device. -->
-    <string name="storage_total">此设备上的媒体</string>
+    <string name="storage_total">本设备上的媒体</string>
     <!-- Row with the bytes of outgoing files waiting to be sent. -->
     <string name="storage_outbox">等待发送</string>
     <!-- Explains the retention policy on the storage screen. -->
-    <string name="storage_policy">收到的媒体会保留在此设备上，直到你清除或发送者将其移除。超过一天未发送的文件会自动移除。</string>
+    <string name="storage_policy">收到的媒体会保留在本设备上，直到你清除或发送者将其移除。超过一天未发送的文件会自动移除。</string>
     <!-- Shown while the storage screen measures media files. -->
     <string name="storage_loading">正在计算…</string>
     <!-- Shown when this account keeps no decrypted media on this device. -->
-    <string name="storage_empty">此设备上没有存储媒体</string>
+    <string name="storage_empty">本设备上没有存储媒体</string>
     <!-- Button that clears the media of every conversation after confirmation. -->
     <string name="storage_clear_all">清除所有媒体</string>
     <!-- Title of the confirmation before clearing one conversation's media. -->
-    <string name="storage_clear_title">清除此会话的媒体？</string>
+    <string name="storage_clear_title">清除此聊天的媒体？</string>
     <!-- Title of the confirmation before clearing every conversation's media. -->
     <string name="storage_clear_all_title">清除所有媒体？</string>
     <!-- Body of the clear confirmation; after the relay window the local copy may be the only one. -->
@@ -235,12 +227,10 @@
     <!-- Reaction bar button and picker title for choosing any emoji as a reaction. -->
     <string name="chat_react_more">更多表情</string>
     <!-- Shown while the direct-conversation details are read. -->
-    <string name="direct_details_loading">正在读取会话详情…</string>
-    <!-- Shown when the SDK did not return the conversation row. -->
-    <string name="direct_details_unavailable">无法读取会话详情，请稍后再试。</string>
+    <string name="direct_details_loading">正在读取聊天详情…</string>
+    <string name="direct_details_unavailable">无法读取聊天详情，请稍后再试。</string>
     <!-- Switch that mutes this direct conversation. -->
     <string name="direct_details_mute">静音通知</string>
-    <!-- Shown when the SDK refused to change the mute state. -->
     <string name="direct_details_mute_failed">静音状态未改变，请重试。</string>
     <!-- Section title for the contact's safety number. -->
     <string name="direct_details_safety">安全码</string>
@@ -257,13 +247,12 @@
     <!-- Shown when the conversation row has no direct route. -->
     <string name="direct_details_safety_no_peer">此会话没有可显示安全码的对方。</string>
     <!-- Row with the size of this conversation's decrypted media on this phone. -->
-    <string name="direct_details_storage">此会话占用的存储</string>
+    <string name="direct_details_storage">此聊天占用的存储</string>
     <!-- Status on an attachment this phone is sending: it waits for the connection and goes out on its own. -->
     <string name="chat_media_queued">等待发送</string>
     <!-- Status on an attachment this phone tried to send and the service refused. -->
     <string name="chat_media_unsent">未发送</string>
-    <!-- A send the SDK refused because the contact's home node is not known yet (no contact card imported); the entry keeps a Retry. -->
-    <string name="chat_card_submit_unknown">卡片回复可能已发出，也可能未发出。请先查看会话，再决定是否重新回复。</string>
+    <string name="chat_card_submit_unknown">卡片回复可能已发出，也可能未发出。请先查看聊天，再决定是否重新回复。</string>
     <string name="chat_card_request_changed">此请求已变化，请重新查看。</string>
     <string name="chat_card_tap_again">卡片在你点击前已更新。请再点一次。</string>
     <string name="chat_card_result_unknown">无法确认卡片是否收到了这次操作。请先查看卡片，再决定是否重试。</string>

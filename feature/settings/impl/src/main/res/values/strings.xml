@@ -18,7 +18,6 @@
     <string name="settings_sdk_missing">This operation is not available in this version.</string>
     <string name="settings_custody_missing">Secure account access is required on this device.</string>
     <string name="settings_error">Unable to continue</string>
-    <string name="settings_read_failed">The request did not complete (%1$s).</string>
     <string name="settings_unknown_outcome">The outcome is unknown. Refresh the current state before another request.</string>
     <string name="settings_account_changed">The active account changed. Refresh to read its current state.</string>
     <string name="settings_closed">Private data is closed. Account details are hidden.</string>
@@ -41,7 +40,7 @@
     <string name="settings_last_run">Last run</string>
     <string name="settings_theme_missing">The selected theme is unavailable. Choose another theme.</string>
     <string name="settings_language">Language</string>
-    <string name="settings_language_help">Applies to host labels on this device. Peer names and message text stay unchanged.</string>
+    <string name="settings_language_help">Changes the app language on this device only.</string>
     <string name="settings_apply_language">Apply language</string>
     <string name="settings_permissions">Permissions</string>
     <string name="settings_permissions_help">Live system status and permission settings</string>
@@ -125,11 +124,9 @@
     <!-- Section title: who can send contact requests. -->
     <string name="settings_contact_requests">Contact requests</string>
     <!-- Contact request policy: review each request. -->
-    <string name="settings_requests_manual">Review each request</string>
     <!-- Help for the manual policy. -->
-    <string name="settings_requests_manual_help">New contacts wait for your answer.</string>
+    <string name="settings_requests_manual_help">You review each request.</string>
     <!-- Contact request policy: accept automatically. -->
-    <string name="settings_requests_auto">Accept automatically</string>
     <!-- Help for the auto-accept policy. -->
     <string name="settings_requests_auto_help">Requests that pass your safety rules are accepted.</string>
     <!-- Section and row: open account (reachable by anyone). -->
@@ -137,7 +134,7 @@
     <!-- Row: the account's @username. -->
     <string name="settings_username">@username</string>
     <!-- Value of a row whose feature the core does not offer yet. -->
-    <string name="settings_blocked_by_sdk">Not available yet: the core does not offer it</string>
+    <string name="settings_blocked_by_sdk">Not available yet.</string>
     <!-- Row and page title: link a new device to this account. -->
     <string name="settings_pairing_title">Link a new device</string>
     <!-- Value under the link-device row. -->
@@ -240,7 +237,7 @@
     <string name="settings_username_value">@%1$s</string>
     <string name="settings_username_none">No username claimed</string>
     <!-- %1$s is the directory's typed refusal code, shown as it is. -->
-    <string name="settings_username_unavailable">Username directory unavailable (%1$s)</string>
+    <string name="settings_username_unavailable">Usernames are not available on this node right now.</string>
     <string name="settings_username_title">Username</string>
     <string name="settings_username_claim">Claim or change username</string>
     <string name="settings_username_name_label">Username</string>
@@ -296,4 +293,5 @@
     <string name="settings_code_mismatch">The codes do not match.</string>
     <string name="settings_lock_now">Lock now</string>
     <string name="settings_account_unknown">Unknown</string>
+    <string name="settings_requests_auto_switch">Accept contact requests automatically</string>
 </resources>
