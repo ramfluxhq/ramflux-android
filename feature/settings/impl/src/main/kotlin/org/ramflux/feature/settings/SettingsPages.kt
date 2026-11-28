@@ -58,7 +58,8 @@ internal fun LazyListScope.generalPage(state: SettingsState, onAction: (Settings
                 stringResource(R.string.settings_account_security),
                 { onAction(SettingsAction.Page(SettingsPage.ACCOUNT)) },
                 icon = "user-round",
-                value = state.accountLabel ?: stringResource(R.string.settings_account_needed_short),
+                value = state.accountLabel?.let { it.ifEmpty { stringResource(R.string.settings_account_unknown) } }
+                    ?: stringResource(R.string.settings_account_needed_short),
                 enabled = state.accountLabel != null,
                 testTag = "account-security"
             )
@@ -157,16 +158,8 @@ internal fun LazyListScope.accountPage(state: SettingsState, onAction: (Settings
                 { onAction(SettingsAction.Page(SettingsPage.PRIVACY)) },
                 icon = "shield",
                 value = stringResource(R.string.settings_privacy_help),
-                testTag = "privacy"
-            )
-            KitRow(
-                stringResource(R.string.settings_lock_account),
-                { onAction(SettingsAction.Lock) },
-                icon = "lock",
-                value = stringResource(R.string.settings_lock_account_help),
-                enabled = state.accountLabel != null,
                 divider = false,
-                testTag = "lock-account"
+                testTag = "privacy"
             )
         }
     }
@@ -201,10 +194,15 @@ internal fun LazyListScope.accountPage(state: SettingsState, onAction: (Settings
         val signOut = exit == SettingsAccountExit.SIGN_OUT
         item("confirm-exit") {
             Column(verticalArrangement = Arrangement.spacedBy(LocalRFTheme.current.gap.dp)) {
+                // D-2: the confirmation names the account it acts on.
+                val name = state.accountLabel.orEmpty().ifEmpty { stringResource(R.string.settings_account_unknown) }
+                if (!signOut) Text(name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("confirm-exit-name"))
                 KitSecurityWarning(
-                    stringResource(
-                        if (signOut) R.string.settings_sign_out_confirm_title else R.string.settings_remove_account_confirm_title
-                    ),
+                    if (signOut) {
+                        stringResource(R.string.settings_sign_out_confirm_title, name)
+                    } else {
+                        stringResource(R.string.settings_remove_account_confirm_title)
+                    },
                     stringResource(
                         if (signOut) R.string.settings_sign_out_confirm_body else R.string.settings_remove_account_confirm_body
                     ),
@@ -524,6 +522,20 @@ internal fun LazyListScope.appLockPage(state: SettingsState, onAction: (Settings
                     testTag = "app-lock-timeout:$timeout"
                 )
             }
+        }
+    }
+    item("app-lock-now") {
+        SettingsGroup(stringResource(R.string.settings_lock_now)) {
+            KitRow(
+                stringResource(R.string.settings_lock_now),
+                { onAction(SettingsAction.Lock) },
+                icon = "lock",
+                value = stringResource(R.string.settings_lock_account_help),
+                // The one lock entry: it needs the app lock on, so the two lock concepts are not shown side by side.
+                enabled = usable && lock.enabled && state.accountLabel != null,
+                divider = false,
+                testTag = "lock-account"
+            )
         }
     }
     item("app-lock-biometric") {

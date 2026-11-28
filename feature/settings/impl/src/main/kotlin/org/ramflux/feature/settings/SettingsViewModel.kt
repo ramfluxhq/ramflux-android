@@ -893,7 +893,8 @@ class SettingsViewModel @Inject constructor(
                 if (local.value.page == SettingsPage.APP_LOCK) readAppLock()
                 local.update {
                     it.copy(
-                        accountLabel = confirmed.label ?: confirmed.id,
+                        // An account without a display name shows as Unknown; an id is never a user-facing name.
+                        accountLabel = confirmed.label.orEmpty(),
                         devices = when (rows) {
                             is ClientResult.Ready -> rows.value.map { row -> SettingsDevice(row.id, row.local) }.toPersistentList()
                             else -> persistentListOf()

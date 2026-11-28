@@ -5,7 +5,6 @@
     <string name="settings_appearance">外观</string>
     <string name="settings_devices">设备</string>
     <string name="settings_back">返回</string>
-    <string name="settings_refresh">刷新</string>
     <string name="settings_system">跟随系统</string>
     <string name="settings_appearance_help">为此设备选择主题，更改会立即生效。</string>
     <string name="settings_account">账户</string>
@@ -51,7 +50,6 @@
     <string name="settings_about">关于</string>
     <string name="settings_version">版本 %1$s（构建 %2$d）</string>
     <!-- Settings row that locks the account on this phone. -->
-    <string name="settings_lock_account">锁定账户</string>
     <!-- Explains what locking does; the account code is six digits. -->
     <string name="settings_lock_account_help">在本机关闭你的账户数据。用六位账户码可再次打开。</string>
     <!-- Title of the confirmation before another device is revoked. -->
@@ -227,15 +225,15 @@
     <!-- Explains signing out: drafts and cached media are erased, the account data stays and the six-digit code opens it again. -->
     <string name="settings_sign_out_help">关闭账户并清除草稿和缓存的媒体。用六位账户码可再次打开。</string>
     <!-- Title of the confirmation before signing out. -->
-    <string name="settings_sign_out_confirm_title">在此手机上退出登录？</string>
+    <string name="settings_sign_out_confirm_title">要在本设备上退出 %1$s 吗？</string>
     <!-- Consequence of signing out. -->
     <string name="settings_sign_out_confirm_body">此账户在本机未发送的草稿、排队的消息和缓存的媒体将被清除。账户仍保留在本机，可用账户码再次打开。</string>
     <!-- Settings row that removes the account and its data from this phone. -->
-    <string name="settings_remove_account">从此手机移除</string>
+    <string name="settings_remove_account">从本设备移除</string>
     <!-- Explains removal: local data only, nothing on the node. -->
     <string name="settings_remove_account_help">删除本机上此账户的密钥和数据。你的其他设备和节点仍保留该账户。</string>
     <!-- Title of the confirmation before removal. -->
-    <string name="settings_remove_account_confirm_title">从此手机移除此账户？</string>
+    <string name="settings_remove_account_confirm_title">要从本设备移除此账户吗？</string>
     <!-- Consequence of removal; recovery needs a backup, the recovery phrase or another device. -->
     <string name="settings_remove_account_confirm_body">本机上此账户的密钥、消息和媒体将被删除，且无法在此撤销：如需在本机再次使用，需要备份、恢复短语或你的另一台设备。</string>
     <!-- The claimed username; %1$s is the name without the at sign. -->
@@ -296,4 +294,6 @@
     <string name="settings_app_lock_busy">另一项应用锁更改正在进行中。</string>
     <string name="settings_code_repeat">再次输入新账户码</string>
     <string name="settings_code_mismatch">两次输入的账户码不一致。</string>
+    <string name="settings_lock_now">立即锁定</string>
+    <string name="settings_account_unknown">未知</string>
 </resources>
