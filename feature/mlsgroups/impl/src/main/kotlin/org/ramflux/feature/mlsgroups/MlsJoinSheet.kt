@@ -70,7 +70,8 @@ internal fun MlsJoinSheet(sheet: MlsJoinSheetUi, onAction: (MlsGroupsAction) -> 
                 onValue = { onAction(MlsGroupsAction.Link(it)) },
                 label = stringResource(R.string.group_join_field),
                 enabled = !sheet.joining,
-                tag = "mls-join-field"
+                tag = "mls-join-field",
+                code = true
             )
             Row(horizontalArrangement = Arrangement.spacedBy((theme.gap * HALF).dp)) {
                 Box(Modifier.weight(1f)) {

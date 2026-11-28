@@ -97,11 +97,13 @@ fun MlsInfoScreen(state: MlsInfoUi, onAction: (MlsInfoAction) -> Unit, modifier:
                     testTag = "mls-info-members-entry"
                 )
                 // Any member may create invites (r4 item 9); the list and revoke cover this account's own invites.
-                KitRow(
-                    stringResource(R.string.group_info_invites_entry),
-                    { onAction(MlsInfoAction.Invites) },
-                    testTag = "mls-info-invites-entry"
-                )
+                if (!state.readOnly) {
+                    KitRow(
+                        stringResource(R.string.group_info_invites_entry),
+                        { onAction(MlsInfoAction.Invites) },
+                        testTag = "mls-info-invites-entry"
+                    )
+                }
                 state.failure?.let {
                     KitMeta(
                         failureText(it),

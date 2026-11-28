@@ -350,6 +350,75 @@ class MlsGroupSessionTest {
         assertEquals(0, fake.count("send"))
     }
 
+    @Test fun evictingATimelineKeepsItsNotSentPostsAndInFlightResults() = runTest {
+        val fake = Fake()
+        fake.history = { _, _ -> page(post(1)) }
+        val s = MlsGroupSession(fake, scope(this))
+        s.openGroup(account, "a")
+        s.openGroup(account, "b")
+        runCurrent()
+        fake.sendGate = CompletableDeferred(ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE, statusName = "too_large")))
+        s.send(account, "a", "kept", null, emptyList())
+        val gate = CompletableDeferred<ClientResult<MlsGroupSend>>()
+        fake.sendGate = gate
+        s.send(account, "b", "in flight", null, emptyList())
+        s.openGroup(account, "c")
+        s.openGroup(account, "d")
+        runCurrent()
+        assertEquals(MlsLocalPhase.NOT_SENT, s.timeline(account, "a").first().locals.single().phase)
+        gate.complete(ClientResult.Ready(MlsGroupSend("pb", MlsGroupPostState.Queued(MlsGroupQueuedReason.CATCHING_UP))))
+        runCurrent()
+        assertEquals(MlsLocalPhase.QUEUED, s.timeline(account, "b").first().locals.single().phase)
+    }
+
+    @Test fun anSdkPendingRowArrivingDuringTheSubmitIsOneItem() = runTest {
+        val fake = Fake()
+        fake.history = { _, _ -> page(post(1)) }
+        val gate = CompletableDeferred<ClientResult<MlsGroupSend>>()
+        val s = MlsGroupSession(fake, scope(this))
+        s.watch(account)
+        s.openGroup(account, group)
+        runCurrent()
+        fake.sendGate = gate
+        s.send(account, group, "hello", null, emptyList())
+        val pending = post(null, id = "p-pending", me = true, text = "hello").copy(state = MlsGroupPostState.Queued(MlsGroupQueuedReason.UNKNOWN))
+        fake.events.tryEmit(MlsGroupSignal.Post(group, pending))
+        runCurrent()
+        gate.complete(ClientResult.Ready(MlsGroupSend("p-pending", MlsGroupPostState.Queued(MlsGroupQueuedReason.CATCHING_UP))))
+        runCurrent()
+        assertEquals(1, s.timelineNow().locals.size)
+    }
+
+    @Test fun theLimitLockLiftsAtTheResetTimeWithoutSendingAndALockCancelsIt() = runTest {
+        val fake = Fake()
+        val base = 5_000_000L
+        val s = MlsGroupSession(fake, scope(this), { base + testScheduler.currentTime })
+        fake.sendGate = CompletableDeferred(ClientResult.Ready(MlsGroupSend("p", MlsGroupPostState.RateLimited(MlsGroupQuota(20, 0, false, base + 10_000)))))
+        s.send(account, group, "x", null, emptyList())
+        runCurrent()
+        assertEquals(base + 10_000, s.timelineNow().limitedUntil)
+        val local = s.timelineNow().locals.single()
+        // Retry while locked keeps the bubble and sends nothing.
+        s.retry(account, group, local.localId)
+        runCurrent()
+        assertEquals(1, fake.count("send"))
+        assertEquals(1, s.timelineNow().locals.size)
+        testScheduler.advanceTimeBy(10_001)
+        runCurrent()
+        assertNull(s.timelineNow().limitedUntil)
+        assertEquals(1, fake.count("send"))
+        // A second lock is cancelled by clearAccount: nothing lands afterwards.
+        fake.sendGate = CompletableDeferred(ClientResult.Ready(MlsGroupSend("p2", MlsGroupPostState.RateLimited(MlsGroupQuota(20, 0, false, base + 50_000)))))
+        s.send(account, group, "y", null, emptyList())
+        runCurrent()
+        s.clearAccount(account)
+        s.admit(account)
+        testScheduler.advanceTimeBy(60_000)
+        runCurrent()
+        assertNull(s.timelineNow().limitedUntil)
+        assertEquals(2, fake.count("send"))
+    }
+
     @Test fun membershipRowsCollapseAsTheContractSays() {
         fun joined(seq: Long, vararg names: String) = MlsGroupPost(
             seq, "", null, null, MlsGroupPostKind.MEMBERSHIP, null, null, emptyList(), MlsGroupPostState.Sent(seq),

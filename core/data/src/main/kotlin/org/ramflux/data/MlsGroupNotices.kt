@@ -13,6 +13,9 @@ import java.security.MessageDigest
 interface MlsGroupNotices {
     fun hostIpSeen(account: String, group: String): Boolean
     fun markHostIpSeen(account: String, group: String)
+
+    /** Removes every flag of [account] (an account removal). // W: call it from the account-removal path */
+    fun clearAccount(account: String)
 }
 
 /** For hosts without preferences (previews, the gallery): remembered for the process only. */
@@ -21,6 +24,10 @@ class InMemoryMlsGroupNotices : MlsGroupNotices {
     override fun hostIpSeen(account: String, group: String) = key(account, group) in seen
     override fun markHostIpSeen(account: String, group: String) {
         seen.add(key(account, group))
+    }
+
+    override fun clearAccount(account: String) {
+        seen.removeAll { it.startsWith(prefix(account)) }
     }
 }
 
@@ -31,11 +38,20 @@ class AndroidMlsGroupNotices(context: Context) : MlsGroupNotices {
     override fun markHostIpSeen(account: String, group: String) {
         preferences.edit().putBoolean(key(account, group), true).apply()
     }
+
+    override fun clearAccount(account: String) {
+        val editor = preferences.edit()
+        preferences.all.keys.filter { it.startsWith(prefix(account)) }.forEach { editor.remove(it) }
+        editor.apply()
+    }
 }
 
-private fun key(account: String, group: String): String {
-    val digest = MessageDigest.getInstance("SHA-256").digest((account + "\u0000" + group).toByteArray())
-    return "host_ip." + digest.joinToString("") { "%02x".format(it) }.take(KEY_HEX)
-}
+private fun hash(text: String): String =
+    MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }.take(KEY_HEX)
+
+/** The keys of one account share a prefix, so removing the account removes its flags. */
+private fun prefix(account: String) = "host_ip." + hash(account) + "."
+
+private fun key(account: String, group: String) = prefix(account) + hash(account + "\u0000" + group)
 
 private const val KEY_HEX = 32
