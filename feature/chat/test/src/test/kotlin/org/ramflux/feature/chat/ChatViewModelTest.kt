@@ -396,6 +396,7 @@ class ChatViewModelTest {
         val blocked = ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE, statusName = SendBlock.IDENTITY_CHANGE_PENDING)
         val history = FakeChatHistory().apply {
             capability = ClientResult.Ready(Unit)
+            heading = ClientResult.Ready(ConversationHeader(null, peer = "peer"))
             sendResult = ClientResult.Failed(blocked)
         }
         val outbox = FakeChatOutbox()
@@ -404,7 +405,7 @@ class ChatViewModelTest {
             val session = FakeChatSession()
             return ChatViewModel(
                 history, FakeChatAccounts(), session, FakeChatDrafts(), media, FakeChatStager(),
-                MediaTransfers(media, session, backgroundScope), FakeChatCards(), coordinator(outbox)
+                MediaTransfers(media, session, backgroundScope), FakeChatCards(), coordinator(outbox), ScriptedIdentity(IdentityState.VERIFIED)
             )
         }
         val first = model()
@@ -657,7 +658,10 @@ class ChatViewModelTest {
     @Test fun backDuringAMediaUploadThenRefusalBlocksTheReopenedSend() = runTest(timeout = 5.seconds) {
         val dir = java.nio.file.Files.createTempDirectory("outbox-media").toFile()
         try {
-            val history = FakeChatHistory().apply { capability = ClientResult.Ready(Unit) }
+            val history = FakeChatHistory().apply {
+                capability = ClientResult.Ready(Unit)
+                heading = ClientResult.Ready(ConversationHeader(null, peer = "peer"))
+            }
             val media = FakeChatMedia().apply {
                 sendGate = CompletableDeferred()
                 sendResult = refusal()
@@ -672,7 +676,7 @@ class ChatViewModelTest {
                 object : androidx.lifecycle.ViewModelProvider.Factory {
                     @Suppress("UNCHECKED_CAST")
                     override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                        chatModel(history, media, session, stager, coordinator) as T
+                        chatModel(history, media, session, stager, coordinator, ScriptedIdentity(IdentityState.VERIFIED)) as T
                 }
             )[ChatViewModel::class.java]
             observe(first)
@@ -688,7 +692,7 @@ class ChatViewModelTest {
             runCurrent()
             media.sendGate = null
             media.sendResult = ClientResult.Ready(SendReceipt("media"))
-            val second = chatModel(history, media, session, stager, coordinator)
+            val second = chatModel(history, media, session, stager, coordinator, ScriptedIdentity(IdentityState.VERIFIED))
             observe(second)
             runCurrent()
             load(second)
