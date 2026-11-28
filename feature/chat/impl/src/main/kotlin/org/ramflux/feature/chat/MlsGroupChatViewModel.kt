@@ -183,7 +183,7 @@ class MlsGroupChatViewModel(
             }
             ChatAction.LoadOlder -> target?.let { session.loadOlder(it.account, it.group) }
             ChatAction.Refresh -> target?.let {
-                // A refresh reloads a window that failed to load or was trimmed, and pulls from the host (once per 5 s).
+                // A refresh reloads a window that failed to load; the session reloads the newest page of a trimmed one, then pulls from the host (once per 5 s).
                 if (!state.value.loaded || state.value.problem != null) session.reloadGroup(it.account, it.group)
                 session.refreshGroup(it.account, it.group)
             }

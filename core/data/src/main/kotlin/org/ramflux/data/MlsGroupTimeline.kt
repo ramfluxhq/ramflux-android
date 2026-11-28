@@ -145,6 +145,15 @@ data class MlsTimelineWindow(
         )
     }
 
+    /**
+     * Restarts the window at [row], the newest row the person is certain of: older rows load by scrolling up and newer rows by
+     * the gap fill after it. Used when a trimmed window must show an own post again.
+     */
+    fun restartAt(row: MlsGroupPost): MlsTimelineWindow {
+        val slot = row.logSeq ?: return this
+        return copy(posts = listOf(row), newest = slot, trimmedNewest = false, hasOlder = true, reachedFloor = false, gapAfter = slot)
+    }
+
     /** Applies one event row; held out while newest rows were trimmed. A jump past the newest slot opens a gap. */
     fun event(row: MlsGroupPost): MlsTimelineWindow {
         val slot = row.logSeq ?: return this
