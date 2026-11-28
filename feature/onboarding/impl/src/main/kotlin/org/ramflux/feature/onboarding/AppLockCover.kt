@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -62,6 +63,7 @@ import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.ClientSnapshot
 import org.ramflux.data.accountCodeRefusal
 import org.ramflux.data.appLockCovers
+import org.ramflux.data.clientDebugEvent
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.kit.KitButton
@@ -271,6 +273,10 @@ class AppLockViewModel @Inject constructor(
     fun unlock(code: ErasableBuffer) {
         val digits = code.snapshot()
         code.clear()
+        clientDebugEvent(
+            "app_lock.unlock:busy=${local.value.busy},wait=${local.value.waitSecs},exhausted=${local.value.exhausted}," +
+                "complete=${AccountCode.complete(digits)}"
+        )
         if (local.value.busy || local.value.waitSecs > 0L || local.value.exhausted) {
             digits.fill('\u0000')
             return
@@ -319,6 +325,7 @@ class AppLockViewModel @Inject constructor(
      * is read from core's state, so the wait is what core holds, and any other failure says so without a guess.
      */
     private suspend fun failed(account: String, problem: ClientProblem) {
+        clientDebugEvent("app_lock.unlock.failed:${problem.accountCodeRefusal()}")
         when (problem.accountCodeRefusal()) {
             AccountCodeRefusal.WRONG_CODE -> {
                 local.update { it.copy(notice = codeText(AccountCodeRefusal.WRONG_CODE, null)) }
@@ -337,7 +344,9 @@ class AppLockViewModel @Inject constructor(
 
     /** Reads the state core holds now (exhausted or a throttle) and counts a wait down; the field stays disabled until it ends. */
     private suspend fun readThrottle(account: String) {
-        val status = (security.appLockState(account) as? ClientResult.Ready)?.value ?: return
+        val status = (security.appLockState(account) as? ClientResult.Ready)?.value
+        clientDebugEvent("app_lock.throttle:exhausted=${status?.codeAttemptsExhausted},wait=${status?.codeRetryAfterSecs}")
+        status ?: return
         if (status.codeAttemptsExhausted) {
             waitJob?.cancel()
             waitJob = null
@@ -599,23 +608,25 @@ private fun LockRecovery(
     }
 }
 
-/** An opaque cover: the content under it receives no pointer input while it is up. */
+/**
+ * An opaque cover: the content under it receives no pointer input while it is up. The blocker is a sibling drawn behind
+ * the cover's own content, not a modifier on their common parent: a touch on a control reaches only that control, and a
+ * touch anywhere else ends at the blocker, so the shell underneath is never hit. A parent that consumed every event would
+ * also consume the simulated move Compose sends when the layout changes under a held pointer (the countdown line going
+ * away, the keyboard insets), and a pressed button that sees a consumed move cancels its click.
+ */
 @Composable
 private fun CoverSurface(content: @Composable () -> Unit) {
     val theme = LocalRFTheme.current
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(theme.bg)
-            .consumeAllPointers()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(theme.gap.dp)
-    ) {
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) { content() }
+    Box(Modifier.fillMaxSize().background(theme.bg)) {
+        Spacer(Modifier.matchParentSize().consumeAllPointers())
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(theme.gap.dp)) {
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) { content() }
+        }
     }
 }
 
-/** Takes the pointer events the content does not handle, so nothing under the cover is pressed or scrolled. */
+/** Takes the pointer events no cover control handles, so nothing under the cover is pressed or scrolled. */
 private fun Modifier.consumeAllPointers(): Modifier = pointerInput(Unit) {
     awaitPointerEventScope {
         while (true) {
