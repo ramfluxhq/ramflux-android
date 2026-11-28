@@ -53,8 +53,8 @@ class RealRunFlowTest {
 
     private fun flow(id: String, needsAccount: Boolean = true, block: () -> String) {
         if (needsAccount && !accountReady) {
-            control.result(id, "BLOCKED", "no account: flow 01 did not complete on this install")
-            throw AssumptionViolatedException("flow $id: BLOCKED: no account on this install")
+            control.result(id, "BLOCKED", NO_ACCOUNT)
+            throw AssumptionViolatedException("flow $id: BLOCKED: $NO_ACCOUNT")
         }
         val first = flowsInProcess++ == 0
         coldProcess = first
@@ -173,11 +173,10 @@ class RealRunFlowTest {
         answerWordCheck()
         val code = RunCode.create()
         try {
-            ui.keys("account-code", code)
+            enterCodeAndCreate(code)
         } finally {
             code.fill('\u0000')
         }
-        ui.tap("confirm-account")
         ui.need("continue-created", Ui.LONG, "account created")
         secretScreen = false
         RealRunProbe.erase()
@@ -880,6 +879,20 @@ class RealRunFlowTest {
         }
     }
 
+    /**
+     * The account code under the word check, then Create account. The code field sits below the three word fields, where
+     * the keyboard of the last word can hide it, so it is scrolled into view first (a hidden field is not on screen for
+     * the flow); Create account is tapped only once the form is complete and the button enabled.
+     */
+    private fun enterCodeAndCreate(code: CharArray) {
+        if (!reach("account-code")) fail("the account code field cannot be scrolled into view: ${ui.screen()}")
+        ui.keys("account-code", code)
+        if (!ui.eventually(Ui.SHORT, 300) { ui.find("confirm-account", 300)?.isEnabled == true }) {
+            fail("Create account is not enabled with the three words and the code entered: ${ui.screen()}")
+        }
+        ui.tap("confirm-account")
+    }
+
     private fun challengePosition(index: Int): Int {
         val field = ui.need("challenge-$index")
         val label = listOfNotNull(field.contentDescription, field.text).joinToString(" ") +
@@ -948,7 +961,7 @@ class RealRunFlowTest {
 
     @Test fun f15_removeFromPhone() = flow("15-remove-local") {
         ensureShell()
-        val name = RunState["name"] ?: blocked("needs flow 01 (display name)")
+        val name = RunState["name"] ?: blocked("needs the display name flow f01 stores: $NO_ACCOUNT")
         openSettings()
         ui.tap("account-security")
         if (!reach("remove-account")) fail("Account and security has no Remove from this phone row: ${ui.screen()}")
@@ -2238,8 +2251,7 @@ class RealRunFlowTest {
             ui.need("challenge-0", Ui.LONG, "word challenge")
             answerWordCheck()
             code = RunCode.next(CharArray(CODE_DIGITS) { '0' })
-            ui.keys("account-code", code)
-            ui.tap("confirm-account")
+            enterCodeAndCreate(code)
             ui.need("continue-created", Ui.LONG, "account created")
             secretScreen = false
             RealRunProbe.erase()
@@ -2525,6 +2537,14 @@ class RealRunFlowTest {
 
         /** An account exists on this install when flow 01 saved its code (flows run in separate processes). */
         private val accountReady get() = RunCode.exists()
+
+        /**
+         * Why a flow that needs the run's account is BLOCKED: flow f01 creates it and keeps its code and display name in
+         * the app's run state, which lives as long as the install. Run f01 first, in the same invocation or in an earlier
+         * one on the same install (no reinstall in between).
+         */
+        private const val NO_ACCOUNT = "no account on this install: flow f01 must run first, in this invocation " +
+            "(--tests \"f01 ...\") or an earlier one on the same install (--no-install)"
 
         /** Flows run in this process so far; am instrument starts a new app process per invocation. */
         private var flowsInProcess = 0
