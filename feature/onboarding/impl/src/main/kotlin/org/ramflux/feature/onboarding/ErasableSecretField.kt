@@ -130,6 +130,7 @@ fun ErasableSecretField(
     password: Boolean,
     limit: Int,
     showToggle: Boolean = false,
+    asciiKeyboard: Boolean = !password,
     onEdited: () -> Unit
 ) {
     val theme = LocalRFTheme.current
@@ -172,7 +173,7 @@ fun ErasableSecretField(
             },
             update = { view ->
                 view.isEnabled = enabled
-                view.bind(buffer, password && !shown, limit, label) { edited() }
+                view.bind(buffer, password && !shown, limit, label, asciiKeyboard = asciiKeyboard) { edited() }
                 view.applyStyle(theme.text.toArgb(), theme.line.toArgb(), theme.size_body, theme.gap)
             },
             modifier = Modifier.fillMaxWidth().testTag(fieldTag)
@@ -188,6 +189,7 @@ class ErasableSecretView(context: Context) : View(context) {
     private var secret: ErasableBuffer? = null
     private var mask = true
     private var digits = false
+    private var ascii = false
     private var limit = 0
     private var onEdited: (() -> Unit)? = null
     private var selStart = 0
@@ -229,6 +231,7 @@ class ErasableSecretView(context: Context) : View(context) {
         maxChars: Int,
         description: String,
         digitsOnly: Boolean = false,
+        asciiKeyboard: Boolean = !maskInput,
         edited: () -> Unit
     ) {
         if (secret !== next) {
@@ -242,6 +245,7 @@ class ErasableSecretView(context: Context) : View(context) {
         if (mask != maskInput) invalidate()
         mask = maskInput
         digits = digitsOnly
+        ascii = asciiKeyboard
         limit = maxChars.coerceAtLeast(0)
         prepareMaskGlyphs()
         contentDescription = description
@@ -296,9 +300,9 @@ class ErasableSecretView(context: Context) : View(context) {
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
         if (!isEnabled) return null
         outAttrs.inputType = if (digits) DIGITS_INPUT_TYPE else SECRET_INPUT_TYPE
-        // Recovery words are Latin: ask for an ASCII-capable keyboard. A masked passphrase may use any
-        // script, so it only keeps the privacy flags.
-        outAttrs.imeOptions = if (mask) SECRET_IME_OPTIONS else SECRET_IME_OPTIONS or EditorInfo.IME_FLAG_FORCE_ASCII
+        // Recovery words are Latin: ask for an ASCII-capable keyboard, whether they are masked or shown. A passphrase
+        // that may use any script only keeps the privacy flags.
+        outAttrs.imeOptions = if (ascii) SECRET_IME_OPTIONS or EditorInfo.IME_FLAG_FORCE_ASCII else SECRET_IME_OPTIONS
         outAttrs.initialSelStart = selStart
         outAttrs.initialSelEnd = selEnd
         outAttrs.initialCapsMode = 0

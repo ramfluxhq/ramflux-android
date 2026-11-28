@@ -125,7 +125,7 @@
     <string name="ui_enter_the_phrase_and_code">Enter the 24-word recovery phrase and the account code.</string>
     <!-- Button shown after the code attempts are exhausted. -->
     <string name="ui_recover_with_phrase">Recover with recovery phrase</string>
-    <!-- Refusal with a wait: the SDK reports how many seconds remain before the next code try. -->
+    <!-- Refusal with a wait: the service reports how many seconds remain before the next code try. -->
     <plurals name="ui_code_retry_later">
         <item quantity="one">Too many wrong codes. Try again in %d second.</item>
         <item quantity="other">Too many wrong codes. Try again in %d seconds.</item>
@@ -192,9 +192,9 @@
     <string name="backup_state_failed">Failed</string>
     <!-- Job state: cancelled. -->
     <string name="backup_state_cancelled">Cancelled</string>
-    <!-- Progress; %1$d is a percentage, %2$s the SDK's current step name. -->
+    <!-- Progress; %1$d is a percentage, %2$s the service's current step name. -->
     <string name="backup_progress">%1$d%% · %2$s</string>
-    <!-- Progress without a total; %1$s is the SDK's current step name. -->
+    <!-- Progress without a total; %1$s is the service's current step name. -->
     <string name="backup_progress_open">In progress · %1$s</string>
     <!-- Button that cancels a job. -->
     <string name="backup_cancel">Cancel</string>
@@ -221,11 +221,11 @@
     <!-- Generic backup failure. -->
     <string name="backup_failed">The backup step did not succeed.</string>
     <!-- Code page heading: %1$s is the display name of the account being unlocked. -->
-    <!-- Button after the SDK refused to open a locked account for a reason other than the code; it removes the account and its local data from this phone, nothing on the node. -->
+    <!-- Button after the service refused to open a locked account for a reason other than the code; it removes the account and its local data from this phone, nothing on the node. -->
     <string name="ui_forget_account_on_device">Remove this account from this phone</string>
-    <!-- Account created step: the SDK reports the new account's network session as still being set up. -->
+    <!-- Account created step: the service reports the new account's network session as still being set up. -->
     <string name="ui_created_network_connecting">Connecting to the network…</string>
-    <!-- Account created step: the SDK reports the new account's network session as live. -->
+    <!-- Account created step: the service reports the new account's network session as live. -->
     <string name="ui_created_network_connected">Connected to the network</string>
     <!-- Account created step: the network session did not become live while the step was shown. -->
     <string name="ui_created_network_not_confirmed">The network connection is not confirmed yet. The account works on this phone; messages go out once it connects.</string>

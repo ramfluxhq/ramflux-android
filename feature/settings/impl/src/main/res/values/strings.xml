@@ -107,7 +107,7 @@
     <string name="settings_code_current">Current account code</string>
     <!-- Label of the new account code slots. -->
     <string name="settings_code_new">New account code</string>
-    <!-- Help under the new code: the SDK refuses easy codes. -->
+    <!-- Help under the new code: the service refuses easy codes. -->
     <string name="settings_code_new_help">Six digits, not all the same and not a straight run.</string>
     <!-- Keypad key that deletes the last digit. -->
     <string name="settings_code_delete">Delete</string>
@@ -191,7 +191,7 @@
     <string name="settings_pairing_expired">The invitation expired.</string>
     <!-- Pairing was rejected. -->
     <string name="settings_pairing_rejected">Pairing was declined.</string>
-    <!-- Pairing failed; the SDK code follows. -->
+    <!-- Pairing failed; the service code follows. -->
     <string name="settings_pairing_failed">Pairing stopped.</string>
     <!-- Language row value: the language is planned, not translated. -->
     <string name="settings_language_untranslated">Translation in progress</string>
@@ -203,9 +203,9 @@
     <string name="settings_my_card_help">Let a contact add you and reach your node</string>
     <!-- Explanation on the my-contact-card page. -->
     <string name="settings_my_card_explanation">A contact who adds you with this card also learns your node, so messages and media they send reach you. It expires in seven days; open it again for a fresh one.</string>
-    <!-- Shown while the SDK signs the contact card. -->
+    <!-- Shown while the service signs the contact card. -->
     <string name="settings_my_card_loading">Preparing your contact card…</string>
-    <!-- Shown when the SDK refused to export the contact card. -->
+    <!-- Shown when the service refused to export the contact card. -->
     <string name="settings_my_card_failed">Your contact card could not be prepared. The account may still be connecting to its node.</string>
     <!-- Button that asks for the contact card again. -->
     <string name="settings_my_card_retry">Try again</string>

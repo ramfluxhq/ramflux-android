@@ -97,7 +97,7 @@
     <!-- Shown when calls are not available on this device. -->
     <string name="call_unavailable">Calls are not available here.</string>
     <!-- Call failure with a numeric code; %1$s is the code. -->
-    <!-- Call failure with the SDK reason name; %1$s is the reason, shown as received. -->
+    <!-- Call failure with the service reason name; %1$s is the reason, shown as received. -->
     <string name="call_failed_reason">The call failed.</string>
     <!-- Name of the app in the phone's system call screens. -->
     <string name="call_system_label">Ramflux</string>

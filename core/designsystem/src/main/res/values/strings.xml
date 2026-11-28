@@ -10,15 +10,15 @@
         <item quantity="one">%1$s unread message</item>
         <item quantity="other">%1$s unread messages</item>
     </plurals>
-    <!-- Short marker shown next to the name of a person the SDK verified as an AI agent. Keep it to two or three characters. -->
+    <!-- Short marker shown next to the name of a person the service verified as an AI agent. Keep it to two or three characters. -->
     <string name="kit_ai_marker">AI</string>
     <!-- Accessibility label of the AI marker next to a name. -->
     <string name="kit_ai_marker_description">AI agent</string>
-    <!-- A refusal detail inside a generic failure sentence: the numeric code, then the typed status name and reason token the SDK gave. Tokens stay as written. -->
+    <!-- A refusal detail inside a generic failure sentence: the numeric code, then the typed status name and reason token the service gave. Tokens stay as written. -->
     <string name="failure_detail_code">code %1$s</string>
     <string name="failure_detail_name">code %1$s, %2$s</string>
     <string name="failure_detail_name_reason">code %1$s, %2$s: %3$s</string>
-    <!-- The SDK refused because this node has no username directory. -->
+    <!-- The service refused because this node has no username directory. -->
     <string name="failure_directory_unavailable">Usernames are not available on this node right now.</string>
     <string name="kit_navigate_up">Navigate up</string>
     <string name="time_yesterday">Yesterday</string>

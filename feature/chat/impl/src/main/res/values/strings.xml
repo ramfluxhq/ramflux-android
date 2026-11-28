@@ -57,7 +57,7 @@
     <string name="chat_message_actions">Message actions</string>
     <!-- Message action that copies the message text to the clipboard. -->
     <string name="chat_action_copy">Copy text</string>
-    <!-- Status line under an own message the SDK refused or failed to send. -->
+    <!-- Status line under an own message the service refused or failed to send. -->
     <string name="chat_not_sent">Not sent</string>
     <!-- Action next to "Not sent" that sends the same message again. -->
     <string name="chat_retry">Retry</string>
@@ -65,7 +65,7 @@
     <string name="chat_discard">Discard</string>
     <!-- Status inside an own bubble that waits for a connection before it is sent. -->
     <string name="chat_queued">Queued</string>
-    <!-- Status inside an own bubble that is being handed to the SDK. -->
+    <!-- Status inside an own bubble that is being handed to the service. -->
     <string name="chat_sending">Sending</string>
     <!-- Notice above the timeline while messages wait for the connection to return. -->
     <string name="chat_offline_notice">Offline · messages will be sent when the connection returns</string>
@@ -85,7 +85,7 @@
     <string name="chat_media_not_staged">The selected item could not be prepared for sending.</string>
     <!-- Status inside a media bubble that is not on this device yet; tapping downloads it. -->
     <string name="chat_media_download">Tap to download</string>
-    <!-- Status inside a media bubble while it downloads; the SDK reports no byte progress. -->
+    <!-- Status inside a media bubble while it downloads; the service reports no byte progress. -->
     <string name="chat_media_loading">Downloading…</string>
     <!-- Status inside a media bubble whose download failed; tapping retries. -->
     <string name="chat_media_failed">Download failed · tap to retry</string>
@@ -232,11 +232,11 @@
     <string name="chat_react_more">More reactions</string>
     <!-- Shown while the direct-conversation details are read. -->
     <string name="direct_details_loading">Reading the conversation details…</string>
-    <!-- Shown when the SDK did not return the conversation row. -->
+    <!-- Shown when the service did not return the conversation row. -->
     <string name="direct_details_unavailable">The conversation details could not be read. Try again later.</string>
     <!-- Switch that mutes this direct conversation. -->
     <string name="direct_details_mute">Mute notifications</string>
-    <!-- Shown when the SDK refused to change the mute state. -->
+    <!-- Shown when the service refused to change the mute state. -->
     <string name="direct_details_mute_failed">Mute did not change. Try again.</string>
     <!-- Section title for the contact's safety number. -->
     <string name="direct_details_safety">Safety number</string>
@@ -258,7 +258,7 @@
     <string name="chat_media_queued">Waiting to send</string>
     <!-- Status on an attachment this phone tried to send and the service refused. -->
     <string name="chat_media_unsent">Not sent</string>
-    <!-- A send the SDK refused because the contact's home node is not known yet (no contact card imported); the entry keeps a Retry. -->
+    <!-- A send the service refused because the contact's home node is not known yet (no contact card imported); the entry keeps a Retry. -->
     <string name="chat_card_submit_unknown">The card answer may or may not have been sent. Check the conversation before you answer again.</string>
     <string name="chat_card_request_changed">This request changed. Review it again.</string>
     <string name="chat_card_tap_again">The card changed before your tap. Tap again.</string>

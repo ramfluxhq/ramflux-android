@@ -155,8 +155,9 @@ internal fun ChallengePage(state: OnboardingState, entry: ChallengeEntry) {
                 enabled = !state.busy,
                 password = true,
                 limit = 64,
-                onEdited = entry::edited,
-                showToggle = true
+                showToggle = true,
+                asciiKeyboard = true,
+                onEdited = entry::edited
             )
         }
     }
@@ -233,8 +234,9 @@ internal fun RecoverPage(state: OnboardingState, entry: RecoveryEntry, onAction:
         enabled = !state.busy,
         password = true,
         limit = 400,
-        onEdited = entry::edited,
-        showToggle = true
+        showToggle = true,
+        asciiKeyboard = true,
+        onEdited = entry::edited
     )
     AccountCodeField(
         entry.code,
