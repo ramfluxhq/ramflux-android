@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -34,12 +35,17 @@ import org.ramflux.data.ClientPhase
 import org.ramflux.data.ClientResult
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.ContactDirectoryRepository
+import org.ramflux.data.ContactIdentityRepository
+import org.ramflux.data.ConversationSecurity
+import org.ramflux.data.IdentityState
 import org.ramflux.data.MediaRepository
 import org.ramflux.data.MessageHistoryRepository
-import org.ramflux.data.SafetyState
+import org.ramflux.data.SecurityState
+import org.ramflux.data.UnavailableContactIdentity
 import org.ramflux.data.UnavailableMediaRepository
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.kit.KitAiMarker
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
 import org.ramflux.designsystem.kit.KitMeta
@@ -48,12 +54,11 @@ import org.ramflux.designsystem.kit.KitRow
 import org.ramflux.designsystem.kit.KitRowTrailing
 import org.ramflux.designsystem.kit.KitSwitch
 import org.ramflux.designsystem.kit.KitTipBar
-import org.ramflux.designsystem.kit.LtrCode
 import org.ramflux.designsystem.render
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
 
-/** The details of a direct conversation: the contact, mute, the safety number, media and storage. */
+/** The details of a direct conversation: the contact, mute, the encryption section, media and storage. */
 @Immutable data class DirectDetailsState(
     val loading: Boolean = true,
     /** Peer-controlled: the contact's name, or the chat's title when no contact matches. */
@@ -61,10 +66,11 @@ import org.ramflux.feature.chat.impl.R
     /** Null when the directory row does not report it. */
     val muted: Boolean? = null,
     val muting: Boolean = false,
-    /** The contact's safety number; null when no contact matches the route or the SDK did not return one. */
-    val safetyNumber: String? = null,
-    val safety: SafetyState? = null,
-    /** False when the conversation names no peer the safety number could be read for. */
+    /** The peer's `identity_state`; [IdentityState.UNKNOWN] is shown as a first sighting, with no badge. */
+    val identity: IdentityState = IdentityState.UNKNOWN,
+    /** `conversation.security`; null while the SDK does not answer it. */
+    val security: ConversationSecurity? = null,
+    /** False when the conversation names no peer whose identity could be read. */
     val peerKnown: Boolean = false,
     /** Decrypted media of this conversation held on this phone, in bytes. */
     val storageBytes: Long? = null,
@@ -84,7 +90,8 @@ class DirectDetailsViewModel @Inject constructor(
     private val history: MessageHistoryRepository,
     private val contacts: ContactDirectoryRepository,
     private val session: ClientSessionRepository,
-    private val media: MediaRepository
+    private val media: MediaRepository,
+    private val identity: ContactIdentityRepository = UnavailableContactIdentity
 ) : ViewModel() {
     /** For hosts that keep no media (tests and previews). */
     constructor(history: MessageHistoryRepository, contacts: ContactDirectoryRepository, session: ClientSessionRepository) :
@@ -117,7 +124,8 @@ class DirectDetailsViewModel @Inject constructor(
             val contact = peer?.let { root ->
                 (contacts.contacts(account) as? ClientResult.Ready)?.value?.firstOrNull { it.root == root || it.principal == root }
             }
-            val safety = peer?.let { (contacts.safety(account, it) as? ClientResult.Ready)?.value }
+            val state = peer?.let { (identity.identity(account, it) as? ClientResult.Ready)?.value?.first }
+            val security = (identity.security(account, conversation) as? ClientResult.Ready)?.value
             val bytes = usage(account, conversation)
             if (!current(opened)) return@launch
             local.update {
@@ -126,8 +134,8 @@ class DirectDetailsViewModel @Inject constructor(
                     name = contact?.name?.takeIf { name -> name.isNotBlank() } ?: it.name,
                     muted = facts.muted,
                     peerKnown = peer != null,
-                    safetyNumber = safety?.number?.takeIf { number -> number.isNotBlank() },
-                    safety = safety?.state ?: contact?.let { known -> known.safetyState() },
+                    identity = state ?: IdentityState.UNKNOWN,
+                    security = security,
                     storageBytes = bytes
                 )
             }
@@ -174,8 +182,6 @@ class DirectDetailsViewModel @Inject constructor(
     private suspend fun usage(account: String, conversation: String): Long =
         media.storage(account).conversations.firstOrNull { it.conversation == conversation }?.bytes ?: 0L
 
-    private fun org.ramflux.data.ContactSummary.safetyState() = if (verified) SafetyState.VERIFIED else SafetyState.UNVERIFIED
-
     private fun current(opened: Target): Boolean =
         target == opened && session.status.value.phase == ClientPhase.OPEN && session.status.value.generation == opened.generation
 }
@@ -189,6 +195,7 @@ internal fun BoxScope.DirectDetails(
     state: DirectDetailsState,
     onAction: (DirectDetailsAction) -> Unit,
     onGallery: () -> Unit,
+    onReview: () -> Unit,
     onClose: () -> Unit
 ) {
     val theme = LocalRFTheme.current
@@ -215,21 +222,7 @@ internal fun BoxScope.DirectDetails(
                         )
                     }
                 }
-                KitMeta(stringResource(R.string.direct_details_safety), Modifier.fillMaxWidth().padding(top = theme.gap.dp))
-                val number = state.safetyNumber
-                when {
-                    number != null -> {
-                        LtrCode(
-                            number,
-                            Modifier.fillMaxWidth().padding(vertical = (theme.gap / 2).dp),
-                            groupSize = SAFETY_GROUP,
-                            tag = "direct-details-safety-number"
-                        )
-                        KitMeta(safetyText(state.safety), Modifier.fillMaxWidth().testTag("direct-details-safety-state"))
-                    }
-                    state.peerKnown -> KitMeta(stringResource(R.string.direct_details_safety_unavailable), Modifier.fillMaxWidth())
-                    else -> KitMeta(stringResource(R.string.direct_details_safety_no_peer), Modifier.fillMaxWidth())
-                }
+                EncryptionSection(state, onReview)
             }
             KitRow(stringResource(R.string.gallery_title), onGallery, icon = "images", testTag = "direct-details-gallery")
             state.storageBytes?.let { bytes ->
@@ -275,14 +268,50 @@ internal fun BoxScope.DirectDetails(
     }
 }
 
+/**
+ * The encryption section (derived design D-M1-2): the conversation's state line, the peer's device count with the AI marker when
+ * the SDK flags one, and the identity row. A changed identity offers "Review"; nothing here compares or marks anything.
+ */
 @Composable
-private fun safetyText(state: SafetyState?): String = stringResource(
-    when (state) {
-        SafetyState.VERIFIED -> R.string.direct_details_safety_verified
-        SafetyState.CHANGED -> R.string.direct_details_safety_changed
-        SafetyState.UNVERIFIED -> R.string.direct_details_safety_unverified
-        else -> R.string.direct_details_safety_unknown
+private fun EncryptionSection(state: DirectDetailsState, onReview: () -> Unit) {
+    val theme = LocalRFTheme.current
+    Column(Modifier.fillMaxWidth().padding(top = theme.gap.dp).testTag("security-section")) {
+        KitMeta(stringResource(R.string.security_section_title), Modifier.fillMaxWidth())
+        val security = state.security
+        if (security != null) {
+            val line = when (security.state) {
+                SecurityState.OK -> R.string.security_state_ok
+                SecurityState.PENDING -> R.string.security_state_pending
+                SecurityState.RE_ESTABLISHED -> R.string.security_state_re_established
+                SecurityState.UNKNOWN -> null
+            }
+            if (line != null) KitMeta(stringResource(line), Modifier.fillMaxWidth().testTag("security-state"))
+            if (security.peerDevices > 0) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    KitMeta(
+                        pluralStringResource(R.plurals.security_devices, security.peerDevices, security.peerDevices),
+                        Modifier.testTag("security-devices")
+                    )
+                    if (security.anyAi) KitAiMarker(Modifier.padding(start = (theme.gap / 2).dp))
+                }
+            }
+        }
+        if (state.peerKnown) {
+            when (state.identity) {
+                IdentityState.VERIFIED -> KitMeta(
+                    stringResource(R.string.identity_state_verified),
+                    Modifier.fillMaxWidth().testTag("identity-state")
+                )
+                IdentityState.CHANGED -> KitRow(
+                    stringResource(R.string.identity_state_changed),
+                    onReview,
+                    icon = "triangle-alert",
+                    value = stringResource(R.string.identity_changed_review),
+                    testTag = "identity-review"
+                )
+                IdentityState.TOFU, IdentityState.UNKNOWN ->
+                    KitMeta(stringResource(R.string.identity_state_tofu), Modifier.fillMaxWidth().testTag("identity-state"))
+            }
+        }
     }
-)
-
-private const val SAFETY_GROUP = 5
+}

@@ -21,11 +21,7 @@ internal class DefaultContactDirectoryRepository(
     private val source = DefaultContactsRepository(transport)
     private val usernames = DefaultUsernamesRepository(transport)
 
-    /** The last compare-and-set stamp per (account, root), read by [safety] and spent by VERIFY. */
-    private val stamps = object : LinkedHashMap<Pair<String, String>, String>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<String, String>, String>) = size > 32
-    }
-    private val actions = ContactCommandAdapter(transport) { account, root -> synchronized(stamps) { stamps[account to root] } }
+    private val actions = ContactCommandAdapter(transport)
     private val direct = DirectConversations(transport)
     private val contactPages = SnapshotPager<ContactSummary>(PAGE)
     private val requestPages = SnapshotPager<ContactRequestSummary>(PAGE)
@@ -100,7 +96,6 @@ internal class DefaultContactDirectoryRepository(
 
     private fun change(body: SecretReply): ContactChange = when (EventTopicReader.topic(body)) {
         "contact.changed" -> ContactChange.CONTACTS
-        "safety.changed" -> ContactChange.SAFETY
         in REQUEST_TOPICS -> ContactChange.REQUESTS
         else -> ContactChange.RELOAD
     }
@@ -158,36 +153,6 @@ internal class DefaultContactDirectoryRepository(
 
     override suspend fun conversation(account: String, root: String): ClientResult<String?> = direct.resolve(account, root)
 
-    override suspend fun safety(account: String, root: String): ClientResult<ContactSafety> {
-        if (account.isBlank() || root.isBlank() || account.length > 4096 || root.length > 4096) return invalid()
-        return when (val reply = source.safety_number(RepositoryContext(account), SecretBody.fields { publicText("contact_identity_commitment", root) })) {
-            is CoreResult.Failure -> ClientResult.Failed(reply.error.appProblem())
-            is CoreResult.Success -> when(val result = ContactSafetyMetadataReader.read(reply.value)) {
-                is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
-                is CoreResult.Success -> if (result.value.root == root) {
-                    synchronized(stamps) {
-                        val expected = result.value.expected
-                        if (expected == null) stamps.remove(account to root) else stamps[account to root] = expected
-                    }
-                    ClientResult.Ready(
-                        ContactSafety(
-                            result.value.number, result.value.fingerprint,
-                            when (result.value.state) {
-                                "unverified" -> SafetyState.UNVERIFIED
-                                "verified" -> SafetyState.VERIFIED
-                                "changed" -> SafetyState.CHANGED
-                                "blocked_by_policy" -> SafetyState.BLOCKED_BY_POLICY
-                                else -> SafetyState.UNKNOWN
-                            },
-                            result.value.expected != null
-                        )
-                    )
-                } else {
-                    invalid()
-                }
-            }
-        }
-    }
     override suspend fun availability(operation: ContactOperation): ClientResult<Unit> =
         if (operation in ContactCommandAdapter.SUPPORTED || operation == ContactOperation.BATCH_DECLINE) ClientResult.Ready(Unit)
         else ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
@@ -198,7 +163,7 @@ internal class DefaultContactDirectoryRepository(
 
         /** Journal topics of the pinned SDK (`bus/journal/project.rs`). */
         private val REQUEST_TOPICS = setOf("contact.requested", "contact.accepted", "contact.declined", "contact.blocked", "contact.request.expired")
-        val TOPICS = listOf("contact.changed", "safety.changed") + REQUEST_TOPICS
+        val TOPICS = listOf("contact.changed") + REQUEST_TOPICS
     }
 }
 

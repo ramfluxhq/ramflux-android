@@ -39,7 +39,8 @@ class ChatViewModel @Inject constructor(
     private val stager: MediaStager,
     private val queue: MediaTransfers,
     private val cards: CardSessionRepository,
-    private val outboxStore: ChatOutboxRepository = NoChatOutbox
+    private val outboxStore: ChatOutboxRepository = NoChatOutbox,
+    private val identity: ContactIdentityRepository = UnavailableContactIdentity
 ) : ViewModel() {
     /** For hosts without an application-wide transfer queue: downloads then end with this chat. */
     constructor(
@@ -133,8 +134,27 @@ class ChatViewModel @Inject constructor(
     private val local = MutableStateFlow(ChatState())
     private val channel = Channel<ChatEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
-    val state = combine(local, session.status) { screen, status ->
-        if (status.phase == ClientPhase.OPEN) screen else ChatState(problem = uiText(R.string.ui_private_data_is_closed))
+
+    /** The identity change sheet; its accept runs only from [ChatAction.AcceptIdentity]. */
+    private val review = IdentityReview(identity, viewModelScope) { account, contact, outcome -> reviewOutcome(account, contact, outcome) }
+
+    /** The direct peer's contact identifier of the open conversation, as the header reported it. */
+    private var peerRoot: String? = null
+
+    /** The change the peer's last `contact.identity_changed` event (or status read) delivered and the person has not accepted. */
+    private var pendingChange: IdentityChange? = null
+
+    /** Local service lines (identity changed, accepted, fork recovered), in arrival order; never message rows. */
+    private val serviceLines = ArrayList<MessageItem>()
+    private val lineKeys = HashSet<Any>()
+    val state = combine(local, session.status, review.state) { screen, status, sheet ->
+        if (status.phase == ClientPhase.OPEN) {
+            screen.copy(
+                review = sheet
+            )
+        } else {
+            ChatState(problem = uiText(R.string.ui_private_data_is_closed))
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), ChatState())
     private var request: Job? = null
     private var watch: Job? = null
@@ -155,10 +175,13 @@ class ChatViewModel @Inject constructor(
         session.status.map { it.phase to it.generation }.distinctUntilChanged().collect { (phase, _) ->
             // Lock or session loss: seal the draft before the in-memory state is dropped.
             sealDraft()
+            review.close()
             stager.dropMemory()
             request?.cancel()
             watch?.cancel()
             watchTarget = null
+            identityWatch?.cancel()
+            identityTarget = null
             clearPeerTypingClock()
             stopTyping()
             typingRefused = false
@@ -184,9 +207,12 @@ class ChatViewModel @Inject constructor(
                 val next = Target(action.accountId, action.conversationId, action.groupId)
                 if (target != next) {
                     sealDraft()
+                    review.close()
                     request?.cancel()
                     watch?.cancel()
                     watchTarget = null
+                    identityWatch?.cancel()
+                    identityTarget = null
                     clearPeerTypingClock()
                     stopTyping()
                     typingRefused = false
@@ -227,6 +253,9 @@ class ChatViewModel @Inject constructor(
                 request?.cancel()
                 watch?.cancel()
                 watchTarget = null
+                identityWatch?.cancel()
+                identityTarget = null
+                review.close()
                 clearPeerTypingClock()
                 stopTyping()
                 ticket++
@@ -307,6 +336,9 @@ class ChatViewModel @Inject constructor(
             is ChatAction.CardResync -> cardResync(action.ref)
             is ChatAction.CardAppearance -> cardLookChanged(action.locale, action.dark)
             ChatAction.Pause -> sealDraft()
+            ChatAction.ReviewIdentity -> openReview()
+            ChatAction.AcceptIdentity -> review.accept()
+            ChatAction.LaterIdentity -> review.later()
             is ChatAction.OpenAttachment -> openAttachment(action.key)
             ChatAction.CloseViewer -> local.update { it.copy(viewer = null, viewerPosition = null) }
             is ChatAction.SaveAttachment -> handOver(action.key, FileUse.SAVE)
@@ -412,8 +444,14 @@ class ChatViewModel @Inject constructor(
                     UiText.Data(title)
                 }
                 named?.let { namedHeader = currentTarget to it }
+                val facts = (header as? ClientResult.Ready)?.value
+                if (currentTarget.group == null) {
+                    peerRoot = facts?.peer
+                    facts?.peer?.let { watchIdentity(currentTarget, it) }
+                }
                 local.update {
                     it.copy(
+                        peerName = named?.value ?: it.peerName,
                         groupId = (groupHeader as? ClientResult.Ready)?.value?.groupId,
                         title = named ?: it.title,
                         titleAi = (header as? ClientResult.Ready)?.value?.ai == true,
@@ -573,14 +611,19 @@ class ChatViewModel @Inject constructor(
                     )
                     outgoing.delivery = if (offline) LocalDelivery.QUEUED else LocalDelivery.FAILED
                     outgoing.definite = sent.problem.outcome != ClientOutcome.UNKNOWN
+                    // A send refused until the identity is reviewed stays as a failed bubble with its text; the composer shows the
+                    // prompt. Nothing is sent again by itself, before or after the review.
+                    val block = if (staged.isEmpty()) SendBlock.of(sent.problem, peerRoot) else null
+                    if (block != null) blockedByIdentity(currentTarget, block)
                     local.update {
                         it.copy(
                             problem = when {
+                                block != null -> null
                                 offline -> null
                                 staged.isNotEmpty() -> mediaFailure(sent.problem) ?: sendFailure(sent.problem)
                                 else -> sendFailure(sent.problem)
                             },
-                            deliveryNotice = if (offline) null else failedNotice(sent.problem)
+                            deliveryNotice = if (offline || block != null) null else failedNotice(sent.problem)
                         )
                     }
                     publish()
@@ -733,7 +776,7 @@ class ChatViewModel @Inject constructor(
         }
         local.update {
             it.copy(
-                rows = withCards(window + pending).toPersistentList(),
+                rows = withCards(window + serviceLines + pending).toPersistentList(),
                 hasOlder = older != null,
                 queued = outbox.values.any { item -> item.delivery == LocalDelivery.QUEUED }
             )
@@ -829,6 +872,10 @@ class ChatViewModel @Inject constructor(
         markRefused = false
         unreadAtOpen = 0
         dividerPlaced = false
+        peerRoot = null
+        pendingChange = null
+        serviceLines.clear()
+        lineKeys.clear()
     }
 
     private fun scheduleDraftSave() {
@@ -925,6 +972,125 @@ class ChatViewModel @Inject constructor(
             read()
         }
     }
+
+    /** One shared subscription for the identity topics, tied to the message watch of the same target. */
+    private var identityWatch: Job? = null
+    private var identityTarget: Pair<Target, String>? = null
+
+    /** Starts the identity subscription of a direct chat and reads its identity and security once the peer is known. */
+    private fun watchIdentity(current: Target, root: String) {
+        if (identityTarget == current to root && identityWatch?.isActive == true) return
+        identityWatch?.cancel()
+        identityTarget = current to root
+        val generation = session.status.value.generation
+        readIdentity(current, root, afterAccept = false)
+        readSecurity(current)
+        identityWatch = viewModelScope.launch {
+            identity.changes(current.account).collect { signal ->
+                if (target != current || session.status.value.generation != generation) return@collect
+                when (signal) {
+                    is IdentitySignal.Changed -> if (signal.change.contact == root) applyChange(current, signal.change)
+                    // Silent: no timeline line, only a fresh read of the encryption state.
+                    is IdentitySignal.DevicesChanged ->
+                        if (signal.conversation == null || signal.conversation == current.conversation) readSecurity(current)
+                    IdentitySignal.Resync -> {
+                        readIdentity(current, root, afterAccept = false)
+                        readSecurity(current)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Reads the peer's status. A status that reports no state does not clear a change an event delivered; only an accept
+     * outcome ([afterAccept]) lets an unknown state replace it.
+     */
+    private fun readIdentity(current: Target, root: String, afterAccept: Boolean) {
+        val generation = session.status.value.generation
+        viewModelScope.launch {
+            val result = identity.identity(current.account, root)
+            if (target != current || session.status.value.generation != generation) return@launch
+            val read = (result as? ClientResult.Ready)?.value ?: return@launch
+            val (readState, change) = read
+            val next = if (readState == IdentityState.UNKNOWN && !afterAccept && local.value.identityState == IdentityState.CHANGED) {
+                IdentityState.CHANGED
+            } else {
+                readState
+            }
+            if (change != null) pendingChange = change else if (next != IdentityState.CHANGED) pendingChange = null
+            local.update { it.copy(identityState = next, sendBlocked = it.sendBlocked && next == IdentityState.CHANGED) }
+            pendingChange?.let(review::update)
+        }
+    }
+
+    private fun readSecurity(current: Target) {
+        val generation = session.status.value.generation
+        viewModelScope.launch {
+            val result = identity.security(current.account, current.conversation)
+            if (target != current || session.status.value.generation != generation) return@launch
+            val security = (result as? ClientResult.Ready)?.value ?: return@launch
+            // One line per recovery, whatever number of reads report it.
+            if (security.warning == SecurityWarning.FORK_RECOVERED && lineKeys.add("fork:" + security.epoch)) {
+                addServiceLine(uiText(R.string.security_warning_fork_recovered))
+            }
+        }
+    }
+
+    /** A `contact.identity_changed` event: the banner, the sheet and a timeline line; nothing is accepted. */
+    private fun applyChange(current: Target, change: IdentityChange) {
+        pendingChange = change
+        review.update(change)
+        local.update { it.copy(identityState = IdentityState.CHANGED) }
+        if (lineKeys.add("changed:" + change.newAnchor.hashCode())) {
+            addServiceLine(uiText(R.string.identity_timeline_changed, UiText.Untrusted(local.value.peerName.orEmpty())))
+        } else {
+            publish()
+        }
+    }
+
+    private fun addServiceLine(text: UiText) {
+        val at = System.currentTimeMillis() / 1000
+        serviceLines += MessageItem(IDENTITY_LINE + serviceLines.size + ":" + at, "", false, false, text, at, service = true)
+        publish()
+    }
+
+    /** `identity_change_pending`: the composer prompt, and a status read for the anchor the sheet needs. */
+    private fun blockedByIdentity(current: Target, block: SendBlock) {
+        if (block !is SendBlock.IdentityChangePending) return
+        local.update { it.copy(identityState = IdentityState.CHANGED, sendBlocked = true) }
+        peerRoot?.let { readIdentity(current, it, afterAccept = false) }
+    }
+
+    private fun openReview() {
+        val current = target ?: return
+        val root = peerRoot ?: return
+        if (local.value.identityState != IdentityState.CHANGED) return
+        val change = pendingChange
+        review.open(current.account, root, change, change?.username, change?.aiFlag ?: local.value.titleAi)
+    }
+
+    /** After an accept attempt the status is read again; an accepted change also gets its timeline line. */
+    private fun reviewOutcome(account: String, contact: String, outcome: AcceptOutcome) {
+        val current = target ?: return
+        if (current.account != account || peerRoot != contact) return
+        when (outcome) {
+            AcceptOutcome.Accepted -> {
+                pendingChange = null
+                local.update { it.copy(identityState = IdentityState.UNKNOWN, sendBlocked = false) }
+                addServiceLine(uiText(R.string.identity_timeline_accepted, UiText.Untrusted(local.value.peerName.orEmpty())))
+                readIdentity(current, contact, afterAccept = true)
+            }
+            AcceptOutcome.AlreadyHandled -> {
+                pendingChange = null
+                local.update { it.copy(identityState = IdentityState.UNKNOWN, sendBlocked = false) }
+                readIdentity(current, contact, afterAccept = true)
+            }
+            AcceptOutcome.ChangedAgain -> readIdentity(current, contact, afterAccept = false)
+            is AcceptOutcome.Failed -> Unit
+        }
+    }
+
     private fun ensureWatch(current: Target) {
         if (watchTarget == current && watch?.isActive == true) return
         watch?.cancel()
@@ -1711,6 +1877,9 @@ private data class Outgoing(
 // no reason code yet), so the send ends as not sent with a retry and the card hint.
 private val OFFLINE = setOf("unavailable", "offline", "closed")
 private const val LOCAL_PREFIX = "local:"
+
+/** Ids of the local identity and encryption service lines; they are never message ids. */
+internal const val IDENTITY_LINE = "identity-line:"
 
 private fun keyOf(attachment: MediaAttachment) = attachment.messageId + "/" + attachment.index
 

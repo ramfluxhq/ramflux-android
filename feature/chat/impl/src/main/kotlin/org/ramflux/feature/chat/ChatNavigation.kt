@@ -180,6 +180,11 @@ fun ChatNavigation(
                     detailsVm.close()
                     vm.onAction(ChatAction.OpenGallery)
                 },
+                onReview = {
+                    directDetails = false
+                    detailsVm.close()
+                    vm.onAction(ChatAction.ReviewIdentity)
+                },
                 onClose = {
                     directDetails = false
                     detailsVm.close()

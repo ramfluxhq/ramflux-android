@@ -78,8 +78,7 @@ approval implementation is installed by the shell.
   the inset and owners receive zero.
 - **Routes from the chat.** The chat's header and menu reach the group details
   (`GroupDetailRoute`, group chats only), the direct-conversation details (drawn over the chat by the chat
-  feature, direct chats only: the contact, mute through `conversation.mute`, the contact's safety number and
-  verification state, media and files, and this conversation's storage with clearing), a one-to-one call (`CallRoute`, direct
+  feature, direct chats only: the contact, mute through `conversation.mute`, the encryption section (the conversation's state and the peer's devices from `conversation.security`, and the contact's `identity_state` with "Review" for a changed identity), media and files, and this conversation's storage with clearing), a one-to-one call (`CallRoute`, direct
   chats only), the camera explanation (`PermissionsRoute(CAMERA_PHOTO)`), the
   conversation gallery (a sheet inside the chat) and media storage
   (`MediaStorageRoute`, also linked from Settings). The call history is a More
@@ -171,13 +170,17 @@ Contacts (people, strangers area, sent requests, blocked) read through windowed 
 `contact.list` and `contact.requests.list` are unpaged in the pinned SDK, so the data layer
 wraps them in `SnapshotPager`: a read without a cursor takes one SDK snapshot, filters it by the
 query off the main thread and serves offset cursors into it; the reply itself is bounded by the
-1 MiB frame. While visible the screen follows `contact.changed`, `safety.changed` and the request
+1 MiB frame. While visible the screen follows `contact.changed` and the request
 topics through the shared event hub (never `*`) and reloads the affected window. Remove
-(`contact.remove`, scope `me` as the reference CLI), block and unblock a contact by link id, and
-mark a safety number verified (`contact.verify` with the SDK's compare-and-set stamp from the last
-`contact.safety_number` read, kept in the data layer and sent verbatim) all require the host
-confirmation and bind the reply to the target. Reply, report and scan have no SDK method and are
-not offered. Settings, "My contact card", shows this account's signed card from `contact.card.export`
+(`contact.remove`, scope `me` as the reference CLI), block and unblock a contact by link id all
+require the host confirmation and bind the reply to the target. Reply and report have no SDK method
+and are not offered. There are no safety numbers: a contact's identity is `contact.verification.status`'s
+`identity_state` (`verified`, `tofu`, `changed`). A changed identity is surfaced by the
+`contact.identity_changed` event (banner, list badge, timeline line) and accepted only by the explicit "Accept new
+identity" tap of the identity change sheet (`contact.trust.accept_change` with the `new_anchor` the sheet showed;
+never automatic, never followed by an automatic resend). `conversation.send` answers a pending change with
+`identity_change_pending`, shown as a prompt above the composer with the draft kept. Until the core pin carries these
+methods the data layer maps their refusal to the typed unavailable state. Settings, "My contact card", shows this account's signed card from `contact.card.export`
 (`ramflux-card:v3:` text through `LtrCode`, the `ramflux://contact/v3/` link as a `KitQrCode` when it fits, and
 share as text). The card names the home node and its key fingerprint, so a peer that adds the phone by the card
 pins that node; one that adds it by principal lookup alone has no home node pinned and cannot deliver media

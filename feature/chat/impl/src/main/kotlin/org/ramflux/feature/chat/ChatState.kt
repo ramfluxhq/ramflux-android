@@ -4,6 +4,8 @@
 package org.ramflux.feature.chat
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
+import org.ramflux.data.IdentityReviewState
+import org.ramflux.data.IdentityState
 import org.ramflux.data.cards.CardImageSource
 import org.ramflux.data.cards.CardState
 import org.ramflux.designsystem.UiText
@@ -112,7 +114,15 @@ enum class LocalDelivery {
     /** "2 of 5" in the viewer when the message has more than one picture or video. */
     val viewerPosition: ViewerPosition? = null,
     /** The conversation gallery, while it is open. */
-    val gallery: GallerySheet? = null
+    val gallery: GallerySheet? = null,
+    /** The direct peer's name for the identity banner and sheet (peer-controlled); null until the header names it. */
+    val peerName: String? = null,
+    /** The direct peer's `identity_state`; [IdentityState.CHANGED] shows the banner, which has no dismiss. */
+    val identityState: IdentityState = IdentityState.UNKNOWN,
+    /** A send was refused with `identity_change_pending`: the composer shows the prompt while the identity stays changed. */
+    val sendBlocked: Boolean = false,
+    /** The identity change sheet, while it is open. */
+    val review: IdentityReviewState? = null
 ) {
     override fun toString() = "ChatState(<redacted>)"
 }

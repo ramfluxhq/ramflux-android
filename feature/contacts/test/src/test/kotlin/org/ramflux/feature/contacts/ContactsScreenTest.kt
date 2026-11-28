@@ -36,7 +36,7 @@ class ContactsScreenTest {
 
     @Test fun selectingRealRowEmitsOnlyTypedIdentityAction() {
         val actions = mutableListOf<ContactsAction>()
-        val row = PersonItem("row", "peer-id", "Actual name", uiText(R.string.contacts_unverified), false)
+        val row = PersonItem("row", "peer-id", "Actual name", uiText(R.string.contacts_accepted), false)
         compose.setContent { RamfluxTheme { ContactsScreen(ContactsState(loaded = true, rows = persistentListOf(row)), actions::add) } }
         compose.onNodeWithText("Actual name").performClick()
         compose.runOnIdle { assertEquals(listOf(ContactsAction.Select("row")), actions) }
@@ -56,7 +56,7 @@ class ContactsScreenTest {
     @Test fun actualViewModelLocaleSwitchDoesNotRepeatNativeReadOrTreatPeerTextAsKey() {
         var locale by mutableStateOf("en")
         val repo = FakeContactDirectory().apply {
-            reading = { ClientResult.Ready(listOf(ContactSummary("row", "peer-id", "contacts_verified", false))) }
+            reading = { ClientResult.Ready(listOf(ContactSummary("row", "peer-id", "contacts_accepted", false))) }
         }
         val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
         compose.setContent {
@@ -67,10 +67,10 @@ class ContactsScreenTest {
         }
         compose.waitUntil(5_000) { vm.state.value.loaded }
         val reads = repo.reads
-        compose.onNodeWithText("Safety number not verified").assertExists()
+        compose.onNodeWithText("Accepted").assertExists()
         compose.runOnIdle { locale = "zh-CN" }
-        compose.onNodeWithText("安全号码尚未核对").assertExists()
-        compose.onNodeWithText("contacts_verified").assertExists()
+        compose.onNodeWithText("已通过").assertExists()
+        compose.onNodeWithText("contacts_accepted").assertExists()
         compose.runOnIdle { assertEquals(reads, repo.reads) }
     }
 }

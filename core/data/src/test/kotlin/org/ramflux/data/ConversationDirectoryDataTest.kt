@@ -45,7 +45,6 @@ class ConversationDirectoryDataTest {
             return ClientResult.Ready(rows)
         }
         override suspend fun requests(account: String): ClientResult<List<ContactRequestSummary>> = ClientResult.Ready(emptyList())
-        override suspend fun safety(account: String, root: String): ClientResult<ContactSafety> = error("unused")
         override suspend fun submit(command: ContactCommand, confirmed: Boolean): ClientResult<Unit> = error("unused")
         override fun attempts(account: String): List<ContactAttempt> = emptyList()
         override suspend fun availability(operation: ContactOperation): ClientResult<Unit> = error("unused")

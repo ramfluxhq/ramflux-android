@@ -18,6 +18,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.ramflux.data.ContactOperation
+import org.ramflux.data.IdentityReviewError
+import org.ramflux.data.IdentityState
 import org.ramflux.designsystem.*
 import org.ramflux.designsystem.kit.*
 import org.ramflux.feature.contacts.impl.R
@@ -35,7 +37,6 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
                             ContactsPage.LIST -> R.string.contacts_title
                             ContactsPage.DETAIL -> R.string.contacts_profile
                             ContactsPage.ADD -> R.string.contacts_add
-                            ContactsPage.SAFETY -> R.string.contacts_safety_title
                             ContactsPage.DECLINE -> R.string.contacts_decline
                             ContactsPage.BATCH -> R.string.contacts_batch
                         }
@@ -50,8 +51,7 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
                     notices(state, onAction)
                     when (state.page) {
                         ContactsPage.LIST -> list(state, onAction)
-                        ContactsPage.DETAIL -> state.selected?.let { profile(it, onAction) }
-                        ContactsPage.SAFETY -> state.selected?.let { safety(it, state, onAction) }
+                        ContactsPage.DETAIL -> state.selected?.let { profile(it, state.identity, onAction) }
                         ContactsPage.DECLINE -> state.selected?.let { row ->
                             identity(row)
                             item("decline", contentType = "body") {
@@ -130,6 +130,23 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
         }
     }
     state.approval?.let { approval -> Confirmation(approval, onAction) }
+    state.review?.let { sheet ->
+        KitIdentityChangeSheet(
+            name = state.selected?.takeIf { it.root == sheet.contact }?.label ?: sheet.username.orEmpty(),
+            username = sheet.username,
+            ai = sheet.aiFlag,
+            accepting = sheet.accepting,
+            waiting = sheet.newAnchor == null,
+            notice = when (sheet.error) {
+                IdentityReviewError.ALREADY_HANDLED -> KitIdentityNotice.AlreadyHandled
+                IdentityReviewError.CHANGED_AGAIN -> KitIdentityNotice.ChangedAgain
+                IdentityReviewError.FAILED -> KitIdentityNotice.Failed
+                null -> null
+            },
+            onAccept = { onAction(ContactsAction.AcceptIdentity) },
+            onLater = { onAction(ContactsAction.LaterIdentity) }
+        )
+    }
 }
 
 @Composable
@@ -300,7 +317,7 @@ private fun LazyListScope.identity(row: PersonItem) {
 }
 
 /** MOB-F03 (profile half), F05/F06 (stranger), F13–F17 (stranger actions), sent and blocked variants. */
-private fun LazyListScope.profile(row: PersonItem, onAction: (ContactsAction) -> Unit) {
+private fun LazyListScope.profile(row: PersonItem, identity: ContactIdentityItem?, onAction: (ContactsAction) -> Unit) {
     identity(row)
     item("details", contentType = "body") {
         val theme = LocalRFTheme.current
@@ -316,17 +333,6 @@ private fun LazyListScope.profile(row: PersonItem, onAction: (ContactsAction) ->
                     testTag = "contacts-message"
                 )
             }
-            if (!row.request && !row.blocked) {
-                KitRow(
-                    stringResource(R.string.contacts_safety),
-                    { onAction(ContactsAction.Page(ContactsPage.SAFETY)) },
-                    value = stringResource(
-                        if (row.verified) R.string.contacts_safety_state_verified else R.string.contacts_safety_state_unverified
-                    ),
-                    icon = "shield-check",
-                    testTag = "contacts-open-safety"
-                )
-            }
             when {
                 row.inbound -> Notice(stringResource(R.string.contacts_stranger_explanation))
                 row.request -> Notice(stringResource(R.string.contacts_sent_explanation))
@@ -334,40 +340,45 @@ private fun LazyListScope.profile(row: PersonItem, onAction: (ContactsAction) ->
             }
         }
     }
+    if (!row.request && !row.blocked) encryption(row, identity, onAction)
 }
 
-/** MOB-F03 (safety half) and F09–F12: state, number, and the verify decision. */
-private fun LazyListScope.safety(row: PersonItem, state: ContactsState, onAction: (ContactsAction) -> Unit) {
-    identity(row)
-    item("safety", contentType = "body") {
+/**
+ * The encryption section of the profile (derived design D-M1-2): a check for a verified identity, a neutral line for a first
+ * sighting, and a warning row with "Review" while the identity has changed. There is nothing to compare and nothing to mark.
+ */
+private fun LazyListScope.encryption(row: PersonItem, identity: ContactIdentityItem?, onAction: (ContactsAction) -> Unit) {
+    item("encryption", contentType = "body") {
         val theme = LocalRFTheme.current
-        Column(Modifier.padding(horizontal = theme.gap.dp), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
-            val safety = state.safety
-            if (safety == null) {
-                if (state.loading) KitSkeletonRow(0)
-                return@Column
-            }
-            Surface(color = theme.surface, shape = MaterialTheme.shapes.medium) {
-                Column(Modifier.fillMaxWidth().padding(theme.gap.dp), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(stringResource(R.string.contacts_verification_state))
-                        Text(safety.state.render(), color = theme.secondary, modifier = Modifier.testTag("contacts-safety-state"))
-                    }
-                    HorizontalDivider()
-                    Text(stringResource(R.string.contacts_safety))
-                    // Left to right in groups of five in every locale; the fingerprint is a typed code argument,
-                    // isolated inside the translated sentence.
-                    LtrCode(safety.number, groupSize = SAFETY_GROUP, tag = "contacts-safety-number")
-                    Text(uiText(R.string.contacts_fingerprint, UiText.Code(safety.fingerprint)).render(), color = theme.secondary)
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = theme.gap.dp).testTag("security-section"),
+            verticalArrangement = Arrangement.spacedBy(theme.gap.dp / 2)
+        ) {
+            KitMeta(stringResource(R.string.security_section_title), Modifier.fillMaxWidth())
+            when (identity?.state) {
+                IdentityState.VERIFIED -> KitRow(
+                    stringResource(R.string.identity_state_verified),
+                    {},
+                    icon = "shield-check",
+                    trailing = KitRowTrailing.None,
+                    testTag = "contacts-identity-verified"
+                )
+                IdentityState.CHANGED -> {
+                    KitSecurityWarning(
+                        stringResource(R.string.identity_state_changed),
+                        uiText(R.string.identity_changed_banner, UiText.Data(row.label)).render(),
+                        KitWarningTone.Warning,
+                        tag = "contacts-identity-changed"
+                    )
+                    KitButton(
+                        stringResource(R.string.identity_changed_review),
+                        { onAction(ContactsAction.ReviewIdentity) },
+                        Modifier.fillMaxWidth(),
+                        tag = "identity-review"
+                    )
                 }
+                else -> KitMeta(stringResource(R.string.identity_state_tofu), Modifier.fillMaxWidth().testTag("contacts-identity-tofu"))
             }
-            Text(stringResource(R.string.contacts_safety_compare_title))
-            KitSecurityWarning(
-                stringResource(R.string.contacts_safety_changed_title),
-                stringResource(R.string.contacts_safety_explanation),
-                KitWarningTone.Warning
-            )
-            if (!safety.verified && !safety.verifiable) Notice(stringResource(R.string.contacts_safety_binding_unavailable))
         }
     }
 }
@@ -389,21 +400,6 @@ private fun Footer(state: ContactsState, onAction: (ContactsAction) -> Unit) {
             }
         }
         row == null -> Unit
-        state.page == ContactsPage.SAFETY && state.safety?.verified == false -> Row(
-            modifier,
-            horizontalArrangement = Arrangement.spacedBy(theme.gap.dp)
-        ) {
-            KitButton(stringResource(R.string.contacts_not_now), {
-                onAction(ContactsAction.Back)
-            }, Modifier.weight(1f), KitButtonKind.Secondary, tag = "contacts-not-now")
-            KitButton(
-                stringResource(R.string.contacts_numbers_match),
-                { onAction(ContactsAction.Operate(ContactOperation.VERIFY)) },
-                Modifier.weight(1f),
-                enabled = !state.loading && state.safety.verifiable,
-                tag = "contacts-verify"
-            )
-        }
         state.page != ContactsPage.DETAIL -> Unit
         row.inbound -> Row(modifier, horizontalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
             KitButton(stringResource(R.string.contacts_decline), {
@@ -452,7 +448,6 @@ private fun Confirmation(approval: ContactApproval, onAction: (ContactsAction) -
     }
 }
 
-private const val SAFETY_GROUP = 5
 private const val SKELETON_ROWS = 5
 private const val AVATAR = 40f
 private const val PROFILE_AVATAR = 56f

@@ -17,10 +17,9 @@ data class ContactRequestSummary(val id: String, val principal: String, val name
 }
 /**
  * ACCEPT, DECLINE and BLOCK decide an inbound request (target: request id). REMOVE, BLOCK_CONTACT and UNBLOCK
- * act on a contact link (target: link id). VERIFY marks a safety number verified (target: identity root) with the
- * stamp read by the last [ContactDirectoryRepository.safety] for that root.
+ * act on a contact link (target: link id).
  */
-enum class ContactOperation { ADD, ACCEPT, DECLINE, BLOCK, REPORT, REPLY, VERIFY, SCAN, BATCH_DECLINE, REMOVE, BLOCK_CONTACT, UNBLOCK }
+enum class ContactOperation { ADD, ACCEPT, DECLINE, BLOCK, REPORT, REPLY, BATCH_DECLINE, REMOVE, BLOCK_CONTACT, UNBLOCK }
 
 /** Which contact links a page lists. */
 enum class ContactListScope { ACCEPTED, BLOCKED }
@@ -29,12 +28,11 @@ enum class ContactListScope { ACCEPTED, BLOCKED }
 enum class ContactRequestScope { STRANGERS, SENT }
 
 /** One live change from the shared event subscription: reload the loaded window of that kind. */
-enum class ContactChange { CONTACTS, REQUESTS, SAFETY, RELOAD }
+enum class ContactChange { CONTACTS, REQUESTS, RELOAD }
 interface ContactDirectoryRepository {
     /** Unpaged; for small pickers only. Lists read [contactPage]. */
     suspend fun contacts(account: String): ClientResult<List<ContactSummary>>
     suspend fun requests(account: String): ClientResult<List<ContactRequestSummary>>
-    suspend fun safety(account: String, root: String): ClientResult<ContactSafety>
 
     /**
      * A window page of contacts filtered by [query] (name or principal, case-insensitive). A null cursor starts a
@@ -78,14 +76,8 @@ data class ContactAttempt(val operationId: String, val operation: ContactOperati
     override fun toString() = "ContactAttempt(<redacted>)"
 }
 
-enum class SafetyState { UNVERIFIED, VERIFIED, CHANGED, BLOCKED_BY_POLICY, UNKNOWN }
-
-/** [verifiable] is true when the SDK offered a compare-and-set stamp, so VERIFY can be submitted. */
 /** A signed contact card: `ramflux-card:v3:...` text and the `ramflux://contact/v3/...` link (public). */
 data class OwnContactCard(val text: String, val link: String) {
     override fun toString() = "OwnContactCard(<redacted>)"
 }
 
-data class ContactSafety(val number: String, val fingerprint: String, val state: SafetyState = SafetyState.UNVERIFIED, val verifiable: Boolean = false) {
-    override fun toString() = "ContactSafety(<redacted>)"
-}

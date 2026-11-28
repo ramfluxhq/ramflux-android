@@ -20,4 +20,13 @@
     <string name="failure_detail_name_reason">code %1$s, %2$s: %3$s</string>
     <!-- The SDK refused because this node has no username directory. -->
     <string name="failure_directory_unavailable">Usernames are not available on this server yet.</string>
+    <!-- Identity change sheet. %1$s is the contact's name. -->
+    <string name="identity_sheet_title">New identity for %1$s</string>
+    <string name="identity_sheet_body">%1$s now uses a new identity. This happens when they reinstall, restore or move to a new device, but it can also mean someone else is trying to take over the account. Accept it only if you expected this or have confirmed it with them another way.</string>
+    <string name="identity_sheet_accept">Accept new identity</string>
+    <string name="identity_sheet_later">Not now</string>
+    <string name="identity_sheet_waiting">Waiting for the new identity…</string>
+    <string name="identity_accept_already">This change was already handled.</string>
+    <string name="identity_accept_again">The identity changed again. Review it again.</string>
+    <string name="identity_accept_failed">Couldn\'t accept the new identity. Try again.</string>
 </resources>

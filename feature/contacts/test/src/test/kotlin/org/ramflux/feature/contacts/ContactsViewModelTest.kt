@@ -44,57 +44,6 @@ class ContactsViewModelTest {
         return vm
     }
 
-    @Test fun safetyPageReadsActualMaterialButDoesNotVerifyAnUnboundComparison() = runTest(timeout = 5.seconds) {
-        val repo = FakeContactDirectory().apply {
-            capability = ClientResult.Ready(Unit)
-            reading = { ClientResult.Ready(listOf(ContactSummary("link", "peer", "Name", false, "root"))) }
-        }
-        val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
-        observe(vm)
-        runCurrent()
-        vm.onAction(ContactsAction.Select("link"))
-        vm.onAction(ContactsAction.Page(ContactsPage.SAFETY))
-        runCurrent()
-        assertEquals(
-            SafetyItem("1234 5678", "abcdef", uiText(R.string.contacts_safety_state_unverified), verified = false, verifiable = false),
-            vm.state.value.safety
-        )
-        vm.onAction(ContactsAction.Operate(ContactOperation.VERIFY))
-        runCurrent()
-        assertNull(vm.state.value.approval)
-        assertTrue(repo.submitted.isEmpty())
-    }
-
-    @Test fun numbersMatchVerifiesTheComparedRootAfterConfirmationAndRereads() = runTest(timeout = 5.seconds) {
-        val repo = FakeContactDirectory().apply {
-            capability = ClientResult.Ready(Unit)
-            reading = { ClientResult.Ready(listOf(ContactSummary("link", "peer", "Name", false, "root"))) }
-            safetyResult = ClientResult.Ready(ContactSafety("1234 5678", "abcdef", SafetyState.UNVERIFIED, verifiable = true))
-        }
-        val vm = ContactsViewModel(repo, FakeContactsAccounts(), FakeContactsSession())
-        observe(vm)
-        runCurrent()
-        vm.onAction(ContactsAction.Select("link"))
-        vm.onAction(ContactsAction.Page(ContactsPage.SAFETY))
-        runCurrent()
-        vm.onAction(ContactsAction.Operate(ContactOperation.VERIFY))
-        runCurrent()
-        assertEquals(ContactOperation.VERIFY, vm.state.value.approval?.kind)
-        assertTrue(repo.submitted.isEmpty())
-        repo.safetyResult = ClientResult.Ready(ContactSafety("1234 5678", "abcdef", SafetyState.VERIFIED, verifiable = false))
-        vm.onAction(ContactsAction.Confirm)
-        runCurrent()
-        val command = repo.submitted.single()
-        assertEquals(ContactOperation.VERIFY, command.operation)
-        assertEquals("root", command.target)
-        assertEquals(true, vm.state.value.safety?.verified)
-        assertEquals(true, vm.state.value.selected?.verified)
-        assertEquals(uiText(R.string.contacts_verified), vm.state.value.selected?.status)
-        assertEquals(uiText(R.string.contacts_verified), vm.state.value.rows.single { it.id == "link" }.status)
-        assertEquals(null, vm.state.value.operationNotice)
-        assertEquals(ContactsPage.SAFETY, vm.state.value.page)
-    }
-
     @Test fun removeBlockAndUnblockActOnTheLinkAfterConfirmationAndReturnToTheList() = runTest(timeout = 5.seconds) {
         val repo = FakeContactDirectory().apply {
             capability = ClientResult.Ready(Unit)
@@ -165,7 +114,7 @@ class ContactsViewModelTest {
         runCurrent()
         assertEquals(reads + 1, repo.reads)
         assertEquals(null, repo.cursors.last())
-        repo.live.emit(ClientResult.Ready(ContactChange.SAFETY))
+        repo.live.emit(ClientResult.Ready(ContactChange.RELOAD))
         runCurrent()
         vm.onAction(ContactsAction.Visible(false))
         runCurrent()

@@ -24,13 +24,22 @@ import org.ramflux.feature.contacts.impl.R
 class ContactsViewModel @Inject constructor(
     private val directory: ContactDirectoryRepository,
     private val accounts: AccountAccessRepository,
-    private val session: ClientSessionRepository
+    private val session: ClientSessionRepository,
+    private val identity: ContactIdentityRepository = UnavailableContactIdentity
 ) : ViewModel() {
     private val local = MutableStateFlow(ContactsState())
     private val channel = Channel<ContactsEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
-    val state = combine(local, session.status) { screen, status ->
-        if (status.phase == ClientPhase.OPEN) screen else ContactsState(problem = uiText(R.string.contacts_closed))
+
+    /** The identity change sheet; its accept runs only from [ContactsAction.AcceptIdentity]. */
+    private val review = IdentityReview(identity, viewModelScope) { account, contact, _ -> reread(account, contact) }
+
+    /** The latest `contact.identity_changed` payload per contact, kept in memory (the status read may carry no new anchor). */
+    private val changes = object : LinkedHashMap<String, IdentityChange>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, IdentityChange>) = size > MAX_CHANGES
+    }
+    val state = combine(local, session.status, review.state) { screen, status, sheet ->
+        if (status.phase == ClientPhase.OPEN) screen.copy(review = sheet) else ContactsState(problem = uiText(R.string.contacts_closed))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), ContactsState())
     private var request: Job? = null
     private var lookupJob: Job? = null
@@ -80,7 +89,8 @@ class ContactsViewModel @Inject constructor(
             } else {
                 request?.cancel()
                 ticket++
-                val nested = local.value.page in setOf(ContactsPage.SAFETY, ContactsPage.DECLINE)
+                review.close()
+                val nested = local.value.page == ContactsPage.DECLINE
                 val back = if (nested) ContactsPage.DETAIL else ContactsPage.LIST
                 local.update {
                     it.copy(
@@ -89,7 +99,7 @@ class ContactsViewModel @Inject constructor(
                         selectedIds = persistentSetOf(),
                         loading = false,
                         unavailable = null,
-                        safety = null
+                        identity = if (nested) it.identity else null
                     )
                 }
                 // Changes that arrived while another page was open were not read (the watch reads the list only on
@@ -134,7 +144,18 @@ class ContactsViewModel @Inject constructor(
             is ContactsAction.Select -> local.value.rows.find { it.id == action.id }?.let { row ->
                 request?.cancel()
                 ticket++
-                local.update { it.copy(page = ContactsPage.DETAIL, selected = row, unavailable = null, problem = null, loading = false) }
+                review.close()
+                local.update {
+                    it.copy(
+                        page = ContactsPage.DETAIL,
+                        selected = row,
+                        unavailable = null,
+                        problem = null,
+                        loading = false,
+                        identity = null
+                    )
+                }
+                if (!row.request && !row.blocked) readIdentity()
             }
             is ContactsAction.Toggle -> if (local.value.rows.any { it.id == action.id && it.inbound }) {
                 local.update {
@@ -148,13 +169,15 @@ class ContactsViewModel @Inject constructor(
                 }
             }
             is ContactsAction.Page -> {
-                if (action.page in setOf(ContactsPage.SAFETY, ContactsPage.DECLINE) && local.value.selected == null) return
+                if (action.page == ContactsPage.DECLINE && local.value.selected == null) return
                 if (action.page == ContactsPage.BATCH && local.value.tab != ContactsTab.STRANGERS) return
                 request?.cancel()
                 ticket++
-                local.update { it.copy(page = action.page, unavailable = null, problem = null, loading = false, safety = null) }
-                if (action.page == ContactsPage.SAFETY) readSafety("open")
+                local.update { it.copy(page = action.page, unavailable = null, problem = null, loading = false) }
             }
+            ContactsAction.ReviewIdentity -> openReview()
+            ContactsAction.AcceptIdentity -> review.accept()
+            ContactsAction.LaterIdentity -> review.later()
             is ContactsAction.Operate -> preflight(action.operation)
             ContactsAction.Message -> message()
         }
@@ -323,6 +346,16 @@ class ContactsViewModel @Inject constructor(
         watchedAccount = account
         val generation = session.status.value.generation
         watch = viewModelScope.launch {
+            launch {
+                identity.changes(account).collect { signal ->
+                    if (session.status.value.generation != generation || activeAccount != account) return@collect
+                    when (signal) {
+                        is IdentitySignal.Changed -> applyChange(signal.change)
+                        IdentitySignal.Resync -> readIdentity()
+                        is IdentitySignal.DevicesChanged -> Unit
+                    }
+                }
+            }
             directory.changes(account).conflate().collect { result ->
                 if (session.status.value.generation != generation || activeAccount != account) return@collect
                 val change = (result as? ClientResult.Ready)?.value ?: return@collect
@@ -331,23 +364,9 @@ class ContactsViewModel @Inject constructor(
                     ContactChange.RELOAD -> true
                     ContactChange.CONTACTS -> state.tab == ContactsTab.CONTACTS || state.tab == ContactsTab.BLOCKED
                     ContactChange.REQUESTS -> state.tab != ContactsTab.BLOCKED
-                    ContactChange.SAFETY -> state.page == ContactsPage.SAFETY || state.tab == ContactsTab.CONTACTS
-                }
-                val safetyRead = state.page == ContactsPage.SAFETY &&
-                    (change == ContactChange.SAFETY || change == ContactChange.RELOAD)
-                if (affects && safetyRead) {
-                    val busy = request?.isActive == true
-                    val approving = state.approval != null
-                    clientDebugEvent(
-                        "contacts.safety.event:" + change.name + (if (busy || approving) ".ignored" else ".read") +
-                            ".request:" + busy + ".approval:" + approving
-                    )
                 }
                 if (!affects || request?.isActive == true || state.approval != null) return@collect
-                when {
-                    safetyRead -> readSafety("event")
-                    state.page == ContactsPage.LIST -> read()
-                }
+                if (state.page == ContactsPage.LIST) read()
             }
         }
     }
@@ -358,54 +377,53 @@ class ContactsViewModel @Inject constructor(
         watchedAccount = null
     }
 
-    /** [source] names what asked for the read (open, reread after verify, or event); it is traced, never shown. */
-    private fun readSafety(source: String) {
+    /** Reads the identity state of the selected contact. The anchor of a changed identity is kept for the sheet. */
+    private fun readIdentity() {
         val row = local.value.selected ?: return
-        val root = row.root
-        if (root == null) {
-            local.update { it.copy(unavailable = uiText(R.string.contacts_sdk_unavailable)) }
-            return
-        }
+        val root = row.root ?: return
         val owner = activeAccount ?: return
-        val expected = ++ticket
         val generation = session.status.value.generation
-        local.update { it.copy(loading = true) }
-        request = viewModelScope.launch {
-            try {
-                if (account(expected, generation, owner) == null) return@launch
-                val result = directory.safety(owner, root)
-                current(expected, generation)
-                if (account(expected, generation, owner) == null) return@launch
-                clientDebugEvent(
-                    "contacts.safety.read:" + source + "." + when (result) {
-                        is ClientResult.Ready -> "state:" + result.value.state.name + ".verifiable:" + result.value.verifiable
-                        is ClientResult.Failed -> "failed:" + (result.problem.statusName ?: result.problem.code)
-                        is ClientResult.Unavailable -> "unavailable:" + result.reason.name
-                    }
-                )
-                when (result) {
-                    is ClientResult.Ready -> local.update {
-                        val verified = result.value.state == SafetyState.VERIFIED
-                        it.copy(
-                            safety = SafetyItem(
-                                result.value.number, result.value.fingerprint, result.value.state.message(),
-                                verified,
-                                result.value.verifiable && !verified
-                            ),
-                            // The read just made is the refresh that a confirmation asked for: the acted-on contact
-                            // shows the state read here, and the "refresh to read" notice no longer applies.
-                            selected = it.selected?.let { row -> if (row.root == root) row.withVerified(verified) else row },
-                            rows = it.rows.map { row -> if (row.root == root) row.withVerified(verified) else row }.toPersistentList(),
-                            operationNotice = null
-                        )
-                    }
-                    is ClientResult.Failed -> local.update { it.copy(problem = result.problem.message()) }
-                    is ClientResult.Unavailable -> local.update { it.copy(unavailable = result.reason.message()) }
+        viewModelScope.launch {
+            val result = identity.identity(owner, root)
+            if (session.status.value.generation != generation || local.value.selected?.root != root) return@launch
+            when (result) {
+                is ClientResult.Ready -> {
+                    val (state, change) = result.value
+                    // A status that carries no anchor does not erase the one an event already delivered.
+                    if (change != null) changes[root] = change else if (state != IdentityState.CHANGED) changes.remove(root)
+                    local.update { it.copy(identity = ContactIdentityItem(state, loaded = true)) }
+                    changes[root]?.let(review::update)
                 }
-            } finally {
-                if (expected == ticket) local.update { it.copy(loading = false) }
+                // The SDK has no identity state yet (typed unavailable) or the read failed: a neutral line, never a badge.
+                is ClientResult.Failed, is ClientResult.Unavailable -> local.update {
+                    it.copy(identity = ContactIdentityItem(IdentityState.UNKNOWN, loaded = true))
+                }
             }
         }
+    }
+
+    /** A `contact.identity_changed` event: replaces the older change of that contact and updates the page and the open sheet. */
+    private fun applyChange(change: IdentityChange) {
+        changes[change.contact] = change
+        review.update(change)
+        if (local.value.selected?.root == change.contact) {
+            local.update { it.copy(identity = ContactIdentityItem(IdentityState.CHANGED, loaded = true)) }
+        }
+    }
+
+    private fun openReview() {
+        val row = local.value.selected ?: return
+        val root = row.root ?: return
+        val owner = activeAccount ?: return
+        if (local.value.identity?.state != IdentityState.CHANGED) return
+        val change = changes[root]
+        review.open(owner, root, change, change?.username, change?.aiFlag ?: row.ai)
+    }
+
+    /** After an accept attempt: the status is read again, whatever the outcome. */
+    private fun reread(account: String, contact: String) {
+        if (activeAccount != account) return
+        if (local.value.selected?.root == contact) readIdentity()
     }
 
     private fun preflight(operation: ContactOperation) {
@@ -420,10 +438,9 @@ class ContactsViewModel @Inject constructor(
             ContactOperation.ACCEPT, ContactOperation.DECLINE, ContactOperation.BLOCK -> if (selected?.inbound != true) return
             ContactOperation.REMOVE, ContactOperation.BLOCK_CONTACT -> if (selected == null || selected.request || selected.blocked) return
             ContactOperation.UNBLOCK -> if (selected == null || selected.request || !selected.blocked) return
-            ContactOperation.VERIFY -> if (selected?.root == null || local.value.safety?.verifiable != true) return
             ContactOperation.BATCH_DECLINE -> if (local.value.selectedIds.isEmpty()) return
             ContactOperation.ADD -> if (local.value.address.isBlank()) return
-            ContactOperation.REPORT, ContactOperation.REPLY, ContactOperation.SCAN -> {
+            ContactOperation.REPORT, ContactOperation.REPLY -> {
                 local.update { it.copy(unavailable = uiText(R.string.contacts_sdk_unavailable)) }
                 return
             }
@@ -441,7 +458,6 @@ class ContactsViewModel @Inject constructor(
                         val targets = when (operation) {
                             ContactOperation.ADD -> listOf(local.value.address)
                             ContactOperation.BATCH_DECLINE -> local.value.rows.filter { it.id in local.value.selectedIds }.map { it.id }
-                            ContactOperation.VERIFY -> listOfNotNull(selected?.root)
                             else -> listOfNotNull(selected?.id)
                         }
                         if (targets.isEmpty()) return@launch
@@ -573,9 +589,7 @@ class ContactsViewModel @Inject constructor(
             }
             if (!done) return@launch
             val operation = prepared.first().operation
-            if (operation == ContactOperation.VERIFY) {
-                readSafety("reread")
-            } else if (operation != ContactOperation.ADD) {
+            if (operation != ContactOperation.ADD) {
                 // The acted-on row left this list; show the list without it and reload the window.
                 local.update {
                     it.copy(
@@ -599,6 +613,7 @@ class ContactsViewModel @Inject constructor(
         const val WINDOW_PAGES = 6
         const val MAX_QUERY = 256
         const val QUERY_DEBOUNCE_MS = 250L
+        const val MAX_CHANGES = 64
     }
 }
 
@@ -612,18 +627,11 @@ private fun ContactSummary.person(blocked: Boolean) = PersonItem(
     id,
     principal,
     name?.takeIf { it.isNotBlank() } ?: principal,
-    uiText(if (blocked) R.string.contacts_blocked else if (verified) R.string.contacts_verified else R.string.contacts_unverified),
+    uiText(if (blocked) R.string.contacts_blocked else R.string.contacts_accepted),
     false,
     root = root,
     blocked = blocked,
-    verified = verified,
     ai = ai
-)
-
-/** The row after a safety read: the status line the list and the detail show follows the state that was read last. */
-private fun PersonItem.withVerified(verified: Boolean): PersonItem = copy(
-    verified = verified,
-    status = if (request || blocked) status else uiText(if (verified) R.string.contacts_verified else R.string.contacts_unverified)
 )
 
 private fun ContactRequestSummary.person() = PersonItem(
@@ -652,16 +660,6 @@ private fun ContactRequestStatus.message() = uiText(
         ContactRequestStatus.UNKNOWN -> R.string.contacts_unknown
     }
 )
-private fun SafetyState.message() = uiText(
-    when (this) {
-        SafetyState.UNVERIFIED -> R.string.contacts_safety_state_unverified
-        SafetyState.VERIFIED -> R.string.contacts_safety_state_verified
-        SafetyState.CHANGED -> R.string.contacts_safety_state_changed
-        SafetyState.BLOCKED_BY_POLICY -> R.string.contacts_safety_state_blocked
-        SafetyState.UNKNOWN -> R.string.contacts_unknown
-    }
-)
-
 private fun ContactOperation.label() = uiText(
     when (this) {
         ContactOperation.ADD -> R.string.contacts_send_request
@@ -670,8 +668,6 @@ private fun ContactOperation.label() = uiText(
         ContactOperation.BLOCK, ContactOperation.BLOCK_CONTACT -> R.string.contacts_block
         ContactOperation.REPORT -> R.string.contacts_report
         ContactOperation.REPLY -> R.string.contacts_reply
-        ContactOperation.VERIFY -> R.string.contacts_numbers_match
-        ContactOperation.SCAN -> R.string.contacts_scan
         ContactOperation.REMOVE -> R.string.contacts_remove
         ContactOperation.UNBLOCK -> R.string.contacts_unblock
     }
@@ -681,7 +677,6 @@ private fun ContactOperation.explanation(): UiText? = when (this) {
     ContactOperation.REMOVE -> uiText(R.string.contacts_remove_explanation)
     ContactOperation.BLOCK, ContactOperation.BLOCK_CONTACT -> uiText(R.string.contacts_block_explanation)
     ContactOperation.UNBLOCK -> uiText(R.string.contacts_unblock_explanation)
-    ContactOperation.VERIFY -> uiText(R.string.contacts_verify_explanation)
     ContactOperation.DECLINE, ContactOperation.BATCH_DECLINE -> uiText(R.string.contacts_decline_explanation)
     else -> null
 }

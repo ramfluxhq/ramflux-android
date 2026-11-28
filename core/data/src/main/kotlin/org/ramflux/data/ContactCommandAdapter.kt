@@ -6,7 +6,7 @@ import kotlinx.coroutines.CancellationException
 import org.ramflux.sdk.*
 
 /** Account-scoped, process-lifetime journal retains uncertain identities across feature recreation. */
-internal class ContactCommandAdapter(transport: RepositoryTransport, private val stamp: (String, String) -> String? = { _, _ -> null }) {
+internal class ContactCommandAdapter(transport: RepositoryTransport) {
     private val source = DefaultContactsRepository(transport)
     private val usernames = DefaultUsernamesRepository(transport)
     private val journal = mutableMapOf<Pair<String, String>, Pair<ContactCommand, ContactAttemptPhase>>()
@@ -60,8 +60,6 @@ internal class ContactCommandAdapter(transport: RepositoryTransport, private val
         }
         val body = try {
             when (command.operation) {
-                // The SDK verifies exactly the stamp the person compared (`contact.verify`, compare-and-set on the stamp).
-                ContactOperation.VERIFY -> SecretBody.takeJson("{\"expected\":${requireNotNull(stamp(command.account, command.target))}}".toByteArray())
                 // "me" is the reference caller's default scope (`apps/rf/src/cli/contact.rs`).
                 ContactOperation.REMOVE -> SecretBody.fields { publicText(field, command.target); publicText("scope", "me") }
                 ContactOperation.ADD if username -> SecretBody.fields { publicText("name", command.target.removePrefix("@")) }
@@ -79,7 +77,6 @@ internal class ContactCommandAdapter(transport: RepositoryTransport, private val
                 ContactOperation.BLOCK, ContactOperation.BLOCK_CONTACT -> source.block(context, body)
                 ContactOperation.REMOVE -> source.remove(context, body)
                 ContactOperation.UNBLOCK -> source.unblock(context, body)
-                ContactOperation.VERIFY -> source.verify(context, body)
                 else -> { body.close(); return failed(1, ClientOutcome.NONE) }
             }
             val decoded = when (result) {
@@ -94,7 +91,6 @@ internal class ContactCommandAdapter(transport: RepositoryTransport, private val
                     ContactOperation.REMOVE -> ContactCompletionMetadataReader.link(result.value, command.target, null)
                     ContactOperation.BLOCK_CONTACT -> ContactCompletionMetadataReader.link(result.value, command.target, true)
                     ContactOperation.UNBLOCK -> ContactCompletionMetadataReader.link(result.value, command.target, false)
-                    ContactOperation.VERIFY -> ContactCompletionMetadataReader.verified(result.value)
                     else -> ContactCompletionMetadataReader.decision(result.value, command.target, command.principal, when(command.operation) {
                         ContactOperation.ACCEPT -> "accepted"
                         ContactOperation.DECLINE -> "declined"
@@ -124,7 +120,7 @@ internal class ContactCommandAdapter(transport: RepositoryTransport, private val
     companion object {
         val SUPPORTED = setOf(
             ContactOperation.ADD, ContactOperation.ACCEPT, ContactOperation.DECLINE, ContactOperation.BLOCK,
-            ContactOperation.REMOVE, ContactOperation.BLOCK_CONTACT, ContactOperation.UNBLOCK, ContactOperation.VERIFY
+            ContactOperation.REMOVE, ContactOperation.BLOCK_CONTACT, ContactOperation.UNBLOCK
         )
     }
     private fun failed(code: Int, outcome: ClientOutcome) = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, code, outcome))

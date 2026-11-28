@@ -15,7 +15,7 @@ category (zero, one, two, few, many, other) is selected per locale. Peer text an
 inserted into a host sentence use `UiText.Untrusted` and `UiText.Code`, which render
 inside bidirectional isolates; codes always use ASCII digits.
 
-Codes users compare (safety numbers in groups of five, fingerprints, pairing codes,
+Codes users compare (fingerprints, pairing codes,
 URLs) render through `LtrCode`: left to right, mono, ASCII digits, groups that never
 reverse. The recovery phrase never becomes a String; `LtrSecretWords` draws the
 borrowed character arrays numbered and left to right at the font scale, with nothing

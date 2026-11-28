@@ -113,10 +113,10 @@ parameter lists instead of adding test classes or per-locale copies:
 short window; `compact()` is the phone frame only. Only 393x852 captures at 1.0
 are compared with boards. `ShellBoardScreenshotTest.matrix` renders over
 `review()`: the messages tab with a conversation open (the rail from 600 dp, two panes
-from 700 dp), the groups and agents tabs, the settings, contacts safety number, tasks,
+from 700 dp), the groups and agents tabs, the settings, contacts identity review, tasks,
 calls, cards and permissions screens inside the shell, the root-stack onboarding
 page with the recovery phrase, and the unlock screens. It fails when security text
-(unlock, safety number, recovery phrase) is ellipsized or overflows unless the line
+(unlock, identity review, recovery phrase) is ellipsized or overflows unless the line
 is listed in `app/src/test/resources/shell-matrix/known-clipped-text.tsv`; the list
 is empty since the wave-1 integration and an entry needs a reviewed reason.
 

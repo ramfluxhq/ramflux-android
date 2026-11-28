@@ -11,6 +11,7 @@ import kotlinx.collections.immutable.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.ramflux.data.IdentityState
 import org.ramflux.designsystem.*
 import org.ramflux.feature.contacts.impl.R
 import org.robolectric.ParameterizedRobolectricTestRunner
@@ -26,8 +27,8 @@ class ContactsScreenshotTest(private val kind: String, private val dark: Boolean
         fun cases(): List<Array<Any>> = buildList {
             val kinds =
                 listOf(
-                    "contacts", "strangers", "sent", "detail", "add", "safety", "decline", "batch",
-                    "empty", "loading", "error", "account", "confirmation", "unknown", "profile", "blocked", "safety-changed"
+                    "contacts", "strangers", "sent", "detail", "add", "identity", "decline", "batch",
+                    "empty", "loading", "error", "account", "confirmation", "unknown", "profile", "blocked", "identity-changed"
                 )
             for (kind in kinds) {
                 for (dark in listOf(false, true)) for (locale in listOf("en", "zh-CN", "en-XA")) for (width in listOf(400, 900)) {
@@ -46,7 +47,7 @@ class ContactsScreenshotTest(private val kind: String, private val dark: Boolean
         val populated = ContactsState(accountLabel = "Work", loaded = true, rows = persistentListOf(person), selected = person)
         val state = when (kind) {
             "contacts" -> populated.copy(
-                rows = persistentListOf(person.copy(request = false, inbound = false, status = uiText(R.string.contacts_unverified)))
+                rows = persistentListOf(person.copy(request = false, inbound = false, status = uiText(R.string.contacts_accepted)))
             )
             "strangers" -> populated.copy(tab = ContactsTab.STRANGERS)
             "sent" -> populated.copy(
@@ -55,27 +56,15 @@ class ContactsScreenshotTest(private val kind: String, private val dark: Boolean
             )
             "detail" -> populated.copy(page = ContactsPage.DETAIL)
             "add" -> populated.copy(page = ContactsPage.ADD, address = "Peer identity draft")
-            "safety" -> populated.copy(
-                page = ContactsPage.SAFETY,
+            "identity" -> populated.copy(
+                page = ContactsPage.DETAIL,
                 selected = contact,
-                safety = SafetyItem(
-                    "482197632048613570290000000000",
-                    "9f3a0c7d",
-                    uiText(R.string.contacts_safety_state_unverified),
-                    false,
-                    true
-                )
+                identity = ContactIdentityItem(IdentityState.TOFU, loaded = true)
             )
-            "safety-changed" -> populated.copy(
-                page = ContactsPage.SAFETY,
+            "identity-changed" -> populated.copy(
+                page = ContactsPage.DETAIL,
                 selected = contact,
-                safety = SafetyItem(
-                    "482197632048613570290000000000",
-                    "9f3a0c7d",
-                    uiText(R.string.contacts_safety_state_changed),
-                    false,
-                    false
-                )
+                identity = ContactIdentityItem(IdentityState.CHANGED, loaded = true)
             )
             "profile" -> populated.copy(page = ContactsPage.DETAIL, selected = contact)
             "blocked" -> populated.copy(

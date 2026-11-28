@@ -244,20 +244,6 @@
     <string name="direct_details_mute">静音通知</string>
     <!-- Shown when the SDK refused to change the mute state. -->
     <string name="direct_details_mute_failed">静音状态未改变，请重试。</string>
-    <!-- Section title for the contact's safety number. -->
-    <string name="direct_details_safety">安全码</string>
-    <!-- Safety number state: the person compared it with the contact. -->
-    <string name="direct_details_safety_verified">已验证</string>
-    <!-- Safety number state: never compared. -->
-    <string name="direct_details_safety_unverified">尚未验证。请当面或通话时与联系人核对。</string>
-    <!-- Safety number state: the contact's keys changed. -->
-    <string name="direct_details_safety_changed">自你验证后已变更。发送敏感内容前请重新核对。</string>
-    <!-- Safety number state the app cannot name. -->
-    <string name="direct_details_safety_unknown">验证状态未知。</string>
-    <!-- Shown when the peer has no safety number (not a contact). -->
-    <string name="direct_details_safety_unavailable">此人的安全码暂不可用，成为联系人后才会显示。</string>
-    <!-- Shown when the conversation row has no direct route. -->
-    <string name="direct_details_safety_no_peer">此会话没有可显示安全码的对方。</string>
     <!-- Row with the size of this conversation's decrypted media on this phone. -->
     <string name="direct_details_storage">此会话占用的存储</string>
     <!-- Status on an attachment this phone is sending: it waits for the connection and goes out on its own. -->
@@ -283,4 +269,21 @@
     <string name="chat_service_pin_added">已置顶一条消息</string>
     <!-- Centred service line in a group chat: pin removed. -->
     <string name="chat_service_pin_removed">已取消置顶一条消息</string>
+    <!-- Identity and encryption in a direct chat. %1$s is the contact's name. -->
+    <string name="identity_changed_banner">%1$s 的身份已更改。请先查看再继续。</string>
+    <string name="identity_changed_review">查看</string>
+    <string name="identity_send_blocked">消息未发送。%1$s 的身份已更改，请先查看再发送。</string>
+    <string name="identity_state_verified">已验证</string>
+    <string name="identity_state_tofu">首次在此设备上见到此身份</string>
+    <string name="identity_state_changed">身份已更改</string>
+    <string name="identity_timeline_changed">%1$s 的身份已更改</string>
+    <string name="identity_timeline_accepted">你已接受 %1$s 的新身份</string>
+    <string name="security_section_title">加密</string>
+    <string name="security_state_ok">端到端加密</string>
+    <string name="security_state_pending">正在建立加密…</string>
+    <string name="security_state_re_established">加密已重新建立</string>
+    <plurals name="security_devices">
+        <item quantity="other">%1$d 台设备</item>
+    </plurals>
+    <string name="security_warning_fork_recovered">加密已重新建立。部分消息可能未送达。</string>
 </resources>

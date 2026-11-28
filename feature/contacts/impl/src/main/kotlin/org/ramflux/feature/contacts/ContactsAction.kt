@@ -26,6 +26,15 @@ sealed interface ContactsAction {
     data class Page(val page: ContactsPage) : ContactsAction
     data class Operate(val operation: ContactOperation) : ContactsAction
 
+    /** "Review" on a changed identity: opens the identity change sheet. */
+    data object ReviewIdentity : ContactsAction
+
+    /** The explicit "Accept new identity" tap of the sheet. */
+    data object AcceptIdentity : ContactsAction
+
+    /** "Not now" in the sheet. */
+    data object LaterIdentity : ContactsAction
+
     /** Opens the direct conversation with the selected contact. */
     data object Message : ContactsAction
 }

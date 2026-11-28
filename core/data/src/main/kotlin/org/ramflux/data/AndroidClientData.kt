@@ -35,6 +35,7 @@ class AndroidClientData(context: Context, expectedDescriptor: String, languages:
     val agents: AgentDirectoryRepository = DefaultAgentDirectoryRepository(driver.transport)
     val groups: GroupDirectoryRepository = DefaultGroupDirectoryRepository(driver.transport)
     val contacts: ContactDirectoryRepository = DefaultContactDirectoryRepository(driver.transport)
+    val identity: ContactIdentityRepository = DefaultContactIdentityRepository(driver.transport)
     val devices: DeviceDirectoryRepository = DefaultDeviceDirectoryRepository(driver.transport)
     val security: AccountSecurityRepository = DefaultAccountSecurityRepository(driver.transport)
     val backups: BackupRepository = DefaultBackupRepository(driver.transport, AndroidBackupFileStore(context.applicationContext))
