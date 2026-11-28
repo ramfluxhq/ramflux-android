@@ -37,6 +37,7 @@ fun HostConfirmationActions(
     val theme = LocalRFTheme.current
     val deny by rememberUpdatedState(onDeny)
     val confirm by rememberUpdatedState(onConfirm)
+    val covered = LocalAppLockCovered.current
     key(identity) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy((theme.gap / 2).dp)) {
             AndroidView(
@@ -49,14 +50,20 @@ fun HostConfirmationActions(
                 modifier = Modifier.testTag("host-confirmation-deny").heightIn(min = (theme.gap * 3.25f).dp),
                 onReset = null,
                 onRelease = { it.release() },
-                update = { button -> button.bind(denyLabel, denyLabel, true, false, theme) { deny() } }
+                update = { button ->
+                    button.covered = covered
+                    button.bind(denyLabel, denyLabel, true, false, theme) { deny() }
+                }
             )
             AndroidView(
                 factory = { HostActionButton(it).apply { tag = "host-confirmation-confirm" } },
                 modifier = Modifier.testTag("host-confirmation-confirm").heightIn(min = (theme.gap * 3.25f).dp),
                 onReset = null,
                 onRelease = { it.release() },
-                update = { button -> button.bind(confirmLabel, confirmDescription, enabled, true, theme) { confirm() } }
+                update = { button ->
+                    button.covered = covered
+                    button.bind(confirmLabel, confirmDescription, enabled, true, theme) { confirm() }
+                }
             )
         }
     }
@@ -72,11 +79,15 @@ private class HostActionButton(context: Context) : Button(context) {
     private var attachedAt = 0L
     private val focusDeny = Runnable { focusDismissalOnOpen() }
 
-    // A newly opened confirmation deliberately focuses its non-destructive dismissal action once.
+    /** True while the app-lock cover is up: the button then takes neither keyboard nor accessibility focus on its own. */
+    var covered = false
+
+    // A newly opened confirmation deliberately focuses its non-destructive dismissal action once, except under the
+    // app-lock cover, where it must not pull focus out of the cover (the request is dropped, not deferred).
     // Recomposition never redirects accessibility focus; detachment cancels the pending request.
     @SuppressLint("AccessibilityFocus")
     private fun focusDismissalOnOpen() {
-        if (isAttachedToWindow) {
+        if (isAttachedToWindow && !covered) {
             requestFocusFromTouch()
             performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null)
         }

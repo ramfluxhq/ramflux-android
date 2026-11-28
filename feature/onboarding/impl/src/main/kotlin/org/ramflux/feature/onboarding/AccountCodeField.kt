@@ -14,7 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.viewinterop.AndroidView
 import org.ramflux.data.AccountCode
+import org.ramflux.designsystem.LocalInAppLockCover
 import org.ramflux.designsystem.kit.KitCodeField
+import org.ramflux.designsystem.markAsAppLockCoverView
 
 /**
  * The six-digit account code. Keystrokes go to [buffer] through [ErasableSecretView] in digit mode
@@ -34,6 +36,7 @@ internal fun AccountCodeField(
     val edited by rememberUpdatedState(onEdited)
     var filled by remember(buffer) { mutableIntStateOf(buffer.owned().size) }
     val viewRef = remember { arrayOfNulls<ErasableSecretView>(1) }
+    val inCover = LocalInAppLockCover.current
     DisposableEffect(buffer) {
         buffer.onCleared = {
             viewRef[0]?.forgetImeState()
@@ -60,6 +63,7 @@ internal fun AccountCodeField(
                 ErasableSecretView(context).apply {
                     tag = fieldTag
                     viewRef[0] = this
+                    if (inCover) markAsAppLockCoverView()
                 }
             },
             update = { view ->

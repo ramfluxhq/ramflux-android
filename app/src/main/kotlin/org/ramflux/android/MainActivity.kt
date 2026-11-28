@@ -18,6 +18,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
@@ -43,6 +44,9 @@ import org.ramflux.data.LanguageRepository
 import org.ramflux.data.appLockCovers
 import org.ramflux.data.appLockGuarded
 import org.ramflux.designsystem.AppLanguageProvider
+import org.ramflux.designsystem.AppLockCoverFocus
+import org.ramflux.designsystem.AppLockFocusGuard
+import org.ramflux.designsystem.LocalAppLockCoverFocus
 import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.focusBlockedWhileCovered
 import org.ramflux.designsystem.hiddenWhileCovered
@@ -105,13 +109,16 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     DisposableEffect(Unit) { onDispose { banners.chatOpened(null, null) } }
+                    val coverFocus = remember { AppLockCoverFocus() }
                     // The realrun build shows the account-code sheet unsecured so UI automation can read it; never shipped.
                     CompositionLocalProvider(
                         LocalAppLockCovered provides covered,
+                        LocalAppLockCoverFocus provides coverFocus,
                         LocalAppLockReauthSecure provides !BuildConfig.REALRUN,
                         LocalRemoveDialogSecure provides !BuildConfig.REALRUN
                     ) {
                         Box(Modifier.fillMaxSize()) {
+                            AppLockFocusGuard(covered)
                             // The shell under the cover is hidden from accessibility services and UI automation.
                             Box(Modifier.fillMaxSize().hiddenWhileCovered(covered).focusBlockedWhileCovered(covered)) {
                                 AppShellNavigation(

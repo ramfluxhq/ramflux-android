@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -65,6 +65,9 @@ import org.ramflux.data.ClientSnapshot
 import org.ramflux.data.accountCodeRefusal
 import org.ramflux.data.appLockCovers
 import org.ramflux.data.clientDebugEvent
+import org.ramflux.designsystem.AppLockCoverFocus
+import org.ramflux.designsystem.LocalAppLockCoverFocus
+import org.ramflux.designsystem.LocalInAppLockCover
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.focusTrap
@@ -626,15 +629,22 @@ private fun LockRecovery(
 private fun CoverSurface(content: @Composable () -> Unit) {
     val theme = LocalRFTheme.current
     val focus = LocalFocusManager.current
-    // Focus starts on the cover's first control and cannot leave the cover.
-    LaunchedEffect(Unit) {
+    val coverFocus = LocalAppLockCoverFocus.current ?: remember { AppLockCoverFocus() }
+    // Focus starts on the cover's anchor, a non-text target, so the keyboard is not raised when the app returns from the
+    // background; the code field takes focus only when the user taps it or tabs to it. Focus cannot leave the cover.
+    LaunchedEffect(coverFocus) {
         focus.clearFocus(force = true)
-        focus.moveFocus(FocusDirection.Enter)
+        coverFocus.take()
     }
-    Box(Modifier.fillMaxSize().background(theme.bg).focusTrap()) {
-        Spacer(Modifier.matchParentSize().consumeAllPointers())
-        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(theme.gap.dp)) {
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) { content() }
+    CompositionLocalProvider(LocalInAppLockCover provides true) {
+        Box(Modifier.fillMaxSize().background(theme.bg).focusTrap()) {
+            Spacer(Modifier.matchParentSize().consumeAllPointers())
+            Box(
+                Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(theme.gap.dp)
+                    .let { with(coverFocus) { it.coverAnchor() } }
+            ) {
+                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) { content() }
+            }
         }
     }
 }
