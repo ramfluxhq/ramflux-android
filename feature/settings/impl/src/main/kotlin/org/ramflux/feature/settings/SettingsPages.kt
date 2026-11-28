@@ -23,7 +23,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.SecureFlagPolicy
 import java.util.Locale
@@ -579,7 +578,8 @@ val LocalAppLockReauthSecure = staticCompositionLocalOf { true }
 private fun AppLockReauthSheet(lock: SettingsAppLock, onAction: (SettingsAction) -> Unit) {
     val theme = LocalRFTheme.current
     val secure = LocalAppLockReauthSecure.current
-    Dialog(
+    // Under the app-lock cover the sheet is removed and the request refused (CancelReauth), as a dismissal does.
+    CoverAwareDialog(
         onDismissRequest = { onAction(SettingsAction.CancelReauth) },
         properties = DialogProperties(
             usePlatformDefaultWidth = true,

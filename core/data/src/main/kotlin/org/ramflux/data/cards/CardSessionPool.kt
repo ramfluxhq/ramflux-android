@@ -795,7 +795,7 @@ internal class CardSessionPool(
     private suspend fun resume(acc: Account, account: String, slot: Slot, tap: Boolean): ClientResult<Unit> {
         val session = slot.session ?: return reopen(acc, account, slot)
         var call = client.resume(account, session)
-        // At the process cap core answers `resume` with an untyped invalid-argument: free a slot and try once more.
+        // At the process cap core answers `resume` with the typed `card_limit_exceeded`, as for open: free a slot and try once more.
         if (resumeCapped(call) && suspendLeastRecent(acc, account, except = slot.ref)) call = client.resume(account, session)
         if (resumeCapped(call)) {
             // Over the limit: the session is kept for the next tap.
@@ -1026,11 +1026,8 @@ internal class CardSessionPool(
 
     private fun CardCall.token(): String? = (this as? CardCall.Failed)?.problem?.cardToken()
 
-    /** `resume` at the process cap: core leaves it untyped, so any invalid-argument that is not a typed session refusal counts. */
-    private fun resumeCapped(call: CardCall): Boolean {
-        val problem = (call as? CardCall.Failed)?.problem ?: return false
-        return problem.cardToken() == LIMIT_EXCEEDED || (problem.statusName == INVALID_ARGUMENT && problem.check !in SESSION_REFUSALS)
-    }
+    /** `resume` at the process cap: core answers the typed `card_limit_exceeded`, the same token as for open. */
+    private fun resumeCapped(call: CardCall): Boolean = call.token() == LIMIT_EXCEEDED
 
     /** The runtime no longer holds the session: dropped (expired), never seen or without a tree (inactive), or the account is closed (locked). */
     private fun isGone(call: CardCall): Boolean {
@@ -1126,11 +1123,8 @@ internal class CardSessionPool(
         private const val SESSION_LIMIT = "card_session_limit"
         private const val STALE = "card_session_stale"
         private const val LIMIT_EXCEEDED = "card_limit_exceeded"
-        private const val INVALID_ARGUMENT = "InvalidArgument"
         private const val APPROVAL_CHANGED = "approval_changed"
 
-        /** Every typed `card_session_*` refusal: an invalid-argument carrying none of these is the untyped resume cap. */
-        private val SESSION_REFUSALS = setOf(EXPIRED, INACTIVE, SESSION_LIMIT, STALE, "card_session_refused", "card_session_busy")
         private val WATCH_TOPICS = listOf("surface.changed", "surface.rejected", "surface.resync", "surface.rpc.conflict")
 
         private val json = Json { ignoreUnknownKeys = true }

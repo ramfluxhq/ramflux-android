@@ -30,12 +30,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.data.cards.CardImageSource
 import org.ramflux.data.cards.CardNode
 import org.ramflux.data.cards.CardTree
+import org.ramflux.designsystem.CoverAwareDialog
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
 import org.ramflux.designsystem.kit.KitButton
@@ -104,11 +104,14 @@ private fun scaleOf(fit: String?): ContentScale = when (fit) {
     else -> ContentScale.FillBounds
 }
 
-/** The full-screen view (spec 4.15): the image fitted with `contain` on the background, the description below. */
+/**
+ * The full-screen view (spec 4.15): the image fitted with `contain` on the background, the description below. It shows
+ * message content in its own window, so the app-lock cover closes it ([CoverAwareDialog]) and it refuses capture.
+ */
 @Composable
 private fun ImageFullView(bitmap: ImageBitmap, description: String, onClose: () -> Unit) {
     val theme = LocalRFTheme.current
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    CoverAwareDialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
             Modifier.fillMaxSize().background(theme.bg).padding(16.dp).testTag("card-image-full"),
             verticalArrangement = Arrangement.spacedBy(12.dp)

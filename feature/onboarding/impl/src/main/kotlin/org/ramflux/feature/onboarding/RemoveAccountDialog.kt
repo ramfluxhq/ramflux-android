@@ -27,11 +27,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import org.ramflux.designsystem.CoverAwareDialog
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
@@ -54,7 +54,8 @@ internal fun RemoveAccountDialog(accountName: String?, busy: Boolean, failed: Bo
     val secure = LocalRemoveDialogSecure.current
     var understood by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { onDismiss() }
-    Dialog(
+    // Shown above the app-lock cover only when the cover itself opens it (under LocalInAppLockCover).
+    CoverAwareDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         properties = DialogProperties(
             usePlatformDefaultWidth = true,

@@ -152,7 +152,8 @@ internal fun MyContactCard(
                         stringResource(R.string.settings_my_card_share),
                         {
                             val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, state.text)
-                            context.startActivity(Intent.createChooser(send, null))
+                            // In its own task, so the share sheet never sits above the app-lock cover in this one.
+                            context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         },
                         Modifier.fillMaxWidth().padding(top = theme.gap.dp),
                         tag = "my-card-share"

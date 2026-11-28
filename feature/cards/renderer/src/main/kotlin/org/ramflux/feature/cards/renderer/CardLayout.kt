@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.VerticalDivider
@@ -42,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardNode
+import org.ramflux.designsystem.CoverAwareModalBottomSheet
 import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitAiMarker
@@ -218,11 +218,13 @@ internal fun CardModal(node: CardNode, ctx: CardContext) {
         val theme = LocalRFTheme.current
         // Plain card surface, not the host's security-sheet look, and an agent header inside: the author's content cannot
         // pass for an approval sheet or a system prompt.
-        ModalBottomSheet(
+        // The closeNow effect above closes the sheet when the cover rises, and sends ModalClose when the card can take it.
+        CoverAwareModalBottomSheet(
             onDismissRequest = close,
             sheetState = sheet,
             containerColor = theme.surface_white,
-            modifier = Modifier.testTag("card-modal-sheet")
+            modifier = Modifier.testTag("card-modal-sheet"),
+            onCovered = {}
         ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.fillMaxWidth().testTag("card-modal-header"), verticalAlignment = Alignment.CenterVertically) {

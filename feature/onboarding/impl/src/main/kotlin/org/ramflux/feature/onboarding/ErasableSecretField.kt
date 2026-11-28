@@ -36,7 +36,9 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.viewinterop.AndroidView
+import org.ramflux.designsystem.LocalInAppLockCover
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.markAsAppLockCoverView
 
 /** Owned secret text. [replace], [splice], [removeOutside], and [clear] wipe the previous array. */
 class ErasableBuffer {
@@ -123,6 +125,7 @@ fun ErasableSecretField(
     val theme = LocalRFTheme.current
     val edited by rememberUpdatedState(onEdited)
     val viewRef = remember { arrayOfNulls<ErasableSecretView>(1) }
+    val inCover = LocalInAppLockCover.current
     DisposableEffect(buffer) {
         buffer.onCleared = {
             viewRef[0]?.forgetImeState()
@@ -142,6 +145,7 @@ fun ErasableSecretField(
                 ErasableSecretView(context).apply {
                     tag = fieldTag
                     viewRef[0] = this
+                    if (inCover) markAsAppLockCoverView()
                 }
             },
             update = { view ->

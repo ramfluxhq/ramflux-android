@@ -78,6 +78,8 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.compose.test)
     testImplementation(libs.coroutines.test)
+    // The app-lock backstop test drives the real emoji picker's skin-tone popup (AppLockLibraryWindowsTest).
+    testImplementation(libs.emoji2.picker)
     debugImplementation(libs.compose.test.manifest)
     implementation(project(":core:data"))
     implementation(project(":feature:settings:impl"))
