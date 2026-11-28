@@ -17,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import org.ramflux.data.AccountScopedStore
 import org.ramflux.data.AttachmentHost
 import org.ramflux.data.ChatDraftRepository
+import org.ramflux.data.ChatOutboxCoordinator
 import org.ramflux.data.ChatOutboxRepository
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.DefaultMediaRepository
@@ -47,9 +48,14 @@ object ChatDataModule {
     @Provides @Singleton
     fun outbox(@ApplicationContext context: Context): ChatOutboxRepository = EncryptedChatOutboxRepository(context)
 
+    /** The only owner of the outbox store and of send outcomes; sends run in the application scope, not a screen's. */
+    @Provides @Singleton
+    fun outboxCoordinator(store: ChatOutboxRepository): ChatOutboxCoordinator =
+        ChatOutboxCoordinator(store, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
+
     /** Queued sends sealed for an account are erased before the account leaves this device. */
     @Provides @Singleton @IntoSet
-    fun outboxStore(outbox: ChatOutboxRepository): AccountScopedStore = AccountScopedStore { outbox.clearAccount(it) }
+    fun outboxStore(coordinator: ChatOutboxCoordinator): AccountScopedStore = AccountScopedStore { coordinator.clearAccount(it) }
 
     /** Media files decrypted for an account are erased before the account leaves this device. */
     @Provides @Singleton @IntoSet

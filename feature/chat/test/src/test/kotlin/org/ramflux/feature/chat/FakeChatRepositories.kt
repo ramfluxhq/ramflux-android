@@ -154,8 +154,12 @@ class FakeChatDrafts : ChatDraftRepository {
 
 class FakeChatOutbox : ChatOutboxRepository {
     val stored = mutableMapOf<String, List<QueuedSend>>()
+
+    /** When set, a save suspends until it completes (a slow store). */
+    var gate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
     override suspend fun load(account: String, conversation: String): List<QueuedSend> = stored["$account/$conversation"].orEmpty()
     override suspend fun save(account: String, conversation: String, sends: List<QueuedSend>): ClientResult<Unit> {
+        gate?.await()
         if (sends.isEmpty()) stored.remove("$account/$conversation") else stored["$account/$conversation"] = sends
         return ClientResult.Ready(Unit)
     }
@@ -175,6 +179,10 @@ class FakeChatMedia : MediaRepository {
     val captions = mutableListOf<String>()
     val copied = mutableListOf<String>()
     var sendResult: ClientResult<SendReceipt> = ClientResult.Ready(SendReceipt("media"))
+
+    /** When set, a media send suspends until it completes. */
+    var sendGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+    val sentOperations = mutableListOf<String>()
     override fun localFile(account: String, attachment: MediaAttachment) = held[attachment.messageId + "/" + attachment.index]
     override suspend fun download(account: String, attachment: MediaAttachment, progress: (TransferState) -> Unit): TransferState {
         downloads.add(attachment.messageId)
@@ -191,6 +199,8 @@ class FakeChatMedia : MediaRepository {
         sent.add(items)
         destinations.add(destination)
         captions.add(caption)
+        sentOperations.add(operationId)
+        sendGate?.await()
         return sendResult
     }
     override suspend fun revoke(account: String, message: String): ClientResult<Unit> {
