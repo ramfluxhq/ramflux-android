@@ -149,6 +149,8 @@ internal data class MlsGroupData(
     val markingRead: Boolean = false,
     val infoRefreshAt: Long = 0,
     val infoRefreshQueued: Boolean = false,
+    /** The M3 admin owner of this group: the slot, the requests, the catch-up record and the warning set. */
+    val admin: MlsAdminState = MlsAdminState(),
 )
 
 internal data class MlsAccountData(

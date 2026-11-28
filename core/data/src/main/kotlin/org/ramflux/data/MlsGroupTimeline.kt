@@ -59,6 +59,11 @@ internal object MlsAiFlags {
     fun learnMembers(known: Set<String>, rows: List<MlsGroupMember>): Set<String> =
         known + rows.filter { it.aiFlag && it.anchor.isNotEmpty() }.map { it.anchor }
 
+    fun learnRequests(known: Set<String>, rows: List<MlsJoinRequest>): Set<String> =
+        known + rows.filter { it.aiFlag && it.anchor.isNotEmpty() }.map { it.anchor }
+
+    fun apply(known: Set<String>, request: MlsJoinRequest) = if (!request.aiFlag && request.anchor in known) request.copy(aiFlag = true) else request
+
     fun apply(known: Set<String>, author: MlsGroupAuthor?) =
         if (author != null && !author.aiFlag && author.anchor in known) author.copy(aiFlag = true) else author
 

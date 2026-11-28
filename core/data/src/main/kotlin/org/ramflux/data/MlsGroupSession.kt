@@ -39,17 +39,20 @@ object MlsJoinLink {
  * is made once per explicit action of a screen. Nothing is persisted.
  */
 class MlsGroupSession(
-    private val repository: MlsGroupRepository,
-    private val scope: CoroutineScope,
-    private val clock: () -> Long = System::currentTimeMillis,
-    private val newId: () -> String = { UUID.randomUUID().toString() },
+    internal val repository: MlsGroupRepository,
+    internal val scope: CoroutineScope,
+    internal val clock: () -> Long = System::currentTimeMillis,
+    internal val newId: () -> String = { UUID.randomUUID().toString() },
 ) {
-    private val guard = Mutex()
-    private val data = MutableStateFlow(MlsSessionData())
+    internal val guard = Mutex()
+    internal val data = MutableStateFlow(MlsSessionData())
     private val watchers = HashMap<String, Job>()
 
     /** One wake per `(account, group)` at the reset time of a daily limit. A wake only lifts the lock; it never sends. */
     private val limitTimers = HashMap<String, Pair<Long, Job>>()
+
+    /** One wake per `(account, group)` at the earliest `pacedUntil` or request expiry. A wake only bumps a tick; it never calls. */
+    internal val adminTimers = HashMap<String, Pair<Long, Job>>()
 
     // ---- published state -------------------------------------------------------------------------------------------
 
@@ -61,7 +64,7 @@ class MlsGroupSession(
     fun members(account: String, group: String): Flow<MlsMembersState> = view(account) { it.groups[group]?.members ?: MlsMembersState() }
     fun timeline(account: String, group: String): Flow<MlsTimelineState> = view(account) { it.groups[group]?.timeline ?: MlsTimelineState() }
 
-    private fun <T> view(account: String, read: (MlsAccountData) -> T): Flow<T> =
+    internal fun <T> view(account: String, read: (MlsAccountData) -> T): Flow<T> =
         data.map { read(it.accounts[account] ?: MlsAccountData()) }.distinctUntilChanged()
 
     // ---- account lifecycle -----------------------------------------------------------------------------------------
@@ -79,6 +82,7 @@ class MlsGroupSession(
                 epochs = now.epochs + (account to (now.epochs[account] ?: 0L) + 1L),
             )
             limitTimers.keys.filter { it.startsWith(account + TIMER_SEPARATOR) }.forEach { key -> limitTimers.remove(key)?.second?.cancel() }
+            adminTimers.keys.filter { it.startsWith(account + TIMER_SEPARATOR) }.forEach { key -> adminTimers.remove(key)?.second?.cancel() }
             watchers.remove(account)
         }
         job?.cancel()
@@ -301,22 +305,32 @@ class MlsGroupSession(
 
     /** `group.info`. */
     fun loadInfo(account: String, group: String) = launchFor(account) { epoch ->
-        update(account, epoch) { a -> a.withGroup(group) { it.copy(info = it.info.copy(loading = true)) } }
+        // The warning counter and the catch-up version when the read is issued: the info only replaces what no event touched since (2.7, 3.5).
+        val issued = txn(account, epoch) { a ->
+            val mark = a.groups[group]?.admin?.let { it.warnings.counter to it.catchUp.version } ?: (0L to 0L)
+            a.withGroup(group) { it.copy(info = it.info.copy(loading = true)) } to mark
+        } ?: return@launchFor
         val result = repository.info(account, group)
+        var rejoined = false
         update(account, epoch) { a ->
             when (result) {
-                is ClientResult.Ready -> a.withGroup(group) { it.copy(info = it.info.copy(group = result.value, loading = false, failure = null, notMember = false)) }
-                    .withListRow(result.value)
+                is ClientResult.Ready -> a.withGroup(group) {
+                    val read = adminReadInfo(it, result.value, issued.first, issued.second)
+                    rejoined = read.second
+                    read.first.copy(info = it.info.copy(group = result.value, loading = false, failure = null, notMember = false))
+                }.withListRow(result.value)
                 else -> {
                     val gone = (result as? ClientResult.Failed)?.problem?.let { (it.statusName ?: it.check) == "not_member" } == true
                     a.withGroup(group) { it.copy(info = it.info.copy(loading = false, failure = failure(result), notMember = gone)) }
                 }
             }
         }
+        if (rejoined) reloadAfterRejoin(account, epoch, group)
+        armAdminTimer(account, epoch, group)
     }
 
     /** Re-reads the info after an event, at most once per second (the extra request is queued once). */
-    private suspend fun scheduleInfo(account: String, epoch: Long, group: String) {
+    internal suspend fun scheduleInfo(account: String, epoch: Long, group: String) {
         val wait = txn(account, epoch) { a ->
             val g = a.groups[group] ?: MlsGroupData()
             val elapsed = clock() - g.infoRefreshAt
@@ -455,15 +469,17 @@ class MlsGroupSession(
                         val merged = LinkedHashMap<String, MlsGroupMember>()
                         if (!replace) g.members.rows.forEach { merged[it.anchor] = it }
                         result.value.items.forEach { merged[it.anchor] = MlsAiFlags.apply(known, it) }
-                        g.copy(
-                            aiAnchors = known,
-                            members = g.members.copy(
-                                rows = merged.values.toList(),
-                                cursor = result.value.cursor,
-                                loaded = true,
-                                loading = false,
-                                failure = null,
-                            ),
+                        adminReadMembers(
+                            g.copy(
+                                aiAnchors = known,
+                                members = g.members.copy(
+                                    rows = merged.values.toList(),
+                                    cursor = result.value.cursor,
+                                    loaded = true,
+                                    loading = false,
+                                    failure = null,
+                                ),
+                            )
                         )
                     }
                     else -> g.copy(members = g.members.copy(loading = false, loaded = true, failure = failure(result)))
@@ -511,8 +527,12 @@ class MlsGroupSession(
         refreshNow(account, epoch, group)
     }
 
-    private suspend fun loadNewest(account: String, epoch: Long, group: String) {
-        val started = data.value.accounts[account]?.groups?.get(group)?.timeline?.window?.gen
+    internal suspend fun loadNewest(
+        account: String,
+        epoch: Long,
+        group: String,
+        started: Long? = data.value.accounts[account]?.groups?.get(group)?.timeline?.window?.gen,
+    ) {
         val result = repository.history(account, group, null, null, PAGE)
         update(account, epoch) { a ->
             // A group that was evicted, or a window that was reset again, while the page was read takes no rows (S14).
@@ -624,7 +644,7 @@ class MlsGroupSession(
      * Fills the gap after the newest loaded row (or [force]d from it), 200 rows per call while `more`. One fill runs per group; a
      * gap found during a fill queues one more round.
      */
-    private fun fillGap(account: String, group: String, force: Boolean = false): Unit = launchFor(account) { epoch ->
+    internal fun fillGap(account: String, group: String, force: Boolean = false): Unit = launchFor(account) { epoch ->
         val start = txn(account, epoch) { a ->
             val g = a.groups[group] ?: MlsGroupData()
             val t = g.timeline
@@ -864,6 +884,8 @@ class MlsGroupSession(
         var infoFor: String? = null
         var joined: String? = null
         var resync = false
+        var voidFor: String? = null
+        var rejoined = false
         update(account, epoch) { a ->
             // Only the most recently opened groups hold a window; the others keep what the list row needs (S14).
             val live = group != null && group in a.opened
@@ -890,8 +912,9 @@ class MlsGroupSession(
                     val id = group ?: return@update a
                     infoFor = id
                     var next = a.withGroup(id) { g ->
-                        applyMembership(ingest(g, listOf(signal.post), event = true, live = live), signal.post)
+                        adminService(applyMembership(ingest(g, listOf(signal.post), event = true, live = live), signal.post), signal.post)
                     }
+                    if (signal.post.kind == MlsGroupPostKind.VOID) voidFor = id
                     next = next.bumpList(id, signal.post)
                     val mine = signal.post.changes.filter { it.isMe }
                     if (mine.any { it.change == MlsGroupChangeKind.LEFT || it.change == MlsGroupChangeKind.REMOVED || it.change == MlsGroupChangeKind.BANNED }) {
@@ -921,6 +944,22 @@ class MlsGroupSession(
                     val id = group ?: return@update a
                     a.withRead(id, signal.read)
                 }
+                is MlsGroupSignal.PendingJoin -> {
+                    val id = group ?: return@update a
+                    a.withGroup(id) { adminPendingJoin(it, signal.request) }
+                }
+                is MlsGroupSignal.CatchUp -> {
+                    val id = group ?: return@update a
+                    a.withGroup(id) {
+                        val applied = adminCatchUp(it, signal)
+                        rejoined = applied.second
+                        applied.first
+                    }
+                }
+                is MlsGroupSignal.Warning -> {
+                    val id = group ?: return@update a
+                    a.withGroup(id) { it.copy(admin = it.admin.copy(warnings = MlsAdminRules.applyWarning(it.admin.warnings, signal.warning, signal.cleared))) }
+                }
                 MlsGroupSignal.Resync -> {
                     resync = true
                     a
@@ -940,6 +979,13 @@ class MlsGroupSession(
         if (group != null && data.value.accounts[account]?.groups?.get(group)?.timeline?.window?.gapAfter != null) fillGap(account, group)
         group?.let { armLimitTimer(account, epoch, it) }
         infoFor?.let { scheduleInfo(account, epoch, it) }
+        if (rejoined && group != null) reloadAfterRejoin(account, epoch, group)
+        if (voidFor != null && group != null) {
+            // The roster may revert with a void: the loaded member pages and the info are read again (2.6).
+            if (data.value.accounts[account]?.groups?.get(group)?.members?.loaded == true) loadMembers(account, group)
+            scheduleInfo(account, epoch, group)
+        }
+        group?.let { armAdminTimer(account, epoch, it) }
     }
 
     private fun applyPostState(g: MlsGroupData, signal: MlsGroupSignal.PostState, live: Boolean): MlsGroupData {
@@ -1032,17 +1078,17 @@ class MlsGroupSession(
 
     // ---- helpers ---------------------------------------------------------------------------------------------------
 
-    private fun launchFor(account: String, block: suspend (epoch: Long) -> Unit) {
+    internal fun launchFor(account: String, block: suspend (epoch: Long) -> Unit) {
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             if (account in data.value.purged) return@launch
             block(epochOf(account))
         }
     }
 
-    private fun epochOf(account: String) = data.value.epochs[account] ?: 0L
+    internal fun epochOf(account: String) = data.value.epochs[account] ?: 0L
 
     /** Runs [block] on the account under the guard; null when the account is purged or no longer in [epoch] (a busy flag never lands in a newer epoch). */
-    private suspend fun <R> txn(account: String, epoch: Long, block: (MlsAccountData) -> Pair<MlsAccountData, R>): R? = guard.withLock {
+    internal suspend fun <R> txn(account: String, epoch: Long, block: (MlsAccountData) -> Pair<MlsAccountData, R>): R? = guard.withLock {
         val now = data.value
         if (account in now.purged || epoch != (now.epochs[account] ?: 0L)) return null
         val (next, result) = block(now.accounts[account] ?: MlsAccountData())
@@ -1051,14 +1097,14 @@ class MlsGroupSession(
     }
 
     /** Applies [block] only while the account is not purged and still in [epoch]: a late result never lands. */
-    private suspend fun update(account: String, epoch: Long, block: (MlsAccountData) -> MlsAccountData): Boolean = guard.withLock {
+    internal suspend fun update(account: String, epoch: Long, block: (MlsAccountData) -> MlsAccountData): Boolean = guard.withLock {
         val now = data.value
         if (account in now.purged || epoch != (now.epochs[account] ?: 0L)) return false
         data.value = now.copy(accounts = now.accounts + (account to block(now.accounts[account] ?: MlsAccountData())))
         true
     }
 
-    private fun MlsAccountData.withGroup(id: String, change: (MlsGroupData) -> MlsGroupData): MlsAccountData =
+    internal fun MlsAccountData.withGroup(id: String, change: (MlsGroupData) -> MlsGroupData): MlsAccountData =
         copy(groups = groups + (id to change(groups[id] ?: MlsGroupData())))
 
     /** A fresh info row replaces the list row of the group when it is not older. */
@@ -1082,7 +1128,7 @@ class MlsGroupSession(
             .copy(list = list.copy(rows = rows))
     }
 
-    private fun failure(result: ClientResult<*>): MlsFailure = when (result) {
+    internal fun failure(result: ClientResult<*>): MlsFailure = when (result) {
         is ClientResult.Failed -> MlsFailure.of(result.problem)
         is ClientResult.Unavailable -> MlsFailure.UNAVAILABLE
         is ClientResult.Ready -> MlsFailure(null)
@@ -1090,7 +1136,7 @@ class MlsGroupSession(
 
     companion object {
         const val NAME_MAX = 64
-        private const val TIMER_SEPARATOR = '\u0000'
+        internal const val TIMER_SEPARATOR = '\u0000'
         const val PAGE = 50
         const val GAP_PAGE = 200
         const val KEPT_WINDOWS = 3
