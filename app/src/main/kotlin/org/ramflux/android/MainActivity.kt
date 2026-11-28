@@ -20,7 +20,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -45,6 +44,7 @@ import org.ramflux.data.appLockCovers
 import org.ramflux.data.appLockGuarded
 import org.ramflux.designsystem.AppLanguageProvider
 import org.ramflux.designsystem.LocalAppLockCovered
+import org.ramflux.designsystem.focusBlockedWhileCovered
 import org.ramflux.designsystem.hiddenWhileCovered
 import org.ramflux.feature.appshell.AppShellNavigation
 import org.ramflux.feature.appshell.ShellPage
@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Box(Modifier.fillMaxSize()) {
                             // The shell under the cover is hidden from accessibility services and UI automation.
-                            Box(Modifier.fillMaxSize().hiddenWhileCovered(covered).focusProperties { canFocus = !covered }) {
+                            Box(Modifier.fillMaxSize().hiddenWhileCovered(covered).focusBlockedWhileCovered(covered)) {
                                 AppShellNavigation(
                                     shellReady = startupUi.place == StartupPlace.SHELL,
                                     policy = SHELL_ROUTE_POLICY,

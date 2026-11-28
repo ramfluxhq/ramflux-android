@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -66,6 +67,7 @@ import org.ramflux.data.appLockCovers
 import org.ramflux.data.clientDebugEvent
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.focusTrap
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
 import org.ramflux.designsystem.render
@@ -623,7 +625,13 @@ private fun LockRecovery(
 @Composable
 private fun CoverSurface(content: @Composable () -> Unit) {
     val theme = LocalRFTheme.current
-    Box(Modifier.fillMaxSize().background(theme.bg)) {
+    val focus = LocalFocusManager.current
+    // Focus starts on the cover's first control and cannot leave the cover.
+    LaunchedEffect(Unit) {
+        focus.clearFocus(force = true)
+        focus.moveFocus(FocusDirection.Enter)
+    }
+    Box(Modifier.fillMaxSize().background(theme.bg).focusTrap()) {
         Spacer(Modifier.matchParentSize().consumeAllPointers())
         Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(theme.gap.dp)) {
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) { content() }

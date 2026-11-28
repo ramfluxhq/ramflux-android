@@ -3,8 +3,11 @@
 
 package org.ramflux.designsystem
 
+import androidx.compose.foundation.focusGroup
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.semantics.clearAndSetSemantics
 
 /**
@@ -18,3 +21,20 @@ val LocalAppLockCovered = staticCompositionLocalOf { false }
  * automation): only what is drawn above it is exposed. Composition and state stay as they are.
  */
 fun Modifier.hiddenWhileCovered(covered: Boolean): Modifier = if (covered) clearAndSetSemantics { } else this
+
+/**
+ * While [covered], keyboard and D-pad focus cannot enter the content under the app-lock cover, nested scrollables and
+ * lazy lists included, and a programmatic `requestFocus()` on a control in it is refused. A key event that still
+ * reaches it is consumed. `canFocus` alone is not enough: every scrollable and focus group adds its own focus target.
+ */
+fun Modifier.focusBlockedWhileCovered(covered: Boolean): Modifier = if (covered) {
+    this.focusProperties {
+        canFocus = false
+        onEnter = { cancelFocusChange() }
+    }.focusGroup().onPreviewKeyEvent { true }
+} else {
+    this
+}
+
+/** The app-lock cover's focus trap: focus cannot leave it, so Tab, arrow keys and the D-pad cycle inside it. */
+fun Modifier.focusTrap(): Modifier = this.focusProperties { onExit = { cancelFocusChange() } }.focusGroup()
