@@ -339,7 +339,7 @@ object MlsGroupMetadataReader {
 
     /** `group.send`: `{post_id, state, params}`. */
     fun sent(reply: SecretReply): CoreResult<MlsSendMetadata> = decode(reply) { f ->
-        MlsSendMetadata(requireNotNull(text(f, f.root, "post_id", BOUND)), postState(f, f.root, f.root))
+        MlsSendMetadata(requireNotNull(text(f, f.root, "post_id", BOUND)), postState(f, f.root, obj(f, f.root, "params") ?: f.root))
     }
 
     /** `group.leave`: committed only when `state` is `committed`. */
