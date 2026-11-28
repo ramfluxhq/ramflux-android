@@ -140,7 +140,10 @@ class ChatViewModel @Inject constructor(
     val events = channel.receiveAsFlow()
 
     /** The identity change sheet; its accept runs only from [ChatAction.AcceptIdentity]. */
-    private val review = IdentityReview(identity, viewModelScope) { account, contact, outcome -> reviewOutcome(account, contact, outcome) }
+    private val review =
+        IdentityReview(identity, viewModelScope) { account, contact, outcome, anchor ->
+            reviewOutcome(account, contact, outcome, anchor)
+        }
 
     /** The direct peer's contact identifier of the open conversation, as the header reported it. */
     private var peerRoot: String? = null
@@ -1075,11 +1078,16 @@ class ChatViewModel @Inject constructor(
     }
 
     /** After an accept attempt the status is read again; an accepted change also gets its timeline line. */
-    private fun reviewOutcome(account: String, contact: String, outcome: AcceptOutcome) {
+    private fun reviewOutcome(account: String, contact: String, outcome: AcceptOutcome, anchor: String) {
         val current = target ?: return
         if (current.account != account || peerRoot != contact) return
         when (outcome) {
             AcceptOutcome.Accepted -> {
+                // The banner clears only if the pending change is still the one that was accepted.
+                if (pendingChange != null && pendingChange?.newAnchor != anchor) {
+                    readIdentity(current, contact, afterAccept = false)
+                    return
+                }
                 pendingChange = null
                 local.update { it.copy(identityState = IdentityState.UNKNOWN, sendBlocked = false) }
                 addServiceLine(uiText(R.string.identity_timeline_accepted, UiText.Untrusted(local.value.peerName.orEmpty())))
