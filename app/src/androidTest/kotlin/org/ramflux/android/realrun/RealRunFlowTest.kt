@@ -106,7 +106,18 @@ class RealRunFlowTest {
         ui.tap("connect")
         ui.tap("add-node")
         ui.type("node-address", args.nodeOrigin)
+        // The node is plain http on the LAN: it is accepted only with an operator key, entered under Details.
+        ui.tap("address-details-toggle")
+        ui.need("operator-key", Ui.SHORT, "operator key field under Details")
+        // The field sits below the address inside the scrolling body, under the footer and the keyboard until scrolled to.
+        // The tag is in the tree while the field is still clipped, so scroll first, then check the field's bounds are on screen.
+        repeat(3) {
+            ui.device.findObject(androidx.test.uiautomator.By.res("onboarding-body"))
+                ?.let { runCatching { it.scroll(androidx.test.uiautomator.Direction.DOWN, 0.8f) } }
+            ui.device.waitForIdle()
+        }
         ui.type("operator-key", args.operatorKey)
+        ui.need("operator-key", Ui.SHORT, "operator key field after typing")
         ui.shot("01-address")
         ui.tap("review-address")
         ui.tap("verify-origin")
@@ -116,12 +127,23 @@ class RealRunFlowTest {
             ui.shot("01-node-unreachable")
             blocked("node discovery at ${args.nodeOrigin} failed from the phone: ${ui.screen()}")
         }
+        // The trust page shows the address and a status line; the full fingerprint is under its Details disclosure.
+        // The key came from the operator key typed on the address page, so the line is the operator-key one
+        val trustLine = ui.need("node-trust-status", Ui.SHORT, "node trust status line").text.orEmpty()
+        val alreadyTrusted = trustLine == ui.str("ui_node_already_trusted")
+        if (trustLine != ui.str("ui_node_trust_confirmed") && !alreadyTrusted) {
+            fail("the trust page says '$trustLine' instead of the operator-key line")
+        }
+        ui.shot("01-trust")
+        ui.tap("node-details-toggle")
+        ui.need("node-details", Ui.SHORT, "node details")
         val compact = ui.texts().filterNot { it.isWhitespace() || it == '|' }
         if (args.fingerprint.isEmpty() || !compact.contains(args.fingerprint, ignoreCase = true)) {
             fail("the reviewed node fingerprint does not show the full fingerprint of node-facts.json ${args.fingerprint}")
         }
         ui.shot("01-identity")
-        ui.tap("confirm-node")
+        // A node already pinned with this key offers "use" instead of "trust".
+        ui.tap(if (alreadyTrusted) "use-trusted-node" else "confirm-node")
         if (ui.first("choose-saved", "CREATE", "display-name", timeout = Ui.LONG) == "choose-saved") {
             ui.tap("choose-saved")
             ui.tap(args.nodeId)
@@ -149,6 +171,8 @@ class RealRunFlowTest {
         ui.tap("phrase-saved")
         ui.need("challenge-0", Ui.LONG, "word challenge")
         for (index in 0..2) {
+            // The keyboard of the earlier fields covers the later ones: scroll the body until the field shows.
+            if (!reach("challenge-$index")) fail("word check field $index cannot be scrolled into view: ${ui.screen()}")
             val position = challengePosition(index)
             var drawn = false
             RealRunProbe.borrow(position - 1) { word ->
@@ -748,6 +772,8 @@ class RealRunFlowTest {
         try {
             old.forEach { ui.tap("code-key-$it") }
             next.forEach { ui.tap("code-key-$it") }
+            // The page asks for the new code twice: current, new, then the repeat, all from the same keypad.
+            next.forEach { ui.tap("code-key-$it") }
             if (!ui.scrollTo("code-submit")) fail("the code change has no submit action on screen: ${ui.screen()}")
             ui.tap("code-submit")
             ui.find("code-changed", Ui.LONG) ?: fail("the code change was not confirmed: ${ui.screen()}")
@@ -935,7 +961,9 @@ class RealRunFlowTest {
         }
         ui.tap("confirm-exit")
         val removedText = ui.str("settings_account_removed", name)
-        val toast = ui.text(removedText, Ui.SHORT) != null
+        // The notice is a system toast: look for it on the whole screen, not only in the app's own windows.
+        val toast = toastShown(removedText)
+        if (toast) ui.shot("15-removed-toast")
         val after = ui.first("startup-gateway", "startup-welcome", "onboarding-header", "startup-unlock-header", timeout = Ui.LONG)
             ?: fail("no start state after the removal: ${ui.screen()}")
         val stillListed = ui.eventually(5_000) { ui.hasText(name) }
@@ -1540,7 +1568,11 @@ class RealRunFlowTest {
                     timeout = Ui.SHORT
                 )
             ) {
-                "app-lock-code" -> enterAppLockCode()
+                // The cover released the app: it comes back on the screen open before the lock (the App lock page here).
+                "app-lock-code" -> {
+                    enterAppLockCode()
+                    return
+                }
                 "app-lock-retry" -> ui.tap("app-lock-retry")
                 "shell-tabs", "composer" -> return
                 "startup-unlock-header" -> ui.tap("startup-unlock-continue")
@@ -1583,6 +1615,10 @@ class RealRunFlowTest {
         }
         fail("unlock did not finish within ${Ui.LONG / 1000} s: ${ui.screen()}")
     }
+
+    /** True when a system toast (a window of the system, not of the app) showing [text] appears within the short timeout. */
+    private fun toastShown(text: String): Boolean =
+        ui.device.wait(androidx.test.uiautomator.Until.hasObject(By.textContains(text)), Ui.SHORT)
 
     private fun lockedAccountRow(): UiObject2? =
         ui.device.findObjects(By.pkg(ui.packageName).res(java.util.regex.Pattern.compile("account-.+"))).firstOrNull()
@@ -2000,6 +2036,8 @@ class RealRunFlowTest {
             // Phase 1, app lock off for both accounts. P1: from A, open the chooser and create B: B opens, no cover left.
             leaveToShell()
             openAccountChooser()
+            // With an account on the device the welcome page offers the setup choices behind "Add another account".
+            ui.tap("add-account")
             ui.tap("CREATE")
             b = createCeremony(nameB)
             assertTwoAccountShell("P1 create B")
@@ -2447,7 +2485,7 @@ class RealRunFlowTest {
         }
         ui.tap("remove-confirm")
         val removedText = ui.str("ui_account_removed", name)
-        val toast = ui.text(removedText, Ui.SHORT) != null
+        val toast = toastShown(removedText)
         val after = ui.first(
             "onboarding-header", "startup-gateway", "startup-welcome", "startup-unlock-header", "unlock-account-name", "shell-locked",
             timeout = Ui.LONG
