@@ -54,6 +54,52 @@ enum class LocalDelivery {
 /** One reaction token with its count; the token is peer-controlled text. */
 @Immutable data class ReactionCount(val token: String, val count: Int)
 
+/** What an MLS group row shows besides its text: a send state (the SDK owns queued and delayed posts) or "Deleting…". */
+enum class GroupDeliveryKind { QUEUED, DELAYED, NOT_SENT, DELETING }
+
+/** The typed reason a group state line shows; the screen turns it into its text. */
+enum class GroupReason {
+    CATCHING_UP,
+    HOST_UNREACHABLE,
+    FETCHING_TOKENS,
+    WAITING,
+    DELAYED,
+    RATE_LIMITED,
+    RATE_LIMITED_NO_RESET,
+    FIRST_DAY,
+    TOO_LARGE,
+    NOT_MEMBER,
+    REJOIN_NEEDED,
+    PACED,
+    DELETING,
+    UNAVAILABLE,
+    MESSAGE_NOT_FOUND,
+    NOT_AUTHOR,
+    GENERIC
+}
+
+/** [number] is the time (unix ms), the byte limit or the count the reason's text names. */
+@Immutable data class GroupDelivery(val kind: GroupDeliveryKind, val reason: GroupReason, val number: Long? = null)
+
+/** A group service row (member change, settings, a row the client cannot draw). Names are peer data. */
+@Immutable data class GroupName(val display: String?, val me: Boolean) {
+    override fun toString() = "GroupName(<redacted>)"
+}
+
+@Immutable sealed interface GroupLine {
+    data class Joined(val first: GroupName, val others: Int) : GroupLine
+    data class Left(val first: GroupName, val others: Int) : GroupLine
+    data class Removed(val actor: GroupName?, val target: GroupName) : GroupLine
+    data class Banned(val actor: GroupName?, val target: GroupName) : GroupLine
+    data class Role(val actor: GroupName?, val target: GroupName, val admin: Boolean) : GroupLine
+    data class Renamed(val actor: GroupName?, val name: String) : GroupLine
+    data class Approval(val actor: GroupName?, val on: Boolean) : GroupLine
+    data object Void : GroupLine
+    data object Updated : GroupLine
+    data object Unsupported : GroupLine
+    data object Floor : GroupLine
+}
+
 @Immutable data class MessageItem(
     override val id: String,
     val sender: String,
@@ -71,7 +117,13 @@ enum class LocalDelivery {
     val delivery: LocalDelivery? = null,
     val attachments: ImmutableList<AttachmentItem> = persistentListOf(),
     /** The author is an SDK-verified AI agent (shown with the AI marker). */
-    val senderAi: Boolean = false
+    val senderAi: Boolean = false,
+    /** The MLS group send or delete state of this row; null for every direct-chat row. */
+    val groupDelivery: GroupDelivery? = null,
+    /** The MLS group service row to draw instead of [content]; null for every direct-chat row. */
+    val line: GroupLine? = null,
+    /** An own, posted MLS group row: "Delete for everyone" is offered. */
+    val deletable: Boolean = false
 ) : TimelineItem {
     override fun toString() = "MessageItem(<redacted>)"
 }
@@ -122,9 +174,40 @@ enum class LocalDelivery {
     /** A send was refused with `identity_change_pending`: the composer shows the prompt while the identity stays changed. */
     val sendBlocked: Boolean = false,
     /** The identity change sheet, while it is open. */
-    val review: IdentityReviewState? = null
+    val review: IdentityReviewState? = null,
+    /** The MLS group chat extras; null for every other chat. */
+    val mls: MlsChatUi? = null
 ) {
     override fun toString() = "ChatState(<redacted>)"
+}
+
+/** One member the mention picker offers. [display] is null for a non-contact (the screen shows "Member"). */
+@Immutable data class MentionRow(val anchor: String, val display: String?, val ai: Boolean) {
+    override fun toString() = "MentionRow(<redacted>)"
+}
+
+@Immutable data class MentionSheet(
+    val rows: ImmutableList<MentionRow> = persistentListOf(),
+    val loading: Boolean = false,
+    val hasMore: Boolean = false
+) {
+    override fun toString() = "MentionSheet(<redacted>)"
+}
+
+/** Why an MLS group is read-only: no composer is shown and nothing is sent (S13). */
+enum class GroupReadOnly { LEFT, REMOVED, BANNED }
+
+/** The extras of an MLS group chat; null for a direct chat and for the old group chat. */
+@Immutable data class MlsChatUi(
+    val readOnly: GroupReadOnly? = null,
+    /** The composer is off until this unix-ms time (a daily limit). */
+    val limitedUntil: Long? = null,
+    val refreshing: Boolean = false,
+    val confirmDelete: Boolean = false,
+    val mention: MentionSheet? = null,
+    val notice: GroupDelivery? = null
+) {
+    override fun toString() = "MlsChatUi(<redacted>)"
 }
 
 /** One conversation the chooser offers; [title] is peer-controlled. */

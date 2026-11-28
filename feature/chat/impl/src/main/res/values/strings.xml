@@ -288,4 +288,64 @@
         <item quantity="other">%1$d devices</item>
     </plurals>
     <string name="security_warning_fork_recovered">Encryption was re-established. Some messages may not have arrived.</string>
+    <string name="group_send_queued_catching_up">Waiting until this device is up to date</string>
+    <string name="group_send_queued_host_unreachable">Waiting for the group\'s server</string>
+    <string name="group_send_queued_fetching_tokens">Preparing to send</string>
+    <string name="group_send_queued_generic">Waiting to send</string>
+    <string name="group_send_delayed">Sends around %1$s for privacy</string>
+    <string name="group_send_rate_limited">Daily limit reached. You can send again at %1$s.</string>
+    <string name="group_send_rate_limited_no_reset">Daily limit reached. Try again later.</string>
+    <string name="group_send_failed">Not sent</string>
+    <string name="group_send_retry">Retry</string>
+    <string name="group_chat_error_not_member">You\'re not a member of this group.</string>
+    <string name="group_chat_error_rejoin_needed">This device needs to rejoin the group.</string>
+    <string name="group_chat_error_too_large">This is too large. The limit is %1$s.</string>
+    <string name="group_chat_error_host_unreachable">Can\'t reach the group\'s server.</string>
+    <string name="group_chat_error_paced">Please wait until %1$s and try again.</string>
+    <string name="group_chat_error_message_not_found">This message no longer exists.</string>
+    <string name="group_chat_error_not_author">You can only delete your own messages.</string>
+    <string name="group_chat_error_unavailable">Groups aren\'t available in this version yet.</string>
+    <string name="group_chat_error_generic">Something went wrong. Try again.</string>
+    <string name="group_state_removed">You were removed from this group.</string>
+    <string name="group_state_banned">You were banned from this group.</string>
+    <string name="group_state_left">You left this group.</string>
+    <string name="group_delete_action">Delete for everyone</string>
+    <string name="group_delete_title">Delete this message for everyone?</string>
+    <string name="group_delete_confirm">Delete</string>
+    <string name="group_delete_cancel">Cancel</string>
+    <string name="group_delete_deleting">Deleting…</string>
+    <string name="group_timeline_you">You</string>
+    <string name="group_timeline_joined">%1$s joined</string>
+    <string name="group_timeline_left">%1$s left</string>
+    <string name="group_timeline_removed">%1$s removed %2$s</string>
+    <string name="group_timeline_removed_passive">%1$s was removed</string>
+    <string name="group_timeline_banned">%1$s banned %2$s</string>
+    <string name="group_timeline_banned_passive">%1$s was banned</string>
+    <string name="group_timeline_role_admin">%1$s made %2$s an admin</string>
+    <string name="group_timeline_role_member">%1$s made %2$s a member</string>
+    <string name="group_timeline_name">%1$s changed the group name to %2$s</string>
+    <string name="group_timeline_approval_on">%1$s turned on approval for new members</string>
+    <string name="group_timeline_approval_off">%1$s turned off approval for new members</string>
+    <string name="group_timeline_void">Change undone</string>
+    <string name="group_timeline_updated">Group updated</string>
+    <string name="group_timeline_unsupported">This message can\'t be shown yet</string>
+    <string name="group_timeline_deleted">Message deleted</string>
+    <string name="group_timeline_floor">Earlier messages are not available on this device</string>
+    <string name="group_chat_mention">Mention a member</string>
+    <string name="group_chat_refresh">Refresh</string>
+    <string name="group_chat_mention_close">Close</string>
+    <string name="group_chat_notice_host_ip">The group\'s server (%1$s) can see your network address. Messages stay end-to-end encrypted.</string>
+    <string name="group_chat_host_unknown">the group host</string>
+    <plurals name="group_send_rate_limited_first_day">
+        <item quantity="one">New members can send %d message on their first day.</item>
+        <item quantity="other">New members can send %d messages on their first day.</item>
+    </plurals>
+    <plurals name="group_timeline_joined_many">
+        <item quantity="one">%1$s and %2$d other joined</item>
+        <item quantity="other">%1$s and %2$d others joined</item>
+    </plurals>
+    <plurals name="group_timeline_left_many">
+        <item quantity="one">%1$s and %2$d other left</item>
+        <item quantity="other">%1$s and %2$d others left</item>
+    </plurals>
 </resources>

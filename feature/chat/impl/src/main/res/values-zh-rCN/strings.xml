@@ -286,4 +286,61 @@
         <item quantity="other">%1$d 台设备</item>
     </plurals>
     <string name="security_warning_fork_recovered">加密已重新建立。部分消息可能未送达。</string>
+    <string name="group_send_queued_catching_up">正在等待此设备同步完成</string>
+    <string name="group_send_queued_host_unreachable">正在等待群组服务器</string>
+    <string name="group_send_queued_fetching_tokens">正在准备发送</string>
+    <string name="group_send_queued_generic">等待发送</string>
+    <string name="group_send_delayed">为保护隐私，将在 %1$s 左右发出</string>
+    <string name="group_send_rate_limited">已达到今日上限。你可以在 %1$s 后再次发送。</string>
+    <string name="group_send_rate_limited_no_reset">已达到今日上限。请稍后再试。</string>
+    <string name="group_send_failed">未发送</string>
+    <string name="group_send_retry">重试</string>
+    <string name="group_chat_error_not_member">你不是此群组的成员。</string>
+    <string name="group_chat_error_rejoin_needed">此设备需要重新加入群组。</string>
+    <string name="group_chat_error_too_large">内容过大。上限为 %1$s。</string>
+    <string name="group_chat_error_host_unreachable">无法连接到群组服务器。</string>
+    <string name="group_chat_error_paced">请等到 %1$s 后再试。</string>
+    <string name="group_chat_error_message_not_found">此消息已不存在。</string>
+    <string name="group_chat_error_not_author">你只能删除自己的消息。</string>
+    <string name="group_chat_error_unavailable">此版本暂不支持群组。</string>
+    <string name="group_chat_error_generic">出了点问题。请重试。</string>
+    <string name="group_state_removed">你已被移出此群组。</string>
+    <string name="group_state_banned">你已被此群组封禁。</string>
+    <string name="group_state_left">你已退出此群组。</string>
+    <string name="group_delete_action">为所有人删除</string>
+    <string name="group_delete_title">要为所有人删除这条消息吗？</string>
+    <string name="group_delete_confirm">删除</string>
+    <string name="group_delete_cancel">取消</string>
+    <string name="group_delete_deleting">正在删除…</string>
+    <string name="group_timeline_you">你</string>
+    <string name="group_timeline_joined">%1$s 加入了群组</string>
+    <string name="group_timeline_left">%1$s 退出了群组</string>
+    <string name="group_timeline_removed">%1$s 将 %2$s 移出了群组</string>
+    <string name="group_timeline_removed_passive">%1$s 被移出了群组</string>
+    <string name="group_timeline_banned">%1$s 封禁了 %2$s</string>
+    <string name="group_timeline_banned_passive">%1$s 被封禁</string>
+    <string name="group_timeline_role_admin">%1$s 将 %2$s 设为管理员</string>
+    <string name="group_timeline_role_member">%1$s 将 %2$s 设为普通成员</string>
+    <string name="group_timeline_name">%1$s 将群组名称改为 %2$s</string>
+    <string name="group_timeline_approval_on">%1$s 开启了新成员审批</string>
+    <string name="group_timeline_approval_off">%1$s 关闭了新成员审批</string>
+    <string name="group_timeline_void">更改已撤销</string>
+    <string name="group_timeline_updated">群组已更新</string>
+    <string name="group_timeline_unsupported">暂时无法显示此消息</string>
+    <string name="group_timeline_deleted">消息已删除</string>
+    <string name="group_timeline_floor">更早的消息在此设备上不可用</string>
+    <string name="group_chat_mention">提及成员</string>
+    <string name="group_chat_refresh">刷新</string>
+    <string name="group_chat_mention_close">关闭</string>
+    <string name="group_chat_notice_host_ip">群组服务器（%1$s）可以看到你的网络地址。消息仍保持端到端加密。</string>
+    <string name="group_chat_host_unknown">群组服务器</string>
+    <plurals name="group_send_rate_limited_first_day">
+        <item quantity="other">新成员第一天最多可发送 %d 条消息。</item>
+    </plurals>
+    <plurals name="group_timeline_joined_many">
+        <item quantity="other">%1$s 和其他 %2$d 人加入了群组</item>
+    </plurals>
+    <plurals name="group_timeline_left_many">
+        <item quantity="other">%1$s 和其他 %2$d 人退出了群组</item>
+    </plurals>
 </resources>

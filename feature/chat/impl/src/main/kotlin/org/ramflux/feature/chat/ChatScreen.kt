@@ -22,6 +22,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -97,6 +99,7 @@ import org.ramflux.media.LocalAnimationSlots
  * applies no window insets and no width cap, so a shell or pane scene owns both. [rooted] hides the back
  * control when the chat is the detail pane beside its list. [clock] decides "today" for the date chips.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     state: ChatState,
@@ -140,29 +143,63 @@ fun ChatScreen(
                         Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp).testTag("chat-offline")
                     )
                 }
-                Box(Modifier.weight(1f).fillMaxWidth()) {
-                    if (state.rows.isEmpty()) {
-                        EmptyTimeline(state, onAction, Modifier.align(Alignment.Center))
-                    } else {
-                        Timeline(state, stamps, anchors, onAction)
-                    }
+                val mls = state.mls
+                if (mls == null) {
+                    Box(Modifier.weight(1f).fillMaxWidth()) { TimelineBody(state, stamps, anchors, onAction) }
+                } else {
+                    // An MLS group chat: pull to refresh calls `group.refresh`.
+                    PullToRefreshBox(
+                        isRefreshing = mls.refreshing,
+                        onRefresh = { onAction(ChatAction.Refresh) },
+                        modifier = Modifier.weight(1f).fillMaxWidth()
+                    ) { Box(Modifier.fillMaxSize()) { TimelineBody(state, stamps, anchors, onAction) } }
                 }
                 Notices(state)
+                mls?.notice?.let {
+                    KitTipBar(
+                        groupDeliveryText(it),
+                        "circle-alert",
+                        Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp),
+                        tag = "mls-notice"
+                    )
+                }
                 if (state.sendBlocked && state.identityState == IdentityState.CHANGED) IdentityComposerPrompt(state, onAction)
-                Composer(state, onAction, bottomInset) {
-                    keyboard?.hide()
-                    focus.clearFocus()
-                    attachMenu = true
+                when {
+                    mls?.readOnly != null -> KitTipBar(
+                        stringResource(
+                            when (mls.readOnly) {
+                                GroupReadOnly.LEFT -> R.string.group_state_left
+                                GroupReadOnly.REMOVED -> R.string.group_state_removed
+                                GroupReadOnly.BANNED -> R.string.group_state_banned
+                            }
+                        ),
+                        "info",
+                        Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp),
+                        tag = "mls-readonly"
+                    )
+                    mls?.limitedUntil != null -> KitTipBar(
+                        groupDeliveryText(GroupDelivery(GroupDeliveryKind.NOT_SENT, GroupReason.RATE_LIMITED, mls.limitedUntil)),
+                        "info",
+                        Modifier.padding(horizontal = gap.dp, vertical = (gap * .5f).dp),
+                        tag = "mls-limited"
+                    )
+                    else -> Composer(state, onAction, bottomInset) {
+                        keyboard?.hide()
+                        focus.clearFocus()
+                        attachMenu = true
+                    }
                 }
             }
-            if (selected != null && actionsFor(selected).isNotEmpty()) {
+            if (selected != null && actionsFor(selected, state.mls != null).isNotEmpty()) {
                 MessageActions(selected, state, stamps, anchors.pressed, onAction)
             }
             if (attachMenu) {
                 AttachMenu(showCamera, onAction) { attachMenu = false }
             }
             state.viewer?.let { Viewer(it, state.viewerPosition, onAction) }
-            if (chatMenu) ChatMenu(showDetails, showStorage, onAction) { chatMenu = false }
+            if (chatMenu) ChatMenu(showDetails, showStorage, state.mls != null, onAction) { chatMenu = false }
+            if (state.mls?.confirmDelete == true) GroupDeleteConfirm(onAction)
+            state.mls?.mention?.let { MentionPicker(it, onAction) }
             state.gallery?.let { Gallery(it, onAction) }
             state.preview?.let { SendPreviewSheet(it, onAction) }
             state.forward?.let { ForwardChooser(it, onAction) }
@@ -184,6 +221,21 @@ fun ChatScreen(
                 )
             }
         }
+    }
+}
+
+/** The empty state or the timeline; the same body for every chat. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.TimelineBody(
+    state: ChatState,
+    stamps: Stamps,
+    anchors: BubbleAnchors,
+    onAction: (ChatAction) -> Unit
+) {
+    if (state.rows.isEmpty()) {
+        EmptyTimeline(state, onAction, Modifier.align(Alignment.Center))
+    } else {
+        Timeline(state, stamps, anchors, onAction)
     }
 }
 
@@ -435,7 +487,7 @@ private fun TimelineList(
                     // Group service rows (member added, name changed, ...) are centred lines, never a bubble.
                     is MessageItem -> if (row.service && !row.deleted) {
                         Column(padded.testTag("service-" + row.id), horizontalAlignment = Alignment.CenterHorizontally) {
-                            KitMeta(row.content.render(), centered = true)
+                            KitMeta(row.line?.let { groupLineText(it) } ?: row.content.render(), centered = true)
                         }
                     } else {
                         Message(row, state, stamps, cap, padded, actionsLabel, anchors, onAction)
@@ -459,7 +511,7 @@ private fun Message(
     onAction: (ChatAction) -> Unit
 ) {
     val own = row.own
-    val open = actionsFor(row).isNotEmpty()
+    val open = actionsFor(row, state.mls != null).isNotEmpty()
     val bubble = remember(row.id) { arrayOfNulls<LayoutCoordinates>(1) }
     val select = {
         anchors.capture(bubble[0])
@@ -468,7 +520,7 @@ private fun Message(
     Box(modifier, contentAlignment = if (own) Alignment.CenterEnd else Alignment.CenterStart) {
         Column(horizontalAlignment = if (own) Alignment.End else Alignment.Start) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (row.delivery == LocalDelivery.FAILED) {
+                if (row.delivery == LocalDelivery.FAILED || row.groupDelivery?.kind == GroupDeliveryKind.NOT_SENT) {
                     KitFailedMark(stringResource(R.string.chat_not_sent))
                     Spacer(Modifier.width((LocalRFTheme.current.gap * .5f).dp))
                 }
@@ -500,7 +552,33 @@ private fun Message(
                 }
             }
             if (row.reactions.isNotEmpty()) Reactions(row.reactions)
-            if (row.delivery == LocalDelivery.FAILED) FailedLine(row.id, onAction)
+            if (row.groupDelivery != null) {
+                GroupStateLine(row, onAction)
+            } else if (row.delivery == LocalDelivery.FAILED) {
+                FailedLine(row.id, onAction)
+            }
+        }
+    }
+}
+
+/** The state line under an MLS group row; a refused or failed send offers Retry, an explicit tap that sends under a new local id. */
+@Composable
+private fun GroupStateLine(row: MessageItem, onAction: (ChatAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    val delivery = row.groupDelivery ?: return
+    val failed = delivery.kind == GroupDeliveryKind.NOT_SENT
+    Row(
+        Modifier.padding(top = (theme.gap * .25f).dp),
+        horizontalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        KitMeta(groupDeliveryText(delivery), tone = if (failed) theme.danger else null, tag = "mls-send-state")
+        if (failed) {
+            KitMeta(
+                stringResource(R.string.group_send_retry),
+                Modifier.clickable { onAction(ChatAction.Retry(row.id)) }.testTag("mls-retry"),
+                tone = theme.danger
+            )
         }
     }
 }
@@ -554,9 +632,10 @@ private fun Bubble(row: MessageItem, own: Boolean, group: Boolean, stamps: Stamp
         edited = if (row.edited) stringResource(R.string.ui_edited) else null,
         sender = if (group && !own) row.sender.ifBlank { stringResource(R.string.chat_member_fallback) } else null,
         agentTag = if (group && !own && row.senderAi) stringResource(org.ramflux.core.designsystem.R.string.kit_ai_marker) else null,
-        pending = row.delivery == LocalDelivery.QUEUED || row.delivery == LocalDelivery.SENDING,
+        pending = row.delivery == LocalDelivery.QUEUED || row.delivery == LocalDelivery.SENDING ||
+            (row.groupDelivery != null && row.groupDelivery.kind != GroupDeliveryKind.NOT_SENT),
         read = row.receipt == Receipt.READ,
-        failed = row.delivery == LocalDelivery.FAILED,
+        failed = row.delivery == LocalDelivery.FAILED || row.groupDelivery?.kind == GroupDeliveryKind.NOT_SENT,
         quote = row.replyPreview?.render(),
         ticks = row.receipt != null && row.delivery == null,
         receiptLabel = row.receipt?.let { stringResource(receiptLabel(it)) },
@@ -665,6 +744,7 @@ private fun androidx.compose.foundation.layout.BoxScope.AttachMenu(
 private fun androidx.compose.foundation.layout.BoxScope.ChatMenu(
     showDetails: Boolean,
     showStorage: Boolean,
+    group: Boolean,
     onAction: (ChatAction) -> Unit,
     onClose: () -> Unit
 ) {
@@ -677,8 +757,10 @@ private fun androidx.compose.foundation.layout.BoxScope.ChatMenu(
             .testTag("chat-menu-scrim")
     )
     val actions = listOfNotNull(
-        ChatAction.OpenGallery,
-        ChatAction.Storage.takeIf { showStorage },
+        ChatAction.OpenGallery.takeIf { !group },
+        ChatAction.MentionOpen.takeIf { group },
+        ChatAction.Refresh.takeIf { group },
+        ChatAction.Storage.takeIf { showStorage && !group },
         ChatAction.Details.takeIf { showDetails }
     )
     KitContextMenu(
@@ -686,6 +768,8 @@ private fun androidx.compose.foundation.layout.BoxScope.ChatMenu(
             when (action) {
                 ChatAction.Storage -> KitMenuEntry(stringResource(R.string.storage_title), "hard-drive")
                 ChatAction.Details -> KitMenuEntry(stringResource(R.string.chat_conversation_details), "info")
+                ChatAction.MentionOpen -> KitMenuEntry(stringResource(R.string.group_chat_mention), "at-sign")
+                ChatAction.Refresh -> KitMenuEntry(stringResource(R.string.group_chat_refresh), "refresh-cw")
                 else -> KitMenuEntry(stringResource(R.string.gallery_title), "layout-grid")
             }
         },
@@ -752,7 +836,23 @@ private fun androidx.compose.foundation.layout.BoxScope.ForwardChooser(sheet: Fo
 /** The actions the read model and the SDK support for a message; nothing else is offered. */
 private enum class MessageAction { REPLY, FORWARD, COPY, EDIT, DELETE_FOR_ME, DELETE_FOR_EVERYONE, DISCARD }
 
-private fun actionsFor(row: MessageItem): List<MessageAction> = buildList {
+private fun actionsFor(row: MessageItem, group: Boolean = false): List<MessageAction> = buildList {
+    if (group) {
+        // An MLS group row: copy for any text; Discard only for a send that was not accepted; "Delete for everyone" for an
+        // own posted row. A queued or delayed post belongs to the SDK and can be neither dropped nor deleted here.
+        val state = row.groupDelivery
+        val text = row.content is UiText.Data && row.line == null
+        if (state != null || row.delivery != null) {
+            if (text) add(MessageAction.COPY)
+            if (state?.kind == GroupDeliveryKind.NOT_SENT) add(MessageAction.DISCARD)
+            return@buildList
+        }
+        if (row.line != null || row.deleted) return@buildList
+        add(MessageAction.REPLY)
+        if (text) add(MessageAction.COPY)
+        if (row.deletable) add(MessageAction.DELETE_FOR_EVERYONE)
+        return@buildList
+    }
     if (row.delivery != null) {
         // A local message the SDK has not accepted: it can be copied or dropped, nothing else.
         if (row.content is UiText.Data) add(MessageAction.COPY)
@@ -791,7 +891,7 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
     val theme = LocalRFTheme.current
     val gap = theme.gap
     val own = row.own
-    val actions = actionsFor(row)
+    val actions = actionsFor(row, state.mls != null)
     val entries = actions.map { action ->
         when (action) {
             MessageAction.REPLY -> KitMenuEntry(stringResource(R.string.ui_reply), "reply")
@@ -804,7 +904,11 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
                 danger = true,
                 groupBefore = true
             )
-            MessageAction.DELETE_FOR_EVERYONE -> KitMenuEntry(stringResource(R.string.ui_delete_for_everyone), "trash-2", danger = true)
+            MessageAction.DELETE_FOR_EVERYONE -> KitMenuEntry(
+                stringResource(if (state.mls != null) R.string.group_delete_action else R.string.ui_delete_for_everyone),
+                "trash-2",
+                danger = true
+            )
             MessageAction.DISCARD -> KitMenuEntry(stringResource(R.string.chat_discard), "trash-2", danger = true, groupBefore = true)
         }
     }
@@ -816,7 +920,7 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onAction(ChatAction.Dismiss) }
             .testTag("message-actions-scrim")
     )
-    val reactions = !row.deleted && !row.placeholder && row.delivery == null
+    val reactions = !row.deleted && !row.placeholder && row.delivery == null && state.mls == null
     var picker by remember(row.id) { mutableStateOf(false) }
     if (picker) {
         EmojiSheet({ onAction(ChatAction.React(it)) }, { picker = false })
@@ -947,3 +1051,74 @@ private const val OLDER_PREFETCH = 8
 // Skeletons for the best localized pattern: hour (0-23) or hour (1-12) with minutes.
 private val HOUR_24 = charArrayOf('H', 'm').concatToString()
 private const val HOUR_12 = "hm"
+
+/** The confirmation of "Delete for everyone" in an MLS group: nothing is deleted until the Delete tap. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.GroupDeleteConfirm(onAction: (ChatAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    BackHandler { onAction(ChatAction.CancelDelete) }
+    Box(
+        Modifier
+            .matchParentSize()
+            .background(theme.scrim)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onAction(ChatAction.CancelDelete) }
+            .testTag("mls-delete-scrim")
+    )
+    Column(
+        Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(theme.overlay).padding(theme.gap.dp).testTag("mls-delete-confirm"),
+        verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
+    ) {
+        KitMeta(stringResource(R.string.group_delete_title))
+        KitButton(
+            stringResource(R.string.group_delete_confirm),
+            { onAction(ChatAction.ConfirmDelete) },
+            Modifier.fillMaxWidth(),
+            kind = KitButtonKind.Destructive,
+            tag = "mls-delete"
+        )
+        KitButton(
+            stringResource(R.string.group_delete_cancel),
+            { onAction(ChatAction.CancelDelete) },
+            Modifier.fillMaxWidth(),
+            kind = KitButtonKind.Secondary,
+            tag = "mls-delete-cancel"
+        )
+    }
+}
+
+/** The mention picker: the loaded members of the group, paged lazily; a pick puts the name in the draft. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.MentionPicker(sheet: MentionSheet, onAction: (ChatAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    BackHandler { onAction(ChatAction.MentionClose) }
+    val listState = rememberLazyListState()
+    val nearEnd by remember {
+        derivedStateOf {
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            last >= listState.layoutInfo.totalItemsCount - OLDER_PREFETCH
+        }
+    }
+    LaunchedEffect(nearEnd, sheet.hasMore, sheet.rows.size) {
+        if (nearEnd && sheet.hasMore && !sheet.loading) onAction(ChatAction.MentionMore)
+    }
+    Column(Modifier.matchParentSize().background(theme.bg).testTag("mls-mention-picker")) {
+        KitPageHeader(
+            stringResource(R.string.group_chat_mention),
+            actionLabel = stringResource(R.string.group_chat_mention_close),
+            onAction = { onAction(ChatAction.MentionClose) },
+            tag = "mls-mention-header"
+        )
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
+            items(sheet.rows, key = { it.anchor }, contentType = { "member" }) { row ->
+                KitRow(
+                    row.display ?: stringResource(R.string.chat_member_fallback),
+                    { onAction(ChatAction.MentionPick(row.anchor)) },
+                    trailing = KitRowTrailing.None,
+                    peer = row.display != null,
+                    ai = row.ai,
+                    testTag = "mls-mention-row"
+                )
+            }
+        }
+    }
+}
