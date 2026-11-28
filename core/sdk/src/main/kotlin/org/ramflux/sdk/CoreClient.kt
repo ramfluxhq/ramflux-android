@@ -40,7 +40,7 @@ class CoreClient internal constructor(
      * per-collector back-pressure and automatic resync. The hub's pump holds no job while idle and
      * ends with the native stream when the client closes.
      */
-    val events: EventHub = EventHub(::updates, ::resetEventsAfterSnapshot, CoroutineScope(SupervisorJob() + io))
+    val events: EventHub = EventHub(::updates, ::resetEventsAfterSnapshot, CoroutineScope(SupervisorJob() + io), detach = { closeEvents() })
 
     suspend fun execute(request: CoreRequest): CoreResult<JsonObject> {
         val policy = SdkMethodPolicy.methods[request.method]
@@ -416,6 +416,20 @@ class CoreClient internal constructor(
                 if (closing) CoreResult.Failure(CoreError.Closed())
                 else ReplyCodec.decode(NativeReply(native.eventReset(core, expectedGeneration.toLong()), byteArrayOf()))
             }
+        }
+    }
+
+    /**
+     * Sends `subscription.close` while no subscription is open, so the core connection drops an attended mark that
+     * outlived its subscription. Core sets the mark before it admits `bus.subscribe` and keeps it when the subscribe
+     * is refused or the C ABI drops the subscription on lock (neither sends `subscription.close`). Only [events] calls
+     * it, and only while its pump is stopped; the event lane keeps it from overlapping a native subscription.
+     */
+    internal suspend fun closeEvents(): CoreResult<JsonObject> = withContext(io) {
+        eventLane.withLock {
+            val request = CoreRequest("subscription.close", "bus", null, null, JsonObject(emptyMap()), 0)
+            perform(request.method, null, 0, encode = { deadline -> encodeRequest(request, deadline) },
+                decode = { ReplyCodec.decodeCompletion(it, null) })
         }
     }
 
