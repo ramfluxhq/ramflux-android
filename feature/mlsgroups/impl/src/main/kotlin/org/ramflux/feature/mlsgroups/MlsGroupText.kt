@@ -40,6 +40,7 @@ internal fun failureText(failure: MlsFailure): String = when {
     failure.code == "request_not_found" -> stringResource(R.string.group_error_request_not_found)
     failure.code == "rate_limited" -> stringResource(R.string.group_error_rate_limited)
     failure.code == "paced" && failure.detail != null -> stringResource(R.string.group_error_paced, timeText(failure.detail ?: 0L))
+    failure.code == "paced" -> stringResource(R.string.group_error_paced_later)
     else -> stringResource(R.string.group_error_generic)
 }
 

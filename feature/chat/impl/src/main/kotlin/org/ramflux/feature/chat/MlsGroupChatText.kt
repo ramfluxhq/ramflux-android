@@ -25,6 +25,10 @@ private fun nameText(name: GroupName): String = when {
     else -> Bidi.isolate(name.display.take(NAME_DISPLAY), UntrustedKind.Name)
 }
 
+/** The name in the object position of a sentence ("Ana removed you"): the lower-case pronoun for this account. */
+@Composable
+private fun objectText(name: GroupName): String = if (name.me) stringResource(R.string.group_timeline_you_object) else nameText(name)
+
 /** The centred line of a service row. */
 @Composable
 internal fun groupLineText(line: GroupLine): String = when (line) {
@@ -39,16 +43,24 @@ internal fun groupLineText(line: GroupLine): String = when (line) {
         stringResource(R.string.group_timeline_left, nameText(line.first))
     }
     is GroupLine.Removed ->
-        line.actor?.let { stringResource(R.string.group_timeline_removed, nameText(it), nameText(line.target)) }
-            ?: stringResource(R.string.group_timeline_removed_passive, nameText(line.target))
+        line.actor?.let { stringResource(R.string.group_timeline_removed, nameText(it), objectText(line.target)) }
+            ?: if (line.target.me) {
+                stringResource(R.string.group_timeline_removed_you)
+            } else {
+                stringResource(R.string.group_timeline_removed_passive, nameText(line.target))
+            }
     is GroupLine.Banned ->
-        line.actor?.let { stringResource(R.string.group_timeline_banned, nameText(it), nameText(line.target)) }
-            ?: stringResource(R.string.group_timeline_banned_passive, nameText(line.target))
+        line.actor?.let { stringResource(R.string.group_timeline_banned, nameText(it), objectText(line.target)) }
+            ?: if (line.target.me) {
+                stringResource(R.string.group_timeline_banned_you)
+            } else {
+                stringResource(R.string.group_timeline_banned_passive, nameText(line.target))
+            }
     is GroupLine.Role -> line.actor?.let {
         stringResource(
             if (line.admin) R.string.group_timeline_role_admin else R.string.group_timeline_role_member,
             nameText(it),
-            nameText(line.target)
+            objectText(line.target)
         )
     } ?: stringResource(R.string.group_timeline_updated)
     is GroupLine.Renamed -> line.actor?.let {
@@ -90,7 +102,7 @@ internal fun groupDeliveryText(delivery: GroupDelivery): String = when (delivery
     GroupReason.NOT_MEMBER -> stringResource(R.string.group_chat_error_not_member)
     GroupReason.REJOIN_NEEDED -> stringResource(R.string.group_chat_error_rejoin_needed)
     GroupReason.PACED -> delivery.number?.let { stringResource(R.string.group_chat_error_paced, clock(it)) }
-        ?: stringResource(R.string.group_chat_error_generic)
+        ?: stringResource(R.string.group_chat_error_paced_later)
     GroupReason.DELETING -> stringResource(R.string.group_delete_deleting)
     GroupReason.UNAVAILABLE -> stringResource(R.string.group_chat_error_unavailable)
     GroupReason.MESSAGE_NOT_FOUND -> stringResource(R.string.group_chat_error_message_not_found)
@@ -105,6 +117,18 @@ internal fun clock(epochMillis: Long): String {
     val locale = LocalConfiguration.current.locales[0]
     return try {
         DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withLocale(locale).withZone(ZoneId.systemDefault())
+            .format(Instant.ofEpochMilli(epochMillis))
+    } catch (_: java.time.DateTimeException) {
+        stringResource(R.string.group_send_queued_generic)
+    }
+}
+
+/** The time of day of an expected send ("around 14:30"): the locale's short time, no date. */
+@Composable
+internal fun timeOfDay(epochMillis: Long): String {
+    val locale = LocalConfiguration.current.locales[0]
+    return try {
+        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale).withZone(ZoneId.systemDefault())
             .format(Instant.ofEpochMilli(epochMillis))
     } catch (_: java.time.DateTimeException) {
         stringResource(R.string.group_send_queued_generic)

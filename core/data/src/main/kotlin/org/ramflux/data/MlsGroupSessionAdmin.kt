@@ -6,6 +6,8 @@ package org.ramflux.data
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -18,6 +20,12 @@ import kotlinx.coroutines.withContext
  */
 
 fun MlsGroupSession.admin(account: String, group: String): Flow<MlsAdminState> = view(account) { it.groups[group]?.admin ?: MlsAdminState() }
+
+/**
+ * The lock epoch of [account]: it moves when [MlsGroupSession.clearAccount] runs (a lock, an account switch or removal). A screen
+ * that sees it move closes every sheet, dialog and confirmation it holds and drops their state (nothing may survive a lock).
+ */
+fun MlsGroupSession.epoch(account: String): Flow<Long> = data.map { it.epochs[account] ?: 0L }.distinctUntilChanged()
 
 fun MlsGroupSession.requests(account: String, group: String): Flow<MlsRequestsState> =
     view(account) { it.groups[group]?.admin?.requests ?: MlsRequestsState() }

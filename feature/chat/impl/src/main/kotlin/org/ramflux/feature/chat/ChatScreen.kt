@@ -1085,6 +1085,7 @@ private const val HOUR_12 = "hm"
 @Composable
 private fun androidx.compose.foundation.layout.BoxScope.GroupDeleteConfirm(onAction: (ChatAction) -> Unit) {
     val theme = LocalRFTheme.current
+    val cancelFocus = rememberCancelFocus()
     BackHandler { onAction(ChatAction.CancelDelete) }
     Box(
         Modifier
@@ -1094,7 +1095,8 @@ private fun androidx.compose.foundation.layout.BoxScope.GroupDeleteConfirm(onAct
             .testTag("mls-delete-scrim")
     )
     Column(
-        Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(theme.overlay).padding(theme.gap.dp).testTag("mls-delete-confirm"),
+        Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(theme.overlay).padding(theme.gap.dp)
+            .confirmPane(stringResource(R.string.group_delete_title)).testTag("mls-delete-confirm"),
         verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
     ) {
         KitMeta(stringResource(R.string.group_delete_title))
@@ -1108,7 +1110,7 @@ private fun androidx.compose.foundation.layout.BoxScope.GroupDeleteConfirm(onAct
         KitButton(
             stringResource(R.string.group_delete_cancel),
             { onAction(ChatAction.CancelDelete) },
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth().cancelFirst(cancelFocus),
             kind = KitButtonKind.Secondary,
             tag = "mls-delete-cancel"
         )

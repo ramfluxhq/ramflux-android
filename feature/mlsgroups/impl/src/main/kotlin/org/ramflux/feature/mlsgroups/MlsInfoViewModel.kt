@@ -6,6 +6,7 @@ package org.ramflux.feature.mlsgroups
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,6 +42,8 @@ class MlsInfoViewModel(private val session: MlsGroupSession) : ViewModel() {
     val events = channel.receiveAsFlow()
     private var current: Ids? = null
     private var requestedFirst = false
+    private var collector: Job? = null
+    private var lockWatch: Job? = null
 
     private val remote = MutableStateFlow(MlsInfoUi())
     val state: StateFlow<MlsInfoUi> = combine(remote, confirm) { info, ask -> info.copy(confirmLeave = ask) }
@@ -69,9 +72,20 @@ class MlsInfoViewModel(private val session: MlsGroupSession) : ViewModel() {
     private fun open(account: String, group: String) {
         if (current?.account == account && current?.group == group) return
         current = Ids(account, group)
+        requestedFirst = false
         session.watch(account)
         session.loadInfo(account, group)
-        viewModelScope.launch {
+        lockWatch?.cancel()
+        lockWatch = dropOnLock(session, account) {
+            // The app lock engaged or the account went away: the leave confirmation closes, nothing is kept and the page closes.
+            confirm.value = false
+            remote.value = MlsInfoUi()
+            collector?.cancel()
+            current = null
+            channel.trySend(MlsInfoEvent.Back)
+        }
+        collector?.cancel()
+        collector = viewModelScope.launch {
             combine(
                 session.info(account, group),
                 session.timeline(account, group),
@@ -96,6 +110,7 @@ class MlsInfoViewModel(private val session: MlsGroupSession) : ViewModel() {
         val requests: MlsRequestsState = admin.requests
         val warnings = if (readOnly) emptyList<MlsGroupWarning>() else MlsAdminRules.visibleWarnings(admin.warnings, group?.myRole)
         return MlsInfoUi(
+            known = group != null,
             name = group?.name,
             members = group?.members ?: 0,
             agents = group?.agents ?: 0,
@@ -111,7 +126,8 @@ class MlsInfoViewModel(private val session: MlsGroupSession) : ViewModel() {
             readOnly = readOnly,
             owner = group?.myRole == MlsGroupRole.OWNER,
             admin = MlsInfoAdminUi(
-                requestCount = if (MlsAdminRules.requestsEligible(group, timeline.readOnly)) requests.rows.size else null,
+                // No requests, no entry: the count is never "0 join requests".
+                requestCount = if (MlsAdminRules.requestsEligible(group, timeline.readOnly)) requests.rows.size.takeIf { it > 0 } else null,
                 requestsMore = requests.cursor != null,
                 settingsEntry = isAdmin,
                 push = if (group != null && !readOnly) MlsPushUi(group.push, admin.pushSaving, admin.pushFailure) else null,

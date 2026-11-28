@@ -53,60 +53,66 @@ fun MlsInfoScreen(state: MlsInfoUi, onAction: (MlsInfoAction) -> Unit, modifier:
                 } else if (state.loading) {
                     KitMeta(stringResource(R.string.group_info_loading), title)
                 }
-                Column(Modifier.padding(horizontal = theme.gap.dp), verticalArrangement = Arrangement.spacedBy((theme.gap * HALF).dp)) {
-                    KitMeta(
-                        pluralStringResource(R.plurals.group_info_members, state.members.toCount(), state.members.toCount()),
-                        tag = "mls-info-members"
-                    )
-                    if (state.agents > 0) {
+                // Until the group is read nothing about it is shown: never "Approval is off" for a group with approval on.
+                if (state.known) {
+                    Column(
+                        Modifier.padding(horizontal = theme.gap.dp),
+                        verticalArrangement = Arrangement.spacedBy((theme.gap * HALF).dp)
+                    ) {
                         KitMeta(
-                            pluralStringResource(R.plurals.group_info_agents, state.agents.toCount(), state.agents.toCount()),
-                            tag = "mls-info-agents"
+                            pluralStringResource(R.plurals.group_info_members, state.members.toCount(), state.members.toCount()),
+                            tag = "mls-info-members"
                         )
-                    }
-                    if (state.hostIpVisible) {
-                        KitSecurityWarning(
-                            stringResource(R.string.group_notice_host_ip_title),
-                            stringResource(
-                                R.string.group_warning_host_ip_visible,
-                                state.hostNode ?: stringResource(R.string.group_info_host_unknown)
-                            ),
-                            KitWarningTone.Warning
-                        )
-                    }
-                    KitMeta(
-                        if (state.approval) {
-                            stringResource(
-                                R.string.group_info_approval_on
-                            )
-                        } else {
-                            stringResource(R.string.group_info_approval_off)
-                        },
-                        tag = "mls-info-approval"
-                    )
-                    // A read-only group has no picker (A16): the confirmed mode stays a plain row.
-                    if (state.admin.push == null) {
-                        KitRow(
-                            stringResource(R.string.group_info_push),
-                            {},
-                            value = pushText(state.push),
-                            trailing = KitRowTrailing.None,
-                            divider = false,
-                            testTag = "mls-info-push"
-                        )
-                    }
-                    if (state.admin.privacyDelay) {
-                        KitMeta(stringResource(R.string.group_privacy_delay_info), tag = "mls-info-privacy-delay")
-                    }
-                    state.admin.commitQuota?.let { q ->
-                        val line = stringResource(R.string.group_quota_commit, q.remaining.toCount(), q.limit.toCount())
-                        val resets = q.resetsAt?.takeIf { q.remaining <= 0 }?.let {
-                            stringResource(
-                                R.string.group_quota_resets,
-                                timeText(it)
+                        if (state.agents > 0) {
+                            KitMeta(
+                                pluralStringResource(R.plurals.group_info_agents, state.agents.toCount(), state.agents.toCount()),
+                                tag = "mls-info-agents"
                             )
                         }
-                        KitMeta(dotted(listOfNotNull(line, resets)), tag = "mls-info-commit-quota")
+                        if (state.hostIpVisible) {
+                            KitSecurityWarning(
+                                stringResource(R.string.group_notice_host_ip_title),
+                                stringResource(
+                                    R.string.group_warning_host_ip_visible,
+                                    state.hostNode ?: stringResource(R.string.group_info_host_unknown)
+                                ),
+                                KitWarningTone.Warning
+                            )
+                        }
+                        KitMeta(
+                            if (state.approval) {
+                                stringResource(
+                                    R.string.group_info_approval_on
+                                )
+                            } else {
+                                stringResource(R.string.group_info_approval_off)
+                            },
+                            tag = "mls-info-approval"
+                        )
+                        // A read-only group has no picker (A16): the confirmed mode stays a plain row.
+                        if (state.admin.push == null) {
+                            KitRow(
+                                stringResource(R.string.group_info_push),
+                                {},
+                                value = pushText(state.push),
+                                trailing = KitRowTrailing.None,
+                                divider = false,
+                                testTag = "mls-info-push"
+                            )
+                        }
+                        if (state.admin.privacyDelay) {
+                            KitMeta(stringResource(R.string.group_privacy_delay_info), tag = "mls-info-privacy-delay")
+                        }
+                        state.admin.commitQuota?.let { q ->
+                            val line = stringResource(R.string.group_quota_commit, q.remaining.toCount(), q.limit.toCount())
+                            val resets = q.resetsAt?.takeIf { q.remaining <= 0 }?.let {
+                                stringResource(
+                                    R.string.group_quota_resets,
+                                    timeText(it)
+                                )
+                            }
+                            KitMeta(dotted(listOfNotNull(line, resets)), tag = "mls-info-commit-quota")
+                        }
                     }
                 }
                 state.admin.push?.let { MlsPushPicker(it, { push -> onAction(MlsInfoAction.Push(push)) }) }

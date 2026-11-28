@@ -15,7 +15,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -138,6 +141,7 @@ fun MlsMembersScreen(state: MlsMembersUi, onAction: (MlsMembersAction) -> Unit, 
                         }
                     }
                     if (state.failure != null) item(key = "error") { ErrorRow(state, onAction) }
+                    state.details?.let { details -> item(key = "details") { TechnicalDetails(details) } }
                 }
             }
         }
@@ -168,6 +172,41 @@ private fun MemberRow(row: MlsMemberUi, index: Int, onAction: (MlsMembersAction)
     )
 }
 
+/** The group evidence, collapsed at the bottom of the list: host node, size tier and the latest position, nothing else. */
+@Composable
+private fun TechnicalDetails(details: MlsDetailsUi) {
+    val theme = LocalRFTheme.current
+    var open by rememberSaveable { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(top = theme.gap.dp).testTag("mls-members-details")) {
+        KitRow(
+            stringResource(R.string.group_members_details),
+            { open = !open },
+            trailing = KitRowTrailing.None,
+            value = null,
+            divider = false,
+            testTag = "mls-members-details-toggle"
+        )
+        if (open) {
+            details.hostNode?.takeIf { it.isNotBlank() }?.let {
+                DetailRow(stringResource(R.string.group_members_details_host), it.take(NODE_DISPLAY), "mls-members-details-host")
+            }
+            if (details.tier > 0) {
+                DetailRow(stringResource(R.string.group_members_details_tier), details.tier.toString(), "mls-members-details-tier")
+            }
+            DetailRow(
+                stringResource(R.string.group_members_details_position),
+                details.latestPosition.toString(),
+                "mls-members-details-position"
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String, tag: String) {
+    KitRow(label, {}, value = value, trailing = KitRowTrailing.None, divider = false, testTag = tag)
+}
+
 @Composable
 private fun ErrorRow(state: MlsMembersUi, onAction: (MlsMembersAction) -> Unit) {
     val theme = LocalRFTheme.current
@@ -183,3 +222,4 @@ private fun ErrorRow(state: MlsMembersUi, onAction: (MlsMembersAction) -> Unit) 
 }
 
 private const val HALF = .5f
+private const val NODE_DISPLAY = 128

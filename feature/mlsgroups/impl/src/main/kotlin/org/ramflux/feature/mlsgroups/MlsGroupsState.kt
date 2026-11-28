@@ -159,6 +159,8 @@ data class MlsInviteUi(
     val rows: ImmutableList<MlsInviteRowUi> = persistentListOf(),
     val ttlDays: Int = DEFAULT_DAYS,
     val maxUses: Int = DEFAULT_USES,
+    /** The approval setting once the group is read; the secret note follows it, and there is no note before it is known. */
+    val approval: Boolean? = null,
     val loading: Boolean = false,
     val creating: Boolean = false,
     val confirmRevoke: String? = null,
@@ -196,6 +198,8 @@ sealed interface MlsInviteEvent {
 
 @Immutable
 data class MlsInfoUi(
+    /** The group has been read: until then the page shows a neutral loading state and no approval, push or count row. */
+    val known: Boolean = false,
     val name: String? = null,
     val members: Long = 0,
     val agents: Long = 0,
@@ -277,7 +281,9 @@ data class MlsMembersUi(
     val menuAnchor: String? = null,
     val confirm: MlsMemberConfirmUi? = null,
     /** The typed refusal of the last member action, until the next one starts. */
-    val actionFailure: MlsFailure? = null
+    val actionFailure: MlsFailure? = null,
+    /** The group evidence under the collapsed "Technical details" at the bottom of the list; null until the group is read. */
+    val details: MlsDetailsUi? = null
 ) {
     override fun toString() = "MlsMembersUi(<redacted>)"
 }

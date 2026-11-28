@@ -6,6 +6,7 @@ package org.ramflux.feature.mlsgroups
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,6 +42,8 @@ class MlsInviteViewModel(
     private val shown = MutableStateFlow(MlsInviteUi())
     val state: StateFlow<MlsInviteUi> = shown
 
+    private var collector: Job? = null
+    private var lockWatch: Job? = null
     private var qr: InvitationQr? = null
     private var qrLink: String? = null
 
@@ -84,7 +87,21 @@ class MlsInviteViewModel(
         local.value = Local(noticePending = action.fromCreate && !notices.hostIpSeen(action.account, action.groupId))
         session.watch(action.account)
         session.loadInvites(action.account, action.groupId)
-        viewModelScope.launch {
+        lockWatch?.cancel()
+        lockWatch = dropOnLock(session, action.account) {
+            // The link, its QR, the revoke confirmation and the notice go with the lock; the panel closes.
+            collector?.cancel()
+            qr?.close()
+            qr = null
+            qrLink = null
+            local.value = Local()
+            shown.value = MlsInviteUi()
+            account = null
+            group = null
+            channel.trySend(MlsInviteEvent.Back)
+        }
+        collector?.cancel()
+        collector = viewModelScope.launch {
             combine(
                 session.invites(action.account, action.groupId),
                 session.info(action.account, action.groupId),
@@ -115,6 +132,7 @@ class MlsInviteViewModel(
                     }.toImmutableList(),
                     ttlDays = local.days,
                     maxUses = local.uses,
+                    approval = info.group?.approval,
                     loading = invites.loading,
                     creating = invites.creating,
                     confirmRevoke = local.confirm,

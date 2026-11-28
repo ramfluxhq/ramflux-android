@@ -63,7 +63,14 @@ fun MlsInviteScreen(
                 Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(theme.gap.dp),
                 verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
             ) {
-                KitTipBar(stringResource(R.string.group_invite_secret_note), "info", tag = "mls-invite-note")
+                // The note follows the approval setting; there is none until the setting is known.
+                state.approval?.let { approval ->
+                    KitTipBar(
+                        stringResource(if (approval) R.string.group_invite_secret_note else R.string.group_invite_secret_note_open),
+                        "info",
+                        tag = "mls-invite-note"
+                    )
+                }
                 val link = state.link
                 if (link != null) {
                     LtrCode(middleTruncated(link), Modifier.fillMaxWidth().testTag("mls-invite-link"))

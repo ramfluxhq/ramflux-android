@@ -72,7 +72,7 @@ fun MlsRequestsScreen(state: MlsRequestsUi, onAction: (MlsRequestsAction) -> Uni
                     stringResource(R.string.group_error_request_not_found),
                     "circle-alert",
                     Modifier.padding(horizontal = theme.gap.dp, vertical = (theme.gap * HALF).dp),
-                    action = stringResource(R.string.group_invite_done),
+                    action = stringResource(R.string.group_join_close),
                     onAction = { onAction(MlsRequestsAction.DismissNotice) },
                     tag = "mls-requests-gone"
                 )
@@ -159,7 +159,7 @@ private fun RequestRow(index: Int, row: MlsRequestRowUi, state: MlsRequestsUi, o
     }
     Column(Modifier.fillMaxWidth()) {
         KitRow(
-            label = row.display ?: stringResource(R.string.group_member_this),
+            label = row.display ?: stringResource(R.string.group_member_unnamed),
             onClick = {},
             value = dotted(listOfNotNull(asked, expires)).ifEmpty { null },
             trailing = KitRowTrailing.None,

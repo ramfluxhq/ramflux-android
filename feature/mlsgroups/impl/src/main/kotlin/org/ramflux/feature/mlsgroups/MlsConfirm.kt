@@ -16,10 +16,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
@@ -52,6 +59,10 @@ internal fun BoxScope.ConfirmPanel(
 ) {
     if (LocalAppLockCovered.current) return
     val theme = LocalRFTheme.current
+    // Initial focus and the first TalkBack stop are on Cancel: a confirmation that grants authority or destroys something is never
+    // one key press or one swipe-and-tap away from its confirm button.
+    val cancelFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { cancelFocus.requestFocus() } }
     BackHandler(onBack = onCancel)
     Box(
         Modifier.fillMaxSize().background(theme.scrim)
@@ -60,6 +71,10 @@ internal fun BoxScope.ConfirmPanel(
     )
     Column(
         Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(theme.overlay, shapeOf(theme.radius_sheet)).padding(theme.gap.dp)
+            .semantics {
+                isTraversalGroup = true
+                paneTitle = title
+            }
             .testTag(tag),
         verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
     ) {
@@ -78,8 +93,15 @@ internal fun BoxScope.ConfirmPanel(
             kind = if (destructive) KitButtonKind.Destructive else KitButtonKind.Primary,
             tag = confirmTag
         )
-        KitButton(cancel, onCancel, Modifier.fillMaxWidth(), kind = KitButtonKind.Secondary, tag = cancelTag)
+        KitButton(
+            cancel,
+            onCancel,
+            Modifier.fillMaxWidth().focusRequester(cancelFocus).semantics { traversalIndex = CANCEL_FIRST },
+            kind = KitButtonKind.Secondary,
+            tag = cancelTag
+        )
     }
 }
 
 private const val HALF = .5f
+private const val CANCEL_FIRST = -1f

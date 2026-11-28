@@ -6,6 +6,7 @@ package org.ramflux.feature.mlsgroups
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +36,8 @@ class MlsRequestsViewModel(private val session: MlsGroupSession) : ViewModel() {
     private var current: Ids? = null
     private var requestedFirst = false
     private var lastGone = 0
+    private var collector: Job? = null
+    private var lockWatch: Job? = null
     private val ask = MutableStateFlow<Pair<MlsRequestConfirmKind, String>?>(null)
     private val noticeSeen = MutableStateFlow(0)
     private val channel = Channel<MlsRequestsEvent>(Channel.BUFFERED)
@@ -78,6 +81,8 @@ class MlsRequestsViewModel(private val session: MlsGroupSession) : ViewModel() {
     private fun confirm(ids: Ids?) {
         val pending = ask.value ?: return
         ask.value = null
+        // The "no longer pending" notice belongs to the action it reported: the next action clears it.
+        noticeSeen.value = lastGone
         if (ids == null) return
         when (pending.first) {
             MlsRequestConfirmKind.APPROVE -> session.approveRequest(ids.account, ids.group, pending.second)
@@ -88,9 +93,21 @@ class MlsRequestsViewModel(private val session: MlsGroupSession) : ViewModel() {
     private fun open(account: String, group: String) {
         if (current?.account == account && current?.group == group) return
         current = Ids(account, group)
+        requestedFirst = false
         session.watch(account)
         session.loadInfo(account, group)
-        viewModelScope.launch {
+        lockWatch?.cancel()
+        lockWatch = dropOnLock(session, account) {
+            // The confirmation closes and is dropped, the list is gone with the session state and the screen closes.
+            collector?.cancel()
+            ask.value = null
+            noticeSeen.value = 0
+            shown.value = MlsRequestsUi()
+            current = null
+            channel.trySend(MlsRequestsEvent.Back)
+        }
+        collector?.cancel()
+        collector = viewModelScope.launch {
             combine(
                 combine(
                     session.requests(account, group),

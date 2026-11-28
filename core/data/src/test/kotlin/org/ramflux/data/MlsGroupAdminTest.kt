@@ -223,6 +223,17 @@ class MlsGroupAdminTest {
         assertNull(s.info(account, group).first().group)
     }
 
+    @Test fun theLockEpochMovesOnEveryClearAndOnlyThen() = runTest {
+        val s = ready(Fake())
+        val before = s.epoch(account).first()
+        s.admit(account)
+        assertEquals(before, s.epoch(account).first())
+        s.clearAccount(account)
+        assertEquals(before + 1, s.epoch(account).first())
+        s.clearAccount("other")
+        assertEquals(before + 1, s.epoch(account).first())
+    }
+
     @Test fun aStaleInfoReadDoesNotBringBackAClearedWarning() = runTest {
         val fork = MlsGroupWarning.ForkAlarm(2)
         val fake = Fake()

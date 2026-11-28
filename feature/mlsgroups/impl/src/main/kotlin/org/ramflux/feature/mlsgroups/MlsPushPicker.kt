@@ -36,9 +36,10 @@ internal fun MlsPushPicker(push: MlsPushUi, onChoose: (MlsGroupPush) -> Unit, mo
         CHOICES.forEach { (value, tag) ->
             KitRow(
                 pushLabel(value),
-                { if (value != push.value) onChoose(value) },
+                { if (value != push.value && push.saving == null) onChoose(value) },
                 trailing = if (value == push.value) KitRowTrailing.Check else KitRowTrailing.None,
-                enabled = push.saving == null,
+                // The current choice never looks disabled, also while another one is saving.
+                enabled = push.saving == null || value == push.value,
                 divider = false,
                 testTag = "mls-push-$tag"
             )

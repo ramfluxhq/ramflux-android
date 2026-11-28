@@ -5,6 +5,7 @@ package org.ramflux.feature.mlsgroups
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +31,8 @@ class MlsSettingsViewModel(private val session: MlsGroupSession) : ViewModel() {
 
     private val clock: () -> Long = System::currentTimeMillis
     private var current: Ids? = null
+    private var collector: Job? = null
+    private var lockWatch: Job? = null
     private val draft = MutableStateFlow<String?>(null)
     private val confirmOff = MutableStateFlow(false)
     private val channel = Channel<MlsSettingsEvent>(Channel.BUFFERED)
@@ -63,7 +66,18 @@ class MlsSettingsViewModel(private val session: MlsGroupSession) : ViewModel() {
         current = Ids(account, group)
         session.watch(account)
         session.loadInfo(account, group)
-        viewModelScope.launch {
+        lockWatch?.cancel()
+        lockWatch = dropOnLock(session, account) {
+            // The unsaved name, the approval-off confirmation and the failure line go with the lock; the screen closes.
+            collector?.cancel()
+            draft.value = null
+            confirmOff.value = false
+            shown.value = MlsSettingsUi()
+            current = null
+            channel.trySend(MlsSettingsEvent.Back)
+        }
+        collector?.cancel()
+        collector = viewModelScope.launch {
             combine(
                 session.info(account, group),
                 session.timeline(account, group),

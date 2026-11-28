@@ -7,11 +7,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -30,6 +32,7 @@ import org.ramflux.data.MlsMembersState
 import org.ramflux.data.MlsReadOnly
 import org.ramflux.data.MlsTimelineState
 import org.ramflux.data.admin
+import org.ramflux.data.epoch
 import org.ramflux.data.hideWarning
 import org.ramflux.data.skipCatchUp
 import org.ramflux.data.voidCommit
@@ -74,6 +77,7 @@ class MlsGroupChatViewModel(
     }
 
     private val ids = MutableStateFlow<Ids?>(null)
+    private var lockWatch: Job? = null
     private val local = MutableStateFlow(Local())
     private val channel = Channel<ChatEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
@@ -356,6 +360,15 @@ class MlsGroupChatViewModel(
         if (ids.value == next) return
         ids.value = next
         local.value = Local()
+        lockWatch?.cancel()
+        // The app lock engaged or the account went away: every dialog, sheet and draft of this chat is dropped and the chat closes.
+        lockWatch = viewModelScope.launch {
+            session.epoch(action.accountId).drop(1).collect {
+                local.value = Local()
+                ids.value = null
+                channel.trySend(ChatEvent.Back)
+            }
+        }
         session.watch(action.accountId)
         session.openGroup(action.accountId, group)
         // The one-time host notice: once per account and group, shown as a note above the composer.

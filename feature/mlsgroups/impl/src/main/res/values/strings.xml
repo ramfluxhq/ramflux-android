@@ -239,4 +239,10 @@
     <string name="group_quota_commit" tools:ignore="PluralsCandidate">%1$d of %2$d group changes left today on this device</string>
     <string name="group_quota_resets">Resets %1$s</string>
     <string name="group_privacy_delay_info">Messages are sent with a short random delay for privacy.</string>
+    <string name="group_invite_secret_note_open">Anyone with this link can join without approval. Share it only with people you trust.</string>
+    <string name="group_error_paced_later">Please wait a moment and try again.</string>
+    <string name="group_members_details">Technical details</string>
+    <string name="group_members_details_host">Host node</string>
+    <string name="group_members_details_tier">Size tier</string>
+    <string name="group_members_details_position">Latest position</string>
 </resources>

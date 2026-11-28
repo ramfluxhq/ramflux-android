@@ -6,6 +6,7 @@ package org.ramflux.feature.mlsgroups
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,8 @@ import org.ramflux.data.setRole
 class MlsMembersViewModel(private val session: MlsGroupSession) : ViewModel() {
     private var account: String? = null
     private var group: String? = null
+    private var collector: Job? = null
+    private var lockWatch: Job? = null
     private val query = MutableStateFlow("")
     private val menu = MutableStateFlow<String?>(null)
     private val ask = MutableStateFlow<Pair<MlsMemberActionKind, String>?>(null)
@@ -108,7 +111,20 @@ class MlsMembersViewModel(private val session: MlsGroupSession) : ViewModel() {
         session.watch(account)
         session.loadMembers(account, group)
         session.loadInfo(account, group)
-        viewModelScope.launch {
+        lockWatch?.cancel()
+        lockWatch = dropOnLock(session, account) {
+            // The action menu, the confirmation and the search close and are dropped; the page closes.
+            collector?.cancel()
+            menu.value = null
+            ask.value = null
+            query.value = ""
+            shown.value = MlsMembersUi()
+            this.account = null
+            this.group = null
+            channel.trySend(MlsMembersEvent.Back)
+        }
+        collector?.cancel()
+        collector = viewModelScope.launch {
             combine(
                 combine(session.members(account, group), session.info(account, group), query) { m, i, q -> Triple(m, i, q) },
                 combine(session.admin(account, group), session.timeline(account, group), menu, ask) { a, t, m, k -> Inputs(a, t, m, k) }
@@ -158,7 +174,8 @@ class MlsMembersViewModel(private val session: MlsGroupSession) : ViewModel() {
                     confirm = asked?.let { k -> target?.let { MlsMemberConfirmUi(k.first, it.anchor, it.display, it.aiFlag) } },
                     actionFailure = admin.lastFailure?.takeIf {
                         it.kind == MlsAdminKind.ROLE || it.kind == MlsAdminKind.REMOVE || it.kind == MlsAdminKind.BAN
-                    }?.failure
+                    }?.failure,
+                    details = info.group?.let { MlsDetailsUi(it.hostNode, it.tier, it.lastLogSeq) }
                 )
             }.collect { shown.value = it }
         }

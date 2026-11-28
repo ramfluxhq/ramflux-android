@@ -124,6 +124,8 @@ data class MlsGroup(
     val lastPost: MlsGroupLastPost?,
     /** The warnings the info read listed (cleared ones are left out). */
     val warnings: List<MlsGroupWarning> = emptyList(),
+    /** The size tier of the group (1000 for a large group); shown under "Technical details" of the member list. */
+    val tier: Long = 0L,
 ) {
     override fun toString() = "MlsGroup(<redacted>)"
 }

@@ -6,6 +6,7 @@ package org.ramflux.feature.mlsgroups
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,6 +32,7 @@ class MlsCreateViewModel(private val session: MlsGroupSession) : ViewModel() {
 
     /** This form made a tap that is still waiting for its result; another form's created group is not opened by this one. */
     private var waiting = false
+    private var lockWatch: Job? = null
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val remote = account.flatMapLatest { id -> if (id == null) flowOf(MlsCreateState()) else session.create(id) }
@@ -56,7 +58,14 @@ class MlsCreateViewModel(private val session: MlsGroupSession) : ViewModel() {
     fun onAction(action: MlsCreateAction) {
         val id = account.value
         when (action) {
-            is MlsCreateAction.Open -> account.value = action.account
+            is MlsCreateAction.Open -> {
+                account.value = action.account
+                lockWatch?.cancel()
+                lockWatch = dropOnLock(session, action.account) {
+                    form.value = MlsCreateUi()
+                    waiting = false
+                }
+            }
             is MlsCreateAction.Name -> form.value = form.value.copy(name = action.text)
             is MlsCreateAction.Approval -> form.value = form.value.copy(approval = action.on)
             MlsCreateAction.Submit -> if (id != null) {

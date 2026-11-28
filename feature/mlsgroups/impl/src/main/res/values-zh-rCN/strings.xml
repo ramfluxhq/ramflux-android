@@ -201,7 +201,7 @@
     <string name="group_settings_approval">新成员需要审批</string>
     <string name="group_settings_approval_off_confirm_title">关闭审批？</string>
     <string name="group_settings_approval_off_confirm_body">任何持有邀请链接的人都将无需管理员批准即可加入。只有在某位成员的设备或智能体在线时，加入才能完成。</string>
-    <string name="group_settings_approval_off_confirm_confirm">关闭</string>
+    <string name="group_settings_approval_off_confirm_confirm">关闭审批</string>
     <string name="group_push_title">此设备上的通知</string>
     <string name="group_push_help">此设置仅对此设备生效。</string>
     <string name="group_push_saving">正在保存…</string>
@@ -227,4 +227,10 @@
     <string name="group_quota_commit">此设备今天还可进行 %1$d 次群组更改，共 %2$d 次</string>
     <string name="group_quota_resets">%1$s 重置</string>
     <string name="group_privacy_delay_info">为保护隐私，消息会随机延迟片刻后发出。</string>
+    <string name="group_invite_secret_note_open">任何持有此链接的人都可以直接加入，无需审批。请只分享给你信任的人。</string>
+    <string name="group_error_paced_later">请稍候片刻后再试。</string>
+    <string name="group_members_details">技术详情</string>
+    <string name="group_members_details_host">主机节点</string>
+    <string name="group_members_details_tier">规模等级</string>
+    <string name="group_members_details_position">最新位置</string>
 </resources>

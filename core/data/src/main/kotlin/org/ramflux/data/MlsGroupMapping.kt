@@ -82,6 +82,7 @@ internal object MlsGroupMapping {
         quotaPost = quota(value.quotaPost),
         quotaCommit = quota(value.quotaCommit),
         lastLogSeq = value.lastLogSeq,
+        tier = value.tier,
         lastActivityAt = value.lastActivityAt,
         unread = value.unread,
         unreadMentions = value.unreadMentions,

@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +37,7 @@ class MlsGroupsViewModel(
 
     private val account = MutableStateFlow<String?>(null)
     private val sheet = MutableStateFlow(Sheet())
+    private var lockWatch: Job? = null
     private val channel = Channel<MlsGroupsEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
 
@@ -96,6 +98,9 @@ class MlsGroupsViewModel(
         when (action) {
             is MlsGroupsAction.Open -> {
                 account.value = action.account
+                lockWatch?.cancel()
+                // The join sheet and the typed link close and are dropped when the lock engages or the account goes away.
+                lockWatch = dropOnLock(session, action.account) { sheet.value = Sheet() }
                 session.watch(action.account)
                 session.loadGroups(action.account)
             }

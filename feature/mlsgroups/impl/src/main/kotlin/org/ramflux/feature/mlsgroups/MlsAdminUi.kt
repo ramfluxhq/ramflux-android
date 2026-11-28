@@ -148,6 +148,12 @@ sealed interface MlsSettingsEvent {
 @Immutable
 data class MlsPushUi(val value: MlsGroupPush, val saving: MlsGroupPush?, val failure: MlsFailure?)
 
+/** The group evidence of the member list: host node, size tier and the latest log position (the technical details). */
+@Immutable
+data class MlsDetailsUi(val hostNode: String?, val tier: Long, val latestPosition: Long) {
+    override fun toString() = "MlsDetailsUi(<redacted>)"
+}
+
 /** A quota line of group info (the commit quota). */
 @Immutable
 data class MlsQuotaLineUi(val remaining: Long, val limit: Long, val firstDay: Boolean, val resetsAt: Long?)
