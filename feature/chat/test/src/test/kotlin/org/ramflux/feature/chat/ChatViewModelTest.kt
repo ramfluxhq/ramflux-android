@@ -405,7 +405,12 @@ class ChatViewModelTest {
             val session = FakeChatSession()
             return ChatViewModel(
                 history, FakeChatAccounts(), session, FakeChatDrafts(), media, FakeChatStager(),
-                MediaTransfers(media, session, backgroundScope), FakeChatCards(), coordinator(outbox), ScriptedIdentity(IdentityState.VERIFIED)
+                MediaTransfers(
+                    media,
+                    session,
+                    backgroundScope
+                ),
+                FakeChatCards(), coordinator(outbox), ScriptedIdentity(IdentityState.VERIFIED)
             )
         }
         val first = model()
@@ -752,7 +757,15 @@ class ChatViewModelTest {
             sendResult = refusal()
         }
         val outbox = FakeChatOutbox()
-        val first = chatModel(history, FakeChatMedia(), FakeChatSession(), FakeChatStager(), coordinator(outbox), ScriptedIdentity(IdentityState.VERIFIED))
+        val first =
+            chatModel(
+                history,
+                FakeChatMedia(),
+                FakeChatSession(),
+                FakeChatStager(),
+                coordinator(outbox),
+                ScriptedIdentity(IdentityState.VERIFIED)
+            )
         observe(first)
         runCurrent()
         load(first)
@@ -764,7 +777,11 @@ class ChatViewModelTest {
         // A new process: a new coordinator over the same sealed store.
         history.sendResult = ClientResult.Ready(SendReceipt("sent"))
         val later = chatModel(
-            history, FakeChatMedia(), FakeChatSession(), FakeChatStager(), ChatOutboxCoordinator(outbox, backgroundScope),
+            history,
+            FakeChatMedia(),
+            FakeChatSession(),
+            FakeChatStager(),
+            ChatOutboxCoordinator(outbox, backgroundScope),
             ScriptedIdentity(IdentityState.VERIFIED)
         )
         observe(later)
@@ -786,7 +803,15 @@ class ChatViewModelTest {
             sendResult = refusal()
         }
         val outbox = FakeChatOutbox()
-        val first = chatModel(history, FakeChatMedia(), FakeChatSession(), FakeChatStager(), coordinator(outbox), ScriptedIdentity(IdentityState.VERIFIED))
+        val first =
+            chatModel(
+                history,
+                FakeChatMedia(),
+                FakeChatSession(),
+                FakeChatStager(),
+                coordinator(outbox),
+                ScriptedIdentity(IdentityState.VERIFIED)
+            )
         observe(first)
         runCurrent()
         load(first)
@@ -798,7 +823,11 @@ class ChatViewModelTest {
         // The header cannot be read: the tap sends nothing.
         history.heading = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 1, ClientOutcome.NONE))
         val later = chatModel(
-            history, FakeChatMedia(), FakeChatSession(), FakeChatStager(), ChatOutboxCoordinator(outbox, backgroundScope),
+            history,
+            FakeChatMedia(),
+            FakeChatSession(),
+            FakeChatStager(),
+            ChatOutboxCoordinator(outbox, backgroundScope),
             ScriptedIdentity(IdentityState.UNKNOWN)
         )
         observe(later)
