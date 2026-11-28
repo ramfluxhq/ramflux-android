@@ -12,6 +12,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import org.ramflux.data.*
 import org.ramflux.designsystem.*
+import org.ramflux.designsystem.kit.InvitationQr
 import org.ramflux.feature.settings.impl.R
 
 @HiltViewModel
