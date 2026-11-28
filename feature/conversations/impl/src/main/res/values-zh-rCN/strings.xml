@@ -11,13 +11,10 @@
     <string name="ui_conversations">会话</string>
     <string name="ui_messages">消息</string>
     <string name="ui_load_more">加载更多</string>
-    <string name="ui_local_search">本地搜索</string>
     <string name="ui_open_an_account">打开账户</string>
     <string name="ui_page_conflict_refresh_the_list">分页数据不一致，请刷新列表。</string>
     <string name="ui_private_data_is_closed">私有数据已关闭。</string>
-    <string name="ui_refresh">刷新</string>
-    <string name="ui_search_availability">搜索可用状态</string>
-    <string name="ui_search_conversations">搜索会话</string>
+    <string name="ui_search_conversations">搜索聊天</string>
     <string name="ui_set_up_your_account">设置账户</string>
     <string name="ui_the_active_account_changed_refresh_the_list">当前账户已变更，请刷新列表。</string>
     <string name="ui_time_unavailable">时间不可用</string>
@@ -43,4 +40,5 @@
     <string name="ui_retry">重试加载</string>
     <!-- Footnote above the load more button: order is recent-first only within the loaded part of the list. -->
     <string name="ui_sorted_within_loaded">按最近活动排序，仅限已加载的会话。</string>
+    <string name="ui_attachment">附件</string>
 </resources>

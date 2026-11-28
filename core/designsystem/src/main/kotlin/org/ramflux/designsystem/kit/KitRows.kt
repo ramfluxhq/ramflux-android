@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -265,18 +266,23 @@ fun KitConversationRow(
                         ).copy(textDirection = TextDirection.Content)
                     )
                 }
-                KitText(
-                    untrustedDisplay(preview, UntrustedKind.Excerpt),
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = kitStyle(
-                        theme.size_body,
-                        FontWeight.Normal,
-                        theme.secondary,
-                        RfMetrics.lineBody
-                    ).copy(textDirection = TextDirection.Content)
-                )
+                if (preview.isNotEmpty()) {
+                    KitText(
+                        untrustedDisplay(preview, UntrustedKind.Excerpt),
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = kitStyle(
+                            theme.size_body,
+                            FontWeight.Normal,
+                            theme.secondary,
+                            RfMetrics.lineBody
+                        ).copy(textDirection = TextDirection.Content)
+                    )
+                } else {
+                    // An empty conversation has no preview line (no placeholder word); the badge keeps its end slot.
+                    Spacer(Modifier.weight(1f))
+                }
                 if (!badge.isNullOrEmpty()) {
                     Box(
                         Modifier

@@ -20,6 +20,10 @@ data class ConversationDirectoryEntry(
     val groupId: String? = null,
     /** The direct peer's display name as the SDK resolves it (`peer_display_name`); null for groups and unknown. */
     val peerName: String? = null,
+    /** The row's `preview.kind` (`text`, `attachment`, `system`, `unsupported`); null when the row has no preview. */
+    val previewKind: String? = null,
+    /** The row's `preview.text`: plain stored text of the last visible message, bounded by core; null for non-text kinds. */
+    val previewText: String? = null,
 )
 /** One event of the directory topics; [row] is null when the frame carries no usable row. */
 data class ConversationDirectoryEvent(val topic: String?, val row: ConversationDirectoryEntry?)
@@ -31,11 +35,12 @@ object ConversationDirectoryMetadataReader {
             val fields = DisplayFields(raw)
             val rows = fields.rows("conversations").map { row ->
                 val participants = participantNames(fields, row)
+                val preview = previewOf(fields, row)
                 ConversationDirectoryEntry(requireNotNull(fields.text(row, "id", true)), fields.text(row, "title"),
                     fields.unsigned(row, "unread_count"), fields.boolean(row, "archived"), fields.boolean(row, "hidden"),
                     fields.boolean(row, "is_unread"), fields.optionalSigned(row, "last_activity"),
                     fields.text(row, "kind"), participants, fields.optionalBoolean(row, "muted") == true, directPeer(fields, row),
-                    groupOf(fields, row), peerName(fields, row))
+                    groupOf(fields, row), peerName(fields, row), preview.first, preview.second)
             }
             require(rows.map { it.id }.distinct().size == rows.size)
             CoreResult.Success(ConversationDirectoryMetadata(rows, fields.text(fields.root, "next_cursor")))
@@ -74,6 +79,24 @@ private fun peerName(fields: DisplayFields, row: ByteJson.Node): String? = try {
     null
 }
 
+/**
+ * The row's `preview` object (`{kind, text?, at}`, core `list_facts.rs`) as kind and text. A preview that does not read is
+ * omitted, never a failure: the row then lists without a preview line.
+ */
+private fun previewOf(fields: DisplayFields, row: ByteJson.Node): Pair<String?, String?> = try {
+    val node = fields.field(row, "preview")?.takeIf { it.kind == 123 }
+    if (node == null) {
+        Pair(null, null)
+    } else {
+        Pair(
+            fields.text(node, "kind")?.takeIf { it.length <= 32 },
+            fields.text(node, "text")?.takeIf { it.length <= 1024 }
+        )
+    }
+} catch (_: Exception) {
+    Pair(null, null)
+}
+
 /** The `group_id` of a row; a value that does not read is omitted, never a failure. */
 private fun groupOf(fields: DisplayFields, row: ByteJson.Node): String? = try {
     fields.field(row, "group_id")?.takeIf { it.kind == 34 }?.let { fields.text(row, "group_id") }?.takeIf { it.length in 1..256 }
@@ -107,6 +130,7 @@ private fun eventRow(fields: DisplayFields, topic: String?): ConversationDirecto
         else -> ConversationDirectoryEntry(id, fields.text(row, "title"), fields.unsigned(row, "unread_count"), fields.boolean(row, "archived"),
             fields.boolean(row, "hidden"), fields.boolean(row, "is_unread"), fields.optionalSigned(row, "last_activity"),
             fields.text(row, "kind"), participantNames(fields, row), fields.optionalBoolean(row, "muted") == true,
-            peer = directPeer(fields, row), groupId = groupOf(fields, row), peerName = peerName(fields, row))
+            peer = directPeer(fields, row), groupId = groupOf(fields, row), peerName = peerName(fields, row),
+            previewKind = previewOf(fields, row).first, previewText = previewOf(fields, row).second)
     }
 } catch (_: Exception) { null }

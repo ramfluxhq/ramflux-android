@@ -43,6 +43,5 @@ import org.ramflux.designsystem.UiText
     val problem: UiText? = null,
     val problemKind: ClientFailureKind? = null,
     val unavailable: UiText? = null,
-    val unavailableReason: UnavailableReason? = null,
-    val searchAvailable: Boolean = false
+    val unavailableReason: UnavailableReason? = null
 )

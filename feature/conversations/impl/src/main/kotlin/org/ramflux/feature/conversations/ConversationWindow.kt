@@ -3,6 +3,7 @@
 
 package org.ramflux.feature.conversations
 
+import org.ramflux.data.ConversationPreview
 import org.ramflux.data.ConversationSummary
 
 /**
@@ -33,10 +34,12 @@ class ConversationWindow(private val capacity: Int = CAPACITY) {
     /** A live row; a missing title keeps the one already known. */
     fun upsert(row: ConversationSummary, titled: Boolean) {
         val previous = rows[row.id]
+        // An event that carries no preview keeps the one already shown.
+        val keepPreview = if (row.preview == ConversationPreview.None && previous != null) previous.preview else row.preview
         rows[row.id] = if (!titled && previous != null) {
-            row.copy(title = previous.title, titleIsIdentifier = previous.titleIsIdentifier)
+            row.copy(title = previous.title, titleIsIdentifier = previous.titleIsIdentifier, preview = keepPreview)
         } else {
-            row
+            row.copy(preview = keepPreview)
         }
         dirty = true
     }

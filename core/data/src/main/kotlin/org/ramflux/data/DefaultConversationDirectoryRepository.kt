@@ -105,8 +105,15 @@ internal class DefaultConversationDirectoryRepository(
         val shown = sdkTitle ?: named ?: if (identifier) PeerDirectory.shortIdentifier(peer, id) else id
         return ConversationSummary(
             id, shown, unread, archived, isUnread, lastActivity, muted, group, groupId.takeIf { group },
-            titleIsIdentifier = identifier, ai = known?.ai == true
+            titleIsIdentifier = identifier, ai = known?.ai == true, preview = preview()
         )
+    }
+
+    /** Text rows show their text, attachment rows say so; system, unsupported and empty rows have no preview line. */
+    private fun ConversationDirectoryEntry.preview(): ConversationPreview = when (previewKind) {
+        "text" -> previewText?.takeIf { it.isNotBlank() }?.let { ConversationPreview.Text(it) } ?: ConversationPreview.None
+        "attachment" -> ConversationPreview.Attachment
+        else -> ConversationPreview.None
     }
 
     companion object {

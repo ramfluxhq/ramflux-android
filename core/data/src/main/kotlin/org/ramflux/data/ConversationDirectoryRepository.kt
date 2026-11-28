@@ -21,8 +21,17 @@ data class ConversationSummary(
     /** True when no name is known and [title] is a short identifier; the screen isolates it left to right. */
     val titleIsIdentifier: Boolean = false,
     /** The direct peer carries the SDK-verified AI marker. */
-    val ai: Boolean = false
+    val ai: Boolean = false,
+    /** What the row's last message is, from core's `preview`: its text, an attachment, or nothing to say. */
+    val preview: ConversationPreview = ConversationPreview.None
 )
+
+/** The last-message line of a conversation row (`preview` of `conversation.directory`); core gives no sender or attachment type. */
+sealed interface ConversationPreview {
+    data object None : ConversationPreview
+    data class Text(val text: String) : ConversationPreview
+    data object Attachment : ConversationPreview
+}
 data class ConversationPage(val rows: List<ConversationSummary>, val nextCursor: String?)
 
 /** One live change of the directory, from the shared event subscription. */

@@ -6,13 +6,23 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import java.text.Normalizer
+import java.util.Locale
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toPersistentList
 import org.ramflux.designsystem.ExactConversationRow
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitAvatar
@@ -42,125 +52,135 @@ fun ConversationsScreen(
     val theme = LocalRFTheme.current
     val firstLoad = state.loading && !state.loaded && state.rows.isEmpty()
     val failedFirst = !state.loaded && !state.loading && state.problem != null
+    // D-11: the field filters the loaded rows by title on this device, case- and width-insensitive. No core call.
+    var query by rememberSaveable { mutableStateOf("") }
+    val rows = remember(state.rows, query) { state.rows.matching(query) }
     Surface(modifier.fillMaxSize(), color = theme.bg) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.fillMaxSize()) {
                 ConversationsHeader(state, onAction, rooted)
-                LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("conversations-list")) {
-                    item("permission-banner", contentType = "banner") { permissionBanner() }
-                    if (!state.accountRequired && !(state.loaded && state.rows.isEmpty() && (state.requests ?: 0) == 0)) {
-                        item("search", contentType = "search") {
-                            // MOB-B01: 16 dp gutters, 20 dp below the header, 12 dp above the first row.
-                            KitSearchField(
-                                "",
-                                {},
-                                stringResource(R.string.ui_search_conversations),
-                                Modifier.padding(
-                                    start = theme.gap.dp,
-                                    end = theme.gap.dp,
-                                    top = (theme.gap * SEARCH_TOP).dp,
-                                    bottom = (theme.gap * SEARCH_BOTTOM).dp
-                                ),
-                                enabled = false,
-                                tag = "conversation-search"
-                            )
+                // Pull-to-refresh re-reads the same directory the screen already shows; there is no refresh button.
+                PullToRefreshBox(
+                    isRefreshing = state.loading && state.loaded,
+                    onRefresh = { onAction(ConversationsAction.Refresh) },
+                    modifier = Modifier.weight(1f).fillMaxWidth()
+                ) {
+                    LazyColumn(Modifier.fillMaxSize().testTag("conversations-list")) {
+                        item("permission-banner", contentType = "banner") { permissionBanner() }
+                        if (!state.accountRequired && !(state.loaded && state.rows.isEmpty() && (state.requests ?: 0) == 0)) {
+                            item("search", contentType = "search") {
+                                // MOB-B01: 16 dp gutters, 20 dp below the header, 12 dp above the first row.
+                                KitSearchField(
+                                    query,
+                                    { query = it },
+                                    stringResource(R.string.ui_search_conversations),
+                                    Modifier.padding(
+                                        start = theme.gap.dp,
+                                        end = theme.gap.dp,
+                                        top = (theme.gap * SEARCH_TOP).dp,
+                                        bottom = (theme.gap * SEARCH_BOTTOM).dp
+                                    ),
+                                    tag = "conversation-search"
+                                )
+                            }
                         }
-                    }
-                    if (firstLoad) {
-                        items(SKELETON_ROWS, key = { "skeleton:$it" }, contentType = { "skeleton" }) { index ->
-                            KitSkeletonRow(index, tag = if (index == 0) "conversations-loading" else null)
+                        if (firstLoad) {
+                            items(SKELETON_ROWS, key = { "skeleton:$it" }, contentType = { "skeleton" }) { index ->
+                                KitSkeletonRow(index, tag = if (index == 0) "conversations-loading" else null)
+                            }
                         }
-                    }
-                    state.problem?.let { problem ->
-                        item("error", contentType = "notice") {
-                            if (failedFirst) {
-                                KitEmpty(
-                                    "wifi-off",
-                                    stringResource(R.string.ui_cannot_connect_right_now),
-                                    problem.render(),
-                                    action = stringResource(R.string.ui_retry),
-                                    onAction = { onAction(ConversationsAction.Refresh) },
-                                    tag = "conversations-error"
+                        state.problem?.let { problem ->
+                            item("error", contentType = "notice") {
+                                if (failedFirst) {
+                                    KitEmpty(
+                                        "wifi-off",
+                                        stringResource(R.string.ui_cannot_connect_right_now),
+                                        problem.render(),
+                                        action = stringResource(R.string.ui_retry),
+                                        onAction = { onAction(ConversationsAction.Refresh) },
+                                        tag = "conversations-error"
+                                    )
+                                } else {
+                                    Text(problem.render(), Modifier.padding(theme.gap.dp), color = theme.secondary)
+                                }
+                            }
+                        }
+                        state.unavailable?.let { message ->
+                            item(
+                                "unavailable",
+                                contentType = "notice"
+                            ) { Text(message.render(), Modifier.padding(theme.gap.dp), color = theme.secondary) }
+                        }
+                        if (state.accountRequired) {
+                            item("account-required", contentType = "notice") { ConversationsAccount(onAction, rooted) }
+                        }
+                        state.requests?.takeIf { it > 0 }?.let { count ->
+                            item("requests", contentType = "requests") {
+                                KitConversationRow(
+                                    stringResource(R.string.ui_message_requests),
+                                    stringResource(R.string.ui_messages_from_non_contacts),
+                                    "",
+                                    { KitIconAvatar("user-round-search", AVATAR) },
+                                    { onAction(ConversationsAction.OpenRequests) },
+                                    badge = count.toString(),
+                                    tag = "conversations-requests"
+                                )
+                            }
+                        }
+                        if (state.loaded && state.rows.isEmpty() && (state.requests ?: 0) == 0) {
+                            item("empty", contentType = "notice") {
+                                // MOB-B12 centres the empty state in the pane.
+                                Box(Modifier.fillParentMaxHeight(EMPTY_HEIGHT), contentAlignment = Alignment.Center) {
+                                    ConversationsEmpty(onAction, rooted)
+                                }
+                            }
+                        }
+                        items(rows, key = { "conversation:" + it.id }, contentType = { "conversation" }) { row ->
+                            if (rooted) {
+                                KitConversationRow(
+                                    row.shownTitle,
+                                    row.summary.render(),
+                                    row.timestamp.render(),
+                                    {
+                                        if (row.group) {
+                                            KitIconAvatar("users", AVATAR)
+                                        } else {
+                                            KitAvatar(row.title.take(1), AVATAR, KitAvatarKind.Person)
+                                        }
+                                    },
+                                    { onAction(ConversationsAction.Open(row.id)) },
+                                    muted = row.muted,
+                                    badge = row.unread.takeIf { row.hasUnread },
+                                    tag = "conversation-" + row.id,
+                                    ai = row.ai
                                 )
                             } else {
-                                Text(problem.render(), Modifier.padding(theme.gap.dp), color = theme.secondary)
+                                ExactConversationRow(
+                                    row.id,
+                                    row.shownTitle,
+                                    row.summary.render(),
+                                    row.timestamp.render(),
+                                    row.unread,
+                                    row.hasUnread,
+                                    onSelect = { onAction(ConversationsAction.Open(it)) },
+                                    ai = row.ai
+                                )
                             }
                         }
-                    }
-                    state.unavailable?.let { message ->
-                        item(
-                            "unavailable",
-                            contentType = "notice"
-                        ) { Text(message.render(), Modifier.padding(theme.gap.dp), color = theme.secondary) }
-                    }
-                    if (state.accountRequired) {
-                        item("account-required", contentType = "notice") { ConversationsAccount(onAction, rooted) }
-                    }
-                    state.requests?.takeIf { it > 0 }?.let { count ->
-                        item("requests", contentType = "requests") {
-                            KitConversationRow(
-                                stringResource(R.string.ui_message_requests),
-                                stringResource(R.string.ui_messages_from_non_contacts),
-                                "",
-                                { KitIconAvatar("user-round-search", AVATAR) },
-                                { onAction(ConversationsAction.OpenRequests) },
-                                badge = count.toString(),
-                                tag = "conversations-requests"
-                            )
-                        }
-                    }
-                    if (state.loaded && state.rows.isEmpty() && (state.requests ?: 0) == 0) {
-                        item("empty", contentType = "notice") {
-                            // MOB-B12 centres the empty state in the pane.
-                            Box(Modifier.fillParentMaxHeight(EMPTY_HEIGHT), contentAlignment = Alignment.Center) {
-                                ConversationsEmpty(onAction, rooted)
-                            }
-                        }
-                    }
-                    items(state.rows, key = { "conversation:" + it.id }, contentType = { "conversation" }) { row ->
-                        if (rooted) {
-                            KitConversationRow(
-                                row.shownTitle,
-                                row.summary.render(),
-                                row.timestamp.render(),
-                                {
-                                    if (row.group) {
-                                        KitIconAvatar("users", AVATAR)
-                                    } else {
-                                        KitAvatar(row.title.take(1), AVATAR, KitAvatarKind.Person)
-                                    }
-                                },
-                                { onAction(ConversationsAction.Open(row.id)) },
-                                muted = row.muted,
-                                badge = row.unread.takeIf { row.hasUnread },
-                                tag = "conversation-" + row.id,
-                                ai = row.ai
-                            )
-                        } else {
-                            ExactConversationRow(
-                                row.id,
-                                row.shownTitle,
-                                row.summary.render(),
-                                row.timestamp.render(),
-                                row.unread,
-                                row.hasUnread,
-                                onSelect = { onAction(ConversationsAction.Open(it)) }
-                            )
-                        }
-                    }
-                    if (state.hasMore) {
-                        item("more", contentType = "more") {
-                            if (state.autoLoad) {
-                                // Reaching the end of the window loads the next SDK page.
-                                LaunchedEffect(state.rows.size) { onAction(ConversationsAction.LoadMore) }
-                            }
-                            Column(Modifier.fillMaxWidth().padding(theme.gap.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(stringResource(R.string.ui_sorted_within_loaded), color = theme.secondary)
-                                TextButton(
-                                    enabled = !state.loading,
-                                    onClick = { onAction(ConversationsAction.LoadMore) },
-                                    modifier = Modifier.testTag("conversations-more")
-                                ) { Text(stringResource(R.string.ui_load_more)) }
+                        if (state.hasMore) {
+                            item("more", contentType = "more") {
+                                if (state.autoLoad) {
+                                    // Reaching the end of the window loads the next SDK page.
+                                    LaunchedEffect(state.rows.size) { onAction(ConversationsAction.LoadMore) }
+                                }
+                                Column(Modifier.fillMaxWidth().padding(theme.gap.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(stringResource(R.string.ui_sorted_within_loaded), color = theme.secondary)
+                                    TextButton(
+                                        enabled = !state.loading,
+                                        onClick = { onAction(ConversationsAction.LoadMore) },
+                                        modifier = Modifier.testTag("conversations-more")
+                                    ) { Text(stringResource(R.string.ui_load_more)) }
+                                }
                             }
                         }
                     }
@@ -169,6 +189,14 @@ fun ConversationsScreen(
         }
     }
 }
+
+/** The rows whose title contains [query]: NFKC-folded (width) and lower-cased; a blank query keeps every row. */
+private fun List<ConversationItem>.matching(query: String): ImmutableList<ConversationItem> {
+    val needle = fold(query.trim())
+    return if (needle.isEmpty()) toPersistentList() else filter { fold(it.title).contains(needle) }.toPersistentList()
+}
+
+private fun fold(text: String): String = Normalizer.normalize(text, Normalizer.Form.NFKC).lowercase(Locale.ROOT)
 
 private const val SKELETON_ROWS = 5
 private const val AVATAR = 52f
@@ -203,8 +231,6 @@ private fun ConversationsHeader(state: ConversationsState, onAction: (Conversati
                 stringResource(R.string.ui_conversations),
                 subtitle = subtitle.takeIf { it.isNotEmpty() },
                 onBack = { onAction(ConversationsAction.Back) },
-                actionLabel = stringResource(R.string.ui_refresh),
-                onAction = { if (!state.loading) onAction(ConversationsAction.Refresh) },
                 tag = "conversations-header"
             )
             if (subtitle.isNotEmpty()) Text(subtitle, color = theme.secondary)

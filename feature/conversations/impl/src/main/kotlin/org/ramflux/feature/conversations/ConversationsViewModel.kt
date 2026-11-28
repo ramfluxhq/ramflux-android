@@ -15,6 +15,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.ramflux.data.*
 import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.UntrustedKind
 import org.ramflux.designsystem.failureDetail
 import org.ramflux.designsystem.failureWords
 import org.ramflux.designsystem.uiText
@@ -145,23 +146,15 @@ class ConversationsViewModel @Inject constructor(
                         }
                         current(expected, generation)
                         cursor = next
-                        val search = if (more) null else directory.searchAvailability()
                         val requests = if (more) previous.requests else directory.pendingRequests(selected.id).countOrNull()
                         current(expected, generation)
                         val fresh = ConversationsState(
                             accountId = selected.id, accountLabel = selected.label ?: selected.id,
                             rows = rows, loaded = true, hasMore = cursor != null, autoLoad = added > 0, requests = requests,
-                            searchAvailable = previous.searchAvailable,
                             unavailable = if (more) previous.unavailable else null,
                             unavailableReason = if (more) previous.unavailableReason else null
                         )
-                        val unsearchable = fresh.copy(searchAvailable = false)
-                        local.value = when (search) {
-                            null -> fresh
-                            is ClientResult.Ready -> fresh.copy(searchAvailable = true)
-                            is ClientResult.Failed -> search.notice(unsearchable, uiText(R.string.ui_search_availability))
-                            is ClientResult.Unavailable -> search.notice(unsearchable, uiText(R.string.ui_local_search))
-                        }
+                        local.value = fresh
                         if (visible) startWatch(selected.id)
                     }
                     is ClientResult.Failed -> local.update { result.notice(it, uiText(R.string.ui_conversations)) }
@@ -247,10 +240,15 @@ class ConversationsViewModel @Inject constructor(
         ConversationItem(
             row.id,
             row.title,
-            uiText(if (row.archived) R.string.ui_archived else R.string.ui_conversation),
+            // The last message, or nothing: no placeholder word. An archived row without a preview says so.
+            when (val preview = row.preview) {
+                is ConversationPreview.Text -> UiText.Untrusted(preview.text, UntrustedKind.Excerpt)
+                ConversationPreview.Attachment -> uiText(R.string.ui_attachment)
+                ConversationPreview.None -> if (row.archived) uiText(R.string.ui_archived) else UiText.Empty
+            },
             row.unread.toString(),
             row.isUnread,
-            row.lastActivity.displayTime(),
+            row.lastActivity.rowTime(),
             muted = row.muted,
             group = row.group,
             groupId = row.groupId,
@@ -284,4 +282,4 @@ private fun ClientResult.Unavailable.notice(state: ConversationsState, subject: 
     problemKind = null
 )
 private fun ClientResult<Int>.countOrNull(): Int? = (this as? ClientResult.Ready)?.value
-private fun Long?.displayTime(): UiText = if (this == null) UiText.Empty else UiText.DateTime(this)
+private fun Long?.rowTime(): UiText = if (this == null) UiText.Empty else UiText.RelativeTime(this)

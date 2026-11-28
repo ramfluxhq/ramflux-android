@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.ramflux.core.designsystem.R
+import org.ramflux.designsystem.kit.KitAiMarker
 import org.ramflux.designsystem.kit.untrustedDisplay
 
 /** Conversation row geometry with a host-owned exact count and manual-unread trailing presentation.
@@ -34,7 +35,8 @@ fun ExactConversationRow(
     timestamp: String,
     unread: String,
     isUnread: Boolean,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    ai: Boolean = false
 ) {
     val theme = LocalRFTheme.current
     val layout = LocalRFLayout.current
@@ -69,18 +71,23 @@ fun ExactConversationRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (ai) KitAiMarker()
                 Text(timestamp, color = theme.secondary, fontSize = theme.size_mobile_caption.sp)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((theme.gap * .5f).dp)) {
-                Text(
-                    untrustedDisplay(summary, UntrustedKind.Excerpt),
-                    Modifier.weight(1f),
-                    style = LocalTextStyle.current.copy(textDirection = TextDirection.Content),
-                    color = theme.secondary,
-                    fontSize = theme.size_body.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (summary.isNotEmpty()) {
+                    Text(
+                        untrustedDisplay(summary, UntrustedKind.Excerpt),
+                        Modifier.weight(1f),
+                        style = LocalTextStyle.current.copy(textDirection = TextDirection.Content),
+                        color = theme.secondary,
+                        fontSize = theme.size_body.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
                 if (isUnread) {
                     if (unread == "0") {
                         Box(
