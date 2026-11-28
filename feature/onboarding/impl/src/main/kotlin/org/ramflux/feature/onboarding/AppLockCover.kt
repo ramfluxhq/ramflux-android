@@ -3,7 +3,6 @@
 
 package org.ramflux.feature.onboarding
 
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -15,16 +14,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -378,6 +381,8 @@ fun CoverBackGuard(covered: Boolean, onBack: () -> Unit) {
     if (covered) BackHandler(enabled = true, onBack = onBack)
 }
 
+private const val REMOVED_NOTICE_MILLIS = 5_000L
+
 /** The cover for the app lock. Callers draw it above the shell, so the shell keeps its navigation state underneath. */
 @Composable
 fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
@@ -398,9 +403,15 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
     }
     val recovering = ui.recoveryAccount
     val removedNotice = stringResource(R.string.ui_account_removed)
-    val context = LocalContext.current
+    // The notice is drawn in this window, above the destination (the picker or onboarding): it outlives the cover going
+    // down and, unlike a system toast, belongs to the screen the app lands on.
+    var removedShown by remember { mutableStateOf(false) }
     LaunchedEffect(vm) {
-        vm.removed.collect { Toast.makeText(context, removedNotice, Toast.LENGTH_LONG).show() }
+        vm.removed.collect {
+            removedShown = true
+            delay(REMOVED_NOTICE_MILLIS)
+            removedShown = false
+        }
     }
     if (ui.removeOpen && ui.phase == AppLockPhase.LOCKED) {
         RemoveAccountDialog(ui.removeName, ui.removing, ui.removeFailed, onConfirm = vm::confirmRemove, onDismiss = vm::cancelRemove)
@@ -502,6 +513,18 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
                         }
                     }
                 }
+            }
+        }
+    }
+    if (removedShown) {
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(theme.gap.dp), Alignment.BottomCenter) {
+            Surface(
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                shape = RoundedCornerShape(theme.gap.dp),
+                modifier = Modifier.testTag("account-removed-notice")
+            ) {
+                Text(removedNotice, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(theme.gap.dp))
             }
         }
     }
