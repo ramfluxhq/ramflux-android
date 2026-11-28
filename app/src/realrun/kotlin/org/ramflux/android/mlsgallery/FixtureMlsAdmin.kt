@@ -96,9 +96,9 @@ internal class FixtureMlsAdmin(
         }
     }
 
-    private suspend fun emit(group: String, post: MlsGroupPost) {
+    private suspend fun emit(group: String, post: MlsGroupPost, asPost: Boolean = false) {
         extra.getOrPut(group) { mutableListOf() }.add(post)
-        bus.emit(MlsGroupSignal.Service(group, post))
+        bus.emit(if (asPost) MlsGroupSignal.Post(group, post) else MlsGroupSignal.Service(group, post))
     }
 
     // ---- what the repository reads from the fixture ------------------------------------------------------------------
@@ -428,7 +428,8 @@ internal class FixtureMlsAdmin(
             return fail("void_not_head", STALE_HEAD)
         }
         val seq = nextSeq()
-        later(SEC) { emit(group, voidPost(seq, logSeq, now())) }
+        // The void row arrives as `post{kind: void}`, the main shape of 2.6, so walks exercise that path.
+        later(SEC) { emit(group, voidPost(seq, logSeq, now()), asPost = true) }
         return ClientResult.Ready(MlsGroupCommit(seq))
     }
 

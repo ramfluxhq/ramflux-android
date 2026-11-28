@@ -401,5 +401,5 @@
     <string name="group_chat_quota_resets">Resets %1$s</string>
     <string name="group_privacy_delay_eta">Messages you send now go out around %1$s.</string>
     <string name="group_chat_error_not_admin">Only admins can do this.</string>
-    <string name="group_chat_error_void_not_head">This isn\'t the latest change any more, so it can\'t be undone.</string>
+    <string name="group_chat_error_void_not_head">Only the latest change can be undone.</string>
 </resources>

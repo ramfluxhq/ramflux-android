@@ -83,6 +83,11 @@ class MlsGroupAdminTest {
             return commitGate!!.await()
         }
 
+        override suspend fun voidCommit(account: String, groupId: String, logSeq: Long): ClientResult<MlsGroupCommit> {
+            hit("void")
+            return commitGate!!.await()
+        }
+
         override suspend fun skipCatchUp(account: String, groupId: String): ClientResult<MlsCatchUpResult> {
             hit("skip")
             return skipGate!!.await()
@@ -176,6 +181,32 @@ class MlsGroupAdminTest {
         fake.events.tryEmit(MlsGroupSignal.Service(group, service(311, MlsGroupChangeKind.REMOVED, "a-ben")))
         runCurrent()
         assertFalse(s.adminNow().busy)
+    }
+
+    @Test fun aVoidThatArrivesAsAPostResolvesThePendingUndoAndShowsTheRow() = runTest {
+        val fake = Fake()
+        fake.commitGate = CompletableDeferred()
+        val s = ready(fake)
+        s.openGroup(account, group)
+        runCurrent()
+        s.voidCommit(account, group, 250)
+        assertEquals(1, fake.count("void"))
+        fake.commitGate!!.complete(ClientResult.Ready(MlsGroupCommit(251)))
+        runCurrent()
+        assertEquals(251L, s.adminNow().pending?.logSeq)
+        assertTrue(s.adminNow().pending != null)
+        // The void row arrives only as `post{kind: void}`, never as the dedicated event.
+        fake.events.tryEmit(MlsGroupSignal.Post(group, commitRow(251, MlsGroupPostKind.VOID, voided = 250)))
+        runCurrent()
+        val state = s.adminNow()
+        assertFalse(state.busy)
+        assertNull(state.pending)
+        assertTrue(250L in state.voided)
+        assertEquals(251L, s.timeline(account, group).first().window.posts.lastOrNull()?.logSeq)
+        // The slot is free: the next admin tap makes a call.
+        fake.commitGate = CompletableDeferred()
+        s.voidCommit(account, group, 251)
+        assertEquals(2, fake.count("void"))
     }
 
     @Test fun aResultAfterALockAndUnlockIsDropped() = runTest {

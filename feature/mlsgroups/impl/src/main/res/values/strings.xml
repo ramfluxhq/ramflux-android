@@ -203,7 +203,7 @@
     <string name="group_member_ban_confirm_body">They\'re removed and can\'t join again, even with an invite.</string>
     <string name="group_member_ban_confirm_confirm">Ban</string>
     <string name="group_error_not_owner">Only the owner can do this.</string>
-    <string name="group_error_void_not_head">This isn\'t the latest change any more, so it can\'t be undone.</string>
+    <string name="group_error_void_not_head">Only the latest change can be undone.</string>
     <!-- MLS M3: settings and push -->
     <string name="group_settings_title">Group settings</string>
     <string name="group_settings_name">Group name</string>

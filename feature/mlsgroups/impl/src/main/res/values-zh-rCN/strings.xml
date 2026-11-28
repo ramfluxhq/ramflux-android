@@ -192,7 +192,7 @@
     <string name="group_member_ban_confirm_body">对方将被移出，并且即使持有邀请也无法再次加入。</string>
     <string name="group_member_ban_confirm_confirm">封禁</string>
     <string name="group_error_not_owner">只有群主可以执行此操作。</string>
-    <string name="group_error_void_not_head">这已不是最近一次更改，无法撤销。</string>
+    <string name="group_error_void_not_head">只能撤销最近一次更改。</string>
     <!-- MLS M3: settings and push -->
     <string name="group_settings_title">群组设置</string>
     <string name="group_settings_name">群组名称</string>

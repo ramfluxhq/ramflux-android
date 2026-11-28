@@ -393,5 +393,5 @@
     <string name="group_chat_quota_resets">%1$s 重置</string>
     <string name="group_privacy_delay_eta">你现在发送的消息将在 %1$s 左右发出。</string>
     <string name="group_chat_error_not_admin">只有管理员可以执行此操作。</string>
-    <string name="group_chat_error_void_not_head">这已不是最近一次更改，无法撤销。</string>
+    <string name="group_chat_error_void_not_head">只能撤销最近一次更改。</string>
 </resources>

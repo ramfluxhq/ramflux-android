@@ -878,7 +878,13 @@ class MlsGroupSession(
 
     // ---- events ----------------------------------------------------------------------------------------------------
 
-    private suspend fun handle(account: String, epoch: Long, signal: MlsGroupSignal) {
+    private suspend fun handle(account: String, epoch: Long, incoming: MlsGroupSignal) {
+        // A void, membership or settings row may arrive as `post{kind: …}` (2.6); it resolves like the dedicated event.
+        val signal = if (incoming is MlsGroupSignal.Post && incoming.post.kind in ADMIN_ROW_KINDS) {
+            MlsGroupSignal.Service(incoming.groupId, incoming.post)
+        } else {
+            incoming
+        }
         val group = signal.groupId
         var unknownGroup = false
         var infoFor: String? = null
@@ -1135,6 +1141,7 @@ class MlsGroupSession(
     }
 
     companion object {
+        private val ADMIN_ROW_KINDS = setOf(MlsGroupPostKind.VOID, MlsGroupPostKind.MEMBERSHIP, MlsGroupPostKind.SETTINGS)
         const val NAME_MAX = 64
         internal const val TIMER_SEPARATOR = '\u0000'
         const val PAGE = 50
