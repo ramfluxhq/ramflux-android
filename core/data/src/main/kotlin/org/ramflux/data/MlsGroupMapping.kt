@@ -9,6 +9,10 @@ import org.ramflux.sdk.MlsChangeKind
 import org.ramflux.sdk.MlsEventMetadata
 import org.ramflux.sdk.MlsGroupInfoMetadata
 import org.ramflux.sdk.MlsHistoryMetadata
+import org.ramflux.sdk.MlsHostUnusualKind
+import org.ramflux.sdk.MlsJoinRequestMetadata
+import org.ramflux.sdk.MlsRejoinReason
+import org.ramflux.sdk.MlsWarningCode
 import org.ramflux.sdk.MlsInviteMetadata
 import org.ramflux.sdk.MlsJoinMetadata
 import org.ramflux.sdk.MlsJoinRefusal
@@ -59,7 +63,7 @@ internal object MlsGroupMapping {
         approval = value.approval,
         myRole = role(value.myRole),
         hostNode = value.hostNode,
-        hostIpVisible = value.warnings.any { it.code == HOST_IP_VISIBLE && !it.cleared } || value.hostNode != null,
+        hostIpVisible = value.warnings.any { it.code is MlsWarningCode.HostIpVisible && !it.cleared } || value.hostNode != null,
         push = when (value.push) {
             MlsPush.MENTIONS_REPLIES -> MlsGroupPush.MENTIONS_REPLIES
             MlsPush.ALL -> MlsGroupPush.ALL
@@ -83,7 +87,37 @@ internal object MlsGroupMapping {
         unreadMentions = value.unreadMentions,
         readLogSeq = value.readLogSeq,
         lastPost = value.lastPost?.let { MlsGroupLastPost(it.logSeq, kind(it.kind), it.author?.let(::author), it.snippet, it.appendedAt) },
+        warnings = value.warnings.filterNot { it.cleared }.map { warning(it.code) },
     )
+
+    fun warning(code: MlsWarningCode): MlsGroupWarning = when (code) {
+        is MlsWarningCode.ForkAlarm -> MlsGroupWarning.ForkAlarm(code.headN)
+        is MlsWarningCode.RejoinNeeded -> MlsGroupWarning.RejoinNeeded(
+            when (code.reason) {
+                MlsRejoinReason.PRUNED -> MlsGroupRejoinReason.PRUNED
+                MlsRejoinReason.GATE_REJECTED -> MlsGroupRejoinReason.GATE_REJECTED
+                MlsRejoinReason.APPLY_FAILED -> MlsGroupRejoinReason.APPLY_FAILED
+                MlsRejoinReason.WELCOME_EXPIRED -> MlsGroupRejoinReason.WELCOME_EXPIRED
+                MlsRejoinReason.STATE_LOST -> MlsGroupRejoinReason.STATE_LOST
+                MlsRejoinReason.UNKNOWN -> MlsGroupRejoinReason.UNKNOWN
+            }
+        )
+        is MlsWarningCode.Undecryptable -> MlsGroupWarning.Undecryptable(code.count, code.fromLogSeq)
+        MlsWarningCode.AdmissionNeedsOnline -> MlsGroupWarning.AdmissionNeedsOnline
+        is MlsWarningCode.HostUnusual -> MlsGroupWarning.HostUnusual(
+            when (code.kind) {
+                MlsHostUnusualKind.LATE_ROLL -> MlsGroupHostUnusual.LATE_ROLL
+                MlsHostUnusualKind.LATE_REPLY -> MlsGroupHostUnusual.LATE_REPLY
+                MlsHostUnusualKind.UNKNOWN -> MlsGroupHostUnusual.UNKNOWN
+            }
+        )
+        is MlsWarningCode.HeadCommitRejected -> MlsGroupWarning.HeadCommitRejected(code.logSeq)
+        is MlsWarningCode.HostIpVisible -> MlsGroupWarning.HostIpVisible(code.hostNode)
+        is MlsWarningCode.Unknown -> MlsGroupWarning.Unknown(code.code)
+    }
+
+    fun request(value: MlsJoinRequestMetadata) =
+        MlsJoinRequest(value.requestId, value.anchor, value.display, value.aiFlag, value.requestedAt, value.expiresAt)
 
     fun invite(value: MlsInviteMetadata) =
         MlsGroupInvite(value.inviteId, value.link, value.maxUses, value.usesLeft, value.expiresAt, value.revoked)
@@ -166,6 +200,7 @@ internal object MlsGroupMapping {
         settingsName = value.settings?.name,
         settingsApproval = value.settings?.approval,
         by = value.by?.let(::author),
+        voidedLogSeq = value.voidedLogSeq,
     )
 
     fun history(value: MlsHistoryMetadata) =
@@ -175,7 +210,7 @@ internal object MlsGroupMapping {
 
     fun read(value: MlsReadMetadata) = MlsGroupRead(value.readLogSeq, value.unread, value.unreadMentions)
 
-    /** The signal of one event, or null for a kind M2 skips. */
+    /** The signal of one event, or null for a kind this version skips. */
     fun signal(value: MlsEventMetadata): MlsGroupSignal? = when (value) {
         is MlsEventMetadata.Post -> MlsGroupSignal.Post(value.groupId, post(value.post))
         is MlsEventMetadata.PostState -> MlsGroupSignal.PostState(value.groupId, value.postId, state(value.state), value.logSeq)
@@ -183,6 +218,17 @@ internal object MlsGroupMapping {
         is MlsEventMetadata.Service -> MlsGroupSignal.Service(value.groupId, post(value.post))
         is MlsEventMetadata.JoinResult -> MlsGroupSignal.JoinResult(value.groupId, value.requestId, value.joined, value.refusal?.let(::refusal))
         is MlsEventMetadata.Read -> MlsGroupSignal.Read(value.groupId, read(value.read))
+        is MlsEventMetadata.PendingJoin -> MlsGroupSignal.PendingJoin(value.groupId, request(value.request))
+        is MlsEventMetadata.CatchUp -> MlsGroupSignal.CatchUp(
+            value.groupId, value.seq,
+            when (value.catchUp.state) {
+                MlsCatchUpState.IDLE -> MlsGroupCatchUp.IDLE
+                MlsCatchUpState.RUNNING -> MlsGroupCatchUp.RUNNING
+                MlsCatchUpState.REJOINING -> MlsGroupCatchUp.REJOINING
+            },
+            value.catchUp.done, value.catchUp.total,
+        )
+        is MlsEventMetadata.Warning -> MlsGroupSignal.Warning(value.groupId, warning(value.warning.code), value.warning.cleared)
         is MlsEventMetadata.Skipped -> null
     }
 }

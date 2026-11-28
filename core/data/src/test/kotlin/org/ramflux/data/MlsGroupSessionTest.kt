@@ -126,6 +126,19 @@ class MlsGroupSessionTest {
         }
 
         override fun events(account: String): Flow<MlsGroupSignal> = events
+
+        // M3: this fake drives no admin call; the admin owner has its own tests in MlsGroupAdminTest.
+        override suspend fun requests(account: String, groupId: String, cursor: String?, limit: Int) = ClientResult.Unavailable(ClientFeature.GROUPS)
+        override suspend fun approveRequest(account: String, groupId: String, requestId: String) = ClientResult.Unavailable(ClientFeature.GROUPS)
+        override suspend fun declineRequest(account: String, groupId: String, requestId: String) = ClientResult.Unavailable(ClientFeature.GROUPS)
+        override suspend fun setRole(account: String, groupId: String, anchor: String, role: MlsGroupRole) = ClientResult.Unavailable(ClientFeature.GROUPS)
+        override suspend fun removeMember(account: String, groupId: String, anchor: String) = ClientResult.Unavailable(ClientFeature.GROUPS)
+        override suspend fun banMember(account: String, groupId: String, anchor: String) = ClientResult.Unavailable(ClientFeature.GROUPS)
+        override suspend fun setName(account: String, groupId: String, name: String) = ClientResult.Unavailable(ClientFeature.GROUPS)
+        override suspend fun setApproval(account: String, groupId: String, approval: Boolean) = ClientResult.Unavailable(ClientFeature.GROUPS)
+        override suspend fun setPush(account: String, groupId: String, push: MlsGroupPush) = ClientResult.Unavailable(ClientFeature.GROUPS)
+        override suspend fun skipCatchUp(account: String, groupId: String) = ClientResult.Unavailable(ClientFeature.GROUPS)
+        override suspend fun voidCommit(account: String, groupId: String, logSeq: Long) = ClientResult.Unavailable(ClientFeature.GROUPS)
     }
 
     private fun post(logSeq: Long?, id: String = "p$logSeq", anchor: String = "a1", ai: Boolean = false, me: Boolean = false, text: String = "t$logSeq") =

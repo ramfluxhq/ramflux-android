@@ -36,7 +36,7 @@ class MlsGroupMetadataTest {
         assertEquals(3L, row.quotaPost?.remaining)
         assertEquals(2L, row.unread)
         assertEquals("hi", row.lastPost?.snippet)
-        assertEquals("host_ip_visible", row.warnings.single().code)
+        assertEquals(MlsWarningCode.HostIpVisible("node.example"), row.warnings.single().code)
         assertFalse(row.toString().contains("Design"))
     }
 
@@ -219,9 +219,7 @@ class MlsGroupMetadataTest {
         assertEquals(MlsJoinRefusal.REQUEST_EXPIRED, refusedResult.refusal?.reason)
         val read = event("""{"body":{"group_id":"g","kind":"read","read_log_seq":3,"unread":1,"unread_mentions":0}}""") as MlsEventMetadata.Read
         assertEquals(1L, read.read.unread)
-        listOf("pending_join", "catch_up", "warning", "void", "somethingnew").forEach {
-            assertEquals(it, (event("""{"body":{"group_id":"g","kind":"$it"}}""") as MlsEventMetadata.Skipped).kind)
-        }
+        assertEquals("somethingnew", (event("""{"body":{"group_id":"g","kind":"somethingnew"}}""") as MlsEventMetadata.Skipped).kind)
         assertNull(event("""{"method":"contact.identity_changed","body":{"group_id":"g","kind":"post"}}"""))
         assertNull(event("not json"))
     }
@@ -231,5 +229,98 @@ class MlsGroupMetadataTest {
         assertEquals(MlsRole.UNKNOWN, row.myRole)
         assertEquals(MlsPush.UNKNOWN, row.push)
         assertEquals(MlsCatchUpState.IDLE, row.catchUp)
+    }
+    private val requestRow = """{"request_id":"rq-1","anchor":"a9","display":"Scout","ai_flag":true,"requested_at":100,"expires_at":200}"""
+
+    @Test fun requestsPageParsesRowsCursorAndKeepsTheAiFlag() {
+        val page = ok(MlsGroupMetadataReader.requests(reply("""{"requests":[$requestRow,{"request_id":"rq-2","anchor":"a8","display":null,"ai_flag":false}],"cursor":"r2"}""")))
+        assertEquals("r2", page.cursor)
+        assertEquals(2, page.rows.size)
+        assertTrue(page.rows[0].aiFlag)
+        assertNull(page.rows[1].display)
+        assertEquals(200L, page.rows[0].expiresAt)
+        assertFalse(page.rows[0].toString().contains("rq-1"))
+        assertFalse(page.rows[0].toString().contains("Scout"))
+        assertNull(ok(MlsGroupMetadataReader.requests(reply("""{"requests":[]}"""))).cursor)
+        assertTrue(MlsGroupMetadataReader.requests(reply("""{"requests":[{"anchor":"a"}]}""")) is CoreResult.Failure)
+    }
+
+    @Test fun declinePushAndCatchUpResultsParse() {
+        assertTrue(ok(MlsGroupMetadataReader.declined(reply("""{"state":"declined"}"""))))
+        assertFalse(ok(MlsGroupMetadataReader.declined(reply("""{"state":"other"}"""))))
+        assertEquals(MlsPush.ALL, ok(MlsGroupMetadataReader.push(reply("""{"push":"all"}"""))).push)
+        assertEquals(MlsPush.UNKNOWN, ok(MlsGroupMetadataReader.push(reply("""{"push":"loud"}"""))).push)
+        assertEquals(MlsCatchUpMetadata(MlsCatchUpState.REJOINING, 0, 0), ok(MlsGroupMetadataReader.catchUp(reply("""{"state":"rejoining"}"""))))
+        assertEquals(MlsCatchUpMetadata(MlsCatchUpState.RUNNING, 4, 9), ok(MlsGroupMetadataReader.catchUp(reply("""{"state":"running","done":4,"total":9}"""))))
+        val committed = ok(MlsGroupMetadataReader.committed(reply("""{"state":"committed","log_seq":301}""")))
+        assertTrue(committed.committed)
+        assertEquals(301L, committed.logSeq)
+    }
+
+    @Test fun refusalCodesMapToTypedRefusals() {
+        fun details(json: String) = kotlinx.serialization.json.Json.parseToJsonElement(json) as kotlinx.serialization.json.JsonObject
+        assertEquals(MlsRefusalMetadata("not_owner", null), MlsGroupMetadataReader.refusal("not_admin", details("""{"required":"owner"}""")))
+        assertEquals(MlsRefusalMetadata("not_admin", null), MlsGroupMetadataReader.refusal("not_admin", details("""{"required":"admin"}""")))
+        assertEquals(MlsRefusalMetadata("not_admin", null), MlsGroupMetadataReader.refusal("not_admin", null))
+        assertEquals(MlsRefusalMetadata("paced", 1234), MlsGroupMetadataReader.refusal("paced", details("""{"retry_at":1234}""")))
+        assertEquals(MlsRefusalMetadata("paced", null), MlsGroupMetadataReader.refusal("paced", details("""{"retry_at":"soon"}""")))
+        assertEquals(MlsRefusalMetadata("void_not_head", 252), MlsGroupMetadataReader.refusal("void_not_head", details("""{"head_log_seq":252}""")))
+        assertEquals(MlsRefusalMetadata("owner_protected", null), MlsGroupMetadataReader.refusal("owner_protected", null))
+        assertEquals(MlsRefusalMetadata("weirdcode", null), MlsGroupMetadataReader.refusal("weirdcode", null))
+        assertEquals(MlsRefusalMetadata("unknown", null), MlsGroupMetadataReader.refusal("Not A Token", null))
+        assertEquals(MlsRefusalMetadata("unknown", null), MlsGroupMetadataReader.refusal(null, null))
+    }
+
+    @Test fun m3EventKindsParse() {
+        val pending = event("""{"body":{"group_id":"g","kind":"pending_join","seq":7,"body":$requestRow}}""") as MlsEventMetadata.PendingJoin
+        assertEquals("rq-1", pending.request.requestId)
+        assertEquals(7L, pending.seq)
+        val catchUp = event("""{"body":{"group_id":"g","kind":"catch_up","seq":8,"body":{"state":"running","done":3,"total":10}}}""") as MlsEventMetadata.CatchUp
+        assertEquals(MlsCatchUpMetadata(MlsCatchUpState.RUNNING, 3, 10), catchUp.catchUp)
+        val idle = event("""{"body":{"group_id":"g","kind":"catch_up","body":{"state":"idle"}}}""") as MlsEventMetadata.CatchUp
+        assertEquals(MlsCatchUpState.IDLE, idle.catchUp.state)
+        assertNull(event("""{"body":{"group_id":"g","kind":"pending_join"}}"""))
+        assertNull(event("""{"body":{"group_id":"g","kind":"warning","body":{"cleared":true}}}"""))
+    }
+
+    private fun warning(json: String) =
+        (event("""{"body":{"group_id":"g","kind":"warning","body":$json}}""") as MlsEventMetadata.Warning).warning
+
+    @Test fun everyWarningCodeParsesWithItsParams() {
+        assertEquals(MlsWarning(MlsWarningCode.ForkAlarm(2), false), warning("""{"code":"fork_alarm","params":{"head_n":2},"cleared":false}"""))
+        assertEquals(MlsWarning(MlsWarningCode.ForkAlarm(2), true), warning("""{"code":"fork_alarm","params":{"head_n":2},"cleared":true}"""))
+        mapOf(
+            "pruned" to MlsRejoinReason.PRUNED, "gate_rejected" to MlsRejoinReason.GATE_REJECTED, "apply_failed" to MlsRejoinReason.APPLY_FAILED,
+            "welcome_expired" to MlsRejoinReason.WELCOME_EXPIRED, "state_lost" to MlsRejoinReason.STATE_LOST,
+        ).forEach { (raw, reason) ->
+            assertEquals(MlsWarningCode.RejoinNeeded(reason, null), warning("""{"code":"rejoin_needed","params":{"reason":"$raw"}}""").code)
+        }
+        assertEquals(MlsWarningCode.RejoinNeeded(MlsRejoinReason.UNKNOWN, "newreason"), warning("""{"code":"rejoin_needed","params":{"reason":"newreason"}}""").code)
+        assertEquals(MlsWarningCode.RejoinNeeded(MlsRejoinReason.UNKNOWN, null), warning("""{"code":"rejoin_needed"}""").code)
+        assertEquals(MlsWarningCode.Undecryptable(12, 140), warning("""{"code":"undecryptable","params":{"count":12,"from_log_seq":140}}""").code)
+        assertEquals(MlsWarningCode.AdmissionNeedsOnline, warning("""{"code":"admission_needs_online","params":{}}""").code)
+        assertEquals(MlsWarningCode.HostUnusual(MlsHostUnusualKind.LATE_ROLL), warning("""{"code":"host_unusual","params":{"kind":"late_roll"}}""").code)
+        assertEquals(MlsWarningCode.HostUnusual(MlsHostUnusualKind.UNKNOWN), warning("""{"code":"host_unusual","params":{"kind":"x"}}""").code)
+        assertEquals(MlsWarningCode.HeadCommitRejected(250), warning("""{"code":"head_commit_rejected","params":{"log_seq":250}}""").code)
+        assertEquals(MlsWarningCode.Unknown("weird"), warning("""{"code":"weird"}""").code)
+        assertEquals("weird", warning("""{"code":"weird"}""").code.key)
+        assertFalse(warning("""{"code":"host_ip_visible","params":{"host_node":"node.example"}}""").code.toString().contains("node.example"))
+    }
+
+    @Test fun bothVoidShapesGiveTheSameRow() {
+        val byMe = """{"anchor":"a1","display":"Ana","ai_flag":false,"is_me":true}"""
+        val asEvent = event("""{"body":{"group_id":"g","kind":"void","log_seq":251,"body":{"voided_log_seq":250,"epoch":7,"by":$byMe}}}""") as MlsEventMetadata.Service
+        val asPost = (event(
+            """{"body":{"group_id":"g","kind":"post","log_seq":251,"post":{"log_seq":251,"post_id":"p","kind":"void","appended_at":4,"body":{"voided_log_seq":250,"epoch":7,"by":$byMe}}}}""",
+        ) as MlsEventMetadata.Post).post
+        assertEquals(MlsPostKind.VOID, asEvent.post.kind)
+        assertEquals(250L, asEvent.post.voidedLogSeq)
+        assertEquals(7L, asEvent.post.epoch)
+        assertEquals(251L, asEvent.post.logSeq)
+        assertTrue(asEvent.post.by?.isMe == true)
+        assertEquals(asEvent.post.copy(postId = "p", appendedAt = 4), asPost)
+        val history = ok(MlsGroupMetadataReader.history(reply("""{"posts":[{"log_seq":251,"post_id":"p","kind":"void","body":{"voided_log_seq":250,"epoch":7,"by":$byMe}}],"floor_log_seq":1,"last_log_seq":251,"more":false}""")))
+        assertEquals(250L, history.posts.single().voidedLogSeq)
+        assertTrue(MlsGroupMetadataReader.history(reply("""{"posts":[{"log_seq":251,"post_id":"p","kind":"void","body":{}}]}""")) is CoreResult.Failure)
     }
 }

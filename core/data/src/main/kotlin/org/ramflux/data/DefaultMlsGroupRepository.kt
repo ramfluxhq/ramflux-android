@@ -70,6 +70,39 @@ internal class DefaultMlsGroupRepository(private val transport: RepositoryTransp
     // W: after the pin, call group.leave through executeSecret in sdk api "group"; parse with MlsGroupMetadataReader.committed
     override suspend fun leave(account: String, groupId: String) = unavailable<Unit>()
 
+    // W: after the pin, call group.requests.list through executeSecret in sdk api "group"; map the error frame with MlsGroupMetadataReader.refusal; parse with MlsGroupMetadataReader.requests
+    override suspend fun requests(account: String, groupId: String, cursor: String?, limit: Int) = unavailable<MlsGroupPage<MlsJoinRequest>>()
+
+    // W: after the pin, call group.requests.approve through executeSecret in sdk api "group"; map the error frame with MlsGroupMetadataReader.refusal; parse with MlsGroupMetadataReader.committed
+    override suspend fun approveRequest(account: String, groupId: String, requestId: String) = unavailable<MlsGroupCommit>()
+
+    // W: after the pin, call group.requests.decline through executeSecret in sdk api "group"; map the error frame with MlsGroupMetadataReader.refusal; parse with MlsGroupMetadataReader.declined
+    override suspend fun declineRequest(account: String, groupId: String, requestId: String) = unavailable<Unit>()
+
+    // W: after the pin, call group.role.set through executeSecret in sdk api "group"; map the error frame with MlsGroupMetadataReader.refusal; parse with MlsGroupMetadataReader.committed
+    override suspend fun setRole(account: String, groupId: String, anchor: String, role: MlsGroupRole) = unavailable<MlsGroupCommit>()
+
+    // W: after the pin, call group.member.remove through executeSecret in sdk api "group"; map the error frame with MlsGroupMetadataReader.refusal; parse with MlsGroupMetadataReader.committed
+    override suspend fun removeMember(account: String, groupId: String, anchor: String) = unavailable<MlsGroupCommit>()
+
+    // W: after the pin, call group.member.ban through executeSecret in sdk api "group"; map the error frame with MlsGroupMetadataReader.refusal; parse with MlsGroupMetadataReader.committed
+    override suspend fun banMember(account: String, groupId: String, anchor: String) = unavailable<MlsGroupCommit>()
+
+    // W: after the pin, call group.settings.set{name} through executeSecret in sdk api "group"; map the error frame with MlsGroupMetadataReader.refusal; parse with MlsGroupMetadataReader.committed
+    override suspend fun setName(account: String, groupId: String, name: String) = unavailable<MlsGroupCommit>()
+
+    // W: after the pin, call group.settings.set{approval} through executeSecret in sdk api "group"; map the error frame with MlsGroupMetadataReader.refusal; parse with MlsGroupMetadataReader.committed
+    override suspend fun setApproval(account: String, groupId: String, approval: Boolean) = unavailable<MlsGroupCommit>()
+
+    // W: after the pin, call group.push.set (Q1) through executeSecret in sdk api "group"; map the error frame with MlsGroupMetadataReader.refusal; parse with MlsGroupMetadataReader.push
+    override suspend fun setPush(account: String, groupId: String, push: MlsGroupPush) = unavailable<MlsGroupPush>()
+
+    // W: after the pin, call group.catch_up{skip: true} through executeSecret in sdk api "group"; map the error frame with MlsGroupMetadataReader.refusal; parse with MlsGroupMetadataReader.catchUp
+    override suspend fun skipCatchUp(account: String, groupId: String) = unavailable<MlsCatchUpResult>()
+
+    // W: after the pin, call group.void through executeSecret in sdk api "group"; map the error frame with MlsGroupMetadataReader.refusal; parse with MlsGroupMetadataReader.committed
+    override suspend fun voidCommit(account: String, groupId: String, logSeq: Long) = unavailable<MlsGroupCommit>()
+
     override fun events(account: String): Flow<MlsGroupSignal> = flow {
         if (account.isBlank() || account.length > 4096) return@flow
         val filter = SubscriptionFilter(account, buildJsonObject { put("topics", buildJsonArray { add(TOPIC) }) })

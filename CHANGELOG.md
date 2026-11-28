@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- MLS groups (M3, data): `MlsGroupMetadataReader` reads the join requests page, decline, push and catch-up results, the typed refusals (`not_admin{required: owner}` is `not_owner`, `paced` and `void_not_head` carry their number) and the `pending_join`, `catch_up`, `warning` and `void` events; both void shapes give one row. Warnings are a sealed code type with params. `MlsGroupRepository` gains the M3 methods (requests, approve, decline, role, remove, ban, name, approval, push, skip, void); the native repository answers every one with the typed unavailable result until the pin batch and calls nothing
 - MLS groups (M3, carry-over): the invite panel offers 1 and 7 days only; the host caps an invite at 7 days and refused the 30-day preset
 - Fix (G05e-A, round 3): an app-lock lease with no event pump running first sends `subscription.close`, so an attended mark core kept after a refused `bus.subscribe` or a lock no longer refuses app-lock reads for another account (`app_lock_unauthorized` on `account.app_lock.state` after creating a second account).
 - Fix (G05e-A): with several accounts, creating or switching to an account and returning from the background no longer stick on the app-lock cover; app-lock calls for another account run with the event subscription detached and it reopens afterwards. Real run: flow `f23` drives two accounts with the app lock.

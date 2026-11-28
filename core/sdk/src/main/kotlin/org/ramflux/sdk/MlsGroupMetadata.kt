@@ -3,6 +3,10 @@
 
 package org.ramflux.sdk
 
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.longOrNull
+
 /*
  * Readers of the MLS group methods (RFCORE-144 method table r3) and of the `group.event` topic. They are pure functions over
  * one SDK reply: the reply is read once and wiped. Unknown enum values are kept as UNKNOWN with the raw code; a payload is
@@ -47,9 +51,80 @@ sealed interface MlsPrivacyDelay {
     data class Waiting(val sendAfter: Long) : MlsPrivacyDelay
 }
 
-data class MlsWarning(val code: String, val cleared: Boolean, val hostNode: String?) {
-    override fun toString() = "MlsWarning(code=$code)"
+enum class MlsRejoinReason { PRUNED, GATE_REJECTED, APPLY_FAILED, WELCOME_EXPIRED, STATE_LOST, UNKNOWN }
+
+enum class MlsHostUnusualKind { LATE_ROLL, LATE_REPLY, UNKNOWN }
+
+/**
+ * One warning code with its typed params (M3 contract 2.7). [key] is the wire code; warnings of a group are a set keyed by it.
+ * Params never carry a name or an id except the host node of `host_ip_visible`, which the info row shows.
+ */
+sealed interface MlsWarningCode {
+    val key: String
+
+    data class ForkAlarm(val headN: Long?) : MlsWarningCode {
+        override val key get() = "fork_alarm"
+    }
+
+    /** [raw] is set only for [MlsRejoinReason.UNKNOWN]. */
+    data class RejoinNeeded(val reason: MlsRejoinReason, val raw: String?) : MlsWarningCode {
+        override val key get() = "rejoin_needed"
+    }
+
+    data class Undecryptable(val count: Long, val fromLogSeq: Long?) : MlsWarningCode {
+        override val key get() = "undecryptable"
+    }
+
+    data object AdmissionNeedsOnline : MlsWarningCode {
+        override val key get() = "admission_needs_online"
+    }
+
+    data class HostUnusual(val kind: MlsHostUnusualKind) : MlsWarningCode {
+        override val key get() = "host_unusual"
+    }
+
+    data class HeadCommitRejected(val logSeq: Long?) : MlsWarningCode {
+        override val key get() = "head_commit_rejected"
+    }
+
+    data class HostIpVisible(val hostNode: String?) : MlsWarningCode {
+        override val key get() = "host_ip_visible"
+        override fun toString() = "HostIpVisible(<redacted>)"
+    }
+
+    data class Unknown(val code: String) : MlsWarningCode {
+        override val key get() = code
+    }
 }
+
+data class MlsWarning(val code: MlsWarningCode, val cleared: Boolean) {
+    override fun toString() = "MlsWarning(code=${code.key})"
+}
+
+/** One pending join request of an approval group (`group.requests.list` row, `pending_join` event body). */
+data class MlsJoinRequestMetadata(
+    val requestId: String,
+    val anchor: String,
+    val display: String?,
+    val aiFlag: Boolean,
+    val requestedAt: Long?,
+    val expiresAt: Long?,
+) {
+    override fun toString() = "MlsJoinRequestMetadata(<redacted>)"
+}
+
+data class MlsRequestPageMetadata(val rows: List<MlsJoinRequestMetadata>, val cursor: String?) {
+    override fun toString() = "MlsRequestPageMetadata(<redacted>)"
+}
+
+/** `group.catch_up{skip: true}` result and the `catch_up` event body. An unknown state reads as idle (r3 item 3). */
+data class MlsCatchUpMetadata(val state: MlsCatchUpState, val done: Long, val total: Long)
+
+/** `group.push.set` result: this device's mode. */
+data class MlsPushResultMetadata(val push: MlsPush)
+
+/** A typed refusal of an M3 call: the lower-case [code] and the one number it carries (`retry_at`, `head_log_seq`). */
+data class MlsRefusalMetadata(val code: String, val detail: Long?)
 
 /** A `group.list` row or the `group.info` result. */
 data class MlsGroupInfoMetadata(
@@ -205,6 +280,9 @@ data class MlsPostMetadata(
     val changes: List<MlsMembershipChange>,
     val settings: MlsSettingsChange?,
     val by: MlsAuthor?,
+    /** `void` rows only: the commit the row undoes and the epoch the group returns to. */
+    val voidedLogSeq: Long? = null,
+    val epoch: Long? = null,
 ) {
     override fun toString() = "MlsPostMetadata(<redacted>)"
 }
@@ -270,7 +348,20 @@ sealed interface MlsEventMetadata {
         override fun toString() = "JoinResult(<redacted>)"
     }
 
-    /** `pending_join`, `catch_up`, `warning`, `void` and any unknown kind: M2 skips them without reading the payload. */
+    /** `pending_join`: a new request for an admin. */
+    data class PendingJoin(override val groupId: String?, override val seq: Long?, val request: MlsJoinRequestMetadata) : MlsEventMetadata {
+        override fun toString() = "PendingJoin(<redacted>)"
+    }
+
+    data class CatchUp(override val groupId: String?, override val seq: Long?, val catchUp: MlsCatchUpMetadata) : MlsEventMetadata {
+        override fun toString() = "CatchUp(state=${catchUp.state})"
+    }
+
+    data class Warning(override val groupId: String?, override val seq: Long?, val warning: MlsWarning) : MlsEventMetadata {
+        override fun toString() = "Warning(code=${warning.code.key}, cleared=${warning.cleared})"
+    }
+
+    /** Any unknown kind: skipped without reading the payload. */
     data class Skipped(override val groupId: String?, override val seq: Long?, val kind: String?) : MlsEventMetadata {
         override fun toString() = "Skipped(kind=$kind)"
     }
@@ -380,6 +471,100 @@ object MlsGroupMetadataReader {
         }
     }
 
+    /** `group.requests.list`: `{requests[], cursor?}`, at most 200 rows. */
+    fun requests(reply: SecretReply): CoreResult<MlsRequestPageMetadata> = decode(reply) { f ->
+        MlsRequestPageMetadata(f.rows("requests", PAGE).map { request(f, it) }, cursor(f, f.root))
+    }
+
+    /** `group.requests.decline`: true when `state` is `declined`. */
+    fun declined(reply: SecretReply): CoreResult<Boolean> = decode(reply) { f -> text(f, f.root, "state", 64) == "declined" }
+
+    /** `group.push.set`: `{push}`; an unknown value reads as unknown, never as a mode. */
+    fun push(reply: SecretReply): CoreResult<MlsPushResultMetadata> = decode(reply) { f ->
+        MlsPushResultMetadata(push(text(f, f.root, "push", 64)))
+    }
+
+    /** `group.catch_up{skip: true}`: `{state: rejoining}` or `{state: running, done, total}`. */
+    fun catchUp(reply: SecretReply): CoreResult<MlsCatchUpMetadata> = decode(reply) { f -> catchUp(f, f.root) }
+
+    /**
+     * The typed refusal of an M3 call, from the error frame's status name and details (pure; the repository at W calls it).
+     * `not_admin{required: owner}` is `not_owner`; any other `not_admin` stays `not_admin`; `paced` carries `retry_at` and
+     * `void_not_head` carries `head_log_seq`. A code that is not a lower-case token is `unknown`; a token is kept raw.
+     */
+    fun refusal(statusName: String?, details: JsonObject?): MlsRefusalMetadata {
+        val name = token(statusName) ?: return MlsRefusalMetadata("unknown", null)
+        fun number(key: String) = (details?.get(key) as? JsonPrimitive)?.takeIf { !it.isString }?.longOrNull?.takeIf { it >= 0 }
+        return when (name) {
+            "not_admin" ->
+                if ((details?.get("required") as? JsonPrimitive)?.takeIf { it.isString }?.content == "owner") {
+                    MlsRefusalMetadata("not_owner", null)
+                } else {
+                    MlsRefusalMetadata("not_admin", null)
+                }
+            "paced" -> MlsRefusalMetadata(name, number("retry_at"))
+            "void_not_head" -> MlsRefusalMetadata(name, number("head_log_seq"))
+            else -> MlsRefusalMetadata(name, null)
+        }
+    }
+
+    private fun request(f: DisplayFields, row: ByteJson.Node): MlsJoinRequestMetadata {
+        val who = author(f, row, "anchor")
+        return MlsJoinRequestMetadata(
+            requireNotNull(text(f, row, "request_id", BOUND)?.takeIf { it.isNotEmpty() }),
+            who.anchor, who.display, who.aiFlag,
+            f.optionalUnsigned(row, "requested_at"), f.optionalUnsigned(row, "expires_at"),
+        )
+    }
+
+    private fun catchUp(f: DisplayFields, row: ByteJson.Node) = MlsCatchUpMetadata(
+        catchUpState(text(f, row, "state", 64)),
+        f.optionalUnsigned(row, "done") ?: 0L,
+        f.optionalUnsigned(row, "total") ?: 0L,
+    )
+
+    private fun catchUpState(raw: String?) = when (raw) {
+        "running" -> MlsCatchUpState.RUNNING
+        "rejoining" -> MlsCatchUpState.REJOINING
+        else -> MlsCatchUpState.IDLE
+    }
+
+    /** One warning of the info list or of a `warning` event body; null when the code is not a token. */
+    private fun warning(f: DisplayFields, row: ByteJson.Node): MlsWarning? {
+        val code = token(text(f, row, "code", 64)) ?: return null
+        val params = obj(f, row, "params")
+        val parsed = when (code) {
+            "fork_alarm" -> MlsWarningCode.ForkAlarm(params?.let { f.optionalUnsigned(it, "head_n") })
+            "rejoin_needed" -> {
+                val raw = params?.let { token(text(f, it, "reason", 64)) }
+                val reason = when (raw) {
+                    "pruned" -> MlsRejoinReason.PRUNED
+                    "gate_rejected" -> MlsRejoinReason.GATE_REJECTED
+                    "apply_failed" -> MlsRejoinReason.APPLY_FAILED
+                    "welcome_expired" -> MlsRejoinReason.WELCOME_EXPIRED
+                    "state_lost" -> MlsRejoinReason.STATE_LOST
+                    else -> MlsRejoinReason.UNKNOWN
+                }
+                MlsWarningCode.RejoinNeeded(reason, raw.takeIf { reason == MlsRejoinReason.UNKNOWN })
+            }
+            "undecryptable" -> MlsWarningCode.Undecryptable(
+                params?.let { f.optionalUnsigned(it, "count") } ?: 0L, params?.let { f.optionalUnsigned(it, "from_log_seq") },
+            )
+            "admission_needs_online" -> MlsWarningCode.AdmissionNeedsOnline
+            "host_unusual" -> MlsWarningCode.HostUnusual(
+                when (params?.let { token(text(f, it, "kind", 64)) }) {
+                    "late_roll" -> MlsHostUnusualKind.LATE_ROLL
+                    "late_reply" -> MlsHostUnusualKind.LATE_REPLY
+                    else -> MlsHostUnusualKind.UNKNOWN
+                },
+            )
+            "head_commit_rejected" -> MlsWarningCode.HeadCommitRejected(params?.let { f.optionalUnsigned(it, "log_seq") })
+            "host_ip_visible" -> MlsWarningCode.HostIpVisible(params?.let { text(f, it, "host_node", BOUND) })
+            else -> MlsWarningCode.Unknown(code)
+        }
+        return MlsWarning(parsed, f.optionalBoolean(row, "cleared") ?: false)
+    }
+
     private fun read(f: DisplayFields, row: ByteJson.Node) = MlsReadMetadata(
         f.optionalUnsigned(row, "read_log_seq") ?: 0L,
         f.optionalUnsigned(row, "unread") ?: 0L,
@@ -432,6 +617,13 @@ object MlsGroupMetadataReader {
                     if (joined) null else refusal(f, body, text(f, body, "reason", 64)),
                 )
             }
+            "void" -> {
+                val row = obj(f, body, "body") ?: body
+                MlsEventMetadata.Service(group, seq, voidRow(f, row, f.optionalUnsigned(body, "log_seq")))
+            }
+            "pending_join" -> MlsEventMetadata.PendingJoin(group, seq, request(f, obj(f, body, "body") ?: body))
+            "catch_up" -> MlsEventMetadata.CatchUp(group, seq, catchUp(f, obj(f, body, "body") ?: body))
+            "warning" -> MlsEventMetadata.Warning(group, seq, requireNotNull(warning(f, obj(f, body, "body") ?: body)))
             else -> MlsEventMetadata.Skipped(group, seq, kind)
         }
     }
@@ -451,11 +643,7 @@ object MlsGroupMetadataReader {
             myRole = role(f, row, "my_role"),
             hostNode = text(f, row, "host_node", BOUND)?.takeIf { it.isNotEmpty() },
             push = push(text(f, row, "push", 64)),
-            catchUp = when (catchUp?.let { text(f, it, "state", 64) }) {
-                "running" -> MlsCatchUpState.RUNNING
-                "rejoining" -> MlsCatchUpState.REJOINING
-                else -> MlsCatchUpState.IDLE
-            },
+            catchUp = catchUpState(catchUp?.let { text(f, it, "state", 64) }),
             catchUpDone = catchUp?.let { f.optionalUnsigned(it, "done") } ?: 0L,
             catchUpTotal = catchUp?.let { f.optionalUnsigned(it, "total") } ?: 0L,
             privacyDelay = obj(f, row, "privacy_delay")?.let { delay ->
@@ -475,10 +663,7 @@ object MlsGroupMetadataReader {
                     text(f, last, "snippet", 400)?.take(100), f.optionalUnsigned(last, "appended_at"),
                 )
             },
-            warnings = warnings.mapNotNull { w ->
-                val code = token(text(f, w, "code", 64)) ?: return@mapNotNull null
-                MlsWarning(code, f.optionalBoolean(w, "cleared") ?: false, obj(f, w, "params")?.let { text(f, it, "host_node", BOUND) })
-            },
+            warnings = warnings.mapNotNull { warning(f, it) },
         )
     }
 
@@ -547,6 +732,11 @@ object MlsGroupMetadataReader {
                 appendedAt = f.optionalUnsigned(row, "appended_at"),
                 state = postState(f, row, obj(f, row, "params") ?: row),
             )
+            MlsPostKind.VOID -> voidRow(f, obj(f, row, "body") ?: row, logSeq).copy(
+                postId = text(f, row, "post_id", BOUND).orEmpty(),
+                appendedAt = f.optionalUnsigned(row, "appended_at"),
+                state = postState(f, row, obj(f, row, "params") ?: row),
+            )
             else -> {
                 val bodyNode = f.field(row, "body")
                 val bodyObject = bodyNode?.takeIf { it.kind == 123 }
@@ -597,6 +787,12 @@ object MlsGroupMetadataReader {
             logSeq, "", null, null, kind, null, null, null, emptyList(), MlsPostState.Sent(logSeq), changes, settings, by(f, body),
         )
     }
+
+    /** The body of a `void` row or event: `{voided_log_seq, epoch, by}`. Both wire shapes give the same row. */
+    private fun voidRow(f: DisplayFields, body: ByteJson.Node, logSeq: Long?): MlsPostMetadata = MlsPostMetadata(
+        logSeq, "", null, null, MlsPostKind.VOID, null, null, null, emptyList(), MlsPostState.Sent(logSeq), emptyList(), null, by(f, body),
+        voidedLogSeq = requireNotNull(f.optionalUnsigned(body, "voided_log_seq")), epoch = f.optionalUnsigned(body, "epoch"),
+    )
 
     /** `by`: an author object, or a bare anchor (Q2). */
     private fun by(f: DisplayFields, body: ByteJson.Node): MlsAuthor? {

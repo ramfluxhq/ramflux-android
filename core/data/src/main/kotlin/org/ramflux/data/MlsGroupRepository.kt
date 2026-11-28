@@ -25,7 +25,74 @@ data class MlsGroupAuthor(val anchor: String, val display: String?, val aiFlag: 
 
 data class MlsGroupQuota(val limit: Long, val remaining: Long, val firstDay: Boolean, val resetsAt: Long?)
 
-data class MlsGroupWarning(val code: String, val hostNode: String?)
+enum class MlsGroupRejoinReason { PRUNED, GATE_REJECTED, APPLY_FAILED, WELCOME_EXPIRED, STATE_LOST, UNKNOWN }
+
+enum class MlsGroupHostUnusual { LATE_ROLL, LATE_REPLY, UNKNOWN }
+
+/**
+ * One warning of a group with its typed params (M3 contract 2.7). [key] is the wire code; the warnings of a group are a set
+ * keyed by it. `host_ip_visible` stays the M2 info row and is never a banner.
+ */
+sealed interface MlsGroupWarning {
+    val key: String
+
+    data class ForkAlarm(val headN: Long?) : MlsGroupWarning {
+        override val key get() = "fork_alarm"
+    }
+
+    data class RejoinNeeded(val reason: MlsGroupRejoinReason) : MlsGroupWarning {
+        override val key get() = "rejoin_needed"
+    }
+
+    data class Undecryptable(val count: Long, val fromLogSeq: Long?) : MlsGroupWarning {
+        override val key get() = "undecryptable"
+    }
+
+    data object AdmissionNeedsOnline : MlsGroupWarning {
+        override val key get() = "admission_needs_online"
+    }
+
+    data class HostUnusual(val kind: MlsGroupHostUnusual) : MlsGroupWarning {
+        override val key get() = "host_unusual"
+    }
+
+    data class HeadCommitRejected(val logSeq: Long?) : MlsGroupWarning {
+        override val key get() = "head_commit_rejected"
+    }
+
+    data class HostIpVisible(val hostNode: String?) : MlsGroupWarning {
+        override val key get() = "host_ip_visible"
+        override fun toString() = "HostIpVisible(<redacted>)"
+    }
+
+    /** A code this version does not know: a generic row in group info only. */
+    data class Unknown(val code: String) : MlsGroupWarning {
+        override val key get() = code
+    }
+}
+
+/** One pending join request of an approval group. [display] is null for a non-contact: screens show "this member". */
+data class MlsJoinRequest(
+    val requestId: String,
+    val anchor: String,
+    val display: String?,
+    val aiFlag: Boolean,
+    val requestedAt: Long?,
+    val expiresAt: Long?,
+) {
+    override fun toString() = "MlsJoinRequest(<redacted>)"
+}
+
+/** An admin call the SDK committed: the group log position the matching event will carry. */
+data class MlsGroupCommit(val logSeq: Long) {
+    override fun toString() = "MlsGroupCommit(<redacted>)"
+}
+
+/** The result of `group.catch_up{skip: true}`. */
+sealed interface MlsCatchUpResult {
+    data object Rejoining : MlsCatchUpResult
+    data class Running(val done: Long, val total: Long) : MlsCatchUpResult
+}
 
 data class MlsGroupLastPost(val logSeq: Long?, val kind: MlsGroupPostKind, val author: MlsGroupAuthor?, val snippet: String?, val appendedAt: Long?) {
     override fun toString() = "MlsGroupLastPost(<redacted>)"
@@ -55,6 +122,8 @@ data class MlsGroup(
     val unreadMentions: Long,
     val readLogSeq: Long,
     val lastPost: MlsGroupLastPost?,
+    /** The warnings the info read listed (cleared ones are left out). */
+    val warnings: List<MlsGroupWarning> = emptyList(),
 ) {
     override fun toString() = "MlsGroup(<redacted>)"
 }
@@ -172,6 +241,8 @@ data class MlsGroupPost(
     val settingsName: String?,
     val settingsApproval: Boolean?,
     val by: MlsGroupAuthor?,
+    /** `void` rows only: the commit the row undoes. */
+    val voidedLogSeq: Long? = null,
 ) {
     override fun toString() = "MlsGroupPost(<redacted>)"
 }
@@ -187,7 +258,7 @@ data class MlsGroupSend(val postId: String, val state: MlsGroupPostState) {
 
 data class MlsGroupRead(val readLogSeq: Long, val unread: Long, val unreadMentions: Long)
 
-/** One live signal of the `group.event` topic. M2 kinds only; the others are skipped by the repository. */
+/** One live signal of the `group.event` topic. A void arrives as [Service] with a `void` row, like the history row. */
 sealed interface MlsGroupSignal {
     val groupId: String?
 
@@ -214,6 +285,20 @@ sealed interface MlsGroupSignal {
 
     data class Read(override val groupId: String?, val read: MlsGroupRead) : MlsGroupSignal {
         override fun toString() = "Read(<redacted>)"
+    }
+
+    /** `pending_join`: a new request, for an admin of an approval group. */
+    data class PendingJoin(override val groupId: String?, val request: MlsJoinRequest) : MlsGroupSignal {
+        override fun toString() = "PendingJoin(<redacted>)"
+    }
+
+    /** `catch_up`: [seq] is the envelope position the session dedupes by. */
+    data class CatchUp(override val groupId: String?, val seq: Long?, val state: MlsGroupCatchUp, val done: Long, val total: Long) : MlsGroupSignal {
+        override fun toString() = "CatchUp(state=$state)"
+    }
+
+    data class Warning(override val groupId: String?, val warning: MlsGroupWarning, val cleared: Boolean) : MlsGroupSignal {
+        override fun toString() = "Warning(code=${warning.key}, cleared=$cleared)"
     }
 
     /** The subscription lost events: re-read what is on screen. */
@@ -273,6 +358,41 @@ interface MlsGroupRepository {
     /** `group.leave`. */
     suspend fun leave(account: String, groupId: String): ClientResult<Unit>
 
+    // ---- M3: admin and edge states. Every call is made once per confirmed tap; none is retried or sent automatically. ----
+
+    /** `group.requests.list`; the client sends [limit] 200. */
+    suspend fun requests(account: String, groupId: String, cursor: String?, limit: Int): ClientResult<MlsGroupPage<MlsJoinRequest>>
+
+    /** `group.requests.approve`: an admin commit. */
+    suspend fun approveRequest(account: String, groupId: String, requestId: String): ClientResult<MlsGroupCommit>
+
+    /** `group.requests.decline`: nothing is committed. */
+    suspend fun declineRequest(account: String, groupId: String, requestId: String): ClientResult<Unit>
+
+    /** `group.role.set`; [role] is ADMIN or MEMBER only. */
+    suspend fun setRole(account: String, groupId: String, anchor: String, role: MlsGroupRole): ClientResult<MlsGroupCommit>
+
+    /** `group.member.remove`. */
+    suspend fun removeMember(account: String, groupId: String, anchor: String): ClientResult<MlsGroupCommit>
+
+    /** `group.member.ban`. */
+    suspend fun banMember(account: String, groupId: String, anchor: String): ClientResult<MlsGroupCommit>
+
+    /** `group.settings.set{name}`: one field per call, so a settings call can never carry the push mode. */
+    suspend fun setName(account: String, groupId: String, name: String): ClientResult<MlsGroupCommit>
+
+    /** `group.settings.set{approval}`. */
+    suspend fun setApproval(account: String, groupId: String, approval: Boolean): ClientResult<MlsGroupCommit>
+
+    /** The per-device push mode (Q1): local to this device, no commit, no event. */
+    suspend fun setPush(account: String, groupId: String, push: MlsGroupPush): ClientResult<MlsGroupPush>
+
+    /** `group.catch_up{skip: true}`: the only form the app sends. */
+    suspend fun skipCatchUp(account: String, groupId: String): ClientResult<MlsCatchUpResult>
+
+    /** `group.void` on the head commit at [logSeq]. */
+    suspend fun voidCommit(account: String, groupId: String, logSeq: Long): ClientResult<MlsGroupCommit>
+
     /** The `group.event` topic of [account]. */
     fun events(account: String): Flow<MlsGroupSignal> = emptyFlow()
 }
@@ -295,4 +415,15 @@ object UnavailableMlsGroups : MlsGroupRepository {
     override suspend fun markRead(account: String, groupId: String, logSeq: Long) = unavailable<MlsGroupRead>()
     override suspend fun delete(account: String, groupId: String, postId: String) = unavailable<MlsGroupSend>()
     override suspend fun leave(account: String, groupId: String) = unavailable<Unit>()
+    override suspend fun requests(account: String, groupId: String, cursor: String?, limit: Int) = unavailable<MlsGroupPage<MlsJoinRequest>>()
+    override suspend fun approveRequest(account: String, groupId: String, requestId: String) = unavailable<MlsGroupCommit>()
+    override suspend fun declineRequest(account: String, groupId: String, requestId: String) = unavailable<Unit>()
+    override suspend fun setRole(account: String, groupId: String, anchor: String, role: MlsGroupRole) = unavailable<MlsGroupCommit>()
+    override suspend fun removeMember(account: String, groupId: String, anchor: String) = unavailable<MlsGroupCommit>()
+    override suspend fun banMember(account: String, groupId: String, anchor: String) = unavailable<MlsGroupCommit>()
+    override suspend fun setName(account: String, groupId: String, name: String) = unavailable<MlsGroupCommit>()
+    override suspend fun setApproval(account: String, groupId: String, approval: Boolean) = unavailable<MlsGroupCommit>()
+    override suspend fun setPush(account: String, groupId: String, push: MlsGroupPush) = unavailable<MlsGroupPush>()
+    override suspend fun skipCatchUp(account: String, groupId: String) = unavailable<MlsCatchUpResult>()
+    override suspend fun voidCommit(account: String, groupId: String, logSeq: Long) = unavailable<MlsGroupCommit>()
 }
