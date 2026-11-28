@@ -246,13 +246,14 @@ class OnboardingViewModel @Inject constructor(
         }
     }
     private fun reviewAddress() {
-        if (local.value.operatorKey.isBlank()) {
-            local.update { it.copy(operatorKeyIssue = OperatorKeyIssue.REQUIRED) }
-            return
-        }
         val preview = DiscoveryOriginParser.preview(local.value.address)
         if (preview == null) {
             local.update { it.copy(notice = OnboardingNotice(uiText(R.string.ui_enter_an_https_address_without_a_username_or))) }
+            return
+        }
+        // Without an operator key only an https node is pinned (first connection); plain http needs the key.
+        if (local.value.operatorKey.isBlank() && !preview.origin.startsWith("https://")) {
+            local.update { it.copy(notice = OnboardingNotice(uiText(R.string.ui_use_an_https_address))) }
             return
         }
         candidate = null
@@ -262,7 +263,6 @@ class OnboardingViewModel @Inject constructor(
         if (local.value.page != OnboardingPage.CONFIRM) return
         val address = local.value.normalizedOrigin ?: return
         val operatorKey = local.value.operatorKey
-        if (operatorKey.isBlank()) return
         candidate = null
         local.update { it.copy(page = OnboardingPage.CHECKING, identity = null) }
         launch {
@@ -270,7 +270,7 @@ class OnboardingViewModel @Inject constructor(
             checkCurrent()
             when (result) {
                 is ClientResult.Ready -> {
-                    if (result.value.node.publicKey != operatorKey) {
+                    if (operatorKey.isNotBlank() && result.value.node.publicKey != operatorKey) {
                         local.update {
                             it.copy(
                                 page = OnboardingPage.ADDRESS,
@@ -288,7 +288,10 @@ class OnboardingViewModel @Inject constructor(
                                 result.value.node.id,
                                 result.value.node.url,
                                 result.value.fingerprint,
-                                result.value.node.keyChanged
+                                result.value.node.keyChanged,
+                                // A node already pinned with this very key is shown as trusted: nothing to confirm.
+                                alreadyTrusted = !result.value.node.keyChanged &&
+                                    savedNodes.any { it.id == result.value.node.id && it.publicKey == result.value.node.publicKey }
                             ),
                             notice = if (result.value.node.keyChanged) {
                                 OnboardingNotice(
@@ -310,10 +313,11 @@ class OnboardingViewModel @Inject constructor(
     }
     private fun confirm() {
         val current = candidate ?: return
-        if (current.node.keyChanged || current.node.publicKey != local.value.operatorKey) return
+        val key = local.value.operatorKey
+        if (current.node.keyChanged || (key.isNotBlank() && current.node.publicKey != key)) return
         local.update { it.copy(page = OnboardingPage.SAVING) }
         launch {
-            val result = nodes.confirm(current, local.value.operatorKey)
+            val result = nodes.confirm(current, key)
             checkCurrent()
             when (result) {
                 is ClientResult.Ready -> {

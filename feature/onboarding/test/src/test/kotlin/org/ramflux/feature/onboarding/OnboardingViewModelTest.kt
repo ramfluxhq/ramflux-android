@@ -459,7 +459,7 @@ class OnboardingViewModelTest {
         assertFalse(vm.state.value.busy)
     }
 
-    @Test fun operatorKeyMustPrecedeDiscoveryAndCannotBeReplacedAfterIdentityIsShown() = runTest(timeout = 5.seconds) {
+    @Test fun withoutAKeyAnHttpsNodeIsShownForFirstConnectionAndAnEnteredKeyMustMatch() = runTest(timeout = 5.seconds) {
         val nodes = FakeNodeSetup()
         val vm = OnboardingViewModel(FakeAccountAccess(), nodes, FakeOnboardingSession())
         observe(vm)
@@ -469,9 +469,10 @@ class OnboardingViewModelTest {
         vm.onAction(OnboardingAction.ReviewAddress)
         vm.onAction(OnboardingAction.Discover)
         runCurrent()
-        assertEquals(0, nodes.discoveries)
-        assertNull(vm.state.value.identity)
-        assertEquals(OperatorKeyIssue.REQUIRED, vm.state.value.operatorKeyIssue)
+        // No operator key: the https node is shown for first-connection trust.
+        assertEquals(1, nodes.discoveries)
+        assertNotNull(vm.state.value.identity)
+        vm.onAction(OnboardingAction.Page(OnboardingPage.ADDRESS))
         vm.onAction(OnboardingAction.OperatorKey("wrong-key"))
         vm.onAction(OnboardingAction.ReviewAddress)
         vm.onAction(OnboardingAction.Discover)

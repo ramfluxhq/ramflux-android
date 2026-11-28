@@ -44,8 +44,14 @@ enum class OnboardingPage(val board: String, val title: UiText) {
 
 @Immutable data class NodeItem(val id: String, val url: String, val keyChanged: Boolean, val isDefault: Boolean, val enabled: Boolean)
 
-@Immutable data class IdentityFacts(val id: String, val url: String, val fingerprint: String, val keyChanged: Boolean)
-enum class OperatorKeyIssue { REQUIRED, MISMATCH }
+@Immutable data class IdentityFacts(
+    val id: String,
+    val url: String,
+    val fingerprint: String,
+    val keyChanged: Boolean,
+    val alreadyTrusted: Boolean = false
+)
+enum class OperatorKeyIssue { MISMATCH }
 enum class OnboardingNoticeKind { ERROR, UNAVAILABLE, UNKNOWN_OUTCOME }
 
 @Immutable data class OnboardingNotice(val message: UiText, val kind: OnboardingNoticeKind = OnboardingNoticeKind.ERROR)

@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,6 +18,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -757,12 +760,15 @@ internal fun LazyListScope.pairingPage(
                         stringResource(R.string.settings_pairing_confirm_body),
                         KitWarningTone.Danger
                     )
+                    // Approving grants authority: initial and screen-reader focus start on Cancel, which reads first.
+                    val cancelFocus = remember { FocusRequester() }
+                    LaunchedEffect(Unit) { runCatching { cancelFocus.requestFocus() } }
+                    KitButton(stringResource(R.string.settings_pairing_decline), {
+                        onAction(SettingsAction.DeclinePairing)
+                    }, Modifier.focusRequester(cancelFocus), kind = KitButtonKind.Secondary, tag = "pairing-decline")
                     KitButton(stringResource(R.string.settings_pairing_approve), {
                         onAction(SettingsAction.ConfirmApprovePairing)
                     }, tag = "pairing-confirm-approve")
-                    KitButton(stringResource(R.string.settings_pairing_decline), {
-                        onAction(SettingsAction.DeclinePairing)
-                    }, kind = KitButtonKind.Secondary, tag = "pairing-decline")
                 }
             }
         }

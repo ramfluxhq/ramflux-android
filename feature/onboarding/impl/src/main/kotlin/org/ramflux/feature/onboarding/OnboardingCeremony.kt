@@ -169,6 +169,8 @@ internal fun ChallengePage(state: OnboardingState, entry: ChallengeEntry) {
         helper = stringResource(R.string.ui_account_code_explanation),
         onEdited = entry::edited
     )
+    // Core allows one word check per ceremony; a failed check ends it, so the person is told before the one try.
+    Text(stringResource(R.string.ui_create_one_try), color = LocalRFTheme.current.secondary, modifier = Modifier.testTag("create-one-try"))
 }
 
 /** Recovery secrets stay in these buffers. Confirm reads them once and erases them. */

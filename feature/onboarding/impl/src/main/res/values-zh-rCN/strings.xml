@@ -70,8 +70,7 @@
     <string name="ui_your_identity_your_connections">你的身份，你的连接。</string>
 
     <string name="ui_operator_key">运营方公钥</string>
-    <string name="ui_operator_key_explanation">连接前，请通过独立的可信渠道直接向节点运营方获取公钥，并在发现节点前输入。</string>
-    <string name="ui_operator_key_required">检查地址前，请先输入运营方公钥。</string>
+    <string name="ui_operator_key_explanation">可选。如果节点运营者给了你它的公钥，请在此输入：它必须与节点一致。</string>
     <string name="ui_operator_key_mismatch">发现的公钥与运营方公钥不匹配，未固定任何公钥。请向运营方核实地址和公钥。</string>
     <string name="ui_display_name">显示名称</string>
     <string name="ui_display_name_explanation">此名称用于新账户。恢复短语在本机生成，并且只显示一次。</string>
@@ -252,7 +251,13 @@
     <string name="ui_trust_this_node">信任此节点</string>
     <string name="ui_cancel">取消</string>
     <string name="ui_node_trust_first">首次连接。如果此节点的密钥发生变化，Ramflux 会提醒你。</string>
-    <string name="ui_node_trust_confirmed">密钥已由邀请确认。</string>
+    <string name="ui_node_trust_confirmed">密钥已由运营者密钥确认。</string>
     <string name="ui_show">显示</string>
     <string name="ui_hide">隐藏</string>
+    <string name="ui_use_an_https_address">请使用 https 地址。</string>
+    <string name="ui_enter_operator_key">输入运营者密钥</string>
+    <string name="ui_node_key_changed_title">此节点的密钥已更改</string>
+    <string name="ui_node_key_changed_body">除非你预期此变化，否则请勿继续。</string>
+    <string name="ui_node_already_trusted">你已信任此节点。</string>
+    <string name="ui_create_one_try">只有一次机会。如有词语不匹配，本次设置将结束，你需要重新开始。</string>
 </resources>

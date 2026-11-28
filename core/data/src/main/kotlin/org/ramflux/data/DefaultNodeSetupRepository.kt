@@ -50,10 +50,12 @@ internal class DefaultNodeSetupRepository(transport: RepositoryTransport) : Node
     }
     override suspend fun confirm(candidate: DiscoveredNode, operatorKey: String): ClientResult<Unit> {
         if (candidate.node.keyChanged) return ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.UNSUPPORTED_BY_CORE)
-        // The separately entered operator key is the SDK's atomic expected-key predicate.
-        if (operatorKey.isBlank() || operatorKey != candidate.node.publicKey) return invalid
+        // An entered operator key must equal the discovered key and pins as "operator"; without one the key the person was
+        // shown is the expected key and the node pins on first connection ("tofu"). Both are the SDK's atomic predicate.
+        if (operatorKey.isNotBlank() && operatorKey != candidate.node.publicKey) return invalid
+        val source = if (operatorKey.isBlank()) "tofu" else "operator"
         return decode(nodes.confirm(context(true), buildJsonObject {
-            put("node_id", candidate.node.id); put("expected_public_key", operatorKey); put("pin_source", "operator")
+            put("node_id", candidate.node.id); put("expected_public_key", candidate.node.publicKey); put("pin_source", source)
         }), mutation = true) { body ->
             val confirmed = node(body)
             require(confirmed.id == candidate.node.id && confirmed.publicKey == candidate.node.publicKey && !confirmed.keyChanged)

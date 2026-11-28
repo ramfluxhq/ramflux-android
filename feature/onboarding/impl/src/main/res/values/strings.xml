@@ -70,8 +70,7 @@
     <string name="ui_your_identity_your_connections">Your identity. Your connections.</string>
 
     <string name="ui_operator_key">Operator public key</string>
-    <string name="ui_operator_key_explanation">Before connecting, obtain the node public key directly from its operator through a separate trusted channel. Enter it here before discovery.</string>
-    <string name="ui_operator_key_required">Enter the operator public key before checking the address.</string>
+    <string name="ui_operator_key_explanation">Optional. If your node operator gave you its public key, enter it here: it must match the node.</string>
     <string name="ui_operator_key_mismatch">The discovered key does not match the operator key. Nothing was pinned. Verify the address and key with the operator.</string>
     <string name="ui_display_name">Display name</string>
     <string name="ui_display_name_explanation">This name is shown for the new account. The recovery phrase is created on this device and shown only once.</string>
@@ -259,7 +258,13 @@
     <string name="ui_trust_this_node">Trust this node</string>
     <string name="ui_cancel">Cancel</string>
     <string name="ui_node_trust_first">First connection. Ramflux will warn you if this node\'s key ever changes.</string>
-    <string name="ui_node_trust_confirmed">Key confirmed by your invite.</string>
+    <string name="ui_node_trust_confirmed">Key confirmed by your operator key.</string>
     <string name="ui_show">Show</string>
     <string name="ui_hide">Hide</string>
+    <string name="ui_use_an_https_address">Use an https address.</string>
+    <string name="ui_enter_operator_key">Enter operator key</string>
+    <string name="ui_node_key_changed_title">This node\'s key has changed</string>
+    <string name="ui_node_key_changed_body">Don\'t continue unless you expected this change.</string>
+    <string name="ui_node_already_trusted">You already trust this node.</string>
+    <string name="ui_create_one_try">You have one try. If a word does not match, this setup ends and you have to start again.</string>
 </resources>

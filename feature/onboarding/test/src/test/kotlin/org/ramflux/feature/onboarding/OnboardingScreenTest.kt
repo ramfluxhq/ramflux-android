@@ -69,6 +69,7 @@ class OnboardingScreenTest {
                 )
             }
         }
+        compose.onNodeWithTag("address-details-toggle", useUnmergedTree = true).performClick()
         compose.onNodeWithTag("operator-key").performScrollTo()
         compose.onNodeWithTag("operator-key").onChildren().filterToOne(hasSetTextAction()).performTextInput("trusted-operator-key")
         compose.runOnIdle {

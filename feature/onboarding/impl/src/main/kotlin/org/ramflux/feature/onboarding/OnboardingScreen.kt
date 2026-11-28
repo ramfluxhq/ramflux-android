@@ -125,25 +125,9 @@ fun OnboardingScreen(
                                 OnboardingPage.REFUSED -> {
                                     Text(stringResource(R.string.ui_add_your_node), style = MaterialTheme.typography.titleLarge)
                                     Text(stringResource(R.string.ui_enter_its_https_address_you_will_review_the))
-                                    state.operatorKeyIssue?.let { issue ->
-                                        Text(
-                                            stringResource(
-                                                if (issue == OperatorKeyIssue.REQUIRED) {
-                                                    R.string.ui_operator_key_required
-                                                } else {
-                                                    R.string.ui_operator_key_mismatch
-                                                }
-                                            )
-                                        )
+                                    state.operatorKeyIssue?.let {
+                                        Text(stringResource(R.string.ui_operator_key_mismatch))
                                     }
-                                    Text(stringResource(R.string.ui_operator_key_explanation))
-                                    KitTextField(
-                                        state.operatorKey,
-                                        { onAction(OnboardingAction.OperatorKey(it)) },
-                                        stringResource(R.string.ui_operator_key),
-                                        enabled = !state.busy,
-                                        tag = "operator-key"
-                                    )
                                     KitTextField(
                                         state.address,
                                         { onAction(OnboardingAction.Address(it)) },
@@ -151,8 +135,35 @@ fun OnboardingScreen(
                                         enabled = !state.busy,
                                         tag = "node-address"
                                     )
+                                    // An operator key is optional: entered under Details it must match and pins as the operator's.
+                                    var details by remember {
+                                        mutableStateOf(
+                                            state.operatorKey.isNotEmpty() || state.operatorKeyIssue != null
+                                        )
+                                    }
+                                    KitButton(
+                                        stringResource(R.string.ui_details),
+                                        { details = !details },
+                                        kind = KitButtonKind.Text,
+                                        tag = "address-details-toggle"
+                                    )
+                                    if (details) {
+                                        Text(stringResource(R.string.ui_operator_key_explanation))
+                                        KitTextField(
+                                            state.operatorKey,
+                                            { onAction(OnboardingAction.OperatorKey(it)) },
+                                            stringResource(R.string.ui_operator_key),
+                                            enabled = !state.busy,
+                                            tag = "operator-key"
+                                        )
+                                    }
                                 }
-                                OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED -> state.identity?.let { TrustNodePage(it) }
+                                OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED -> state.identity?.let {
+                                    TrustNodePage(
+                                        it,
+                                        state.operatorKey.isNotBlank()
+                                    )
+                                }
                                 OnboardingPage.CONFIRM -> {
                                     Text(stringResource(R.string.ui_entered_address), style = MaterialTheme.typography.labelLarge)
                                     Text(state.address)
@@ -305,12 +316,31 @@ private fun OnboardingFooter(
                 tag = "continue-created"
             )
             OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED -> {
-                KitButton(
-                    stringResource(R.string.ui_trust_this_node),
-                    { onAction(OnboardingAction.Confirm) },
-                    enabled = !state.busy && state.identity != null && !state.identity.keyChanged,
-                    tag = "confirm-node"
-                )
+                val identity = state.identity
+                if (identity?.alreadyTrusted == true) {
+                    // Already pinned with this key: nothing to trust again.
+                    KitButton(
+                        stringResource(R.string.ui_use_this_node),
+                        { onAction(OnboardingAction.ChooseNode(identity.id)) },
+                        enabled = !state.busy,
+                        tag = "use-trusted-node"
+                    )
+                } else if (identity?.keyChanged == true) {
+                    // A changed key: the only way on is the operator key.
+                    KitButton(
+                        stringResource(R.string.ui_enter_operator_key),
+                        { onAction(OnboardingAction.Page(OnboardingPage.ADDRESS)) },
+                        enabled = !state.busy,
+                        tag = "enter-operator-key"
+                    )
+                } else {
+                    KitButton(
+                        stringResource(R.string.ui_trust_this_node),
+                        { onAction(OnboardingAction.Confirm) },
+                        enabled = !state.busy && identity != null,
+                        tag = "confirm-node"
+                    )
+                }
                 KitButton(
                     stringResource(R.string.ui_cancel),
                     { onAction(OnboardingAction.Back) },
@@ -410,16 +440,22 @@ private fun WelcomePage(state: OnboardingState, onAction: (OnboardingAction) -> 
  * id, address and key fingerprint. Only a changed key uses the warning card.
  */
 @Composable
-private fun TrustNodePage(identity: IdentityFacts) {
+private fun TrustNodePage(identity: IdentityFacts, viaOperatorKey: Boolean) {
     var details by remember { mutableStateOf(false) }
     val host = remember(identity.url) { runCatching { java.net.URI(identity.url).host }.getOrNull() ?: identity.url }
     Text(host, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag("node-name"))
     Text(identity.url, modifier = Modifier.testTag("node-address-line"))
     if (identity.keyChanged) {
         KitSecurityWarning(
-            stringResource(R.string.ui_node_identity_changed),
-            stringResource(R.string.ui_the_saved_node_key_changed_confirmation_is_blocked),
+            stringResource(R.string.ui_node_key_changed_title),
+            stringResource(R.string.ui_node_key_changed_body),
             KitWarningTone.Danger
+        )
+    } else if (identity.alreadyTrusted) {
+        Text(
+            stringResource(R.string.ui_node_already_trusted),
+            color = LocalRFTheme.current.secondary,
+            modifier = Modifier.testTag("node-trust-status")
         )
     } else {
         Text(
@@ -427,7 +463,7 @@ private fun TrustNodePage(identity: IdentityFacts) {
             color = LocalRFTheme.current.secondary,
             modifier = Modifier.testTag("node-trust-status")
         )
-        Text(stringResource(R.string.ui_node_trust_confirmed), color = LocalRFTheme.current.secondary)
+        if (viaOperatorKey) Text(stringResource(R.string.ui_node_trust_confirmed), color = LocalRFTheme.current.secondary)
     }
     KitButton(stringResource(R.string.ui_details), { details = !details }, kind = KitButtonKind.Text, tag = "node-details-toggle")
     if (details) {
