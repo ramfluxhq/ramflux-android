@@ -8,10 +8,12 @@ package org.ramflux.sdk
  * one SDK reply: the reply is read once and wiped. Unknown enum values are kept as UNKNOWN with the raw code; a payload is
  * never logged and every type that holds a link, name, anchor or text prints `<redacted>`.
  *
- * Shapes that r3 leaves open are read under the assumptions of the M2 contract (section 10 of MLS-GUI-M2-common): Q1 members
- * `cursor`, Q2 `settings` and `void` bodies and a bare-anchor `by`, Q3 `post_state`, Q4 `join_result`, Q10 delete result, Q17
- * `group.read` result. The event frame carries the payload in `body` (the frame root is the fallback), a `post` event carries
- * the history row under `post`, and `membership` and `settings` events carry their body under `body`.
+ * Shapes follow method table r3 as changed by r4 (MLS-GUI-M2-r4-deltas): service rows have no `author` and only `by` names the
+ * actor; `settings` has no `push`; `group.read` is `group.refresh`; unread state and `last_post` ride on the group rows; own
+ * unsent rows are `state: pending` with a `send{state, params}`. The event frame carries the payload in `body` (the frame
+ * root is the fallback), a `post` event carries the history row under `post`, and `membership` and `settings` events carry
+ * their body under `body`. Where r4 does not give a wire position (the `post` event nesting, the `body` nesting) the reader
+ * assumes the nesting above.
  */
 
 enum class MlsRole { OWNER, ADMIN, MEMBER, UNKNOWN }
@@ -70,9 +72,38 @@ data class MlsGroupInfoMetadata(
     val lastLogSeq: Long,
     val lastActivityAt: Long?,
     val warnings: List<MlsWarning>,
+    val unread: Long = 0,
+    val unreadMentions: Long = 0,
+    val readLogSeq: Long = 0,
+    val lastPost: MlsLastPost? = null,
 ) {
     override fun toString() = "MlsGroupInfoMetadata(<redacted>)"
 }
+
+/** The preview of a group's newest post (text only, at most 100 characters). */
+data class MlsLastPost(val logSeq: Long?, val kind: MlsPostKind, val author: MlsAuthor?, val snippet: String?, val appendedAt: Long?) {
+    override fun toString() = "MlsLastPost(<redacted>)"
+}
+
+/** One pending join request (`group.join.pending`). It is rebuilt after a relaunch; the link is not part of it. */
+data class MlsPendingJoinMetadata(
+    val requestId: String,
+    val groupId: String,
+    val hostNode: String?,
+    val reason: MlsPendingReason,
+    val requestedAt: Long?,
+    val expiresAt: Long?,
+) {
+    override fun toString() = "MlsPendingJoinMetadata(<redacted>)"
+}
+
+/** `group.refresh`: one row per group the host answered for. */
+data class MlsRefreshedMetadata(val groupId: String, val lastLogSeq: Long, val newPosts: Long) {
+    override fun toString() = "MlsRefreshedMetadata(<redacted>)"
+}
+
+/** `group.mark_read` and the `read` event. */
+data class MlsReadMetadata(val readLogSeq: Long, val unread: Long, val unreadMentions: Long)
 
 data class MlsGroupPageMetadata(val groups: List<MlsGroupInfoMetadata>, val cursor: String?) {
     override fun toString() = "MlsGroupPageMetadata(<redacted>)"
@@ -98,8 +129,7 @@ data class MlsMemberPageMetadata(val rows: List<MlsMemberMetadata>, val cursor: 
 }
 
 enum class MlsJoinRefusal {
-    LINK_INVALID, INVITE_UNKNOWN, INVITE_EXPIRED, INVITE_USED_UP, INVITE_REVOKED, GROUP_FULL, REQUEST_EXPIRED, ALREADY_MEMBER,
-    RATE_LIMITED, UNKNOWN
+    LINK_INVALID, INVITE_EXPIRED, INVITE_INVALID, GROUP_FULL, QUEUE_FULL, REQUEST_EXPIRED, ALREADY_MEMBER, RATE_LIMITED, UNKNOWN
 }
 
 enum class MlsPendingReason { AWAITING_ADMIN, AWAITING_MEMBER_ONLINE, UNKNOWN }
@@ -114,12 +144,11 @@ sealed interface MlsJoinMetadata {
         override fun toString() = "Pending(<redacted>)"
     }
 
-    /** [expiredAt], [maxUses], [leafCap] and [retryAfterSecs] are the typed `params`; [groupId] is optional on `already_member` (Q6). */
+    /** [expiredAt], [leafCap] and [retryAfterSecs] are the typed `params`; [groupId] is always present on `already_member` (r4 item 6). */
     data class Refused(
         val reason: MlsJoinRefusal,
         val rawReason: String?,
         val expiredAt: Long? = null,
-        val maxUses: Long? = null,
         val leafCap: Long? = null,
         val retryAfterSecs: Long? = null,
         val groupId: String? = null,
@@ -151,12 +180,13 @@ data class MlsMembershipChange(
     val display: String?,
     val aiFlag: Boolean,
     val role: MlsRole?,
+    val isMe: Boolean = false,
 ) {
     override fun toString() = "MlsMembershipChange(change=$change)"
 }
 
-/** The settings a `settings` row changed; absent fields are null. */
-data class MlsSettingsChange(val name: String?, val approval: Boolean?, val push: MlsPush?) {
+/** The settings a `settings` row changed; absent fields are null. Push mode is a per-device setting and not part of a row. */
+data class MlsSettingsChange(val name: String?, val approval: Boolean?) {
     override fun toString() = "MlsSettingsChange(<redacted>)"
 }
 
@@ -209,8 +239,20 @@ sealed interface MlsEventMetadata {
         override fun toString() = "PostState(<redacted>)"
     }
 
-    data class PostDeleted(override val groupId: String?, override val seq: Long?, val postId: String, val logSeq: Long?) : MlsEventMetadata {
+    /** [postLogSeq] is the deleted post's position; the envelope `log_seq` ([logSeq]) is the delete record's own. */
+    data class PostDeleted(
+        override val groupId: String?,
+        override val seq: Long?,
+        val postId: String,
+        val postLogSeq: Long?,
+        val logSeq: Long?,
+    ) : MlsEventMetadata {
         override fun toString() = "PostDeleted(<redacted>)"
+    }
+
+    /** `read`: the local read position moved (also from another surface of this device). */
+    data class Read(override val groupId: String?, override val seq: Long?, val read: MlsReadMetadata) : MlsEventMetadata {
+        override fun toString() = "Read(<redacted>)"
     }
 
     /** A `membership` or `settings` event; the row carries the changes or the settings and the `log_seq`. */
@@ -240,7 +282,7 @@ object MlsGroupMetadataReader {
     private const val BODY = 65536
     private const val PAGE = 200
     private const val CHANGES = 100
-    private const val MENTIONS = 200
+    private const val MENTIONS = 50
     private const val WARNINGS = 32
 
     /** `group.list`: `{groups[], cursor?}`. */
@@ -300,13 +342,55 @@ object MlsGroupMetadataReader {
         MlsSendMetadata(requireNotNull(text(f, f.root, "post_id", BOUND)), postState(f, f.root, f.root))
     }
 
-    /** `group.message.delete` and `group.leave`: committed only when `state` is `committed`. */
+    /** `group.leave`: committed only when `state` is `committed`. */
     fun committed(reply: SecretReply): CoreResult<MlsCommitMetadata> = decode(reply) { f ->
         MlsCommitMetadata(text(f, f.root, "state", 64) == "committed", f.optionalUnsigned(f.root, "log_seq"))
     }
 
-    /** `group.read`: any well-formed object. */
-    fun read(reply: SecretReply): CoreResult<Unit> = decode(reply) { f -> require(f.root.kind == 123) }
+    /** `group.message.delete`: `deleted{log_seq}` when the record is written, else `queued` or `delayed_privacy` (r4 item 10). */
+    fun deleted(reply: SecretReply): CoreResult<MlsSendMetadata> = decode(reply) { f ->
+        MlsSendMetadata(requireNotNull(text(f, f.root, "post_id", BOUND)), postState(f, f.root, obj(f, f.root, "params") ?: f.root))
+    }
+
+    /** `group.refresh`: `groups[{group_id, last_log_seq, new_posts}]`. */
+    fun refreshed(reply: SecretReply): CoreResult<List<MlsRefreshedMetadata>> = decode(reply) { f ->
+        f.rows("groups", PAGE).map {
+            MlsRefreshedMetadata(
+                requireNotNull(text(f, it, "group_id", BOUND)),
+                f.optionalUnsigned(it, "last_log_seq") ?: 0L,
+                f.optionalUnsigned(it, "new_posts") ?: 0L,
+            )
+        }
+    }
+
+    /** `group.mark_read`: `{read_log_seq, unread, unread_mentions}`. */
+    fun marked(reply: SecretReply): CoreResult<MlsReadMetadata> = decode(reply) { f -> read(f, f.root) }
+
+    /** `group.join.pending`: `requests[]`, at most 100 rows, read from the local account database. */
+    fun pending(reply: SecretReply): CoreResult<List<MlsPendingJoinMetadata>> = decode(reply) { f ->
+        f.rows("requests", 100).map { row ->
+            MlsPendingJoinMetadata(
+                requireNotNull(text(f, row, "request_id", BOUND)),
+                requireNotNull(text(f, row, "group_id", BOUND)),
+                text(f, row, "host_node", BOUND)?.takeIf { it.isNotEmpty() },
+                pendingReason(token(text(f, row, "reason", 64))),
+                f.optionalUnsigned(row, "requested_at"),
+                f.optionalUnsigned(row, "expires_at"),
+            )
+        }
+    }
+
+    private fun read(f: DisplayFields, row: ByteJson.Node) = MlsReadMetadata(
+        f.optionalUnsigned(row, "read_log_seq") ?: 0L,
+        f.optionalUnsigned(row, "unread") ?: 0L,
+        f.optionalUnsigned(row, "unread_mentions") ?: 0L,
+    )
+
+    private fun pendingReason(raw: String?) = when (raw) {
+        "awaiting_admin" -> MlsPendingReason.AWAITING_ADMIN
+        "awaiting_member_online" -> MlsPendingReason.AWAITING_MEMBER_ONLINE
+        else -> MlsPendingReason.UNKNOWN
+    }
 
     /**
      * One frame of the `group.event` topic, read once (the frame is wiped). Another topic, a frame that does not parse and a
@@ -330,8 +414,10 @@ object MlsGroupMetadataReader {
                 group, seq, requireNotNull(text(f, body, "post_id", BOUND)), postState(f, body, body), f.optionalUnsigned(body, "log_seq"),
             )
             "post_deleted" -> MlsEventMetadata.PostDeleted(
-                group, seq, requireNotNull(text(f, body, "post_id", BOUND)), f.optionalUnsigned(body, "log_seq"),
+                group, seq, requireNotNull(text(f, body, "post_id", BOUND)), f.optionalUnsigned(body, "post_log_seq"),
+                f.optionalUnsigned(body, "log_seq"),
             )
+            "read" -> MlsEventMetadata.Read(group, seq, read(f, body))
             "membership", "settings" -> {
                 val row = obj(f, body, "body") ?: body
                 MlsEventMetadata.Service(
@@ -379,6 +465,16 @@ object MlsGroupMetadataReader {
             quotaCommit = obj(f, row, "quota")?.let { q -> obj(f, q, "commit")?.let { quota(f, it) } },
             lastLogSeq = f.optionalUnsigned(row, "last_log_seq") ?: 0L,
             lastActivityAt = f.optionalUnsigned(row, "last_activity_at"),
+            unread = f.optionalUnsigned(row, "unread") ?: 0L,
+            unreadMentions = f.optionalUnsigned(row, "unread_mentions") ?: 0L,
+            readLogSeq = f.optionalUnsigned(row, "read_log_seq") ?: 0L,
+            lastPost = obj(f, row, "last_post")?.let { last ->
+                MlsLastPost(
+                    f.optionalUnsigned(last, "log_seq"), postKind(token(text(f, last, "kind", 64))),
+                    obj(f, last, "author")?.let { author(f, it, "anchor") },
+                    text(f, last, "snippet", 400)?.take(100), f.optionalUnsigned(last, "appended_at"),
+                )
+            },
             warnings = warnings.mapNotNull { w ->
                 val code = token(text(f, w, "code", 64)) ?: return@mapNotNull null
                 MlsWarning(code, f.optionalBoolean(w, "cleared") ?: false, obj(f, w, "params")?.let { text(f, it, "host_node", BOUND) })
@@ -408,11 +504,7 @@ object MlsGroupMetadataReader {
             "joined" -> MlsJoinMetadata.Joined(requireNotNull(text(f, params, "group_id", BOUND) ?: text(f, row, "group_id", BOUND)))
             "pending" -> MlsJoinMetadata.Pending(
                 requireNotNull(text(f, row, "request_id", BOUND) ?: text(f, params, "request_id", BOUND)),
-                when (token(text(f, row, "reason", 64) ?: text(f, params, "reason", 64))) {
-                    "awaiting_admin" -> MlsPendingReason.AWAITING_ADMIN
-                    "awaiting_member_online" -> MlsPendingReason.AWAITING_MEMBER_ONLINE
-                    else -> MlsPendingReason.UNKNOWN
-                },
+                pendingReason(token(text(f, row, "reason", 64) ?: text(f, params, "reason", 64))),
                 f.optionalUnsigned(row, "expires_at") ?: f.optionalUnsigned(params, "expires_at"),
             )
             "refused" -> refusal(f, row, text(f, row, "reason", 64))
@@ -425,11 +517,10 @@ object MlsGroupMetadataReader {
         val raw = token(rawReason)
         val reason = when (raw) {
             "link_invalid" -> MlsJoinRefusal.LINK_INVALID
-            "invite_unknown" -> MlsJoinRefusal.INVITE_UNKNOWN
             "invite_expired" -> MlsJoinRefusal.INVITE_EXPIRED
-            "invite_used_up" -> MlsJoinRefusal.INVITE_USED_UP
-            "invite_revoked" -> MlsJoinRefusal.INVITE_REVOKED
+            "invite_invalid" -> MlsJoinRefusal.INVITE_INVALID
             "group_full" -> MlsJoinRefusal.GROUP_FULL
+            "queue_full" -> MlsJoinRefusal.QUEUE_FULL
             "request_expired" -> MlsJoinRefusal.REQUEST_EXPIRED
             "already_member" -> MlsJoinRefusal.ALREADY_MEMBER
             "rate_limited" -> MlsJoinRefusal.RATE_LIMITED
@@ -439,7 +530,6 @@ object MlsGroupMetadataReader {
             reason,
             raw.takeIf { reason == MlsJoinRefusal.UNKNOWN },
             expiredAt = f.optionalUnsigned(params, "expired_at"),
-            maxUses = f.optionalUnsigned(params, "max_uses"),
             leafCap = f.optionalUnsigned(params, "leaf_cap"),
             retryAfterSecs = f.optionalUnsigned(params, "retry_after_s"),
             groupId = text(f, params, "group_id", BOUND),
@@ -449,20 +539,11 @@ object MlsGroupMetadataReader {
     /** A history row. [envelopeLogSeq] fills a missing `log_seq` of a `post` event. */
     private fun post(f: DisplayFields, row: ByteJson.Node, envelopeLogSeq: Long? = null): MlsPostMetadata {
         val rawKind = token(text(f, row, "kind", 64))
-        val kind = when (rawKind) {
-            "text" -> MlsPostKind.TEXT
-            "attachment" -> MlsPostKind.ATTACHMENT
-            "card" -> MlsPostKind.CARD
-            "membership" -> MlsPostKind.MEMBERSHIP
-            "settings" -> MlsPostKind.SETTINGS
-            "void" -> MlsPostKind.VOID
-            else -> MlsPostKind.UNKNOWN
-        }
+        val kind = postKind(rawKind)
         val logSeq = f.optionalUnsigned(row, "log_seq") ?: envelopeLogSeq
         return when (kind) {
             MlsPostKind.MEMBERSHIP, MlsPostKind.SETTINGS -> serviceRow(f, obj(f, row, "body") ?: row, kind, logSeq).copy(
                 postId = text(f, row, "post_id", BOUND).orEmpty(),
-                author = obj(f, row, "author")?.let { author(f, it, "anchor") },
                 appendedAt = f.optionalUnsigned(row, "appended_at"),
                 state = postState(f, row, obj(f, row, "params") ?: row),
             )
@@ -498,6 +579,7 @@ object MlsGroupMetadataReader {
                 MlsMembershipChange(
                     changeKind(token(text(f, change, "change", 64))), who.anchor, who.display, who.aiFlag,
                     if (f.field(change, "role")?.kind == 34) role(f, change, "role") else null,
+                    who.isMe,
                 )
             }
         } else {
@@ -507,7 +589,6 @@ object MlsGroupMetadataReader {
             MlsSettingsChange(
                 text(f, body, "name", NAME),
                 f.optionalBoolean(body, "approval"),
-                text(f, body, "push", 64)?.let { push(it) },
             )
         } else {
             null
@@ -528,6 +609,11 @@ object MlsGroupMetadataReader {
     }
 
     private fun postState(f: DisplayFields, row: ByteJson.Node, params: ByteJson.Node): MlsPostState {
+        // An own unsent row: `state: pending` and the outbox state in `send{state, params}` (r4 item 8).
+        if (text(f, row, "state", 64) == "pending") {
+            val send = obj(f, row, "send") ?: return MlsPostState.Queued(MlsQueuedReason.UNKNOWN)
+            return postState(f, send, obj(f, send, "params") ?: send)
+        }
         if (f.field(row, "state") == null) return MlsPostState.Sent(f.optionalUnsigned(params, "log_seq") ?: f.optionalUnsigned(row, "log_seq"))
         val raw = token(text(f, row, "state", 64)) ?: return MlsPostState.Unknown("")
         return when (raw) {
@@ -558,6 +644,16 @@ object MlsGroupMetadataReader {
         f.optionalBoolean(row, "ai_flag") ?: false,
         f.optionalBoolean(row, "is_me") ?: false,
     )
+
+    private fun postKind(raw: String?) = when (raw) {
+        "text" -> MlsPostKind.TEXT
+        "attachment" -> MlsPostKind.ATTACHMENT
+        "card" -> MlsPostKind.CARD
+        "membership" -> MlsPostKind.MEMBERSHIP
+        "settings" -> MlsPostKind.SETTINGS
+        "void" -> MlsPostKind.VOID
+        else -> MlsPostKind.UNKNOWN
+    }
 
     private fun role(f: DisplayFields, row: ByteJson.Node, key: String) = when (token(text(f, row, key, 64))) {
         "owner" -> MlsRole.OWNER

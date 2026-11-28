@@ -20,6 +20,8 @@ data class ClientProblem(
     val check: String? = null,
     /** A wait the SDK reported before the same request may be tried again (seconds). */
     val retryAfterSecs: Long? = null,
+    /** A number a typed refusal carries: `max_bytes` of `too_large`, `retry_at` (unix ms) of `paced`. */
+    val detail: Long? = null,
 )
 /**
  * [suspended] is true while the app is in the background: the open client has released its files and network but
