@@ -411,8 +411,11 @@ class OnboardingViewModel @Inject constructor(
     private fun forgetAccount(accountId: String) {
         if (local.value.forgetAccountId != accountId) return
         launch {
+            // Read before the call: a removed account leaves the name memory.
+            val name = accounts.knownLabel(accountId)
             when (val result = accounts.removeLocal(accountId)) {
                 is ClientResult.Ready -> {
+                    accounts.announceRemoved(name)
                     checkCurrent()
                     pendingUnlock = null
                     requestedUnlock = ""

@@ -100,6 +100,11 @@ data class AppLockCoverState(
     val recoveryNotice: UiText? = null,
     /** The phrase was accepted and core granted one code try after the wait: the countdown reads as that. */
     val phraseAccepted: Boolean = false,
+    /**
+     * The next code is the one try core granted after the accepted phrase: a wrong code there is the recovery's wrong code
+     * and shows its notice above the exhausted title (D-4 "Recovery failed: code"). Ends with that try or with the lock.
+     */
+    val grantedTry: Boolean = false,
     /** The locked account's own display name, read for [nameFor] only; [name] is null while it is unread or not this lock's. */
     val nameFor: String? = null,
     val name: String? = null,
@@ -115,10 +120,10 @@ data class AppLockCoverState(
 
 /**
  * The app-lock cover. It follows the session's app-lock phase: nothing while OPEN, a blank cover with a retry while
- * the lock state is UNKNOWN, and the account-code lock screen while LOCKED. It shows the locked account's own display name and
- * initial and nothing else of the account (G05 rule 3 as narrowed by UX-FIX-01 D-2): the name is read from the account
- * list for the lock's account id only, bound to that id, and never logged. It has no skip action: only the six-digit
- * account code opens it, or the confirmed removal of the locked account from this device.
+ * the lock state is UNKNOWN, and the account-code lock screen while LOCKED. It shows the locked account's own display name,
+ * initial and short id line and nothing else of the account (G05 rule 3 as narrowed by UX-FIX-01 D-2 and decision 13): the
+ * name is read from the account list for the lock's account id only, bound to that id, and never logged. It has no skip
+ * action: only the six-digit account code opens it, or the confirmed removal of the locked account from this device.
  */
 @HiltViewModel
 class AppLockViewModel @Inject constructor(
@@ -210,7 +215,9 @@ class AppLockViewModel @Inject constructor(
         if (local.value.recoveryAccount == null || account == null) return false
         when (refusal) {
             AccountCodeRefusal.RETRY_LATER -> {
-                local.update { it.copy(recoveryAccount = null, recoveryNotice = null, phraseAccepted = true, notice = null) }
+                local.update {
+                    it.copy(recoveryAccount = null, recoveryNotice = null, phraseAccepted = true, grantedTry = true, notice = null)
+                }
                 viewModelScope.launch { readThrottle(account) }
             }
             AccountCodeRefusal.WRONG_CODE -> {
@@ -314,8 +321,8 @@ class AppLockViewModel @Inject constructor(
         local.update {
             it.copy(
                 waitSecs = 0L, exhausted = false, notice = null, recoveryAccount = null, recoveryNotice = null,
-                phraseAccepted = false, name = null, nameFor = null, removeOpen = false, removeId = null, removeName = null,
-                removing = false, removeFailed = false
+                phraseAccepted = false, grantedTry = false, name = null, nameFor = null, removeOpen = false, removeId = null,
+                removeName = null, removing = false, removeFailed = false
             )
         }
     }
@@ -346,7 +353,9 @@ class AppLockViewModel @Inject constructor(
             local.update { it.copy(notice = uiText(R.string.ui_enter_the_account_code)) }
             return
         }
-        local.update { it.copy(busy = true, notice = null, phraseAccepted = false) }
+        // The granted try is spent by this code whatever core answers; a wrong one shows the recovery's notice (see [failed]).
+        val granted = local.value.grantedTry
+        local.update { it.copy(busy = true, notice = null, phraseAccepted = false, grantedTry = false) }
         viewModelScope.launch {
             try {
                 // The locked account is not the active one: its id comes from the lock read, never from the active account.
@@ -366,7 +375,7 @@ class AppLockViewModel @Inject constructor(
                         resetCover()
                         session.recheckAppLock()
                     }
-                    is ClientResult.Failed -> failed(account, result.problem)
+                    is ClientResult.Failed -> failed(account, result.problem, granted)
                     is ClientResult.Unavailable -> local.update {
                         it.copy(
                             notice = uiText(R.string.ui_this_action_is_not_available_in_this_version)
@@ -382,17 +391,22 @@ class AppLockViewModel @Inject constructor(
 
     /**
      * A refused unlock. Only the typed `wrong_passphrase` reason reads as a wrong code; a throttle or an exhausted count
-     * is read from core's state, so the wait is what core holds, and any other failure says so without a guess.
+     * is read from core's state, so the wait is what core holds, and any other failure says so without a guess. [granted]
+     * says the code was the one try core granted after the accepted recovery phrase.
      */
-    private suspend fun failed(account: String, problem: ClientProblem) {
+    private suspend fun failed(account: String, problem: ClientProblem, granted: Boolean) {
         val refusal = problem.accountCodeRefusal()
         clientDebugEvent("app_lock.unlock.failed:$refusal")
         when (refusal) {
             AccountCodeRefusal.WRONG_CODE -> {
                 local.update { it.copy(notice = codeText(AccountCodeRefusal.WRONG_CODE, null)) }
                 readThrottle(account)
-                // The wrong code that spent the last try shows the exhausted page without the code form's notice.
-                if (local.value.exhausted) local.update { it.copy(notice = null) }
+                // The wrong code that spent the last of the ten tries shows the plain exhausted page (no stale line from the
+                // code form). The granted try after the accepted phrase is the recovery's code check: its wrong code shows the
+                // recovery's wrong-code notice above the exhausted title, so the person sees the code was refused (D-4).
+                if (local.value.exhausted) {
+                    local.update { it.copy(notice = if (granted) uiText(R.string.app_lock_code_wrong) else null) }
+                }
             }
             AccountCodeRefusal.RETRY_LATER -> readThrottle(account)
             AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> local.update { it.copy(exhausted = true, notice = null) }
@@ -530,9 +544,11 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
             } else {
                 CoverSurface {
                     Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                        // Name, short id line (decision 13) and state: the same row on the code form and the exhausted page.
                         AccountIdentity(
                             ui.name,
                             status = stringResource(R.string.ui_locked),
+                            accountId = ui.accountId,
                             nameTag = "app-lock-name",
                             statusTag = "app-lock-status"
                         )

@@ -22,9 +22,10 @@ import org.ramflux.designsystem.kit.KitAvatarKind
 import org.ramflux.feature.onboarding.impl.R
 
 /**
- * The account a lock or remove screen acts on (D-2): the avatar initial, the display name as the title line, and one
- * secondary line under it. [status] is "Locked" on the lock page; the remove dialog passes the short id line [accountId]
- * instead. A name that could not be read is the neutral word "Account" with a blank initial, never "Unknown" and never an id.
+ * The account a lock or remove screen acts on (D-2): the avatar initial, the display name as the title line, the short id
+ * line of [accountId] under it (the picker-row format, at most eight characters, never the full id; decision 13), then
+ * [status] ("Locked" on the lock page). A name that could not be read is the neutral word "Account" with a blank initial,
+ * never "Unknown" and never an id, so two locked accounts without a known name are told apart by the short id line.
  */
 @Composable
 internal fun AccountIdentity(
@@ -46,20 +47,20 @@ internal fun AccountIdentity(
         KitAvatar(known?.take(1) ?: "", 48f, KitAvatarKind.Person)
         Column(Modifier.weight(1f)) {
             Text(shown, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag(nameTag))
+            accountId?.let(::shortAccountId)?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.secondary,
+                    modifier = Modifier.testTag(nameTag + "-short-id")
+                )
+            }
             status?.let {
                 Text(
                     it,
                     style = MaterialTheme.typography.bodyMedium,
                     color = theme.secondary,
                     modifier = if (statusTag != null) Modifier.testTag(statusTag) else Modifier
-                )
-            }
-            accountId?.let {
-                Text(
-                    shortAccountId(it),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = theme.secondary,
-                    modifier = Modifier.testTag(nameTag + "-short-id")
                 )
             }
         }

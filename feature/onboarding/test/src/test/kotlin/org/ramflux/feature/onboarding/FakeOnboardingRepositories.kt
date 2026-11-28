@@ -46,6 +46,12 @@ class FakeAccountAccess : AccountAccessRepository {
         forgotten += id
         return ClientResult.Ready(Unit)
     }
+    var labels: Map<String, String> = emptyMap()
+    override fun knownLabel(id: String): String? = labels[id]
+    val announced = mutableListOf<String?>()
+    override fun announceRemoved(name: String?) {
+        announced += name
+    }
     override suspend fun setup(action: AccountSetupAction): ClientResult<Unit> {
         setups++
         return unavailable()

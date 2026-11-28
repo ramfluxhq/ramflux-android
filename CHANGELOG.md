@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Fix (UX-FIX-01, decision 13): the app-lock cover and its exhausted page show the bound account's short id line (the picker-row format, at most eight characters, never the full id) under the name and above "Locked", so two locked accounts without a known name can be told apart. The remove dialog keeps its short id line; the recovery page inside the cover is unchanged.
+- Fix (UX-FIX-01, lock states): a wrong code on the one try core grants after an accepted recovery phrase (the phrase-accepted wait) shows the recovery's wrong-code notice "That account code is not right." above the exhausted title (D-4 "Recovery failed: code"); before, the cover cleared every notice when a wrong code led to the exhausted page, so this try ended on the plain exhausted page with no sign the code was checked. The tenth wrong code of the normal count still shows the plain exhausted page.
+- Fix (UX-FIX-01): removing an account the SDK cannot open from onboarding ("forget-account") also shows the named removal notice.
+
 - Fix (UX-FIX-01 on the app-lock cover gating): the removal notice from Settings is no longer a system toast (the window guard refuses it, and with the last account removed it was never seen: the Settings page left the composition for onboarding before the toast showed). Removing an account from Settings or from the lock cover posts the name the confirmation showed to `AccountAccessRepository.announceRemoved` (memory only, never logged), and the app window draws the notice above the destination (the picker or onboarding) for five seconds, announced by TalkBack as a polite live region. The Settings-only `settings_account_removed` strings are gone; the notice uses `ui_account_removed`.
 
 - Fix (UX-FIX-01): when the app-lock cover, its exhausted page, the remove dialog and the removal notice do not know the bound account's own name, they show the neutral word "Account" / "账户" with a blank avatar initial (as iOS and desktop do) instead of "Unknown" / "未知".

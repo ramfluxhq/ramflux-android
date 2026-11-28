@@ -827,6 +827,7 @@ class OnboardingViewModelTest {
                 )
             }
             unlockResult = refused("account_not_found")
+            labels = mapOf("a" to "Phone")
         }
         val vm = OnboardingViewModel(accounts, FakeNodeSetup(), FakeOnboardingSession(), FakeAccountCeremony())
         observe(vm)
@@ -846,6 +847,7 @@ class OnboardingViewModelTest {
         vm.onAction(OnboardingAction.ForgetAccount("a"))
         runCurrent()
         assertEquals(listOf("a"), accounts.forgotten)
+        assertEquals("the removal notice names the removed account", listOf<String?>("Phone"), accounts.announced)
         assertEquals(OnboardingPage.START, vm.state.value.page)
         assertNull(vm.state.value.forgetAccountId)
     }
