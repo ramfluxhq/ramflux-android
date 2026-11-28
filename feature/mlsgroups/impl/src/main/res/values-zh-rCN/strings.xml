@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (c) 2026 Span Brain -->
+<resources>
+    <string name="group_join_title">加入群组</string>
+    <string name="group_join_field">邀请链接</string>
+    <string name="group_join_paste">粘贴</string>
+    <string name="group_join_submit">加入</string>
+    <string name="group_join_joining">正在加入…</string>
+    <string name="group_join_open">打开群组</string>
+    <string name="group_join_joined">你已加入 %1$s。</string>
+    <string name="group_join_the_group">该群组</string>
+    <string name="group_join_pending_admin">申请已发送。需要管理员在 %1$s 前批准。</string>
+    <string name="group_join_pending_online">正在等待成员上线，最晚可能要到 %1$s。</string>
+    <string name="group_join_pending_row">正在等待加入群组</string>
+    <string name="group_join_refused_link_invalid">此链接不是有效的群组邀请。</string>
+    <string name="group_join_refused_invite_invalid">此邀请已失效。</string>
+    <string name="group_join_refused_invite_expired">此邀请已于 %1$s 过期。</string>
+    <string name="group_join_refused_group_full">此群组已满。</string>
+    <string name="group_join_refused_queue_full">等待加入的人太多，请稍后再试。</string>
+    <string name="group_join_refused_request_expired">你的申请未能及时获批。请索取新的邀请。</string>
+    <string name="group_join_refused_already_member">你已在此群组中。</string>
+    <string name="group_join_refused_rate_limited">尝试次数过多。请在 %1$s 后重试。</string>
+    <string name="group_join_refused_generic">此邀请无法使用。</string>
+    <string name="group_join_close">关闭</string>
+    <string name="group_error_not_member">你不是此群组的成员。</string>
+    <string name="group_error_not_admin">只有管理员可以执行此操作。</string>
+    <string name="group_error_owner_protected">无法对群主执行此操作。</string>
+    <string name="group_error_tier_unavailable">此群组规模不可用。</string>
+    <string name="group_error_group_full">此群组已满。</string>
+    <string name="group_error_paced">请等到 %1$s 后再试。</string>
+    <string name="group_error_rate_limited">已达到上限。请稍后再试。</string>
+    <string name="group_error_host_unreachable">无法连接到群组服务器。</string>
+    <string name="group_error_unknown_invite">此邀请不存在。</string>
+    <string name="group_error_request_not_found">此申请已不在等待中。</string>
+    <string name="group_error_unavailable">此版本暂不支持群组。</string>
+    <string name="group_error_generic">出了点问题。请重试。</string>
+    <string name="group_list_title">群组</string>
+    <string name="group_list_empty">还没有群组</string>
+    <string name="group_list_create">新建群组</string>
+    <string name="group_list_join">通过链接加入</string>
+    <string name="group_list_loading">正在加载群组…</string>
+    <string name="group_list_offline">你已离线。重新连接后群组会更新。</string>
+    <string name="group_list_error">无法加载群组。</string>
+    <string name="group_list_retry">重试</string>
+    <string name="group_list_refresh">刷新</string>
+    <string name="group_list_mention">提到了你</string>
+    <string name="group_list_back">返回</string>
+    <string name="group_create_title">新建群组</string>
+    <string name="group_create_name">群组名称</string>
+    <string name="group_create_name_required">请输入群组名称。</string>
+    <string name="group_create_name_too_long">最多 64 个字符。</string>
+    <string name="group_create_approval">新成员需要审批</string>
+    <string name="group_create_approval_on_help">每个加入申请都需要管理员批准。</string>
+    <string name="group_create_approval_off_help">任何持有链接的人都可以加入。只有在某位成员的设备或智能体在线时，加入才能完成。</string>
+    <string name="group_create_size">最多 1,000 位成员</string>
+    <string name="group_create_submit">创建</string>
+    <string name="group_create_creating">正在创建…</string>
+    <string name="group_invite_title">邀请链接</string>
+    <string name="group_invite_secret_note">任何持有此链接的人都可以申请加入。请只分享给你信任的人。</string>
+    <string name="group_invite_copy">复制链接</string>
+    <string name="group_invite_copied">链接已复制</string>
+    <string name="group_invite_share">分享</string>
+    <string name="group_invite_qr">二维码</string>
+    <string name="group_invite_expires">%1$s 过期</string>
+    <string name="group_invite_expired">已过期</string>
+    <string name="group_invite_uses_left">剩余 %1$d 次，共 %2$d 次</string>
+    <string name="group_invite_duration">有效期</string>
+    <string name="group_invite_uses">使用次数</string>
+    <string name="group_invite_new">新建链接</string>
+    <string name="group_invite_list">邀请链接</string>
+    <string name="group_invite_revoked">已撤销</string>
+    <string name="group_invite_revoke">撤销</string>
+    <string name="group_invite_revoking">正在撤销…</string>
+    <string name="group_invite_revoke_confirm_title">撤销此链接？</string>
+    <string name="group_invite_revoke_confirm_body">尚未加入的人将无法再使用此链接。</string>
+    <string name="group_invite_cancel">取消</string>
+    <string name="group_invite_none">还没有邀请链接</string>
+    <string name="group_invite_creating">正在创建…</string>
+    <string name="group_invite_done">完成</string>
+    <string name="group_info_title">群组信息</string>
+    <string name="group_info_approval_on">新成员需要审批</string>
+    <string name="group_info_approval_off">任何持有链接的人都可以加入</string>
+    <string name="group_info_push">通知</string>
+    <string name="group_push_mentions_replies">提及和回复</string>
+    <string name="group_push_all">所有消息</string>
+    <string name="group_push_none">无</string>
+    <string name="group_info_members_entry">成员</string>
+    <string name="group_info_invites_entry">邀请链接</string>
+    <string name="group_info_refresh">刷新</string>
+    <string name="group_info_leave">退出群组</string>
+    <string name="group_info_loading">正在加载…</string>
+    <string name="group_info_back">返回</string>
+    <string name="group_members_title">成员</string>
+    <string name="group_members_search">搜索成员</string>
+    <string name="group_members_loading_all">正在加载全部成员… %1$d / %2$d</string>
+    <string name="group_members_page_error">无法加载更多成员。</string>
+    <string name="group_members_retry">重试</string>
+    <string name="group_members_no_results">未找到成员</string>
+    <string name="group_members_section_owner">群主</string>
+    <string name="group_members_section_admins">管理员</string>
+    <string name="group_members_section_members">成员</string>
+    <string name="group_members_you">你</string>
+    <string name="group_members_loading">正在加载成员…</string>
+    <string name="group_members_back">返回</string>
+    <string name="group_member_unnamed">成员</string>
+    <string name="group_leave_title">退出此群组？</string>
+    <string name="group_leave_body">你将不再收到此群组的消息。再次加入需要新的邀请。</string>
+    <string name="group_leave_confirm">退出</string>
+    <string name="group_leave_owner">群主不能退出群组。</string>
+    <string name="group_leave_done">你已退出此群组。</string>
+    <string name="group_leaving">正在退出…</string>
+    <string name="group_warning_host_ip_visible">群组服务器（%1$s）可以看到你的网络地址。</string>
+    <string name="group_notice_host_ip_title">关于此群组的服务器</string>
+    <string name="group_notice_host_ip_body">群组服务器（%1$s）可以看到你的网络地址。消息仍保持端到端加密。</string>
+    <string name="group_notice_host_ip_ok">知道了</string>
+    <string name="group_info_host_unknown">群组服务器</string>
+    <plurals name="group_duration_minutes">
+        <item quantity="other">%d 分钟</item>
+    </plurals>
+    <plurals name="group_duration_hours">
+        <item quantity="other">%d 小时</item>
+    </plurals>
+    <plurals name="group_list_members">
+        <item quantity="other">%d 位成员</item>
+    </plurals>
+    <plurals name="group_list_agents">
+        <item quantity="other">%d 个智能体</item>
+    </plurals>
+    <plurals name="group_list_unread">
+        <item quantity="other">%d 条未读</item>
+    </plurals>
+    <plurals name="group_invite_max_uses">
+        <item quantity="other">最多使用 %d 次</item>
+    </plurals>
+    <plurals name="group_invite_duration_day">
+        <item quantity="other">%d 天</item>
+    </plurals>
+    <plurals name="group_info_members">
+        <item quantity="other">%d 位成员</item>
+    </plurals>
+    <plurals name="group_info_agents">
+        <item quantity="other">%d 个智能体</item>
+    </plurals>
+    <plurals name="group_members_devices">
+        <item quantity="other">%d 台设备</item>
+    </plurals>
+</resources>

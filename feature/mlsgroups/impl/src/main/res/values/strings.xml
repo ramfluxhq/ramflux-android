@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (c) 2026 Span Brain -->
+<resources>
+    <string name="group_join_title">Join a group</string>
+    <string name="group_join_field">Invite link</string>
+    <string name="group_join_paste">Paste</string>
+    <string name="group_join_submit">Join</string>
+    <string name="group_join_joining">Joining…</string>
+    <string name="group_join_open">Open group</string>
+    <string name="group_join_joined">You joined %1$s.</string>
+    <string name="group_join_the_group">the group</string>
+    <string name="group_join_pending_admin">Request sent. An admin needs to approve it by %1$s.</string>
+    <string name="group_join_pending_online">Waiting for a member to come online. This can take until %1$s.</string>
+    <string name="group_join_pending_row">Waiting to join a group</string>
+    <string name="group_join_refused_link_invalid">This link isn\'t a valid group invite.</string>
+    <string name="group_join_refused_invite_invalid">This invite is no longer valid.</string>
+    <string name="group_join_refused_invite_expired">This invite expired on %1$s.</string>
+    <string name="group_join_refused_group_full">This group is full.</string>
+    <string name="group_join_refused_queue_full">Too many people are waiting to join. Try again later.</string>
+    <string name="group_join_refused_request_expired">Your request wasn\'t accepted in time. Ask for a new invite.</string>
+    <string name="group_join_refused_already_member">You\'re already in this group.</string>
+    <string name="group_join_refused_rate_limited">Too many attempts. Try again in %1$s.</string>
+    <string name="group_join_refused_generic">This invite can\'t be used.</string>
+    <string name="group_join_close">Close</string>
+    <string name="group_error_not_member">You\'re not a member of this group.</string>
+    <string name="group_error_not_admin">Only admins can do this.</string>
+    <string name="group_error_owner_protected">This can\'t be done to the group owner.</string>
+    <string name="group_error_tier_unavailable">This group size isn\'t available.</string>
+    <string name="group_error_group_full">This group is full.</string>
+    <string name="group_error_paced">Please wait until %1$s and try again.</string>
+    <string name="group_error_rate_limited">You\'ve reached the limit. Try again later.</string>
+    <string name="group_error_host_unreachable">Can\'t reach the group\'s server.</string>
+    <string name="group_error_unknown_invite">This invite doesn\'t exist.</string>
+    <string name="group_error_request_not_found">This request is no longer pending.</string>
+    <string name="group_error_unavailable">Groups aren\'t available in this version yet.</string>
+    <string name="group_error_generic">Something went wrong. Try again.</string>
+    <string name="group_list_title">Groups</string>
+    <string name="group_list_empty">No groups yet</string>
+    <string name="group_list_create">New group</string>
+    <string name="group_list_join">Join with a link</string>
+    <string name="group_list_loading">Loading groups…</string>
+    <string name="group_list_offline">You\'re offline. Groups update when you reconnect.</string>
+    <string name="group_list_error">Couldn\'t load groups.</string>
+    <string name="group_list_retry">Try again</string>
+    <string name="group_list_refresh">Refresh</string>
+    <string name="group_list_mention">Mentions you</string>
+    <string name="group_list_back">Back</string>
+    <string name="group_create_title">New group</string>
+    <string name="group_create_name">Group name</string>
+    <string name="group_create_name_required">Enter a group name.</string>
+    <string name="group_create_name_too_long">Use at most 64 characters.</string>
+    <string name="group_create_approval">New members need approval</string>
+    <string name="group_create_approval_on_help">An admin approves each request before someone joins.</string>
+    <string name="group_create_approval_off_help">Anyone with the link can join. A join completes only while a member\'s device or an agent is online.</string>
+    <string name="group_create_size">Up to 1,000 members</string>
+    <string name="group_create_submit">Create</string>
+    <string name="group_create_creating">Creating…</string>
+    <string name="group_invite_title">Invite link</string>
+    <string name="group_invite_secret_note">Anyone with this link can ask to join. Share it only with people you trust.</string>
+    <string name="group_invite_copy">Copy link</string>
+    <string name="group_invite_copied">Link copied</string>
+    <string name="group_invite_share">Share</string>
+    <string name="group_invite_qr">QR code</string>
+    <string name="group_invite_expires">Expires %1$s</string>
+    <string name="group_invite_expired">Expired</string>
+    <string name="group_invite_uses_left">%1$d of %2$d uses left</string>
+    <string name="group_invite_duration">Valid for</string>
+    <string name="group_invite_uses">Uses</string>
+    <string name="group_invite_new">New link</string>
+    <string name="group_invite_list">Invite links</string>
+    <string name="group_invite_revoked">Revoked</string>
+    <string name="group_invite_revoke">Revoke</string>
+    <string name="group_invite_revoking">Revoking…</string>
+    <string name="group_invite_revoke_confirm_title">Revoke this link?</string>
+    <string name="group_invite_revoke_confirm_body">People who haven\'t joined yet can no longer use it.</string>
+    <string name="group_invite_cancel">Cancel</string>
+    <string name="group_invite_none">No invite links yet</string>
+    <string name="group_invite_creating">Creating…</string>
+    <string name="group_invite_done">Done</string>
+    <string name="group_info_title">Group info</string>
+    <string name="group_info_approval_on">New members need approval</string>
+    <string name="group_info_approval_off">Anyone with the link can join</string>
+    <string name="group_info_push">Notifications</string>
+    <string name="group_push_mentions_replies">Mentions and replies</string>
+    <string name="group_push_all">All messages</string>
+    <string name="group_push_none">None</string>
+    <string name="group_info_members_entry">Members</string>
+    <string name="group_info_invites_entry">Invite links</string>
+    <string name="group_info_refresh">Refresh</string>
+    <string name="group_info_leave">Leave group</string>
+    <string name="group_info_loading">Loading…</string>
+    <string name="group_info_back">Back</string>
+    <string name="group_members_title">Members</string>
+    <string name="group_members_search">Search members</string>
+    <string name="group_members_loading_all">Loading all members… %1$d of %2$d</string>
+    <string name="group_members_page_error">Couldn\'t load more members.</string>
+    <string name="group_members_retry">Try again</string>
+    <string name="group_members_no_results">No members found</string>
+    <string name="group_members_section_owner">Owner</string>
+    <string name="group_members_section_admins">Admins</string>
+    <string name="group_members_section_members">Members</string>
+    <string name="group_members_you">You</string>
+    <string name="group_members_loading">Loading members…</string>
+    <string name="group_members_back">Back</string>
+    <string name="group_member_unnamed">Member</string>
+    <string name="group_leave_title">Leave this group?</string>
+    <string name="group_leave_body">You\'ll stop getting messages from this group. You need a new invite to join again.</string>
+    <string name="group_leave_confirm">Leave</string>
+    <string name="group_leave_owner">The owner can\'t leave the group.</string>
+    <string name="group_leave_done">You left this group.</string>
+    <string name="group_leaving">Leaving…</string>
+    <string name="group_warning_host_ip_visible">The group\'s server (%1$s) can see your network address.</string>
+    <string name="group_notice_host_ip_title">About this group\'s server</string>
+    <string name="group_notice_host_ip_body">The group\'s server (%1$s) can see your network address. Messages stay end-to-end encrypted.</string>
+    <string name="group_notice_host_ip_ok">OK</string>
+    <string name="group_info_host_unknown">the group host</string>
+    <plurals name="group_duration_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
+    <plurals name="group_duration_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+    <plurals name="group_list_members">
+        <item quantity="one">%d member</item>
+        <item quantity="other">%d members</item>
+    </plurals>
+    <plurals name="group_list_agents">
+        <item quantity="one">%d agent</item>
+        <item quantity="other">%d agents</item>
+    </plurals>
+    <plurals name="group_list_unread">
+        <item quantity="one">%d unread</item>
+        <item quantity="other">%d unread</item>
+    </plurals>
+    <plurals name="group_invite_max_uses">
+        <item quantity="one">Up to %d use</item>
+        <item quantity="other">Up to %d uses</item>
+    </plurals>
+    <plurals name="group_invite_duration_day">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <plurals name="group_info_members">
+        <item quantity="one">%d member</item>
+        <item quantity="other">%d members</item>
+    </plurals>
+    <plurals name="group_info_agents">
+        <item quantity="one">%d agent</item>
+        <item quantity="other">%d agents</item>
+    </plurals>
+    <plurals name="group_members_devices">
+        <item quantity="one">%d device</item>
+        <item quantity="other">%d devices</item>
+    </plurals>
+</resources>
