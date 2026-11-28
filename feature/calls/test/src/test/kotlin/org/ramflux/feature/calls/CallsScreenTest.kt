@@ -92,7 +92,7 @@ class CallsScreenTest {
     @Test fun chineseReadFailureDoesNotClaimEmptyHistory() {
         compose.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.Locales(LocaleList("zh-CN"))) {
-                RamfluxTheme { CallsScreen(CallsState(problem = uiText(R.string.calls_error_code, UiText.Number(8))), {}) }
+                RamfluxTheme { CallsScreen(CallsState(problem = uiText(org.ramflux.core.designsystem.R.string.failure_generic)), {}) }
             }
         }
         compose.onNodeWithText("无法读取通话").assertExists()

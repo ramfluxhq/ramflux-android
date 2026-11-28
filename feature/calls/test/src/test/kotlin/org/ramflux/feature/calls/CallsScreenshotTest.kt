@@ -55,7 +55,7 @@ class CallsScreenshotTest(private val kind: String, private val dark: Boolean, p
         val base = CallsState(account = "Work", rows = persistentListOf(row), selected = row, loaded = true, fresh = true)
         val state = when (kind) {
             "history" -> base.copy(selected = null)
-            "error" -> CallsState(problem = uiText(R.string.calls_error_code, UiText.Number(8)))
+            "error" -> CallsState(problem = uiText(org.ramflux.core.designsystem.R.string.failure_generic))
             "loading" -> CallsState(loading = true)
             "account" -> CallsState(accountRequired = true)
             "unavailable" -> base.copy(unavailable = uiText(R.string.calls_audio_unavailable))

@@ -35,7 +35,7 @@ class ConversationsScreenTest {
         }
         compose.onNodeWithText("Read failed").assertExists()
         compose.onNodeWithText("No conversations yet").assertDoesNotExist()
-        compose.onNodeWithText("Refresh").performClick()
+        compose.onNodeWithText("Retry").performClick()
         compose.runOnIdle { assertEquals(ConversationsAction.Refresh, action) }
     }
 

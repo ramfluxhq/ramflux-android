@@ -88,7 +88,7 @@ class ChatScreenTest {
         compose.onNodeWithText("Project").assertExists()
         compose.onNodeWithText("conversation-id", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Refresh").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Back").assertExists()
+        compose.onNodeWithContentDescription("Navigate up").assertExists()
     }
 
     @Test fun ownGroupMessagesSitOnTheEndSideAndOnlyIncomingOnesShowTheSender() {
@@ -125,7 +125,7 @@ class ChatScreenTest {
 
     @Test fun aDetailPaneHidesTheBackControl() {
         compose.setContent { RamfluxTheme { ChatScreen(ChatState(loaded = true), {}, rooted = true) } }
-        compose.onNodeWithContentDescription("Back").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Navigate up").assertDoesNotExist()
     }
 
     @Test fun stampsAreTimeOnlyWithADateChipAndTheUnreadDivider() {

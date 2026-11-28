@@ -82,7 +82,7 @@ class ChatViewModelTest {
         assertTrue(vm.state.value.rows[1] is CallItem)
         assertEquals(org.ramflux.designsystem.UiText.Data("Actual title"), vm.state.value.title)
         assertEquals(12L, vm.state.value.rows.last().sentAt)
-        assertEquals(uiText(R.string.ui_message_deleted), (vm.state.value.rows.last() as MessageItem).content)
+        assertEquals(uiText(R.string.ui_message_deleted_own), (vm.state.value.rows.last() as MessageItem).content)
         assertEquals(1, history.reads)
     }
 

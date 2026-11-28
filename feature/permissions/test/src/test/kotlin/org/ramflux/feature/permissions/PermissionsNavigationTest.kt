@@ -212,7 +212,7 @@ class PermissionsNavigationTest {
 
     @Test fun missingBatterySettingsHasChineseMessageAndAppSettingsFallback() = missingBatterySettings(
         "zh-CN",
-        "此设备未提供电池优化设置页面。请使用下方按钮打开应用设置，或在系统设置中查找电池选项。"
+        "本设备未提供电池优化设置页面。请使用下方按钮打开应用设置，或在系统设置中查找电池选项。"
     )
 
     private fun missingBatterySettings(locale: String, message: String) {

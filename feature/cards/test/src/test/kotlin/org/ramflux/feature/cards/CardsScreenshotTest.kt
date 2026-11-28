@@ -34,7 +34,11 @@ class CardsScreenshotTest(private val kind: String, private val dark: Boolean, p
     @Test fun screen() {
         val state = when (kind) {
             "checking" -> CardsState(checking = true, canCheck = true, unavailable = null)
-            "error" -> CardsState(canCheck = true, unavailable = null, problem = uiText(R.string.cards_error_code, UiText.Number(8)))
+            "error" -> CardsState(
+                canCheck = true,
+                unavailable = null,
+                problem = uiText(org.ramflux.core.designsystem.R.string.failure_generic)
+            )
             "conversations" -> CardsState(canCheck = true, unavailable = null, inConversations = true)
             "closed" -> CardsState(closed = true, unavailable = null)
             else -> CardsState(canCheck = true)

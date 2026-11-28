@@ -45,12 +45,12 @@ class ContactsScreenTest {
     @Test fun failedChineseReadHasNoEmptyListClaimAndUsesLocalizedRetry() {
         compose.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.Locales(LocaleList("zh-CN"))) {
-                RamfluxTheme { ContactsScreen(ContactsState(problem = uiText(R.string.contacts_read_failed, UiText.Number(8))), {}) }
+                RamfluxTheme { ContactsScreen(ContactsState(problem = uiText(org.ramflux.core.designsystem.R.string.failure_generic)), {}) }
             }
         }
         compose.onNodeWithText("无法读取联系人").assertExists()
         compose.onNodeWithText("暂无联系人").assertDoesNotExist()
-        compose.onNodeWithText("刷新").assertHasClickAction()
+        compose.onNodeWithText("重试").assertHasClickAction()
     }
 
     @Test fun actualViewModelLocaleSwitchDoesNotRepeatNativeReadOrTreatPeerTextAsKey() {

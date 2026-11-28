@@ -104,7 +104,7 @@ class TasksScreenshotTest(private val kind: String, private val dark: Boolean, p
             )
             "empty" -> TasksState(page = TasksPage.LIST, loaded = true, fresh = true)
             "loading" -> TasksState(loading = true)
-            "error" -> TasksState(problem = uiText(R.string.tasks_error_code, UiText.Number(8)))
+            "error" -> TasksState(problem = uiText(org.ramflux.core.designsystem.R.string.failure_generic))
             "account" -> TasksState(accountRequired = true)
             "pending" -> detail.copy(pendingId = "original-operation", pendingFacts = persistentListOf(UiText.Data("Original facts")))
             "confirmation" -> detail.copy(

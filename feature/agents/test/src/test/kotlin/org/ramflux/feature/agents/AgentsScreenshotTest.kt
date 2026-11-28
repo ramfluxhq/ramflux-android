@@ -55,7 +55,7 @@ class AgentsScreenshotTest(private val kind: String, private val dark: Boolean, 
             "empty" -> AgentsState(loaded = true)
             "no-match" -> list.copy(rows = persistentListOf(), query = "zzz", hasMore = true)
             "loading" -> AgentsState(loading = true)
-            "error" -> AgentsState(problem = uiText(R.string.agents_read_failure, UiText.Number(8)))
+            "error" -> AgentsState(problem = uiText(org.ramflux.core.designsystem.R.string.failure_generic))
             "account" -> AgentsState(accountRequired = true)
             "profile" -> list.copy(page = AgentsPage.PROFILE, selected = profile)
             "edit" -> list.copy(page = AgentsPage.EDIT, selected = profile, name = "Nova", responsibility = "Research partner")

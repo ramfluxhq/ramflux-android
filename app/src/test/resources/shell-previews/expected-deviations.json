@@ -460,8 +460,8 @@
       ]
     },
     "MOB-B01.dark--zh-CN": {
-      "percent": 4.64,
-      "reason": "dark proof DK03: same deviations as MOB-B01 light",
+      "percent": 4.86,
+      "reason": "dark proof DK03: same deviations as MOB-B01 light UX-FIX-01 (2026-11-28): dark proof of MOB-B01: same UX-FIX-01 changes.",
       "regions": [
         {
           "kind": "different",
@@ -470,6 +470,15 @@
           "w": 52,
           "h": 52,
           "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 17,
+          "y": 67,
+          "w": 64,
+          "h": 32,
+          "dx": 1,
           "dy": 0
         },
         {
@@ -483,20 +492,20 @@
         },
         {
           "kind": "different",
-          "x": 49,
-          "y": 149,
-          "w": 119,
-          "h": 17,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 80,
           "y": 517,
           "w": 129,
           "h": 16,
           "dx": -3,
+          "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 49,
+          "y": 149,
+          "w": 119,
+          "h": 17,
+          "dx": 0,
           "dy": 0
         },
         {
@@ -672,12 +681,12 @@
         },
         {
           "kind": "different",
-          "x": 17,
-          "y": 67,
-          "w": 30,
-          "h": 31,
-          "dx": 0,
-          "dy": 0
+          "x": 228,
+          "y": 807,
+          "w": 34,
+          "h": 12,
+          "dx": -2,
+          "dy": -1
         },
         {
           "kind": "shifted",
@@ -690,21 +699,30 @@
         },
         {
           "kind": "different",
-          "x": 49,
-          "y": 66,
-          "w": 30,
-          "h": 32,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 29,
           "y": 211,
           "w": 26,
           "h": 25,
           "dx": 0,
           "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 38,
+          "y": 807,
+          "w": 22,
+          "h": 12,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "shifted",
+          "x": 234,
+          "y": 781,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": -1
         },
         {
           "kind": "extra",
@@ -816,36 +834,9 @@
         },
         {
           "kind": "different",
-          "x": 38,
-          "y": 807,
-          "w": 22,
-          "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 80,
           "y": 302,
           "w": 29,
-          "h": 15,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 228,
-          "y": 808,
-          "w": 34,
-          "h": 11,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 25,
-          "y": 149,
-          "w": 15,
           "h": 15,
           "dx": 0,
           "dy": 0
@@ -906,15 +897,6 @@
         },
         {
           "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 38,
           "y": 779,
           "w": 9,
@@ -924,19 +906,19 @@
         },
         {
           "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
-          "h": 14,
+          "x": 335,
+          "y": 788,
+          "w": 18,
+          "h": 4,
           "dx": 0,
           "dy": 0
         },
         {
           "kind": "different",
-          "x": 335,
-          "y": 788,
-          "w": 18,
-          "h": 4,
+          "x": 25,
+          "y": 149,
+          "w": 14,
+          "h": 14,
           "dx": 0,
           "dy": 0
         },
@@ -1015,8 +997,8 @@
       ]
     },
     "MOB-B01.light--zh-CN": {
-      "percent": 5.51,
-      "reason": "header has the compose action but no more menu (no list-level SDK actions beyond the live reload); '· current account' subtitle suffix and subtitle spacing differ; search is disabled (local search is refused by the pinned C ABI) and its placeholder copy differs; messages tab badge count not in the shell state; message-requests row comes from pending inbound requests with generic subtitle (no per-request count copy); previews are not in the SDK directory row, so rows show the conversation kind; agent avatar, pinned and read markers not in the row model",
+      "percent": 5.75,
+      "reason": "header has the compose action but no more menu (no list-level SDK actions beyond the live reload); '· current account' subtitle suffix and subtitle spacing differ; search is disabled (local search is refused by the pinned C ABI) and its placeholder copy differs; messages tab badge count not in the shell state; message-requests row comes from pending inbound requests with generic subtitle (no per-request count copy); previews are not in the SDK directory row, so rows show the conversation kind; agent avatar, pinned and read markers not in the row model UX-FIX-01 (2026-11-28): the list rows show core's last-message preview and the relative time instead of the placeholder subtitle, the title reads Chats and the search field is enabled; the first tab reads Chats (glossary) instead of Messages, so its label glyphs sit 1 dp off the board.",
       "regions": [
         {
           "kind": "different",
@@ -1025,6 +1007,15 @@
           "w": 52,
           "h": 52,
           "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 17,
+          "y": 67,
+          "w": 64,
+          "h": 32,
+          "dx": 1,
           "dy": 0
         },
         {
@@ -1038,20 +1029,20 @@
         },
         {
           "kind": "different",
-          "x": 49,
-          "y": 149,
-          "w": 119,
-          "h": 17,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 80,
           "y": 517,
           "w": 129,
           "h": 16,
           "dx": -3,
+          "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 49,
+          "y": 149,
+          "w": 119,
+          "h": 17,
+          "dx": 0,
           "dy": 0
         },
         {
@@ -1290,21 +1281,12 @@
         },
         {
           "kind": "different",
-          "x": 17,
-          "y": 67,
-          "w": 30,
-          "h": 31,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 49,
-          "y": 66,
-          "w": 31,
-          "h": 32,
-          "dx": 0,
-          "dy": 0
+          "x": 228,
+          "y": 807,
+          "w": 34,
+          "h": 12,
+          "dx": -2,
+          "dy": -1
         },
         {
           "kind": "shifted",
@@ -1323,6 +1305,24 @@
           "h": 25,
           "dx": 0,
           "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 38,
+          "y": 807,
+          "w": 22,
+          "h": 12,
+          "dx": 1,
+          "dy": 0
+        },
+        {
+          "kind": "shifted",
+          "x": 234,
+          "y": 781,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": -1
         },
         {
           "kind": "extra",
@@ -1443,24 +1443,6 @@
         },
         {
           "kind": "different",
-          "x": 38,
-          "y": 807,
-          "w": 22,
-          "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 228,
-          "y": 808,
-          "w": 34,
-          "h": 11,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 136,
           "y": 780,
           "w": 23,
@@ -1474,15 +1456,6 @@
           "y": 807,
           "w": 22,
           "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 25,
-          "y": 149,
-          "w": 15,
-          "h": 15,
           "dx": 0,
           "dy": 0
         },
@@ -1524,15 +1497,6 @@
         },
         {
           "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 38,
           "y": 779,
           "w": 9,
@@ -1551,9 +1515,9 @@
         },
         {
           "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
+          "x": 25,
+          "y": 149,
+          "w": 14,
           "h": 14,
           "dx": 0,
           "dy": 0
@@ -1633,9 +1597,18 @@
       ]
     },
     "MOB-B01L.light--zh-CN": {
-      "percent": 2.18,
-      "reason": "header has the compose action but no more menu (no list-level SDK actions beyond the live reload); '· current account' subtitle suffix and subtitle spacing differ; search is disabled (local search is refused by the pinned C ABI) and its placeholder copy differs; messages tab badge count not in the shell state; skeleton rows match the board",
+      "percent": 2.42,
+      "reason": "header has the compose action but no more menu (no list-level SDK actions beyond the live reload); '· current account' subtitle suffix and subtitle spacing differ; search is disabled (local search is refused by the pinned C ABI) and its placeholder copy differs; messages tab badge count not in the shell state; skeleton rows match the board UX-FIX-01 (2026-11-28): as MOB-B01: preview line and relative time, Chats title.",
       "regions": [
+        {
+          "kind": "different",
+          "x": 17,
+          "y": 67,
+          "w": 64,
+          "h": 32,
+          "dx": 1,
+          "dy": 0
+        },
         {
           "kind": "different",
           "x": 49,
@@ -1755,21 +1728,12 @@
         },
         {
           "kind": "different",
-          "x": 17,
-          "y": 67,
-          "w": 30,
-          "h": 31,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 49,
-          "y": 66,
-          "w": 31,
-          "h": 32,
-          "dx": 0,
-          "dy": 0
+          "x": 228,
+          "y": 807,
+          "w": 34,
+          "h": 12,
+          "dx": -2,
+          "dy": -1
         },
         {
           "kind": "extra",
@@ -1853,6 +1817,15 @@
           "dy": 0
         },
         {
+          "kind": "different",
+          "x": 38,
+          "y": 807,
+          "w": 22,
+          "h": 12,
+          "dx": 1,
+          "dy": 0
+        },
+        {
           "kind": "extra",
           "x": 85,
           "y": 349,
@@ -1889,6 +1862,15 @@
           "dy": -1
         },
         {
+          "kind": "shifted",
+          "x": 234,
+          "y": 781,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": -1
+        },
+        {
           "kind": "extra",
           "x": 85,
           "y": 205,
@@ -1903,24 +1885,6 @@
           "y": 807,
           "w": 21,
           "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 38,
-          "y": 807,
-          "w": 22,
-          "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 228,
-          "y": 808,
-          "w": 34,
-          "h": 11,
           "dx": 0,
           "dy": 0
         },
@@ -1944,24 +1908,6 @@
         },
         {
           "kind": "different",
-          "x": 25,
-          "y": 149,
-          "w": 15,
-          "h": 15,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 38,
           "y": 779,
           "w": 9,
@@ -1980,9 +1926,9 @@
         },
         {
           "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
+          "x": 25,
+          "y": 149,
+          "w": 14,
           "h": 14,
           "dx": 0,
           "dy": 0
@@ -1999,8 +1945,8 @@
       ]
     },
     "MOB-B01X.light--zh-CN": {
-      "percent": 8.15,
-      "reason": "header has the compose action but no more menu (no list-level SDK actions beyond the live reload); '· current account' subtitle suffix and subtitle spacing differ; search is disabled (local search is refused by the pinned C ABI) and its placeholder copy differs; messages tab badge count not in the shell state; failure uses the Kit empty-state (icon tile, full-width primary retry button) and shows the SDK reason under the title",
+      "percent": 8.38,
+      "reason": "header has the compose action but no more menu (no list-level SDK actions beyond the live reload); '· current account' subtitle suffix and subtitle spacing differ; search is disabled (local search is refused by the pinned C ABI) and its placeholder copy differs; messages tab badge count not in the shell state; failure uses the Kit empty-state (icon tile, full-width primary retry button) and shows the SDK reason under the title UX-FIX-01 (2026-11-28): as MOB-B01: preview line and relative time, Chats title.",
       "regions": [
         {
           "kind": "extra",
@@ -2031,11 +1977,11 @@
         },
         {
           "kind": "different",
-          "x": 49,
-          "y": 149,
-          "w": 119,
-          "h": 17,
-          "dx": 0,
+          "x": 17,
+          "y": 67,
+          "w": 64,
+          "h": 32,
+          "dx": 1,
           "dy": 0
         },
         {
@@ -2044,6 +1990,15 @@
           "y": 203,
           "w": 31,
           "h": 30,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 49,
+          "y": 149,
+          "w": 119,
+          "h": 17,
           "dx": 0,
           "dy": 0
         },
@@ -2103,30 +2058,12 @@
         },
         {
           "kind": "different",
-          "x": 17,
-          "y": 67,
-          "w": 30,
-          "h": 31,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 49,
-          "y": 66,
-          "w": 31,
-          "h": 32,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 136,
+          "x": 228,
           "y": 807,
-          "w": 21,
+          "w": 34,
           "h": 12,
-          "dx": 0,
-          "dy": 0
+          "dx": -2,
+          "dy": -1
         },
         {
           "kind": "different",
@@ -2134,15 +2071,24 @@
           "y": 807,
           "w": 22,
           "h": 12,
-          "dx": 0,
+          "dx": 1,
           "dy": 0
         },
         {
+          "kind": "shifted",
+          "x": 234,
+          "y": 781,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": -1
+        },
+        {
           "kind": "different",
-          "x": 228,
-          "y": 808,
-          "w": 34,
-          "h": 11,
+          "x": 136,
+          "y": 807,
+          "w": 21,
+          "h": 12,
           "dx": 0,
           "dy": 0
         },
@@ -2166,24 +2112,6 @@
         },
         {
           "kind": "different",
-          "x": 25,
-          "y": 149,
-          "w": 15,
-          "h": 15,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 38,
           "y": 779,
           "w": 9,
@@ -2202,9 +2130,9 @@
         },
         {
           "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
+          "x": 25,
+          "y": 149,
+          "w": 14,
           "h": 14,
           "dx": 0,
           "dy": 0
@@ -2689,8 +2617,8 @@
       ]
     },
     "MOB-B12.light--en": {
-      "percent": 9.47,
-      "reason": "English fixture of MOB-B12: same deviations",
+      "percent": 9.63,
+      "reason": "English fixture of MOB-B12: same deviations UX-FIX-01 (2026-11-28): as zh: the empty list reads Chats; the first tab reads Chats (glossary) instead of Messages, so its label glyphs sit 1 dp off the board.",
       "regions": [
         {
           "kind": "different",
@@ -2709,6 +2637,15 @@
           "h": 72,
           "dx": 0,
           "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 17,
+          "y": 68,
+          "w": 139,
+          "h": 31,
+          "dx": -6,
+          "dy": -1
         },
         {
           "kind": "different",
@@ -2736,15 +2673,6 @@
           "h": 17,
           "dx": 9,
           "dy": -4
-        },
-        {
-          "kind": "different",
-          "x": 18,
-          "y": 69,
-          "w": 145,
-          "h": 30,
-          "dx": 3,
-          "dy": -1
         },
         {
           "kind": "different",
@@ -2781,6 +2709,15 @@
           "h": 13,
           "dx": 0,
           "dy": 10
+        },
+        {
+          "kind": "different",
+          "x": 25,
+          "y": 807,
+          "w": 48,
+          "h": 12,
+          "dx": -5,
+          "dy": 0
         },
         {
           "kind": "different",
@@ -2846,15 +2783,6 @@
           "dy": 0
         },
         {
-          "kind": "different",
-          "x": 24,
-          "y": 808,
-          "w": 50,
-          "h": 11,
-          "dx": 0,
-          "dy": 0
-        },
-        {
           "kind": "shifted",
           "x": 38,
           "y": 780,
@@ -2909,6 +2837,15 @@
           "dy": 0
         },
         {
+          "kind": "shifted",
+          "x": 234,
+          "y": 782,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": 1
+        },
+        {
           "kind": "missing",
           "x": 34,
           "y": 375,
@@ -2946,18 +2883,18 @@
         },
         {
           "kind": "different",
-          "x": 129,
+          "x": 228,
           "y": 808,
-          "w": 36,
+          "w": 35,
           "h": 11,
           "dx": 0,
           "dy": 0
         },
         {
           "kind": "different",
-          "x": 228,
+          "x": 129,
           "y": 808,
-          "w": 34,
+          "w": 36,
           "h": 11,
           "dx": 0,
           "dy": 0
@@ -2988,30 +2925,12 @@
           "h": 9,
           "dx": 0,
           "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
-          "h": 14,
-          "dx": 0,
-          "dy": 0
         }
       ]
     },
     "MOB-B12.light--zh-CN": {
-      "percent": 9.84,
-      "reason": "header has the compose action but no more menu (no list-level SDK actions beyond the live reload); '· current account' subtitle suffix and subtitle spacing differ; search is disabled (local search is refused by the pinned C ABI) and its placeholder copy differs; messages tab badge count not in the shell state; empty state uses the Kit empty-state: icon tile instead of the disc, start-aligned body and full-width button",
+      "percent": 10.15,
+      "reason": "header has the compose action but no more menu (no list-level SDK actions beyond the live reload); '· current account' subtitle suffix and subtitle spacing differ; search is disabled (local search is refused by the pinned C ABI) and its placeholder copy differs; messages tab badge count not in the shell state; empty state uses the Kit empty-state: icon tile instead of the disc, start-aligned body and full-width button UX-FIX-01 (2026-11-28): the empty list reads Chats, no refresh control; the first tab reads Chats (glossary) instead of Messages, so its label glyphs sit 1 dp off the board.",
       "regions": [
         {
           "kind": "different",
@@ -3037,8 +2956,8 @@
           "y": 366,
           "w": 284,
           "h": 24,
-          "dx": -12,
-          "dy": -7
+          "dx": 5,
+          "dy": -8
         },
         {
           "kind": "different",
@@ -3057,6 +2976,15 @@
           "h": 31,
           "dx": 7,
           "dy": -7
+        },
+        {
+          "kind": "different",
+          "x": 17,
+          "y": 67,
+          "w": 64,
+          "h": 32,
+          "dx": 1,
+          "dy": 0
         },
         {
           "kind": "extra",
@@ -3132,30 +3060,12 @@
         },
         {
           "kind": "different",
-          "x": 17,
-          "y": 67,
-          "w": 30,
-          "h": 31,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 49,
-          "y": 66,
-          "w": 31,
-          "h": 32,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 136,
+          "x": 228,
           "y": 807,
-          "w": 21,
+          "w": 34,
           "h": 12,
-          "dx": 0,
-          "dy": 0
+          "dx": -2,
+          "dy": -1
         },
         {
           "kind": "different",
@@ -3163,15 +3073,24 @@
           "y": 807,
           "w": 22,
           "h": 12,
-          "dx": 0,
+          "dx": 1,
           "dy": 0
         },
         {
+          "kind": "shifted",
+          "x": 234,
+          "y": 781,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": -1
+        },
+        {
           "kind": "different",
-          "x": 228,
-          "y": 808,
-          "w": 34,
-          "h": 11,
+          "x": 136,
+          "y": 807,
+          "w": 21,
+          "h": 12,
           "dx": 0,
           "dy": 0
         },
@@ -3204,15 +3123,6 @@
         },
         {
           "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 38,
           "y": 779,
           "w": 9,
@@ -3226,15 +3136,6 @@
           "y": 788,
           "w": 18,
           "h": 4,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
-          "h": 14,
           "dx": 0,
           "dy": 0
         },
@@ -3268,8 +3169,8 @@
       ]
     },
     "MOB-C01.light--zh-CN": {
-      "percent": 4.36,
-      "reason": "groups list: '#general' channel suffix not in the row model, rows use the Kit row gutter and hairlines (no chevron, regular weight titles), info section and outline button missing; the screen's 'create group' text action shows above the tab bar; messages tab badge count not in the shell state",
+      "percent": 4.43,
+      "reason": "groups list: '#general' channel suffix not in the row model, rows use the Kit row gutter and hairlines (no chevron, regular weight titles), info section and outline button missing; the screen's 'create group' text action shows above the tab bar; messages tab badge count not in the shell state UX-FIX-01 (2026-11-28): the first tab reads Chats (glossary) instead of Messages, so its label glyphs sit 1 dp off the board.",
       "regions": [
         {
           "kind": "different",
@@ -3398,6 +3299,24 @@
           "dy": 0
         },
         {
+          "kind": "different",
+          "x": 228,
+          "y": 807,
+          "w": 34,
+          "h": 12,
+          "dx": -2,
+          "dy": -1
+        },
+        {
+          "kind": "shifted",
+          "x": 234,
+          "y": 781,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": -1
+        },
+        {
           "kind": "shifted",
           "x": 25,
           "y": 145,
@@ -3417,6 +3336,15 @@
         },
         {
           "kind": "different",
+          "x": 38,
+          "y": 807,
+          "w": 22,
+          "h": 12,
+          "dx": -1,
+          "dy": 0
+        },
+        {
+          "kind": "different",
           "x": 136,
           "y": 807,
           "w": 22,
@@ -3430,24 +3358,6 @@
           "y": 780,
           "w": 23,
           "h": 20,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 38,
-          "y": 807,
-          "w": 22,
-          "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 228,
-          "y": 808,
-          "w": 34,
-          "h": 11,
           "dx": 0,
           "dy": 0
         },
@@ -3471,15 +3381,6 @@
         },
         {
           "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 38,
           "y": 779,
           "w": 9,
@@ -3493,15 +3394,6 @@
           "y": 788,
           "w": 18,
           "h": 4,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
-          "h": 14,
           "dx": 0,
           "dy": 0
         },
@@ -3535,8 +3427,8 @@
       ]
     },
     "MOB-C15.light--en": {
-      "percent": 9.34,
-      "reason": "English fixture of MOB-C15: same deviations",
+      "percent": 9.38,
+      "reason": "English fixture of MOB-C15: same deviations UX-FIX-01 (2026-11-28): the first tab reads Chats (glossary) instead of Messages, so its label glyphs sit 1 dp off the board.",
       "regions": [
         {
           "kind": "different",
@@ -3593,6 +3485,15 @@
           "dy": -12
         },
         {
+          "kind": "different",
+          "x": 25,
+          "y": 807,
+          "w": 48,
+          "h": 12,
+          "dx": -5,
+          "dy": 0
+        },
+        {
           "kind": "extra",
           "x": 0,
           "y": 118,
@@ -3620,20 +3521,20 @@
           "dy": 0
         },
         {
-          "kind": "different",
-          "x": 24,
-          "y": 808,
-          "w": 50,
-          "h": 11,
-          "dx": 0,
-          "dy": 0
-        },
-        {
           "kind": "shifted",
           "x": 38,
           "y": 780,
           "w": 23,
           "h": 23,
+          "dx": 0,
+          "dy": 1
+        },
+        {
+          "kind": "shifted",
+          "x": 234,
+          "y": 782,
+          "w": 23,
+          "h": 19,
           "dx": 0,
           "dy": 1
         },
@@ -3686,7 +3587,7 @@
           "kind": "different",
           "x": 228,
           "y": 808,
-          "w": 34,
+          "w": 35,
           "h": 11,
           "dx": 0,
           "dy": 0
@@ -3726,30 +3627,12 @@
           "h": 5,
           "dx": 0,
           "dy": 1
-        },
-        {
-          "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
-          "h": 14,
-          "dx": 0,
-          "dy": 0
         }
       ]
     },
     "MOB-C15.light--zh-CN": {
-      "percent": 8.82,
-      "reason": "groups empty at tab root: board copy and create action; the Kit empty-state uses the small icon tile instead of the 72 dp disc and a full-width primary button; vertical placement approximated (3:7 of the free space); messages tab badge count not in the shell state",
+      "percent": 8.89,
+      "reason": "groups empty at tab root: board copy and create action; the Kit empty-state uses the small icon tile instead of the 72 dp disc and a full-width primary button; vertical placement approximated (3:7 of the free space); messages tab badge count not in the shell state UX-FIX-01 (2026-11-28): the first tab reads Chats (glossary) instead of Messages, so its label glyphs sit 1 dp off the board.",
       "regions": [
         {
           "kind": "different",
@@ -3798,6 +3681,33 @@
         },
         {
           "kind": "different",
+          "x": 228,
+          "y": 807,
+          "w": 34,
+          "h": 12,
+          "dx": -2,
+          "dy": -1
+        },
+        {
+          "kind": "shifted",
+          "x": 234,
+          "y": 781,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": -1
+        },
+        {
+          "kind": "different",
+          "x": 38,
+          "y": 807,
+          "w": 22,
+          "h": 12,
+          "dx": -1,
+          "dy": 0
+        },
+        {
+          "kind": "different",
           "x": 136,
           "y": 807,
           "w": 22,
@@ -3811,24 +3721,6 @@
           "y": 780,
           "w": 23,
           "h": 20,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 38,
-          "y": 807,
-          "w": 22,
-          "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 228,
-          "y": 808,
-          "w": 34,
-          "h": 11,
           "dx": 0,
           "dy": 0
         },
@@ -3852,15 +3744,6 @@
         },
         {
           "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 38,
           "y": 779,
           "w": 9,
@@ -3876,21 +3759,12 @@
           "h": 4,
           "dx": 0,
           "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
-          "h": 14,
-          "dx": 0,
-          "dy": 0
         }
       ]
     },
     "MOB-D01.light--zh-CN": {
-      "percent": 5.86,
-      "reason": "agents directory: rows on the Kit row with the 44 dp agent avatar; the status after the responsibility is the record lifecycle (the board's collaboration state has no SDK field); no create action (creation is desktop only, owner decision 2026-11-22), no more menu; footnote replaced by the create-on-desktop hint and the multi-agent conversation row omitted (collaboration not in scope); messages tab badge count not in the shell state",
+      "percent": 6.22,
+      "reason": "agents directory: rows on the Kit row with the 44 dp agent avatar; the status after the responsibility is the record lifecycle (the board's collaboration state has no SDK field); no create action (creation is desktop only, owner decision 2026-11-22), no more menu; footnote replaced by the create-on-desktop hint and the multi-agent conversation row omitted (collaboration not in scope); messages tab badge count not in the shell state UX-FIX-01 (2026-11-28): the first tab reads Chats (glossary) instead of Messages, so its label glyphs sit 1 dp off the board; the contacts header has no refresh action.",
       "regions": [
         {
           "kind": "different",
@@ -3898,7 +3772,7 @@
           "y": 420,
           "w": 201,
           "h": 32,
-          "dx": -9,
+          "dx": -10,
           "dy": -12
         },
         {
@@ -3909,6 +3783,15 @@
           "h": 61,
           "dx": 0,
           "dy": -12
+        },
+        {
+          "kind": "different",
+          "x": 16,
+          "y": 74,
+          "w": 99,
+          "h": 33,
+          "dx": -7,
+          "dy": -4
         },
         {
           "kind": "different",
@@ -3954,15 +3837,6 @@
           "h": 50,
           "dx": 0,
           "dy": -10
-        },
-        {
-          "kind": "different",
-          "x": 16,
-          "y": 77,
-          "w": 102,
-          "h": 30,
-          "dx": 2,
-          "dy": -1
         },
         {
           "kind": "shifted",
@@ -4091,6 +3965,15 @@
           "dy": -5
         },
         {
+          "kind": "different",
+          "x": 228,
+          "y": 807,
+          "w": 34,
+          "h": 12,
+          "dx": -1,
+          "dy": -1
+        },
+        {
           "kind": "extra",
           "x": 0,
           "y": 118,
@@ -4118,15 +4001,6 @@
           "dy": 0
         },
         {
-          "kind": "shifted",
-          "x": 228,
-          "y": 808,
-          "w": 35,
-          "h": 11,
-          "dx": 1,
-          "dy": 0
-        },
-        {
           "kind": "missing",
           "x": 20,
           "y": 480,
@@ -4134,6 +4008,15 @@
           "h": 18,
           "dx": 0,
           "dy": 0
+        },
+        {
+          "kind": "shifted",
+          "x": 234,
+          "y": 781,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": -1
         },
         {
           "kind": "shifted",
@@ -4146,18 +4029,18 @@
         },
         {
           "kind": "different",
-          "x": 136,
+          "x": 38,
           "y": 807,
-          "w": 21,
+          "w": 22,
           "h": 12,
-          "dx": 0,
+          "dx": -1,
           "dy": 0
         },
         {
           "kind": "different",
-          "x": 38,
+          "x": 136,
           "y": 807,
-          "w": 22,
+          "w": 21,
           "h": 12,
           "dx": 0,
           "dy": 0
@@ -4200,15 +4083,6 @@
         },
         {
           "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 38,
           "y": 779,
           "w": 9,
@@ -4222,15 +4096,6 @@
           "y": 788,
           "w": 18,
           "h": 4,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
-          "h": 14,
           "dx": 0,
           "dy": 0
         },
@@ -4273,8 +4138,8 @@
       ]
     },
     "MOB-D01E.light--zh-CN": {
-      "percent": 4.09,
-      "reason": "agents 'none found': the fixture types a query (the screen shows no-match only for a typed filter); Kit empty-state icon tile; multi-agent conversation row omitted; create-on-desktop hint under the result; messages tab badge count not in the shell state",
+      "percent": 4.5,
+      "reason": "agents 'none found': the fixture types a query (the screen shows no-match only for a typed filter); Kit empty-state icon tile; multi-agent conversation row omitted; create-on-desktop hint under the result; messages tab badge count not in the shell state UX-FIX-01 (2026-11-28): the first tab reads Chats (glossary) instead of Messages, so its label glyphs sit 1 dp off the board; the contacts header has no refresh action.",
       "regions": [
         {
           "kind": "different",
@@ -4282,8 +4147,17 @@
           "y": 333,
           "w": 188,
           "h": 24,
-          "dx": -10,
+          "dx": -12,
           "dy": -7
+        },
+        {
+          "kind": "different",
+          "x": 16,
+          "y": 74,
+          "w": 99,
+          "h": 33,
+          "dx": -7,
+          "dy": -4
         },
         {
           "kind": "different",
@@ -4304,6 +4178,15 @@
           "dy": -4
         },
         {
+          "kind": "extra",
+          "x": 137,
+          "y": 245,
+          "w": 120,
+          "h": 18,
+          "dx": 0,
+          "dy": 0
+        },
+        {
           "kind": "different",
           "x": 154,
           "y": 203,
@@ -4314,30 +4197,12 @@
         },
         {
           "kind": "different",
-          "x": 16,
-          "y": 77,
-          "w": 102,
-          "h": 30,
-          "dx": 2,
-          "dy": -1
-        },
-        {
-          "kind": "different",
           "x": 49,
           "y": 146,
           "w": 89,
           "h": 20,
           "dx": 0,
           "dy": -4
-        },
-        {
-          "kind": "extra",
-          "x": 138,
-          "y": 245,
-          "w": 67,
-          "h": 17,
-          "dx": 0,
-          "dy": 0
         },
         {
           "kind": "extra",
@@ -4412,15 +4277,6 @@
           "dy": 0
         },
         {
-          "kind": "extra",
-          "x": 210,
-          "y": 248,
-          "w": 45,
-          "h": 16,
-          "dx": 0,
-          "dy": 0
-        },
-        {
           "kind": "missing",
           "x": 102,
           "y": 205,
@@ -4439,21 +4295,21 @@
           "dy": 0
         },
         {
+          "kind": "different",
+          "x": 228,
+          "y": 807,
+          "w": 34,
+          "h": 12,
+          "dx": -1,
+          "dy": -1
+        },
+        {
           "kind": "extra",
           "x": 0,
           "y": 118,
           "w": 393,
           "h": 1,
           "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "shifted",
-          "x": 228,
-          "y": 808,
-          "w": 35,
-          "h": 11,
-          "dx": 1,
           "dy": 0
         },
         {
@@ -4467,12 +4323,30 @@
         },
         {
           "kind": "shifted",
+          "x": 234,
+          "y": 781,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": -1
+        },
+        {
+          "kind": "shifted",
           "x": 25,
           "y": 145,
           "w": 15,
           "h": 19,
           "dx": 0,
           "dy": -4
+        },
+        {
+          "kind": "different",
+          "x": 38,
+          "y": 807,
+          "w": 22,
+          "h": 12,
+          "dx": -1,
+          "dy": 0
         },
         {
           "kind": "different",
@@ -4488,15 +4362,6 @@
           "x": 136,
           "y": 807,
           "w": 21,
-          "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 38,
-          "y": 807,
-          "w": 22,
           "h": 12,
           "dx": 0,
           "dy": 0
@@ -4530,15 +4395,6 @@
         },
         {
           "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
           "x": 38,
           "y": 779,
           "w": 9,
@@ -4552,15 +4408,6 @@
           "y": 788,
           "w": 18,
           "h": 4,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
-          "h": 14,
           "dx": 0,
           "dy": 0
         },
@@ -4585,53 +4432,35 @@
       ]
     },
     "MOB-D20.light--en": {
-      "percent": 8.22,
-      "reason": "English fixture of MOB-D20: same deviations",
+      "percent": 11.43,
+      "reason": "English fixture of MOB-D20: same deviations UX-FIX-01 (2026-11-28): as zh: empty-state body reads Agents you create on the desktop appear here; no refresh action in the header.",
       "regions": [
-        {
-          "kind": "shifted",
-          "x": 16,
-          "y": 397,
-          "w": 361,
-          "h": 35,
-          "dx": -12,
-          "dy": -12
-        },
         {
           "kind": "different",
           "x": 16,
-          "y": 437,
+          "y": 375,
           "w": 361,
-          "h": 27,
-          "dx": 0,
-          "dy": 4
+          "h": 89,
+          "dx": -1,
+          "dy": -12
         },
         {
           "kind": "different",
           "x": 160,
           "y": 247,
           "w": 73,
-          "h": 72,
+          "h": 74,
           "dx": 0,
-          "dy": 10
-        },
-        {
-          "kind": "shifted",
-          "x": 156,
-          "y": 326,
-          "w": 124,
-          "h": 41,
-          "dx": 8,
-          "dy": -12
+          "dy": 12
         },
         {
           "kind": "different",
-          "x": 26,
-          "y": 374,
-          "w": 173,
-          "h": 16,
-          "dx": 10,
-          "dy": -1
+          "x": 136,
+          "y": 332,
+          "w": 122,
+          "h": 24,
+          "dx": 8,
+          "dy": -6
         },
         {
           "kind": "different",
@@ -4644,15 +4473,6 @@
         },
         {
           "kind": "different",
-          "x": 111,
-          "y": 325,
-          "w": 55,
-          "h": 39,
-          "dx": -9,
-          "dy": -12
-        },
-        {
-          "kind": "different",
           "x": 0,
           "y": 768,
           "w": 393,
@@ -4661,12 +4481,39 @@
           "dy": 0
         },
         {
+          "kind": "different",
+          "x": 268,
+          "y": 362,
+          "w": 46,
+          "h": 25,
+          "dx": -12,
+          "dy": -12
+        },
+        {
           "kind": "extra",
-          "x": 32,
-          "y": 352,
+          "x": 212,
+          "y": 359,
+          "w": 52,
+          "h": 15,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "extra",
+          "x": 42,
+          "y": 359,
           "w": 47,
           "h": 15,
           "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "different",
+          "x": 25,
+          "y": 807,
+          "w": 48,
+          "h": 12,
+          "dx": -5,
           "dy": 0
         },
         {
@@ -4679,30 +4526,21 @@
           "dy": 0
         },
         {
+          "kind": "extra",
+          "x": 121,
+          "y": 360,
+          "w": 41,
+          "h": 11,
+          "dx": 0,
+          "dy": 0
+        },
+        {
           "kind": "missing",
-          "x": 231,
-          "y": 375,
-          "w": 44,
-          "h": 14,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 24,
-          "y": 808,
-          "w": 50,
+          "x": 104,
+          "y": 376,
+          "w": 42,
           "h": 11,
           "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "shifted",
-          "x": 228,
-          "y": 808,
-          "w": 35,
-          "h": 11,
-          "dx": 1,
           "dy": 0
         },
         {
@@ -4711,6 +4549,24 @@
           "y": 780,
           "w": 23,
           "h": 23,
+          "dx": 0,
+          "dy": 1
+        },
+        {
+          "kind": "extra",
+          "x": 318,
+          "y": 359,
+          "w": 32,
+          "h": 12,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "shifted",
+          "x": 234,
+          "y": 782,
+          "w": 23,
+          "h": 19,
           "dx": 0,
           "dy": 1
         },
@@ -4743,28 +4599,19 @@
         },
         {
           "kind": "extra",
-          "x": 83,
-          "y": 355,
+          "x": 93,
+          "y": 362,
           "w": 23,
           "h": 12,
           "dx": 0,
           "dy": 0
         },
         {
-          "kind": "extra",
-          "x": 284,
-          "y": 352,
-          "w": 25,
-          "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "extra",
-          "x": 314,
-          "y": 355,
-          "w": 23,
-          "h": 9,
+          "kind": "different",
+          "x": 228,
+          "y": 808,
+          "w": 35,
+          "h": 11,
           "dx": 0,
           "dy": 0
         },
@@ -4778,10 +4625,10 @@
           "dy": 0
         },
         {
-          "kind": "missing",
-          "x": 280,
-          "y": 375,
-          "w": 24,
+          "kind": "extra",
+          "x": 186,
+          "y": 359,
+          "w": 22,
           "h": 12,
           "dx": 0,
           "dy": 0
@@ -4805,6 +4652,24 @@
           "dy": 0
         },
         {
+          "kind": "extra",
+          "x": 166,
+          "y": 362,
+          "w": 16,
+          "h": 9,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "missing",
+          "x": 185,
+          "y": 376,
+          "w": 14,
+          "h": 11,
+          "dx": 0,
+          "dy": 0
+        },
+        {
           "kind": "shifted",
           "x": 335,
           "y": 789,
@@ -4821,37 +4686,19 @@
           "h": 4,
           "dx": 0,
           "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
-          "h": 14,
-          "dx": 0,
-          "dy": 0
         }
       ]
     },
     "MOB-D20.light--zh-CN": {
-      "percent": 7.17,
-      "reason": "agents 'none yet': Kit empty-state icon tile instead of the 72 dp disc, start-aligned body; vertical placement approximated (3:7 of the free space); no more menu; messages tab badge count not in the shell state",
+      "percent": 10.42,
+      "reason": "agents 'none yet': Kit empty-state icon tile instead of the 72 dp disc, start-aligned body; vertical placement approximated (3:7 of the free space); no more menu; messages tab badge count not in the shell state UX-FIX-01 (2026-11-28): the agent directory title and empty state read the translated term (智能体) with the phone empty-state body, and the header has no refresh action, instead of the board copy.",
       "regions": [
         {
-          "kind": "shifted",
+          "kind": "different",
           "x": 16,
-          "y": 397,
+          "y": 396,
           "w": 361,
-          "h": 67,
+          "h": 68,
           "dx": 0,
           "dy": -12
         },
@@ -4860,54 +4707,36 @@
           "x": 160,
           "y": 247,
           "w": 73,
-          "h": 72,
+          "h": 69,
           "dx": 0,
-          "dy": -8
-        },
-        {
-          "kind": "different",
-          "x": 136,
-          "y": 323,
-          "w": 128,
-          "h": 48,
-          "dx": 5,
-          "dy": -12
-        },
-        {
-          "kind": "different",
-          "x": 17,
-          "y": 358,
-          "w": 214,
-          "h": 35,
-          "dx": 3,
           "dy": 12
         },
         {
           "kind": "different",
+          "x": 61,
+          "y": 362,
+          "w": 314,
+          "h": 28,
+          "dx": 0,
+          "dy": -12
+        },
+        {
+          "kind": "different",
           "x": 16,
-          "y": 77,
-          "w": 102,
-          "h": 30,
-          "dx": 2,
-          "dy": -1
+          "y": 74,
+          "w": 99,
+          "h": 33,
+          "dx": -7,
+          "dy": -4
         },
         {
-          "kind": "missing",
-          "x": 241,
-          "y": 375,
-          "w": 134,
-          "h": 15,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "extra",
-          "x": 274,
-          "y": 356,
-          "w": 75,
-          "h": 15,
-          "dx": 0,
-          "dy": 0
+          "kind": "different",
+          "x": 136,
+          "y": 329,
+          "w": 121,
+          "h": 29,
+          "dx": 1,
+          "dy": -7
         },
         {
           "kind": "different",
@@ -4919,13 +4748,13 @@
           "dy": 0
         },
         {
-          "kind": "extra",
-          "x": 32,
-          "y": 356,
-          "w": 59,
-          "h": 15,
-          "dx": 0,
-          "dy": 0
+          "kind": "different",
+          "x": 228,
+          "y": 807,
+          "w": 34,
+          "h": 12,
+          "dx": -1,
+          "dy": -1
         },
         {
           "kind": "extra",
@@ -4937,12 +4766,30 @@
           "dy": 0
         },
         {
+          "kind": "missing",
+          "x": 17,
+          "y": 377,
+          "w": 41,
+          "h": 15,
+          "dx": 0,
+          "dy": 0
+        },
+        {
           "kind": "shifted",
-          "x": 228,
-          "y": 808,
-          "w": 35,
-          "h": 11,
-          "dx": 1,
+          "x": 234,
+          "y": 781,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": -1
+        },
+        {
+          "kind": "different",
+          "x": 38,
+          "y": 807,
+          "w": 22,
+          "h": 12,
+          "dx": -1,
           "dy": 0
         },
         {
@@ -4950,15 +4797,6 @@
           "x": 136,
           "y": 807,
           "w": 21,
-          "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 38,
-          "y": 807,
-          "w": 22,
           "h": 12,
           "dx": 0,
           "dy": 0
@@ -5000,11 +4838,11 @@
           "dy": 0
         },
         {
-          "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
+          "kind": "missing",
+          "x": 187,
+          "y": 317,
+          "w": 19,
+          "h": 2,
           "dx": 0,
           "dy": 0
         },
@@ -5025,21 +4863,12 @@
           "h": 4,
           "dx": 0,
           "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
-          "h": 14,
-          "dx": 0,
-          "dy": 0
         }
       ]
     },
     "MOB-G01.light--zh-CN": {
-      "percent": 7.78,
-      "reason": "more hub (re-reviewed at the beta integration): header more action missing, rows use tile icons and hairlines instead of circular icons with 72 dp spacing; extra Calls row (call history moved to the More hub, as on iOS) and extra open-source row; messages tab badge count not in the shell state",
+      "percent": 7.85,
+      "reason": "more hub (re-reviewed at the beta integration): header more action missing, rows use tile icons and hairlines instead of circular icons with 72 dp spacing; extra Calls row (call history moved to the More hub, as on iOS) and extra open-source row; messages tab badge count not in the shell state UX-FIX-01 (2026-11-28): the first tab reads Chats (glossary) instead of Messages, so its label glyphs sit 1 dp off the board; the settings header has no refresh action.",
       "regions": [
         {
           "kind": "different",
@@ -5204,13 +5033,13 @@
           "dy": 0
         },
         {
-          "kind": "extra",
-          "x": 58,
-          "y": 386,
-          "w": 31,
-          "h": 13,
-          "dx": 0,
-          "dy": 0
+          "kind": "different",
+          "x": 228,
+          "y": 807,
+          "w": 34,
+          "h": 12,
+          "dx": -2,
+          "dy": -1
         },
         {
           "kind": "extra",
@@ -5222,6 +5051,24 @@
           "dy": 0
         },
         {
+          "kind": "extra",
+          "x": 58,
+          "y": 385,
+          "w": 31,
+          "h": 14,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "kind": "shifted",
+          "x": 234,
+          "y": 781,
+          "w": 23,
+          "h": 19,
+          "dx": 0,
+          "dy": -1
+        },
+        {
           "kind": "shifted",
           "x": 16,
           "y": 262,
@@ -5229,6 +5076,15 @@
           "h": 17,
           "dx": -6,
           "dy": 6
+        },
+        {
+          "kind": "different",
+          "x": 38,
+          "y": 807,
+          "w": 22,
+          "h": 12,
+          "dx": -1,
+          "dy": 0
         },
         {
           "kind": "different",
@@ -5245,24 +5101,6 @@
           "y": 807,
           "w": 22,
           "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 38,
-          "y": 807,
-          "w": 22,
-          "h": 12,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 228,
-          "y": 808,
-          "w": 34,
-          "h": 11,
           "dx": 0,
           "dy": 0
         },
@@ -5303,15 +5141,6 @@
           "dy": -6
         },
         {
-          "kind": "different",
-          "x": 234,
-          "y": 782,
-          "w": 13,
-          "h": 18,
-          "dx": 0,
-          "dy": 0
-        },
-        {
           "kind": "missing",
           "x": 366,
           "y": 333,
@@ -5344,15 +5173,6 @@
           "y": 779,
           "w": 9,
           "h": 19,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 247,
-          "y": 786,
-          "w": 10,
-          "h": 14,
           "dx": 0,
           "dy": 0
         },
@@ -5896,8 +5716,8 @@
       ]
     },
     "MOB-G03.light--zh-CN": {
-      "percent": 5.27,
-      "reason": "edit navigation: header, note and reorder rows differ",
+      "percent": 5.35,
+      "reason": "edit navigation: header, note and reorder rows differ UX-FIX-01 (2026-11-28): privacy page: one Accept contact requests automatically switch row replaces the two check rows of the board.",
       "regions": [
         {
           "kind": "shifted",
@@ -5954,6 +5774,15 @@
           "dy": 0
         },
         {
+          "kind": "extra",
+          "x": 106,
+          "y": 466,
+          "w": 125,
+          "h": 15,
+          "dx": 0,
+          "dy": 0
+        },
+        {
           "kind": "different",
           "x": 16,
           "y": 139,
@@ -5981,13 +5810,13 @@
           "dy": -3
         },
         {
-          "kind": "extra",
-          "x": 150,
-          "y": 466,
-          "w": 74,
-          "h": 15,
-          "dx": 0,
-          "dy": 0
+          "kind": "different",
+          "x": 16,
+          "y": 270,
+          "w": 51,
+          "h": 23,
+          "dx": 1,
+          "dy": 6
         },
         {
           "kind": "different",
@@ -5997,15 +5826,6 @@
           "h": 32,
           "dx": -2,
           "dy": 12
-        },
-        {
-          "kind": "different",
-          "x": 16,
-          "y": 270,
-          "w": 53,
-          "h": 24,
-          "dx": 11,
-          "dy": 7
         },
         {
           "kind": "different",
@@ -6026,22 +5846,22 @@
           "dy": 0
         },
         {
+          "kind": "different",
+          "x": 16,
+          "y": 188,
+          "w": 34,
+          "h": 23,
+          "dx": 0,
+          "dy": -6
+        },
+        {
           "kind": "extra",
-          "x": 240,
+          "x": 241,
           "y": 466,
-          "w": 65,
+          "w": 66,
           "h": 15,
           "dx": 0,
           "dy": 0
-        },
-        {
-          "kind": "shifted",
-          "x": 16,
-          "y": 187,
-          "w": 33,
-          "h": 24,
-          "dx": 0,
-          "dy": -6
         },
         {
           "kind": "missing",
@@ -6125,15 +5945,6 @@
           "dy": 0
         },
         {
-          "kind": "missing",
-          "x": 58,
-          "y": 614,
-          "w": 33,
-          "h": 14,
-          "dx": 0,
-          "dy": 0
-        },
-        {
           "kind": "extra",
           "x": 16,
           "y": 466,
@@ -6143,11 +5954,11 @@
           "dy": 0
         },
         {
-          "kind": "extra",
-          "x": 106,
-          "y": 468,
-          "w": 40,
-          "h": 15,
+          "kind": "missing",
+          "x": 58,
+          "y": 614,
+          "w": 33,
+          "h": 14,
           "dx": 0,
           "dy": 0
         },
@@ -6213,6 +6024,15 @@
           "h": 21,
           "dx": 4,
           "dy": 6
+        },
+        {
+          "kind": "different",
+          "x": 30,
+          "y": 81,
+          "w": 16,
+          "h": 16,
+          "dx": -2,
+          "dy": 0
         },
         {
           "kind": "missing",
@@ -6355,24 +6175,6 @@
           "y": 567,
           "w": 14,
           "h": 14,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "different",
-          "x": 34,
-          "y": 82,
-          "w": 8,
-          "h": 14,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "kind": "extra",
-          "x": 226,
-          "y": 475,
-          "w": 4,
-          "h": 6,
           "dx": 0,
           "dy": 0
         },

@@ -406,7 +406,11 @@ class OnboardingScreenTest {
         val secretInfo = secret.openConnection().first
         assertTrue(wordInfo.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0)
         assertEquals(InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD, secretInfo.inputType)
-        assertFalse(word.masksInput())
+        // The words are masked until the per-field Show toggle reveals them.
+        assertTrue(word.masksInput())
+        compose.onNodeWithTag("challenge-0-show", useUnmergedTree = true).performClick()
+        compose.waitForIdle()
+        assertFalse(view.findTagged("challenge-0").masksInput())
         assertTrue(secret.masksInput())
         assertTrue(wordInfo.imeOptions and EditorInfo.IME_FLAG_FORCE_ASCII != 0)
         assertEquals(View.LAYOUT_DIRECTION_LTR, word.layoutDirection)
@@ -630,7 +634,7 @@ class OnboardingScreenTest {
         compose.onNodeWithText("\u6797\u6f88").assertDoesNotExist()
         compose.onNodeWithTag("begin-create").assertIsNotEnabled()
         compose.onNodeWithTag("n01-node").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("chevron-left").performClick()
+        compose.onNodeWithContentDescription("Navigate up").performClick()
         compose.runOnIdle { assertEquals(OnboardingAction.Back, actions.single()) }
         compose.onNode(hasSetTextAction()).performTextInput("Ada")
         compose.runOnIdle {

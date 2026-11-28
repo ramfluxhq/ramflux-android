@@ -97,7 +97,7 @@ class ContactsScreenshotTest(private val kind: String, private val dark: Boolean
                 uncertain = persistentListOf(uiText(R.string.contacts_unknown_operation, UiText.Data("operation-id")))
             )
             "loading" -> ContactsState(loading = true)
-            "error" -> ContactsState(problem = uiText(R.string.contacts_read_failed, UiText.Number(8)))
+            "error" -> ContactsState(problem = uiText(org.ramflux.core.designsystem.R.string.failure_generic))
             "account" -> ContactsState(accountRequired = true)
             else -> ContactsState(loaded = true)
         }

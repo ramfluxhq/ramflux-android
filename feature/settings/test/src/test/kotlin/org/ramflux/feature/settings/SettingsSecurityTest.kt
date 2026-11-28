@@ -141,6 +141,7 @@ class SettingsSecurityTest {
         runCurrent()
         assertEquals(6, vm.state.value.codeChange.nextDigits)
         assertFalse(vm.state.value.toString().contains("258036"))
+        "740395".forEach { vm.onAction(SettingsAction.RepeatDigit(it)) }
         vm.onAction(SettingsAction.SubmitCodeChange)
         runCurrent()
         assertEquals("258036" to "740395", security.codes.single())
@@ -150,6 +151,7 @@ class SettingsSecurityTest {
         vm.onAction(SettingsAction.OpenCodeChange)
         "258036".forEach { vm.onAction(SettingsAction.CodeDigit(false, it)) }
         "111111".forEach { vm.onAction(SettingsAction.CodeDigit(true, it)) }
+        "111111".forEach { vm.onAction(SettingsAction.RepeatDigit(it)) }
         vm.onAction(SettingsAction.SubmitCodeChange)
         runCurrent()
         assertNotNull(vm.state.value.codeChange.problem)

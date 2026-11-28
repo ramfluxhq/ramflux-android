@@ -185,7 +185,7 @@ class TasksScreenTest {
             DeviceConfigurationOverride(DeviceConfigurationOverride.Locales(LocaleList("zh-CN"))) {
                 RamfluxTheme {
                     TasksScreen(
-                        TasksState(page = TasksPage.LIST, problem = uiText(R.string.tasks_error_code, UiText.Number(8))),
+                        TasksState(page = TasksPage.LIST, problem = uiText(org.ramflux.core.designsystem.R.string.failure_generic)),
                         {}
                     )
                 }

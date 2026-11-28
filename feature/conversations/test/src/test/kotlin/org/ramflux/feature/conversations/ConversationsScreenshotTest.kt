@@ -57,7 +57,7 @@ class ConversationsScreenshotTest(private val kind: String, private val case: Sc
                 rows = persistentListOf(
                     ConversationItem("c", "Project", uiText(R.string.ui_conversation), "7", true, UiText.Data("10:30"))
                 ),
-                unavailable = uiText(R.string.ui_value_is_not_available_in_this_version, uiText(R.string.ui_local_search))
+                unavailable = uiText(R.string.ui_value_is_not_available_in_this_version, uiText(R.string.ui_conversations))
             )
             else -> ConversationBoards.list
         }

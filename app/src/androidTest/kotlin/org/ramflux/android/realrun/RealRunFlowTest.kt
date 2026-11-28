@@ -192,10 +192,7 @@ class RealRunFlowTest {
 
     @Test fun f02_lockAndUnlock() = flow("02-lock-unlock") {
         ensureShell()
-        openSettings()
-        ui.tap("account-security")
-        ui.tap("lock-account", Ui.SHORT)
-        confirmIfAsked()
+        lockNowFromSettings()
         val locked = ui.first(
             "startup-unlock-header",
             "startup-details-header",
@@ -761,10 +758,7 @@ class RealRunFlowTest {
         ui.shot("10-code-changed")
         notes += "account.passphrase.rotate accepted"
         ensureShell()
-        openSettings()
-        ui.tap("account-security")
-        ui.tap("lock-account")
-        confirmIfAsked()
+        lockNowFromSettings()
         unlock()
         ensureShell()
         notes += "lock and unlock with the new code work"
@@ -1686,7 +1680,14 @@ class RealRunFlowTest {
                 if (ui.hasText(peerName(peer))) {
                     true
                 } else {
-                    ui.device.findObject(By.pkg(ui.packageName).text(ui.str("contacts_refresh")))?.press()
+                    // The list refreshes by pulling it down (there is no refresh button).
+                    ui.device.swipe(
+                        ui.device.displayWidth / 2,
+                        ui.device.displayHeight / 3,
+                        ui.device.displayWidth / 2,
+                        ui.device.displayHeight * 2 / 3,
+                        24
+                    )
                     false
                 }
             }
@@ -2065,12 +2066,29 @@ class RealRunFlowTest {
         ui.need("shell-tabs", Ui.SHORT, "shell")
     }
 
-    /** Settings > Account and security > Lock account leaves the open account and shows the account chooser. */
-    private fun openAccountChooser() {
+    /**
+     * Settings > Account and security > Privacy > App lock > Lock now. The row is enabled only while the app lock is on, so
+     * the flow switches the app lock on first when it is off (turning it on needs no code).
+     */
+    private fun lockNowFromSettings() {
         openSettings()
-        if (ui.find("lock-account", 1_500) == null) ui.tap("account-security") // Settings may reopen on this page
+        if (ui.find("privacy", 1_500) == null) ui.tap("account-security") // Settings may reopen on this page
+        ui.tap("privacy")
+        ui.tap("app-lock")
+        val lockSwitch = ui.need("app-lock-switch", Ui.LONG, "app lock switch")
+        if (!lockSwitch.isChecked) {
+            ui.tap("app-lock-switch", Ui.LONG)
+            if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-switch", 300)?.isChecked == true }) {
+                fail("the app lock did not switch on for Lock now: ${ui.screen()}")
+            }
+        }
         ui.tap("lock-account", Ui.SHORT)
         confirmIfAsked()
+    }
+
+    /** Lock now leaves the open account and shows the account chooser. */
+    private fun openAccountChooser() {
+        lockNowFromSettings()
         ui.need("onboarding-header", Ui.LONG, "account chooser")
     }
 
@@ -2315,14 +2333,14 @@ class RealRunFlowTest {
         return failedAt
     }
 
-    /** The exhausted page: its marker, restore and remove offered, no code field, no account name. */
+    /** The exhausted page: its marker, restore and remove offered, no code field, the locked account's own name on top. */
     private fun assertExhaustedPage(name: String) {
         ui.need("app-lock-exhausted", Ui.LONG, "exhausted page")
         ui.need("app-lock-restore")
         ui.need("app-lock-remove")
         if (ui.find("app-lock-code", 1_000) != null) fail("the exhausted page still has the code field: ${ui.screen()}")
         if (ui.find("app-lock-unlock", 500) != null) fail("the exhausted page still has the unlock button: ${ui.screen()}")
-        if (ui.hasText(name)) fail("the exhausted page shows the account name")
+        if (ui.find("app-lock-name", 500)?.text != name) fail("the exhausted page does not name the account: ${ui.screen()}")
     }
 
     /** Recovery from the exhausted page with [phrase] and [code]; the screens with the secret fields are never captured. */
@@ -2388,11 +2406,13 @@ class RealRunFlowTest {
         }
     }
 
-    /** The remove dialog from the exhausted page: no name, confirm disabled until "I understand", cancel keeps, confirm removes. */
+    /** The remove dialog from the exhausted page: names the account with its short id, confirm disabled until "I understand", cancel keeps, confirm removes. */
     private fun removeFromExhaustedPage(name: String): String {
         ui.tap("app-lock-remove", Ui.LONG)
         ui.need("remove-dialog", Ui.LONG, "remove dialog")
-        if (ui.find("remove-dialog-name", 500) != null || ui.hasText(name)) fail("the remove dialog names the account")
+        if (ui.find("remove-dialog-name", 500)?.text != name || ui.find("remove-dialog-name-short-id", 500) == null) {
+            fail("the remove dialog does not name the account with its short id: ${ui.screen()}")
+        }
         if (ui.find("remove-confirm", Ui.SHORT)?.isEnabled != false) fail("remove-confirm is enabled before 'I understand' is ticked")
         ui.shot("22-remove-dialog")
         ui.tap("remove-cancel")
@@ -2407,7 +2427,7 @@ class RealRunFlowTest {
             fail("remove-confirm did not enable after 'I understand': ${ui.screen()}")
         }
         ui.tap("remove-confirm")
-        val removedText = ui.str("ui_account_removed")
+        val removedText = ui.str("ui_account_removed", name)
         val toast = ui.text(removedText, Ui.SHORT) != null
         val after = ui.first(
             "onboarding-header", "startup-gateway", "startup-welcome", "startup-unlock-header", "unlock-account-name", "shell-locked",
@@ -2421,8 +2441,8 @@ class RealRunFlowTest {
         if (ui.eventually(5_000) { ui.hasText(name) }) fail("the removed throwaway account is still offered: ${ui.screen()}")
         ui.shot("22-removed")
         if (!toast) fail("the removed notice '$removedText' was not shown (the app went to '$after')")
-        return "remove dialog named no account, confirm needed 'I understand', Cancel kept the account, confirm removed it: toast shown, " +
-            "the app went to '$after' and no longer offers the account"
+        return "remove dialog named the account with its short id, confirm needed 'I understand', Cancel kept the account, " +
+            "confirm removed it: toast named the account, the app went to '$after' and no longer offers the account"
     }
 
     companion object {

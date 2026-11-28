@@ -66,8 +66,8 @@ class AgentsScreenTest {
                 RamfluxTheme { AgentsScreen(AgentsState(loaded = true), {}, rooted = true) }
             }
         }
-        compose.onNodeWithText("还没有 Agent").assertExists()
-        compose.onNodeWithText("请在桌面端创建 Agent").assertExists()
+        compose.onNodeWithText("还没有智能体").assertExists()
+        compose.onNodeWithText("请在桌面端创建智能体").assertExists()
     }
 
     @Test fun failedFirstReadShowsRetryNotTheEmptyState() {
@@ -75,7 +75,7 @@ class AgentsScreenTest {
         compose.setContent {
             RamfluxTheme {
                 AgentsScreen(
-                    AgentsState(problem = uiText(R.string.agents_read_failure, UiText.Number(8))),
+                    AgentsState(problem = uiText(org.ramflux.core.designsystem.R.string.failure_generic)),
                     actions::add,
                     rooted = true
                 )

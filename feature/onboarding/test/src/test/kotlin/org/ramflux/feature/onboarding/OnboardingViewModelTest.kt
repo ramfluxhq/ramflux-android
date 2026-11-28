@@ -142,9 +142,8 @@ class OnboardingViewModelTest {
         runCurrent()
         assertEquals(OnboardingNoticeKind.ERROR, vm.state.value.notice?.kind)
         val message = vm.state.value.notice?.message as UiText.Resource
-        assertEquals(R.string.ui_the_request_did_not_complete_code_value_refresh, message.id)
-        assertTrue(message.leaves().any { it is UiText.Number && it.value == 1L })
-        assertTrue(message.leaves().any { it is UiText.Code && it.value == "CustodySetupInvalid" })
+        assertEquals(org.ramflux.core.designsystem.R.string.failure_generic, message.id)
+        assertTrue(message.leaves().none { it is UiText.Number || it is UiText.Code })
     }
 
     @Test fun confirmWordMismatchShowsThePositionAndNotTheWord() = runTest(timeout = 5.seconds) {
@@ -178,9 +177,8 @@ class OnboardingViewModelTest {
         assertEquals(listOf("confirm.failed.5.CustodyConfirmationFailed.NONE"), traced)
         assertTrue(traced.none { it.contains("word_") || it.contains("passphrase_") })
         val message = vm.state.value.notice?.message as UiText.Resource
-        assertEquals(R.string.ui_the_request_did_not_complete_code_value_refresh, message.id)
-        assertTrue(message.leaves().any { it is UiText.Code && it.value == "word_8" })
-        assertTrue(message.leaves().none { it is UiText.Code && it.value == "alpha" })
+        assertEquals(org.ramflux.core.designsystem.R.string.failure_generic, message.id)
+        assertTrue(message.leaves().none { it is UiText.Code })
         assertNotEquals(OnboardingPage.CREATED, vm.state.value.page)
         assertTrue(words.all { it.isEmpty() })
         assertTrue(passphrase.isEmpty())
@@ -540,9 +538,8 @@ class OnboardingViewModelTest {
         assertEquals(1, ceremony.confirmations)
         assertEquals(OnboardingNoticeKind.ERROR, vm.state.value.notice?.kind)
         val message = vm.state.value.notice?.message as UiText.Resource
-        assertEquals(R.string.ui_the_request_did_not_complete_code_value_refresh, message.id)
-        assertTrue(message.leaves().any { it is UiText.Number && it.value == 16L })
-        assertTrue(message.leaves().any { it is UiText.Code && it.value == "CustodyExpired" })
+        assertEquals(org.ramflux.core.designsystem.R.string.failure_generic, message.id)
+        assertTrue(message.leaves().none { it is UiText.Number || it is UiText.Code })
         assertFalse(vm.state.value.busy)
         assertTrue(words.all { it.isEmpty() })
         assertTrue(passphrase.isEmpty())
@@ -783,7 +780,10 @@ class OnboardingViewModelTest {
         assertNull(vm.state.value.forgetAccountId)
         vm.onAction(OnboardingAction.SubmitUnlock(ErasableBuffer().also { it.replace("482915".toCharArray()) }))
         runCurrent()
-        assertEquals(R.string.ui_the_request_did_not_complete_code_value_refresh, (vm.state.value.notice?.message as UiText.Resource).id)
+        assertEquals(
+            org.ramflux.core.designsystem.R.string.failure_generic,
+            (vm.state.value.notice?.message as UiText.Resource).id
+        )
         assertEquals("a", vm.state.value.forgetAccountId)
         vm.onAction(OnboardingAction.ForgetAccount("a"))
         runCurrent()

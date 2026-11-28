@@ -46,7 +46,7 @@ class ConversationsViewModelTest {
         assertFalse(vm.state.value.loaded)
     }
 
-    @Test fun failedReadIsDifferentFromSuccessfulEmptyAndSearchIsTypedUnavailable() = runTest(timeout = 5.seconds) {
+    @Test fun failedReadIsDifferentFromSuccessfulEmpty() = runTest(timeout = 5.seconds) {
         val directory = FakeConversationDirectory().apply { response = { failed() } }
         val vm = ConversationsViewModel(directory, FakeConversationAccounts(), FakeConversationSession()).also {
             it.work = UnconfinedTestDispatcher(testScheduler)
@@ -61,8 +61,7 @@ class ConversationsViewModelTest {
         assertTrue(vm.state.value.loaded)
         assertTrue(vm.state.value.rows.isEmpty())
         assertNull(vm.state.value.problem)
-        assertNotNull(vm.state.value.unavailable)
-        assertFalse(vm.state.value.searchAvailable)
+        assertNull(vm.state.value.unavailable)
     }
 
     @Test fun paginationKeepsAccountAndSdkUnreadCountsWithoutRecomputation() = runTest(timeout = 5.seconds) {
@@ -201,7 +200,7 @@ class ConversationsViewModelTest {
         assertEquals("Work", vm.state.value.accountLabel)
         assertTrue(vm.state.value.rows.single().hasUnread)
         assertEquals("0", vm.state.value.rows.single().unread)
-        assertTrue(vm.state.value.rows.single().timestamp is UiText.DateTime)
+        assertTrue(vm.state.value.rows.single().timestamp is UiText.RelativeTime)
     }
 
     @Test fun failedOrUnavailableRevalidationNeverClaimsMissingAccountOrKeepsRows() = runTest(timeout = 5.seconds) {
@@ -225,7 +224,7 @@ class ConversationsViewModelTest {
         }
     }
 
-    @Test fun unavailableInitialAccountAndSearchFailureHaveVisibleTypedReasons() = runTest(timeout = 5.seconds) {
+    @Test fun unavailableInitialAccountAndPageFailureHaveVisibleTypedReasons() = runTest(timeout = 5.seconds) {
         val accounts = FakeConversationAccounts().apply {
             catalog = ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
         }
@@ -241,12 +240,11 @@ class ConversationsViewModelTest {
         assertNotNull(vm.state.value.unavailable)
         assertTrue(directory.requests.isEmpty())
         accounts.catalog = ClientResult.Ready(AccountCatalog(listOf(AccountSummary("a", "Work", true, "unlocked")), "a"))
-        directory.search = failed()
+        directory.response = { failed() }
         vm.onAction(ConversationsAction.Refresh)
         runCurrent()
         assertNotNull(vm.state.value.problem)
         assertEquals(ClientFailureKind.STORAGE, vm.state.value.problemKind)
-        assertFalse(vm.state.value.searchAvailable)
         assertFalse(vm.state.value.accountRequired)
     }
 

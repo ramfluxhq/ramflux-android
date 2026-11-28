@@ -62,7 +62,7 @@ class SettingsScreenshotTest(
         )
         val state = when (kind) {
             "loading" -> SettingsState(loading = true)
-            "error" -> SettingsState(problem = uiText(R.string.settings_read_failed, UiText.Number(8)))
+            "error" -> SettingsState(problem = uiText(org.ramflux.core.designsystem.R.string.failure_generic))
             "account" -> SettingsState(page = page, accountRequired = true)
             "invited" -> populated.copy(
                 pairing = SettingsPairing(
