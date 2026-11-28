@@ -33,8 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -495,14 +495,14 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
     // The removal notice (from this cover or from Settings) is drawn in this window, above the destination (the picker or
     // onboarding): it outlives the cover going down and the Settings page leaving, and unlike a system toast it belongs to
     // the screen the app lands on. The name is held in this composition only.
-    val context = LocalContext.current
+    val resources = LocalResources.current
     var removedText by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(vm) {
         vm.removed.collectLatest { name ->
             removedText = if (name.isNullOrBlank()) {
-                context.getString(R.string.ui_account_removed_unnamed)
+                resources.getString(R.string.ui_account_removed_unnamed)
             } else {
-                context.getString(R.string.ui_account_removed, name)
+                resources.getString(R.string.ui_account_removed, name)
             }
             delay(REMOVED_NOTICE_MILLIS)
             removedText = null

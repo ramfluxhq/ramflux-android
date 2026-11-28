@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fix (lint): the removal notice reads its strings through `LocalResources` (Compose's `LocalContextGetResourceValueCall` check), and the predictive-back opt-in in the manifest is marked `tools:targetApi="33"` (the attribute is ignored below API 33; lint's `UnusedAttribute` refused it).
+
 - Test (realrun): f15 looks for the removal notice in the app window (`ui_account_removed`); f20's lock form may name its own account (D-2) and must not show the peer's name; f22 checks the short id line on the lock form and the exhausted page (decision 13) and accepts the recovery's wrong-code text for the granted try. The cover's Unlock is submitted through one helper that taps again only while the form shows no answer at all (a lost tap: f22 "no countdown after failure 7" on the cover branch), so a code is never sent twice.
 - Test (realrun): `scripts/realrun.sh --cover-checks` (off by default) adds the device checks of the app-lock cover gating to f11, f20 and f22: the emoji skin-tone popup across the background lock, camera and photo-picker results handed back under the cover (refused; the capture file is deleted), the share sheet's own task, backup export across the lock, and the cover's remove dialog during the window sweep. Picker, camera and save-location starts are held by the instrumentation and their results handed back through the activity's result registry; each check saves a screenshot and the window state and asserts on it. Not driven: Lock now with the popup open, the card link browser.
 
