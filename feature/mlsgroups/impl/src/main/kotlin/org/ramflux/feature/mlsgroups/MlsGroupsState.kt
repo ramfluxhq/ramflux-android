@@ -171,7 +171,7 @@ data class MlsInviteUi(
     companion object {
         const val DEFAULT_DAYS = 7
         const val DEFAULT_USES = 100
-        val DAYS = listOf(1, 7, 30)
+        val DAYS = listOf(1, 7)
         val USES = listOf(1, 10, 100)
     }
 }

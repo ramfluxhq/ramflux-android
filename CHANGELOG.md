@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- MLS groups (M3, carry-over): the invite panel offers 1 and 7 days only; the host caps an invite at 7 days and refused the 30-day preset
 - Fix (G05e-A, round 3): an app-lock lease with no event pump running first sends `subscription.close`, so an attended mark core kept after a refused `bus.subscribe` or a lock no longer refuses app-lock reads for another account (`app_lock_unauthorized` on `account.app_lock.state` after creating a second account).
 - Fix (G05e-A): with several accounts, creating or switching to an account and returning from the background no longer stick on the app-lock cover; app-lock calls for another account run with the event subscription detached and it reopens afterwards. Real run: flow `f23` drives two accounts with the app lock.
 - MLS groups (M2, audit round 3): every group window has a generation that each reset, reload, restart and eviction bumps, and an older-page or gap-fill result for an older generation (or an unopened group) is dropped; opening an unloaded group starts from an empty window. A window trimmed at the newest end reloads the newest page when its newest row is on screen, when the app returns to the foreground and on a resync, and the chat shows a "Jump to newest messages" button (en, zh-CN) while it is trimmed. `MlsGroupSession.admitInOrder` starts undispatched so an admit cannot run after a later lock of the same account.
