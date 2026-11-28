@@ -73,7 +73,7 @@ class IdentityReview(
                 val differs = it.newAnchor != null && it.newAnchor != change.newAnchor
                 it.copy(
                     username = change.username ?: it.username,
-                    aiFlag = change.aiFlag,
+                    aiFlag = change.aiFlag ?: it.aiFlag,
                     newAnchor = change.newAnchor,
                     error = if (differs) IdentityReviewError.CHANGED_AGAIN else it.error
                 )

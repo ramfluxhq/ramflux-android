@@ -581,7 +581,10 @@ class ChatViewModel @Inject constructor(
                     outgoing.operation
                 )
             }
-            if (target != currentTarget || generation != session.status.value.generation) return@launch
+            if (target != currentTarget || generation != session.status.value.generation) {
+                if (sent is ClientResult.Failed && SendBlock.of(sent.problem) != null) blockAfterClose(currentTarget, id, outgoing)
+                return@launch
+            }
             when (sent) {
                 is ClientResult.Ready -> {
                     outbox.remove(id)
@@ -619,7 +622,7 @@ class ChatViewModel @Inject constructor(
                     // A send refused until the identity is reviewed stays as a failed bubble with its text, however the refusal
                     // was classified, and the block is persisted with it: nothing is sent again by itself, before or after the
                     // review, after a reopen, unlock or relaunch. Only an explicit user resend sends it.
-                    val block = if (staged.isEmpty()) SendBlock.of(sent.problem, peerRoot) else null
+                    val block = SendBlock.of(sent.problem, peerRoot)
                     outgoing.blocked = block != null
                     outgoing.delivery = if (offline && block == null) LocalDelivery.QUEUED else LocalDelivery.FAILED
                     outgoing.definite = sent.problem.outcome != ClientOutcome.UNKNOWN
@@ -641,12 +644,65 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * A refusal for a pending identity change that arrives after the chat closed (or the account locked) still marks the send
+     * blocked: in memory when the same chat is still held, otherwise in its persisted outbox row, so a later open never
+     * resends it by itself.
+     */
+    private fun blockAfterClose(closed: Target, id: String, outgoing: Outgoing) {
+        outgoing.blocked = true
+        if (target == closed) {
+            if (outbox[id] === outgoing) {
+                outgoing.delivery = LocalDelivery.FAILED
+                publish()
+            }
+            return
+        }
+        viewModelScope.launch(NonCancellable) {
+            outboxWrites.withLock {
+                val stored = outboxStore.load(closed.account, closed.conversation)
+                if (stored.any { it.id == id }) {
+                    outboxStore.save(closed.account, closed.conversation, stored.map { if (it.id == id) it.copy(blocked = true) else it })
+                }
+            }
+        }
+    }
+
     private fun retry(id: String) {
         val currentTarget = target ?: return
         val outgoing = outbox[id] ?: return
         if (outgoing.delivery == LocalDelivery.SENDING || session.status.value.phase != ClientPhase.OPEN) return
-        // A blocked send is resent only after the identity change was accepted; until then the tap does nothing.
-        if (outgoing.blocked && local.value.identityState == IdentityState.CHANGED) return
+        if (outgoing.blocked) {
+            // A blocked send is resent only after the identity change was accepted. While the state is changed, or not read yet,
+            // the tap sends nothing: it shows the composer prompt and opens the review, or reads the status first and sends
+            // only if that read is not changed. A read that fails keeps the send held.
+            val root = peerRoot
+            when (local.value.identityState) {
+                IdentityState.CHANGED -> holdBlocked()
+                IdentityState.UNKNOWN -> if (root == null) {
+                    // No peer identity to read (not a direct chat): the explicit tap sends, and the SDK stays the gate.
+                    resend(currentTarget, id)
+                } else {
+                    readIdentity(currentTarget, root, afterAccept = false) { read ->
+                        if (read == null || read == IdentityState.CHANGED) holdBlocked() else resend(currentTarget, id)
+                    }
+                }
+                else -> resend(currentTarget, id)
+            }
+            return
+        }
+        resend(currentTarget, id)
+    }
+
+    /** A blocked send that may not go yet: the composer prompt shows, and the review opens once a change is known. */
+    private fun holdBlocked() {
+        local.update { it.copy(identityState = IdentityState.CHANGED, sendBlocked = true) }
+        openReview()
+    }
+
+    private fun resend(currentTarget: Target, id: String) {
+        val outgoing = outbox[id] ?: return
+        if (outgoing.delivery == LocalDelivery.SENDING || session.status.value.phase != ClientPhase.OPEN) return
         // An uncertain outcome is retried under the same operation id so the SDK can reconcile it.
         val again = if (outgoing.definite) outgoing.copy(operation = UUID.randomUUID().toString()) else outgoing
         again.delivery = LocalDelivery.SENDING
@@ -1021,12 +1077,17 @@ class ChatViewModel @Inject constructor(
      * Reads the peer's status. A status that reports no state does not clear a change an event delivered; only an accept
      * outcome ([afterAccept]) lets an unknown state replace it.
      */
-    private fun readIdentity(current: Target, root: String, afterAccept: Boolean) {
+    private fun readIdentity(current: Target, root: String, afterAccept: Boolean, then: ((IdentityState?) -> Unit)? = null) {
         val generation = session.status.value.generation
         viewModelScope.launch {
             val result = identity.identity(current.account, root)
             if (target != current || session.status.value.generation != generation) return@launch
-            val read = (result as? ClientResult.Ready)?.value ?: return@launch
+            val read = (result as? ClientResult.Ready)?.value
+            if (read == null) {
+                // No identity feature at all is not a change; a failed read is unknown, and a held send stays held.
+                then?.invoke(if (result is ClientResult.Unavailable) IdentityState.UNKNOWN else null)
+                return@launch
+            }
             val (readState, change) = read
             val next = if (readState == IdentityState.UNKNOWN && !afterAccept && local.value.identityState == IdentityState.CHANGED) {
                 IdentityState.CHANGED
@@ -1036,6 +1097,7 @@ class ChatViewModel @Inject constructor(
             if (change != null) pendingChange = change else if (next != IdentityState.CHANGED) pendingChange = null
             local.update { it.copy(identityState = next, sendBlocked = it.sendBlocked && next == IdentityState.CHANGED) }
             pendingChange?.let(review::update)
+            then?.invoke(next)
         }
     }
 

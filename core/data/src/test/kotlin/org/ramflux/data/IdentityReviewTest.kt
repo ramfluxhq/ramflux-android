@@ -124,17 +124,30 @@ class IdentityReviewTest {
     @Test fun aStatusReReadCarriesTheAiMarkerAnEventGave() {
         val status = ContactIdentityStatus("changed", "n", "p")
         val change = DefaultContactIdentityRepository.pendingChange("peer", IdentityState.CHANGED, status, "bot" to true, 7L)!!
-        assertTrue("the status read keeps the AI marker", change.aiFlag)
+        assertEquals("the status read keeps the AI marker", true, change.aiFlag)
         assertEquals("bot", change.username)
         assertEquals("n", change.newAnchor)
     }
 
-    @Test fun aStatusWithItsOwnAiFlagWinsAndNoFlagMeansHuman() {
+    @Test fun aStatusWithItsOwnAiFlagWinsAndNoFlagMeansUnknown() {
         val own = ContactIdentityStatus("changed", "n", null, aiFlag = true)
-        assertTrue(DefaultContactIdentityRepository.pendingChange("peer", IdentityState.CHANGED, own, null, 0L)!!.aiFlag)
+        assertEquals(true, DefaultContactIdentityRepository.pendingChange("peer", IdentityState.CHANGED, own, null, 0L)!!.aiFlag)
         val human = ContactIdentityStatus("changed", "n", null, aiFlag = false)
-        assertFalse(DefaultContactIdentityRepository.pendingChange("peer", IdentityState.CHANGED, human, "bot" to true, 0L)!!.aiFlag)
-        assertFalse(DefaultContactIdentityRepository.pendingChange("peer", IdentityState.CHANGED, ContactIdentityStatus("changed", "n", null), null, 0L)!!.aiFlag)
+        assertEquals(false, DefaultContactIdentityRepository.pendingChange("peer", IdentityState.CHANGED, human, "bot" to true, 0L)!!.aiFlag)
+        val none = ContactIdentityStatus("changed", "n", null)
+        assertNull("no flag is unknown, not human", DefaultContactIdentityRepository.pendingChange("peer", IdentityState.CHANGED, none, null, 0L)!!.aiFlag)
         assertNull(DefaultContactIdentityRepository.pendingChange("peer", IdentityState.TOFU, own, null, 0L))
+    }
+
+    @Test fun anUnknownFlagNeverOverridesAKnownAiMarker() = runTest(timeout = 5.seconds) {
+        // After a relaunch the status has no flag: the SDK header's flag (passed to open) is kept, also over a later update.
+        val review = IdentityReview(Identity(CompletableDeferred()), backgroundScope)
+        val unknown = IdentityChange("peer", null, "old", "a1", null, 0L)
+        review.open("acct", "peer", unknown, null, aiFlag = true)
+        assertTrue(review.state.value!!.aiFlag)
+        review.update(IdentityChange("peer", null, "old", "a1", null, 1L))
+        assertTrue("an unknown update keeps the known marker", review.state.value!!.aiFlag)
+        review.update(IdentityChange("peer", null, "old", "a2", false, 2L))
+        assertFalse("a known flag from the SDK does replace it", review.state.value!!.aiFlag)
     }
 }
