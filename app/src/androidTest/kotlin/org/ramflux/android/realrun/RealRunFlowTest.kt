@@ -170,17 +170,7 @@ class RealRunFlowTest {
         secretScreen = true
         ui.tap("phrase-saved")
         ui.need("challenge-0", Ui.LONG, "word challenge")
-        for (index in 0..2) {
-            // The keyboard of the earlier fields covers the later ones: scroll the body until the field shows.
-            if (!reach("challenge-$index")) fail("word check field $index cannot be scrolled into view: ${ui.screen()}")
-            val position = challengePosition(index)
-            var drawn = false
-            RealRunProbe.borrow(position - 1) { word ->
-                ui.keys("challenge-$index", word)
-                drawn = true
-            }
-            if (!drawn) fail("recovery word $position was not drawn (realrun probe)")
-        }
+        answerWordCheck()
         val code = RunCode.create()
         try {
             ui.keys("account-code", code)
@@ -875,6 +865,20 @@ class RealRunFlowTest {
     }
 
     // Helpers.
+
+    /** The word check: three challenge fields; the keyboard of the earlier ones covers the later, so scroll each into view first. */
+    private fun answerWordCheck() {
+        for (index in 0..2) {
+            if (!reach("challenge-$index")) fail("word check field $index cannot be scrolled into view: ${ui.screen()}")
+            val position = challengePosition(index)
+            var drawn = false
+            RealRunProbe.borrow(position - 1) { word ->
+                ui.keys("challenge-$index", word)
+                drawn = true
+            }
+            if (!drawn) fail("recovery word $position was not drawn (realrun probe)")
+        }
+    }
 
     private fun challengePosition(index: Int): Int {
         val field = ui.need("challenge-$index")
@@ -2232,15 +2236,7 @@ class RealRunFlowTest {
             phrase = joinWords(words)
             ui.tap("phrase-saved")
             ui.need("challenge-0", Ui.LONG, "word challenge")
-            for (index in 0..2) {
-                val position = challengePosition(index)
-                var drawn = false
-                RealRunProbe.borrow(position - 1) { word ->
-                    ui.keys("challenge-$index", word)
-                    drawn = true
-                }
-                if (!drawn) fail("recovery word $position was not drawn (realrun probe)")
-            }
+            answerWordCheck()
             code = RunCode.next(CharArray(CODE_DIGITS) { '0' })
             ui.keys("account-code", code)
             ui.tap("confirm-account")
