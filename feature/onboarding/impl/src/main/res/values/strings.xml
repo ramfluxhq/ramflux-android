@@ -7,14 +7,12 @@
     <string name="ui_add_your_node">Add your node</string>
     <string name="ui_address_to_verify">Address to verify</string>
     <string name="ui_back">Back</string>
-    <string name="ui_check_node_identity">Check node identity</string>
+    <string name="ui_check_node_identity">Trust this node?</string>
     <string name="ui_check_your_phrase">Check your phrase</string>
     <string name="ui_checking_the_address">Checking the address</string>
     <string name="ui_checking_the_current_state">Checking the current state…</string>
     <string name="ui_choose_a_connection">Choose a connection</string>
     <string name="ui_choose_a_saved_node">Choose a saved node</string>
-    <string name="ui_compare_the_node_fingerprint">Compare the node fingerprint</string>
-    <string name="ui_compare_this_fingerprint_with_your_node_operator_a">Compare this fingerprint with your node operator. A saved address alone does not prove identity.</string>
     <string name="ui_confirm_node_address">Confirm node address</string>
     <string name="ui_connect_to_a_node_then_create_or_open">Connect to a node, then create or open your account.</string>
     <string name="ui_connection_refused">Connection refused</string>
@@ -45,11 +43,9 @@
     <string name="ui_protect_this_device">Protect this device</string>
     <string name="ui_recover_account">Recover account</string>
     <string name="ui_recover_an_account">Recover an account</string>
-    <string name="ui_refresh">Refresh</string>
     <string name="ui_return_to_edit_the_address">Return to edit the address.</string>
     <string name="ui_review_saved_nodes">Review saved nodes</string>
     <string name="ui_review_your_connection">Review your connection</string>
-    <string name="ui_save_this_node">Save this node</string>
     <string name="ui_save_your_recovery_phrase">Save your recovery phrase</string>
     <string name="ui_saved_nodes">Saved nodes</string>
     <string name="ui_saving">Saving</string>
@@ -84,7 +80,6 @@
     <string name="ui_write_down_the_recovery_phrase">Write down these 24 words in order. They are shown only once and are not saved on this device.</string>
     <string name="ui_i_have_saved_the_phrase">I have written down the phrase</string>
     <string name="ui_recovery_word_position">Word %1$d</string>
-    <string name="ui_confirm_account">Confirm account</string>
     <string name="ui_account_created_detail">The account is unlocked on this device.</string>
     <string name="ui_continue_into_the_account">Continue</string>
     <string name="ui_n01_header">Create account</string>
@@ -97,9 +92,8 @@
     <!-- Label of the six-digit account code field. -->
     <string name="ui_account_code">Account code</string>
     <!-- Explains the account code on the unlock and create screens. -->
-    <string name="ui_account_code_explanation">Six digits. Together with this phone\'s secure storage it opens your account data here. It is not your recovery phrase.</string>
+    <string name="ui_account_code_explanation">6 digits. Checked on this device only; never sent to your node.</string>
     <!-- Label of the code field when a new account code is chosen. -->
-    <string name="ui_choose_account_code">Choose a six-digit account code</string>
     <!-- Refusal: the code is not six digits. -->
     <string name="ui_code_not_six_digits">The account code must be exactly 6 digits.</string>
     <!-- Refusal: the new code is on the trivial list. -->
@@ -125,9 +119,9 @@
     <!-- Warning shown before the recovery phrase is entered. -->
     <string name="ui_recover_warning">Compare this fingerprint with the one you saved. Recovery gives this phone new keys for the account and signs out its earlier devices.</string>
     <!-- Label of the recovery phrase field. -->
-    <string name="ui_recovery_phrase">Recovery phrase (24 words)</string>
+    <string name="ui_recovery_phrase">Recovery phrase</string>
     <!-- Button that submits the recovery phrase. -->
-    <string name="ui_recover_account_action">Recover account</string>
+    <string name="ui_recover_account_action">Recover</string>
     <!-- Shown when recovery is submitted incomplete. -->
     <string name="ui_enter_the_phrase_and_code">Enter the 24-word recovery phrase and the account code.</string>
     <!-- Button shown after the code attempts are exhausted. -->
@@ -228,7 +222,6 @@
     <!-- Generic backup failure. -->
     <string name="backup_failed">The backup step did not succeed.</string>
     <!-- Code page heading: %1$s is the display name of the account being unlocked. -->
-    <string name="ui_unlock_account_named">Unlock %1$s</string>
     <!-- Button after the SDK refused to open a locked account for a reason other than the code; it removes the account and its local data from this phone, nothing on the node. -->
     <string name="ui_forget_account_on_device">Remove this account from this phone</string>
     <!-- Account created step: the SDK reports the new account's network session as still being set up. -->
@@ -237,12 +230,11 @@
     <string name="ui_created_network_connected">Connected to the network</string>
     <!-- Account created step: the network session did not become live while the step was shown. -->
     <string name="ui_created_network_not_confirmed">The network connection is not confirmed yet. The account works on this phone; messages go out once it connects.</string>
-    <string name="app_lock_app_name">Ramflux</string>
-    <string name="app_lock_body">Enter your account code to continue.</string>
+    <string name="app_lock_body">Enter the account code for this account.</string>
     <string name="app_lock_retry">Try again</string>
     <string name="app_lock_restore">Recover with recovery phrase</string>
     <string name="app_lock_countdown">%1$s:%2$s</string>
-    <string name="app_lock_wait">Too many wrong account codes. Try again in %1$s.</string>
+    <string name="app_lock_wait">Too many tries. Try again in %1$s.</string>
     <string name="app_lock_unlock_failed">The account could not be unlocked. Try again.</string>
     <string name="app_lock_change_busy">Another app lock change is in progress.</string>
     <string name="app_lock_exhausted_title">Too many wrong account codes</string>
@@ -259,5 +251,16 @@
     <string name="ui_remove_dialog_understand">I understand</string>
     <string name="ui_remove_dialog_confirm">Remove</string>
     <string name="ui_remove_dialog_cancel">Cancel</string>
-    <string name="ui_account_removed">Account removed from this device.</string>
+    <string name="ui_account_removed">%1$s was removed from this device.</string>
+    <string name="ui_account_removed_unnamed">Account removed from this device.</string>
+    <string name="ui_unknown_name">Unknown</string>
+    <string name="ui_your_accounts">Your accounts</string>
+    <string name="ui_add_another_account">Add another account</string>
+    <string name="ui_details">Details</string>
+    <string name="ui_trust_this_node">Trust this node</string>
+    <string name="ui_cancel">Cancel</string>
+    <string name="ui_node_trust_first">First connection. Ramflux will warn you if this node\'s key ever changes.</string>
+    <string name="ui_node_trust_confirmed">Key confirmed by your invite.</string>
+    <string name="ui_show">Show</string>
+    <string name="ui_hide">Hide</string>
 </resources>

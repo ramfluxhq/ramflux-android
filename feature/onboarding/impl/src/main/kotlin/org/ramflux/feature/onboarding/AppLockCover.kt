@@ -6,6 +6,7 @@ package org.ramflux.feature.onboarding
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +26,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -83,8 +88,14 @@ data class AppLockCoverState(
     val recoveryNotice: UiText? = null,
     /** The phrase was accepted and core granted one code try after the wait: the countdown reads as that. */
     val phraseAccepted: Boolean = false,
-    /** The remove-from-this-device confirmation is open for the locked account; [removeName] is its display name if known. */
+    /** The locked account's own display name, read for [nameFor] only; [name] is null while it is unread or not this lock's. */
+    val nameFor: String? = null,
+    val name: String? = null,
+    /** The account the lock applies to now; the cover draws [name] only when it is the account [nameFor] names. */
+    val accountId: String? = null,
+    /** The remove-from-this-device confirmation is open for [removeId]; [removeName] is its display name if known. */
     val removeOpen: Boolean = false,
+    val removeId: String? = null,
     val removeName: String? = null,
     val removing: Boolean = false,
     val removeFailed: Boolean = false
@@ -92,9 +103,10 @@ data class AppLockCoverState(
 
 /**
  * The app-lock cover. It follows the session's app-lock phase: nothing while OPEN, a blank cover with a retry while
- * the lock state is UNKNOWN, and the account-code lock screen while LOCKED. It shows no account name and has no skip
- * action: only the six-digit account code opens it, or the confirmed removal of the locked account from this device
- * (a dialog that never names the account).
+ * the lock state is UNKNOWN, and the account-code lock screen while LOCKED. It shows the locked account's own display name and
+ * initial and nothing else of the account (G05 rule 3 as narrowed by UX-FIX-01 D-2): the name is read from the account
+ * list for the lock's account id only, bound to that id, and never logged. It has no skip action: only the six-digit
+ * account code opens it, or the confirmed removal of the locked account from this device.
  */
 @HiltViewModel
 class AppLockViewModel @Inject constructor(
@@ -107,9 +119,9 @@ class AppLockViewModel @Inject constructor(
 
     /** The account the open confirmation was raised for; confirm removes it only while it is still the locked account. */
     private var removeTarget: String? = null
-    private val removedChannel = Channel<Unit>(Channel.BUFFERED)
+    private val removedChannel = Channel<String?>(Channel.BUFFERED)
 
-    /** One item after the locked account was removed from this device; the cover is already gone or going. */
+    /** One item (the removed account's display name, or null) after the account was removed; the cover is already gone or going. */
     val removed = removedChannel.receiveAsFlow()
 
     init {
@@ -127,7 +139,10 @@ class AppLockViewModel @Inject constructor(
                 // Each time a lock is shown, the wait and the exhausted route are read from core again, so a return from
                 // the background or a restart never re-enables the code field while core still refuses it.
                 val showing = status.appLockAccount?.takeIf { !status.suspended && phase == AppLockPhase.LOCKED }
-                if (showing != null && showing != shownFor) launch { readThrottle(showing) }
+                if (showing != null && showing != shownFor) {
+                    launch { readName(showing) }
+                    launch { readThrottle(showing) }
+                }
                 shownFor = showing
             }
         }
@@ -135,7 +150,13 @@ class AppLockViewModel @Inject constructor(
 
     /** Eager and computed from the session's current value, so a cover that was not subscribed still starts covered. */
     val state: StateFlow<AppLockCoverState> = combine(session.status, local) { status, screen ->
-        screen.copy(phase = status.coverPhase())
+        // The name is drawn only for the account the lock names now: a late read for another account never shows.
+        val account = status.appLockAccount
+        screen.copy(
+            phase = status.coverPhase(),
+            accountId = account,
+            name = screen.name.takeIf { account != null && screen.nameFor == account }
+        )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppLockCoverState(phase = session.status.value.coverPhase(), notice = null))
 
     /** Shows the recovery-phrase restore of the locked account inside the cover; the code form stays behind it. */
@@ -201,17 +222,40 @@ class AppLockViewModel @Inject constructor(
         return false
     }
 
-    /** Opens the remove-from-this-device confirmation of the locked account. The cover never reads or shows an account name. */
+    /**
+     * Reads the display name of the locked account from the account list. Only the row whose id is [account] is used, and
+     * the result is stored with that id, so a lock that moved to another account meanwhile never shows this name.
+     */
+    private suspend fun readName(account: String) {
+        val label = (accounts.list() as? ClientResult.Ready)?.value?.accounts?.firstOrNull { it.id == account }?.label
+        local.update { it.copy(nameFor = account, name = label) }
+    }
+
+    /** The code form's notice ends when the person starts typing again. */
+    fun edited() {
+        if (local.value.notice != null) local.update { it.copy(notice = null) }
+    }
+
+    /** Dismisses the notice shown above the exhausted page. */
+    fun dismissNotice() {
+        local.update { it.copy(notice = null) }
+    }
+
+    /**
+     * Opens the remove-from-this-device confirmation of the locked account. The dialog names the account it was raised for:
+     * the id and the display name are fixed here, and confirm removes that id only.
+     */
     fun requestRemove() {
         val account = session.status.value.appLockAccount ?: return
         removeTarget = account
-        local.update { it.copy(removeOpen = true, removeName = null, removing = false, removeFailed = false) }
+        val name = local.value.name.takeIf { local.value.nameFor == account }
+        local.update { it.copy(removeOpen = true, removeId = account, removeName = name, removing = false, removeFailed = false) }
     }
 
     fun cancelRemove() {
         if (local.value.removing) return
         removeTarget = null
-        local.update { it.copy(removeOpen = false, removeName = null, removeFailed = false) }
+        local.update { it.copy(removeOpen = false, removeId = null, removeName = null, removeFailed = false) }
     }
 
     /**
@@ -224,16 +268,17 @@ class AppLockViewModel @Inject constructor(
         val account = removeTarget
         if (account == null || session.status.value.appLockAccount != account) {
             removeTarget = null
-            local.update { it.copy(removeOpen = false, removeName = null, removeFailed = false) }
+            local.update { it.copy(removeOpen = false, removeId = null, removeName = null, removeFailed = false) }
             return
         }
+        val removedName = local.value.removeName
         local.update { it.copy(removing = true, removeFailed = false) }
         viewModelScope.launch {
             try {
                 when (accounts.removeLocal(account)) {
                     is ClientResult.Ready -> {
                         resetCover()
-                        removedChannel.send(Unit)
+                        removedChannel.send(removedName)
                         session.recheckAppLock()
                     }
                     else -> local.update { it.copy(removeFailed = true) }
@@ -252,7 +297,8 @@ class AppLockViewModel @Inject constructor(
         local.update {
             it.copy(
                 waitSecs = 0L, exhausted = false, notice = null, recoveryAccount = null, recoveryNotice = null,
-                phraseAccepted = false, removeOpen = false, removeName = null, removing = false, removeFailed = false
+                phraseAccepted = false, name = null, nameFor = null, removeOpen = false, removeId = null, removeName = null,
+                removing = false, removeFailed = false
             )
         }
     }
@@ -320,6 +366,8 @@ class AppLockViewModel @Inject constructor(
             AccountCodeRefusal.WRONG_CODE -> {
                 local.update { it.copy(notice = codeText(AccountCodeRefusal.WRONG_CODE, null)) }
                 readThrottle(account)
+                // The wrong code that spent the last try shows the exhausted page without the code form's notice.
+                if (local.value.exhausted) local.update { it.copy(notice = null) }
             }
             AccountCodeRefusal.RETRY_LATER -> readThrottle(account)
             AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> local.update { it.copy(exhausted = true, notice = null) }
@@ -344,6 +392,8 @@ class AppLockViewModel @Inject constructor(
         // The field returns only when core's state says the account is not exhausted.
         local.update { it.copy(exhausted = false) }
         val waitMs = status.codeRetryAfterMs?.takeIf { it > 0L } ?: return
+        // One status line: the countdown replaces any notice, and the notice does not return when the wait ends.
+        local.update { it.copy(notice = null) }
         val deadline = System.nanoTime() + waitMs * 1_000_000L
         waitJob?.cancel()
         waitJob = viewModelScope.launch {
@@ -397,13 +447,26 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
         }
     }
     val recovering = ui.recoveryAccount
-    val removedNotice = stringResource(R.string.ui_account_removed)
     val context = LocalContext.current
     LaunchedEffect(vm) {
-        vm.removed.collect { Toast.makeText(context, removedNotice, Toast.LENGTH_LONG).show() }
+        vm.removed.collect { name ->
+            val text = if (name.isNullOrBlank()) {
+                context.getString(R.string.ui_account_removed_unnamed)
+            } else {
+                context.getString(R.string.ui_account_removed, name)
+            }
+            Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+        }
     }
     if (ui.removeOpen && ui.phase == AppLockPhase.LOCKED) {
-        RemoveAccountDialog(ui.removeName, ui.removing, ui.removeFailed, onConfirm = vm::confirmRemove, onDismiss = vm::cancelRemove)
+        RemoveAccountDialog(
+            ui.removeName,
+            ui.removeId,
+            ui.removing,
+            ui.removeFailed,
+            onConfirm = vm::confirmRemove,
+            onDismiss = vm::cancelRemove
+        )
     }
     when (ui.phase) {
         AppLockPhase.OPEN -> Unit
@@ -419,6 +482,7 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
             if (recovering != null) {
                 LockRecovery(
                     recovering,
+                    name = ui.name,
                     notice = ui.recoveryNotice,
                     onBack = vm::endRecovery,
                     onRecovered = vm::recovered,
@@ -427,27 +491,28 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
             } else {
                 CoverSurface {
                     Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
-                        Text(
-                            stringResource(R.string.app_lock_app_name),
-                            style = MaterialTheme.typography.headlineSmall,
-                            modifier = Modifier.testTag("app-lock-name")
+                        AccountIdentity(
+                            ui.name,
+                            status = stringResource(R.string.ui_locked),
+                            nameTag = "app-lock-name",
+                            statusTag = "app-lock-status"
                         )
-                        Text(stringResource(R.string.app_lock_body), style = MaterialTheme.typography.bodyLarge)
                         if (ui.exhausted) {
                             // No code field after too many wrong codes: recover with the phrase, or remove the account here.
+                            // A notice (the recovery's wrong code) sits above the title and can be dismissed.
+                            ui.notice?.let {
+                                Text(
+                                    it.render(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.clickable { vm.dismissNotice() }.testTag("app-lock-notice")
+                                )
+                            }
                             Text(
                                 stringResource(R.string.app_lock_exhausted_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 modifier = Modifier.testTag("app-lock-exhausted")
                             )
                             Text(stringResource(R.string.app_lock_exhausted_body), style = MaterialTheme.typography.bodyMedium)
-                            ui.notice?.let {
-                                Text(
-                                    it.render(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.testTag("app-lock-notice")
-                                )
-                            }
                             KitButton(
                                 stringResource(R.string.app_lock_restore),
                                 { vm.startRecovery() },
@@ -463,13 +528,16 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
                             )
                         } else {
                             val waiting = ui.waitSecs > 0L
+                            Text(stringResource(R.string.app_lock_body), style = MaterialTheme.typography.bodyLarge)
                             AccountCodeField(
                                 code,
                                 stringResource(R.string.ui_account_code),
                                 "app-lock-code",
                                 enabled = !ui.busy && !waiting,
-                                helper = stringResource(R.string.ui_account_code_explanation)
+                                helper = stringResource(R.string.ui_account_code_explanation),
+                                onEdited = vm::edited
                             )
+                            // One status line, replaced on every state change: the countdown while a wait applies, else the notice.
                             if (waiting) {
                                 val wait = stringResource(
                                     R.string.app_lock_countdown,
@@ -484,13 +552,14 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
                                     style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.testTag("app-lock-wait")
                                 )
-                            }
-                            ui.notice?.let {
-                                Text(
-                                    it.render(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.testTag("app-lock-notice")
-                                )
+                            } else {
+                                ui.notice?.let {
+                                    Text(
+                                        it.render(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.testTag("app-lock-notice")
+                                    )
+                                }
                             }
                             KitButton(
                                 stringResource(R.string.ui_unlock),
@@ -515,6 +584,7 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
 @Composable
 private fun LockRecovery(
     account: String,
+    name: String?,
     notice: UiText?,
     onBack: () -> Unit,
     onRecovered: () -> Unit,
@@ -550,7 +620,7 @@ private fun LockRecovery(
     BackHandler(onBack = leave)
     CoverSurface {
         Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp), modifier = Modifier.testTag("app-lock-recovery")) {
-            Text(stringResource(R.string.app_lock_recover_title), style = MaterialTheme.typography.headlineSmall)
+            AccountIdentity(name, status = stringResource(R.string.app_lock_recover_title), nameTag = "app-lock-recovery-name")
             if (state.busy) Text(stringResource(R.string.ui_please_wait), style = MaterialTheme.typography.bodyMedium)
             (notice ?: state.notice?.message)?.let {
                 Text(it.render(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("app-lock-notice"))
@@ -576,7 +646,10 @@ private fun LockRecovery(
     }
 }
 
-/** An opaque cover: the content under it receives no pointer input while it is up. */
+/**
+ * An opaque cover: the content under it receives no pointer input while it is up. The form column is capped at
+ * [COVER_FORM_MAX_WIDTH] and centred, and scrolls, so in landscape or on a tall screen the code slots keep their size.
+ */
 @Composable
 private fun CoverSurface(content: @Composable () -> Unit) {
     val theme = LocalRFTheme.current
@@ -588,9 +661,17 @@ private fun CoverSurface(content: @Composable () -> Unit) {
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(theme.gap.dp)
     ) {
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) { content() }
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(Modifier.widthIn(max = COVER_FORM_MAX_WIDTH).fillMaxWidth()) { content() }
+        }
     }
 }
+
+private val COVER_FORM_MAX_WIDTH = 480.dp
 
 /** Takes the pointer events the content does not handle, so nothing under the cover is pressed or scrolled. */
 private fun Modifier.consumeAllPointers(): Modifier = pointerInput(Unit) {

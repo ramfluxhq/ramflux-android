@@ -153,15 +153,16 @@ internal fun ChallengePage(state: OnboardingState, entry: ChallengeEntry) {
                 stringResource(R.string.ui_recovery_word_position, position),
                 "challenge-$index",
                 enabled = !state.busy,
-                password = false,
+                password = true,
                 limit = 64,
-                onEdited = entry::edited
+                onEdited = entry::edited,
+                showToggle = true
             )
         }
     }
     AccountCodeField(
         entry.code,
-        stringResource(R.string.ui_choose_account_code),
+        stringResource(R.string.ui_account_code),
         "account-code",
         enabled = !state.busy,
         helper = stringResource(R.string.ui_account_code_explanation),
@@ -230,9 +231,10 @@ internal fun RecoverPage(state: OnboardingState, entry: RecoveryEntry, onAction:
         stringResource(R.string.ui_recovery_phrase),
         "recovery-phrase-entry",
         enabled = !state.busy,
-        password = false,
+        password = true,
         limit = 400,
-        onEdited = entry::edited
+        onEdited = entry::edited,
+        showToggle = true
     )
     AccountCodeField(
         entry.code,
@@ -247,7 +249,6 @@ internal fun RecoverPage(state: OnboardingState, entry: RecoveryEntry, onAction:
 @Composable
 internal fun CreatedAccountPage(state: OnboardingState) {
     Text(stringResource(R.string.ui_account_created_detail))
-    state.createdAccountId?.let { Text(it) }
     state.createdNetworking?.let { networking ->
         Text(
             stringResource(

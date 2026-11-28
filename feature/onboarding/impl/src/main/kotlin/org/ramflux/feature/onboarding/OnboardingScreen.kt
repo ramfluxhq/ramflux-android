@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import org.ramflux.data.shortAccountId
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.*
 import org.ramflux.designsystem.render
@@ -37,7 +38,8 @@ fun OnboardingScreen(
     val unlockCode = remember { ErasableBuffer() }
     val recovery = remember { RecoveryEntry() }
     Scaffold(modifier = modifier.testTag("onboarding-window"), contentWindowInsets = WindowInsets(0, 0, 0, 0)) { insets ->
-        val frame = Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)
+        // The keyboard never covers the helper or the button: the body scrolls above it and the footer rides on it.
+        val frame = Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).imePadding()
         if (state.page == OnboardingPage.CREATE) {
             CreateAccountPage(state, onAction, frame)
             return@Scaffold
@@ -50,16 +52,16 @@ fun OnboardingScreen(
                         state.page.title.render(),
                         subtitle = subtitle,
                         // The created account is reached by Continue only; going back into the finished ceremony is not offered.
-                        onBack = if (state.page == OnboardingPage.CREATED) null else ({ onAction(OnboardingAction.Back) }),
-                        actionLabel = stringResource(R.string.ui_refresh),
-                        onAction = { if (!state.busy && state.sessionReady) onAction(OnboardingAction.Refresh) }
+                        // The welcome root and the lock page have no back control either (system back still works).
+                        onBack = if (state.page.isRoot) null else ({ onAction(OnboardingAction.Back) })
                     )
                 }
                 // The subtitle scrolls with the body, so at large font scales in short windows the fixed header and
                 // the actions keep their full height.
                 Column(Modifier.weight(1f).fillMaxWidth().testTag("onboarding-body").verticalScroll(rememberScrollState())) {
-                    Text(subtitle, color = theme.secondary)
                     Column(Modifier.fillMaxWidth().padding(theme.gap.dp), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                        // The tagline sits inside the padded column, so it keeps the shared gutter like every other line.
+                        Text(subtitle, color = theme.secondary, modifier = Modifier.testTag("onboarding-tagline"))
                         if (state.busy) {
                             KitEmpty(
                                 "loader",
@@ -80,68 +82,8 @@ fun OnboardingScreen(
                         }
                         if (state.sessionReady) {
                             when (state.page) {
-                                OnboardingPage.START, OnboardingPage.CONTINUE, OnboardingPage.WELCOME, OnboardingPage.RESUME -> {
-                                    Text(
-                                        stringResource(R.string.ui_private_conversations_an_identity_you_control),
-                                        style = MaterialTheme.typography.headlineMedium
-                                    )
-                                    Text(stringResource(R.string.ui_connect_to_a_node_then_create_or_open))
-                                    KitButton(
-                                        stringResource(R.string.ui_set_up_a_connection),
-                                        { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) },
-                                        enabled = !state.busy,
-                                        tag = "connect"
-                                    )
-                                    if (state.accountsLoaded && state.accounts.isEmpty()) {
-                                        Text(
-                                            stringResource(R.string.ui_no_accounts_are_saved_on_this_device)
-                                        )
-                                    }
-                                    for (account in state.accounts) {
-                                        // The whole row opens or unlocks the account, like its trailing button.
-                                        KitRow(
-                                            account.label,
-                                            { if (!state.busy) onAction(OnboardingAction.SelectAccount(account.id)) },
-                                            value = account.subtitle.render(),
-                                            leading = { KitAvatar(account.label.take(1), 36f, KitAvatarKind.Person) },
-                                            trailingContent = {
-                                                TextButton(
-                                                    enabled = !state.busy,
-                                                    onClick = { onAction(OnboardingAction.SelectAccount(account.id)) }
-                                                ) {
-                                                    Text(
-                                                        if (account.unlocked) {
-                                                            stringResource(R.string.ui_open)
-                                                        } else {
-                                                            stringResource(R.string.ui_unlock)
-                                                        }
-                                                    )
-                                                }
-                                            },
-                                            testTag = account.id
-                                        )
-                                    }
-                                    for ((target, label) in listOf(
-                                        OnboardingPage.CREATE to stringResource(R.string.ui_create_account),
-                                        OnboardingPage.PAIR to stringResource(R.string.ui_link_device),
-                                        OnboardingPage.RECOVER to stringResource(R.string.ui_recover_account)
-                                    )) {
-                                        KitButton(
-                                            label,
-                                            { onAction(OnboardingAction.Page(target)) },
-                                            kind = KitButtonKind.Secondary,
-                                            enabled = !state.busy,
-                                            tag = target.name
-                                        )
-                                    }
-                                    KitButton(
-                                        stringResource(R.string.backup_restore_title),
-                                        { onAction(OnboardingAction.RestoreBackup) },
-                                        kind = KitButtonKind.Secondary,
-                                        enabled = !state.busy,
-                                        tag = "restore-backup"
-                                    )
-                                }
+                                OnboardingPage.START, OnboardingPage.CONTINUE, OnboardingPage.WELCOME, OnboardingPage.RESUME ->
+                                    WelcomePage(state, onAction)
                                 OnboardingPage.CONNECTION, OnboardingPage.REPAIR -> {
                                     Text(stringResource(R.string.ui_saved_nodes))
                                     if (state.nodesLoaded && state.nodes.isEmpty()) Text(stringResource(R.string.ui_no_saved_nodes))
@@ -210,17 +152,7 @@ fun OnboardingScreen(
                                         tag = "node-address"
                                     )
                                 }
-                                OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED ->
-                                    state.identity?.let { identity ->
-                                        KitSecurityWarning(
-                                            stringResource(R.string.ui_compare_the_node_fingerprint),
-                                            stringResource(R.string.ui_compare_this_fingerprint_with_your_node_operator_a),
-                                            if (identity.keyChanged) KitWarningTone.Danger else KitWarningTone.Warning
-                                        )
-                                        Text(identity.id)
-                                        Text(identity.url)
-                                        Text(identity.fingerprint, style = MaterialTheme.typography.bodySmall)
-                                    }
+                                OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED -> state.identity?.let { TrustNodePage(it) }
                                 OnboardingPage.CONFIRM -> {
                                     Text(stringResource(R.string.ui_entered_address), style = MaterialTheme.typography.labelLarge)
                                     Text(state.address)
@@ -248,12 +180,13 @@ fun OnboardingScreen(
                                 OnboardingPage.CHALLENGE -> ChallengePage(state, challenge)
                                 OnboardingPage.CREATED -> CreatedAccountPage(state)
                                 OnboardingPage.LOCAL_UNLOCK -> {
-                                    state.accounts.firstOrNull { it.id == state.unlockAccountId }?.let { account ->
-                                        Text(
-                                            stringResource(R.string.ui_unlock_account_named, account.label),
-                                            Modifier.testTag("unlock-account-name")
-                                        )
-                                    }
+                                    // The lock page anatomy (D-2): initial, display name, "Locked", then the instruction.
+                                    AccountIdentity(
+                                        state.accounts.firstOrNull { it.id == state.unlockAccountId }?.label,
+                                        status = stringResource(R.string.ui_locked),
+                                        nameTag = "unlock-account-name"
+                                    )
+                                    Text(stringResource(R.string.app_lock_body), style = MaterialTheme.typography.bodyLarge)
                                     AccountCodeField(
                                         unlockCode,
                                         stringResource(R.string.ui_account_code),
@@ -276,6 +209,7 @@ fun OnboardingScreen(
                                         if (confirming) {
                                             RemoveAccountDialog(
                                                 accountName = state.accounts.firstOrNull { it.id == id }?.label,
+                                                accountId = id,
                                                 busy = state.busy,
                                                 failed = false,
                                                 onConfirm = {
@@ -345,7 +279,7 @@ private fun OnboardingFooter(
                 tag = "phrase-saved"
             )
             OnboardingPage.CHALLENGE -> KitButton(
-                stringResource(R.string.ui_confirm_account),
+                stringResource(R.string.ui_create_account),
                 { onAction(OnboardingAction.ConfirmChallenge(challenge.words, challenge.code)) },
                 enabled = !state.busy && challenge.ready(state.challengePositions.size),
                 tag = "confirm-account"
@@ -370,14 +304,137 @@ private fun OnboardingFooter(
                 enabled = !state.busy && state.createdAccountId != null,
                 tag = "continue-created"
             )
-            OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED ->
+            OnboardingPage.IDENTITY, OnboardingPage.IDENTITY_CHANGED -> {
                 KitButton(
-                    stringResource(R.string.ui_save_this_node),
+                    stringResource(R.string.ui_trust_this_node),
                     { onAction(OnboardingAction.Confirm) },
                     enabled = !state.busy && state.identity != null && !state.identity.keyChanged,
                     tag = "confirm-node"
                 )
+                KitButton(
+                    stringResource(R.string.ui_cancel),
+                    { onAction(OnboardingAction.Back) },
+                    Modifier.fillMaxWidth(),
+                    kind = KitButtonKind.Text,
+                    tag = "cancel-node"
+                )
+            }
             else -> Unit
+        }
+    }
+}
+
+/** The pages that are roots of the flow or the lock page: they draw no back control in their header. */
+private val OnboardingPage.isRoot: Boolean
+    get() = when (this) {
+        OnboardingPage.START, OnboardingPage.CONTINUE, OnboardingPage.WELCOME, OnboardingPage.RESUME,
+        OnboardingPage.LOCAL_UNLOCK, OnboardingPage.CREATED -> true
+        else -> false
+    }
+
+/**
+ * The welcome page. With accounts on this device it opens with "Your accounts" (a locked row opens its lock page) and one
+ * secondary "Add another account" that reveals the setup choices; the connection button is primary only without an account.
+ */
+@Composable
+private fun WelcomePage(state: OnboardingState, onAction: (OnboardingAction) -> Unit) {
+    val hasAccounts = state.accounts.isNotEmpty()
+    var adding by remember { mutableStateOf(false) }
+    if (hasAccounts) {
+        Text(
+            stringResource(R.string.ui_your_accounts),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.testTag("accounts-section")
+        )
+        for (account in state.accounts) {
+            // The whole row opens the account, or its lock page when it is locked.
+            KitRow(
+                account.label,
+                { if (!state.busy) onAction(OnboardingAction.SelectAccount(account.id)) },
+                value = shortAccountId(account.id),
+                leading = { KitAvatar(account.label.take(1), 36f, KitAvatarKind.Person) },
+                trailingContent = { if (!account.unlocked) Text(stringResource(R.string.ui_locked)) },
+                testTag = account.id
+            )
+        }
+    } else {
+        Text(
+            stringResource(R.string.ui_private_conversations_an_identity_you_control),
+            style = MaterialTheme.typography.headlineMedium
+        )
+        Text(stringResource(R.string.ui_connect_to_a_node_then_create_or_open))
+        if (state.accountsLoaded) Text(stringResource(R.string.ui_no_accounts_are_saved_on_this_device))
+    }
+    if (hasAccounts && !adding) {
+        KitButton(
+            stringResource(R.string.ui_add_another_account),
+            { adding = true },
+            kind = KitButtonKind.Secondary,
+            enabled = !state.busy,
+            tag = "add-account"
+        )
+    }
+    if (!hasAccounts || adding) {
+        KitButton(
+            stringResource(R.string.ui_set_up_a_connection),
+            { onAction(OnboardingAction.Page(OnboardingPage.CONNECTION)) },
+            kind = if (hasAccounts) KitButtonKind.Secondary else KitButtonKind.Primary,
+            enabled = !state.busy,
+            tag = "connect"
+        )
+        for ((target, label) in listOf(
+            OnboardingPage.CREATE to stringResource(R.string.ui_create_account),
+            OnboardingPage.PAIR to stringResource(R.string.ui_link_device),
+            OnboardingPage.RECOVER to stringResource(R.string.ui_recover_account)
+        )) {
+            KitButton(
+                label,
+                { onAction(OnboardingAction.Page(target)) },
+                kind = KitButtonKind.Secondary,
+                enabled = !state.busy,
+                tag = target.name
+            )
+        }
+        KitButton(
+            stringResource(R.string.backup_restore_title),
+            { onAction(OnboardingAction.RestoreBackup) },
+            kind = KitButtonKind.Secondary,
+            enabled = !state.busy,
+            tag = "restore-backup"
+        )
+    }
+}
+
+/**
+ * Trust this node (D-5): the node's name and address, a neutral status line and a collapsed "Details" disclosure with the
+ * id, address and key fingerprint. Only a changed key uses the warning card.
+ */
+@Composable
+private fun TrustNodePage(identity: IdentityFacts) {
+    var details by remember { mutableStateOf(false) }
+    val host = remember(identity.url) { runCatching { java.net.URI(identity.url).host }.getOrNull() ?: identity.url }
+    Text(host, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag("node-name"))
+    Text(identity.url, modifier = Modifier.testTag("node-address-line"))
+    if (identity.keyChanged) {
+        KitSecurityWarning(
+            stringResource(R.string.ui_node_identity_changed),
+            stringResource(R.string.ui_the_saved_node_key_changed_confirmation_is_blocked),
+            KitWarningTone.Danger
+        )
+    } else {
+        Text(
+            stringResource(R.string.ui_node_trust_first),
+            color = LocalRFTheme.current.secondary,
+            modifier = Modifier.testTag("node-trust-status")
+        )
+        Text(stringResource(R.string.ui_node_trust_confirmed), color = LocalRFTheme.current.secondary)
+    }
+    KitButton(stringResource(R.string.ui_details), { details = !details }, kind = KitButtonKind.Text, tag = "node-details-toggle")
+    if (details) {
+        Column(Modifier.testTag("node-details"), verticalArrangement = Arrangement.spacedBy((LocalRFTheme.current.gap * .5f).dp)) {
+            Text(identity.id, style = MaterialTheme.typography.bodySmall)
+            Text(identity.url, style = MaterialTheme.typography.bodySmall)
+            Text(identity.fingerprint, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

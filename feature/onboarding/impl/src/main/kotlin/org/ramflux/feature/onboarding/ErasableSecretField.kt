@@ -22,21 +22,29 @@ import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.SurroundingText
 import android.view.inputmethod.TextAttribute
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.viewinterop.AndroidView
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.kit.KitButton
+import org.ramflux.designsystem.kit.KitButtonKind
+import org.ramflux.feature.onboarding.impl.R
 
 /** Owned secret text. [replace], [splice], [removeOutside], and [clear] wipe the previous array. */
 class ErasableBuffer {
@@ -109,7 +117,10 @@ class ErasableBuffer {
     }
 }
 
-/** Secret field. Keystrokes live in [buffer], and leaving the composition wipes that buffer. */
+/**
+ * Secret field. Keystrokes live in [buffer], and leaving the composition wipes that buffer. With [showToggle] the label row
+ * carries a per-field Show / Hide action: the entry is masked by default (when [password]) and reveals only while shown.
+ */
 @Composable
 fun ErasableSecretField(
     buffer: ErasableBuffer,
@@ -118,9 +129,11 @@ fun ErasableSecretField(
     enabled: Boolean,
     password: Boolean,
     limit: Int,
+    showToggle: Boolean = false,
     onEdited: () -> Unit
 ) {
     val theme = LocalRFTheme.current
+    var shown by remember { mutableStateOf(false) }
     val edited by rememberUpdatedState(onEdited)
     val viewRef = remember { arrayOfNulls<ErasableSecretView>(1) }
     DisposableEffect(buffer) {
@@ -134,7 +147,20 @@ fun ErasableSecretField(
             buffer.clear()
         }
     }
-    Text(label)
+    if (showToggle) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, Modifier.weight(1f))
+            KitButton(
+                stringResource(if (shown) R.string.ui_hide else R.string.ui_show),
+                { shown = !shown },
+                kind = KitButtonKind.Text,
+                enabled = enabled,
+                tag = "$fieldTag-show"
+            )
+        }
+    } else {
+        Text(label)
+    }
     // The field is left to right in every locale (see ErasableSecretView), including its host.
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         AndroidView(
@@ -146,7 +172,7 @@ fun ErasableSecretField(
             },
             update = { view ->
                 view.isEnabled = enabled
-                view.bind(buffer, password, limit, label) { edited() }
+                view.bind(buffer, password && !shown, limit, label) { edited() }
                 view.applyStyle(theme.text.toArgb(), theme.line.toArgb(), theme.size_body, theme.gap)
             },
             modifier = Modifier.fillMaxWidth().testTag(fieldTag)
@@ -213,6 +239,7 @@ class ErasableSecretView(context: Context) : View(context) {
             compEnd = -1
             pendingAccent = 0
         }
+        if (mask != maskInput) invalidate()
         mask = maskInput
         digits = digitsOnly
         limit = maxChars.coerceAtLeast(0)

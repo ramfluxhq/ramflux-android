@@ -45,11 +45,19 @@ val LocalRemoveDialogSecure = staticCompositionLocalOf { true }
 
 /**
  * The confirmation in front of "remove from this device". One tap never removes: the destructive button enables only
- * after the person ticks "I understand". [accountName] is shown when it is known. The dialog closes when the app stops;
+ * after the person ticks "I understand". The account is named by its avatar initial, [accountName] and the short id line of
+ * [accountId] (D-2). The dialog closes when the app stops;
  * [failed] shows the generic failure line and keeps everything as it was.
  */
 @Composable
-internal fun RemoveAccountDialog(accountName: String?, busy: Boolean, failed: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun RemoveAccountDialog(
+    accountName: String?,
+    accountId: String?,
+    busy: Boolean,
+    failed: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
     val theme = LocalRFTheme.current
     val secure = LocalRemoveDialogSecure.current
     var understood by remember { mutableStateOf(false) }
@@ -67,7 +75,7 @@ internal fun RemoveAccountDialog(accountName: String?, busy: Boolean, failed: Bo
             verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
         ) {
             Text(stringResource(R.string.ui_remove_dialog_title), style = MaterialTheme.typography.titleMedium)
-            accountName?.let { Text(it, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.testTag("remove-dialog-name")) }
+            AccountIdentity(accountName, accountId = accountId, nameTag = "remove-dialog-name")
             Text(stringResource(R.string.ui_remove_dialog_body), style = MaterialTheme.typography.bodyMedium)
             Row(
                 Modifier

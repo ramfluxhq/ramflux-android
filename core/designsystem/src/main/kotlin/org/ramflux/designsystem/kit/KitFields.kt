@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -205,7 +206,8 @@ fun KitCodeField(
     }
     val borderWidth = if (focused) RfMetrics.focusRing else RfMetrics.stroke
     Column(
-        modifier.fillMaxWidth().alpha(if (enabled) 1f else RfMetrics.fieldDisabledAlpha).kitBackdrop().kitTag(tag),
+        modifier.widthIn(max = dp(RfMetrics.formMaxWidth)).fillMaxWidth()
+            .alpha(if (enabled) 1f else RfMetrics.fieldDisabledAlpha).kitBackdrop().kitTag(tag),
         verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.fieldGap))
     ) {
         KitText(label, style = kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary))

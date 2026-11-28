@@ -7,14 +7,12 @@
     <string name="ui_add_your_node">添加你的节点</string>
     <string name="ui_address_to_verify">将验证的地址</string>
     <string name="ui_back">返回</string>
-    <string name="ui_check_node_identity">核对节点身份</string>
+    <string name="ui_check_node_identity">要信任此节点吗？</string>
     <string name="ui_check_your_phrase">核对恢复短语</string>
     <string name="ui_checking_the_address">正在检查地址</string>
     <string name="ui_checking_the_current_state">正在检查当前状态…</string>
     <string name="ui_choose_a_connection">选择连接</string>
     <string name="ui_choose_a_saved_node">选择已保存的节点</string>
-    <string name="ui_compare_the_node_fingerprint">核对节点指纹</string>
-    <string name="ui_compare_this_fingerprint_with_your_node_operator_a">请向节点运营者核对此指纹。仅保存地址不能证明节点身份。</string>
     <string name="ui_confirm_node_address">确认节点地址</string>
     <string name="ui_connect_to_a_node_then_create_or_open">先连接节点，再创建或打开账户。</string>
     <string name="ui_connection_refused">连接被拒绝</string>
@@ -45,11 +43,9 @@
     <string name="ui_protect_this_device">保护此设备</string>
     <string name="ui_recover_account">恢复账户</string>
     <string name="ui_recover_an_account">恢复账户</string>
-    <string name="ui_refresh">刷新</string>
     <string name="ui_return_to_edit_the_address">返回修改地址。</string>
     <string name="ui_review_saved_nodes">查看已保存的节点</string>
     <string name="ui_review_your_connection">检查连接</string>
-    <string name="ui_save_this_node">保存此节点</string>
     <string name="ui_save_your_recovery_phrase">保存恢复短语</string>
     <string name="ui_saved_nodes">已保存的节点</string>
     <string name="ui_saving">正在保存</string>
@@ -84,7 +80,6 @@
     <string name="ui_write_down_the_recovery_phrase">请按顺序抄写这 24 个词。它们只显示一次，不会保存在本机上。</string>
     <string name="ui_i_have_saved_the_phrase">我已抄写恢复短语</string>
     <string name="ui_recovery_word_position">第 %1$d 个词</string>
-    <string name="ui_confirm_account">确认账户</string>
     <string name="ui_account_created_detail">账户已在本机解锁。</string>
     <string name="ui_continue_into_the_account">继续</string>
     <string name="ui_n01_header">创建账号</string>
@@ -97,9 +92,8 @@
     <!-- Label of the six-digit account code field. -->
     <string name="ui_account_code">账户码</string>
     <!-- Explains the account code on the unlock and create screens. -->
-    <string name="ui_account_code_explanation">六位数字。它与本机的安全存储一起在此处打开你的账户数据。它不是恢复短语。</string>
+    <string name="ui_account_code_explanation">6 位数字。仅在本设备上校验，不会发送到节点。</string>
     <!-- Label of the code field when a new account code is chosen. -->
-    <string name="ui_choose_account_code">设置六位账户码</string>
     <!-- Refusal: the code is not six digits. -->
     <string name="ui_code_not_six_digits">账户码必须正好是 6 位数字。</string>
     <!-- Refusal: the new code is on the trivial list. -->
@@ -125,9 +119,9 @@
     <!-- Warning shown before the recovery phrase is entered. -->
     <string name="ui_recover_warning">请与你保存的指纹比对。恢复会为本机生成新的账户密钥，并让之前的设备退出。</string>
     <!-- Label of the recovery phrase field. -->
-    <string name="ui_recovery_phrase">恢复短语（24 个词）</string>
+    <string name="ui_recovery_phrase">恢复短语</string>
     <!-- Button that submits the recovery phrase. -->
-    <string name="ui_recover_account_action">恢复账户</string>
+    <string name="ui_recover_account_action">恢复</string>
     <!-- Shown when recovery is submitted incomplete. -->
     <string name="ui_enter_the_phrase_and_code">请输入 24 个词的恢复短语和账户码。</string>
     <!-- Button shown after the code attempts are exhausted. -->
@@ -227,7 +221,6 @@
     <!-- Generic backup failure. -->
     <string name="backup_failed">备份操作未成功。</string>
     <!-- Code page heading: %1$s is the display name of the account being unlocked. -->
-    <string name="ui_unlock_account_named">解锁 %1$s</string>
     <!-- Button after the SDK refused to open a locked account for a reason other than the code; it removes the account and its local data from this phone, nothing on the node. -->
     <string name="ui_forget_account_on_device">从本机移除此账户</string>
     <!-- Account created step: the SDK reports the new account's network session as still being set up. -->
@@ -236,12 +229,11 @@
     <string name="ui_created_network_connected">已连接网络</string>
     <!-- Account created step: the network session did not become live while the step was shown. -->
     <string name="ui_created_network_not_confirmed">网络连接尚未确认。账户在本机可用，连接后消息会发出。</string>
-    <string name="app_lock_app_name">Ramflux</string>
-    <string name="app_lock_body">请输入账户码以继续。</string>
+    <string name="app_lock_body">输入此账户的账户码。</string>
     <string name="app_lock_retry">重试</string>
     <string name="app_lock_restore">用恢复短语恢复</string>
     <string name="app_lock_countdown">%1$s:%2$s</string>
-    <string name="app_lock_wait">错误的账户码次数过多。请在 %1$s 后再试。</string>
+    <string name="app_lock_wait">尝试次数过多。请在 %1$s 后重试。</string>
     <string name="app_lock_unlock_failed">无法解锁此账户。请重试。</string>
     <string name="app_lock_change_busy">另一项应用锁更改正在进行中。</string>
     <string name="app_lock_exhausted_title">错误的账户码次数过多</string>
@@ -258,5 +250,16 @@
     <string name="ui_remove_dialog_understand">我已了解</string>
     <string name="ui_remove_dialog_confirm">移除</string>
     <string name="ui_remove_dialog_cancel">取消</string>
-    <string name="ui_account_removed">已从本设备移除此账户。</string>
+    <string name="ui_account_removed">已从本设备移除 %1$s。</string>
+    <string name="ui_account_removed_unnamed">已从本设备移除此账户。</string>
+    <string name="ui_unknown_name">未知</string>
+    <string name="ui_your_accounts">你的账户</string>
+    <string name="ui_add_another_account">添加其他账户</string>
+    <string name="ui_details">详细信息</string>
+    <string name="ui_trust_this_node">信任此节点</string>
+    <string name="ui_cancel">取消</string>
+    <string name="ui_node_trust_first">首次连接。如果此节点的密钥发生变化，Ramflux 会提醒你。</string>
+    <string name="ui_node_trust_confirmed">密钥已由邀请确认。</string>
+    <string name="ui_show">显示</string>
+    <string name="ui_hide">隐藏</string>
 </resources>

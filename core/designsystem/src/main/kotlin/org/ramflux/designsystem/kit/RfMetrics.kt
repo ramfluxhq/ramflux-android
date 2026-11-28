@@ -178,6 +178,9 @@ internal object RfMetrics {
     val qrGlyph = 150f
     val fieldGap = 6f
     val fieldBox = 48f
+
+    /** The widest a code or form column grows (landscape and large screens); the slots stop stretching beyond it. */
+    val formMaxWidth = 480f
     val fieldPad = 12f
     val fieldIcon = 18f
     val rowGap = 12f
