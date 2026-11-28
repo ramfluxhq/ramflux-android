@@ -3,11 +3,17 @@
 
 package org.ramflux.android.realrun
 
+import android.Manifest
+import android.app.Activity
+import android.app.Instrumentation
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiObject2
 import java.io.File
 import java.security.MessageDigest
@@ -802,7 +808,8 @@ class RealRunFlowTest {
         if (ui.hasText(failed)) fail("the backup job failed: ${ui.screen()}")
         ui.shot("11-backup")
         if (!done) fail("the backup job did not finish within 180 s: ${ui.screen()}")
-        "backup job created and finished (${ui.texts().take(160)})"
+        val created = "backup job created and finished (${ui.texts().take(160)})"
+        if (args.coverChecks) "$created; ${coverCheckBackupExport()}" else created
     }
 
     // Flows 8, 9, 12, 15 and the pairing entry: the screens load and show honest states.
@@ -977,8 +984,8 @@ class RealRunFlowTest {
             fail("confirm-exit did not enable after 'I understand': ${ui.screen()}")
         }
         ui.tap("confirm-exit")
-        val removedText = ui.str("settings_account_removed", name)
-        // The notice is a system toast: look for it on the whole screen, not only in the app's own windows.
+        val removedText = ui.str("ui_account_removed", name)
+        // The notice is drawn in the app window above the destination (onboarding when this was the only account).
         val toast = toastShown(removedText)
         if (toast) ui.shot("15-removed-toast")
         val after = ui.first("startup-gateway", "startup-welcome", "onboarding-header", "startup-unlock-header", timeout = Ui.LONG)
@@ -987,7 +994,7 @@ class RealRunFlowTest {
         ui.shot("15-removed")
         if (stillListed) fail("the removed account '$name' is still offered: ${ui.screen()}")
         if (!toast) fail("the removed notice '$removedText' was not shown (the app went to '$after')")
-        "account.remove_local accepted after 'I understand'; the toast named the account; " +
+        "account.remove_local accepted after 'I understand'; the removal notice named the account; " +
             "the app returned to '$after' and no longer offers '$name'"
     }
 
@@ -1344,8 +1351,9 @@ class RealRunFlowTest {
         ui.launch()
         lockForm()
         ui.shot("20-locked")
-        val leaked = listOf(alice, name).filter { it.isNotEmpty() && ui.hasText(it) }
-        if (leaked.isNotEmpty()) fail("the lock form shows account text: ${leaked.size} item(s) of the account or peer name")
+        // The cover names its own account (UX-FIX-01 D-2); nothing else of the account, such as the peer's name, shows.
+        if (alice.isNotEmpty() && ui.hasText(alice)) fail("the lock form shows the peer's name")
+        if (name.isNotEmpty() && ui.find("app-lock-name", 1_000)?.text != name) fail("the lock form does not name its account")
         val old = RunCode.load() ?: blocked("no saved run code on this install")
         val wrong = RunCode.next(old)
         old.fill('\u0000')
@@ -1358,7 +1366,7 @@ class RealRunFlowTest {
         if (!ui.eventually(Ui.LONG) { ui.find("app-lock-notice", 300)?.text == ui.str("ui_code_wrong") }) {
             fail("a wrong code was not refused with the wrong-code text: ${ui.screen()}")
         }
-        notes += "lock form shows no account text; a wrong code is refused"
+        notes += "lock form names only its own account; a wrong code is refused"
         // 4. BACK with the keyboard up: the form keeps its content and stays; the run's code then opens the same chat.
         val right = RunCode.load() ?: blocked("no saved run code on this install")
         try {
@@ -1393,6 +1401,7 @@ class RealRunFlowTest {
         if (ui.find("message-menu", 2_000) != null) fail("the message menu is still open after the unlock: ${ui.screen()}")
         sameChat(alice)
         notes += "menu open on background: only the lock form shown; the menu is gone after the unlock"
+        if (args.coverChecks) notes += coverChecksInChat(conversation, marker)
         RunState[APP_LOCK_NOTES] = notes.joinToString("; ")
         RunState[APP_LOCK_PHASE] = APP_LOCK_LOCKED
         throw FlowStop(
@@ -1633,7 +1642,7 @@ class RealRunFlowTest {
         fail("unlock did not finish within ${Ui.LONG / 1000} s: ${ui.screen()}")
     }
 
-    /** True when a system toast (a window of the system, not of the app) showing [text] appears within the short timeout. */
+    /** True when [text] appears on the screen (the app window's removal notice, or any window) within the short timeout. */
     private fun toastShown(text: String): Boolean =
         ui.device.wait(androidx.test.uiautomator.Until.hasObject(By.textContains(text)), Ui.SHORT)
 
@@ -1952,6 +1961,7 @@ class RealRunFlowTest {
             // Step 1: lock, ten wrong codes, the exhausted page, also after a relaunch.
             relaunch()
             lockForm()
+            assertCoverShortId("the lock form")
             ui.shot("22-lock-form")
             var lastFailureAt = exhaustWithWrongCodes(secrets.code, detailed = true, notes = notes)
             assertExhaustedPage(name)
@@ -1969,8 +1979,10 @@ class RealRunFlowTest {
                         notes += "recovery with a wrong code: the phrase was accepted and the wait of the 10th failure still ran"
                         waitOutPhraseAcceptedWait()
                         ui.keys("app-lock-code", wrong)
-                        ui.tap("app-lock-unlock")
-                        val refused = ui.eventually(Ui.LONG) { ui.find("app-lock-notice", 300)?.text == ui.str("ui_code_wrong") }
+                        submitCoverCode()
+                        // The granted try is the recovery's code check: its wrong code reads as the recovery's (D-4).
+                        val wrongTexts = setOf(ui.str("app_lock_code_wrong"), ui.str("ui_code_wrong"))
+                        val refused = ui.eventually(Ui.LONG) { ui.find("app-lock-notice", 300)?.text in wrongTexts }
                         if (!refused) {
                             fail(
                                 "the granted code try with a wrong code was not refused with the wrong-code text: ${ui.screen()}"
@@ -1998,7 +2010,7 @@ class RealRunFlowTest {
                     notes += "recovery with the right code: the phrase was accepted, the wait still ran (waited it out)"
                     waitOutPhraseAcceptedWait()
                     ui.keys("app-lock-code", secrets.code)
-                    ui.tap("app-lock-unlock")
+                    submitCoverCode()
                 }
                 RecoveryOutcome.WRONG_CODE -> fail("recovery with the right phrase and the right code refused the code: ${ui.screen()}")
             }
@@ -2318,6 +2330,33 @@ class RealRunFlowTest {
     /** True once the code form takes input again: no countdown and the unlock button enabled. */
     private fun codeFormReady(): Boolean = ui.find("app-lock-wait", 300) == null && ui.find("app-lock-unlock", 300)?.isEnabled == true
 
+    /** The cover answered a submitted code: a notice, a countdown, the exhausted page, a request in flight, or no cover. */
+    private fun coverAnswered(): Boolean = ui.find("app-lock-notice", 100) != null || ui.find("app-lock-wait", 100) != null ||
+        ui.find("app-lock-exhausted", 100) != null || ui.find("app-lock-unlock", 100)?.isEnabled == false ||
+        ui.find("app-lock-code", 100) == null
+
+    /**
+     * Taps Unlock for the code typed into the cover and returns once the cover answered. Typing clears the form's notice,
+     * so before the tap the form shows no answer. A tap the phone did not deliver to the button leaves the form exactly as it
+     * was (no notice, no countdown, Unlock enabled, the code still typed): on the cover branch at core 089f an injected tap
+     * at Unlock's centre right after a wait ended reached no click (no `app_lock.unlock:` trace line; f22 "no countdown after
+     * failure 7"). Only that state is tapped again, so a code is never sent twice: a delivered tap always ends in an answer.
+     */
+    private fun submitCoverCode() {
+        // A notice still shown after typing would hide a lost tap; then the form is tapped once and the answer awaited.
+        val clean = ui.eventually(3_000, 200) { ui.find("app-lock-notice", 100) == null }
+        repeat(UNLOCK_TAPS) { round ->
+            ui.tap("app-lock-unlock")
+            if (ui.eventually(UNLOCK_ANSWER_MILLIS, 200) { coverAnswered() } || !clean) {
+                if (round > 0) control.log("cover Unlock: answered after ${round + 1} taps (an earlier tap reached no click)")
+                Thread.sleep(1_500)
+                return
+            }
+            control.log("cover Unlock: tap ${round + 1} reached no answer within ${UNLOCK_ANSWER_MILLIS / 1000} s; the form is unchanged")
+        }
+        fail("the cover gave no answer after $UNLOCK_TAPS taps on Unlock: ${ui.screen()}")
+    }
+
     /**
      * Types wrong codes until core answers with the exhausted page; returns when the 10th was refused. After the 5th to the
      * 9th the countdown (30, 60, 120, 240, 480 s) must show with the unlock button disabled, and the wait must last as long
@@ -2340,9 +2379,8 @@ class RealRunFlowTest {
             } finally {
                 wrong.fill('\u0000')
             }
-            ui.tap("app-lock-unlock")
+            submitCoverCode()
             failedAt = System.currentTimeMillis()
-            Thread.sleep(1_500)
             when {
                 attempt < WAIT_FROM_ATTEMPT -> {
                     val refused = ui.eventually(Ui.LONG, 300) {
@@ -2409,6 +2447,16 @@ class RealRunFlowTest {
         if (ui.find("app-lock-code", 1_000) != null) fail("the exhausted page still has the code field: ${ui.screen()}")
         if (ui.find("app-lock-unlock", 500) != null) fail("the exhausted page still has the unlock button: ${ui.screen()}")
         if (ui.find("app-lock-name", 500)?.text != name) fail("the exhausted page does not name the account: ${ui.screen()}")
+        assertCoverShortId("the exhausted page")
+    }
+
+    /** Decision 13: the cover shows the bound account's short id line under the name, at most eight characters, never the full id. */
+    private fun assertCoverShortId(where: String) {
+        val line = ui.find("app-lock-name-short-id", 1_000)?.text ?: fail("$where shows no short id line: ${ui.screen()}")
+        val compact = line.filterNot { it.isWhitespace() }
+        if (compact.isEmpty() || compact.length > SHORT_ID_CHARS || compact.contains('-')) {
+            fail("$where shows '$line' as the short id line, not the picker-row format")
+        }
     }
 
     /** Recovery from the exhausted page with [phrase] and [code]; the screens with the secret fields are never captured. */
@@ -2478,6 +2526,7 @@ class RealRunFlowTest {
     private fun removeFromExhaustedPage(name: String): String {
         ui.tap("app-lock-remove", Ui.LONG)
         ui.need("remove-dialog", Ui.LONG, "remove dialog")
+        val held = if (args.coverChecks) "; ${coverCheckRemoveDialog()}" else ""
         if (ui.find("remove-dialog-name", 500)?.text != name || ui.find("remove-dialog-name-short-id", 500) == null) {
             fail("the remove dialog does not name the account with its short id: ${ui.screen()}")
         }
@@ -2510,11 +2559,281 @@ class RealRunFlowTest {
         ui.shot("22-removed")
         if (!toast) fail("the removed notice '$removedText' was not shown (the app went to '$after')")
         return "remove dialog named the account with its short id, confirm needed 'I understand', Cancel kept the account, " +
-            "confirm removed it: toast named the account, the app went to '$after' and no longer offers the account"
+            "confirm removed it: the removal notice named the account, the app went to '$after' and no longer offers the account$held"
+    }
+
+    // Cover checks (scripts/realrun.sh --cover-checks): the device checks of the app-lock cover gating that only the flow can
+    // drive, because only the flow knows the account code. Each check saves a screenshot and the window state (the app's
+    // accessibility windows and its `dumpsys window windows` blocks) and asserts on window state, never on a synthetic tap
+    // into a window that should be gone. f20 hosts the chat checks (they need the conversation with the peer alice), f11 the
+    // backup export, f22 the cover's own remove dialog. Without the flag none of this runs.
+
+    /** Engages the lock by the background route (timeout Immediately): HOME, wait, relaunch, the code form, a few sweeps. */
+    private fun engageByBackground() {
+        ui.device.pressHome()
+        Thread.sleep(BACKGROUND_WAIT)
+        ui.launch()
+        lockForm()
+        Thread.sleep(COVER_SETTLE_MILLIS)
+    }
+
+    /** Only the cover is on screen: no window of the app besides the one holding the cover is visible or has a shown surface. */
+    private fun assertOnlyCover(step: String) {
+        val own = ui.ownWindows()
+        if (own.none { it.cover }) fail("$step: the cover is not on screen: $own")
+        if (own.any { !it.cover }) fail("$step: a window of the app besides the cover is on screen: $own")
+        val side = ui.shownSideWindows()
+        if (side.isNotEmpty()) fail("$step: dumpsys reports shown windows besides the activity: $side")
+    }
+
+    /** Filters for the activity starts a picker result check holds (with and without a MIME type, which a filter must name). */
+    private fun heldStartFilters(vararg actions: String): List<IntentFilter> = actions.flatMap { action ->
+        listOf(IntentFilter(action), IntentFilter(action).apply { addDataType("*/*") })
+    }
+
+    private fun openAttachMenu() {
+        (ui.desc(ui.str("ui_attach"), Ui.SHORT) ?: fail("no attach control in the composer")).press()
+        ui.need("attach-menu")
+    }
+
+    /** f20 with --cover-checks, in the open chat with the lock on (Immediately): emoji popup, camera, photo picker, share task. */
+    private fun coverChecksInChat(conversation: String, marker: String): List<String> {
+        val notes = mutableListOf<String>()
+        openConversation(conversation)
+        notes += coverCheckEmojiPopup(marker)
+        openConversation(conversation)
+        notes += coverCheckCamera()
+        openConversation(conversation)
+        notes += coverCheckPhotoPicker()
+        notes += coverCheckShareTask()
+        notes += "card link browser: NOT DRIVEN (needs a conversation with an agent card that carries a link; the link " +
+            "intent's own task is checked by the AppLockLibraryWindowsTest unit test only)"
+        notes += "Lock now with the emoji popup open: NOT DRIVEN (Lock now sits on the App lock page; the popup belongs to " +
+            "the chat and takes focus, so both cannot be on screen at once; the background route is driven)"
+        ensureShell()
+        openConversation(conversation)
+        return notes
+    }
+
+    /**
+     * The emoji picker's skin-tone popup (a platform PopupWindow of androidx.emoji2) opened before the lock engages: after the
+     * background lock only the cover is on screen, and after the unlock the popup does not come back. Needs a message to
+     * react to: the marker the f20 steps sent to alice.
+     */
+    private fun coverCheckEmojiPopup(marker: String): String {
+        openActions(marker)
+        ui.tap("message-reactions-more")
+        ui.need("emoji-picker", Ui.LONG, "emoji picker")
+        val before = ui.ownWindows().size
+        var opened = false
+        for (scroll in 0 until EMOJI_SCROLLS) {
+            val candidates = ui.device.findObject(By.res("emoji-picker"))?.findObjects(By.longClickable(true)).orEmpty()
+            for (candidate in candidates.take(EMOJI_TRIES_PER_PAGE)) {
+                runCatching { ui.longPress(candidate) }
+                if (ui.eventually(2_000, 200) { ui.ownWindows().size > before }) {
+                    opened = true
+                    break
+                }
+            }
+            if (opened) break
+            ui.device.findObject(By.res("emoji-picker"))?.findObject(By.scrollable(true))
+                ?.let { runCatching { it.scroll(Direction.DOWN, 0.7f) } }
+        }
+        if (!opened) {
+            ui.windowEvidence("cc-emoji-no-popup")
+            ui.device.pressBack()
+            return "emoji skin-tone popup: NOT DRIVEN (no long-clickable emoji in the picker opened a popup window)"
+        }
+        val open = ui.windowEvidence("cc-emoji-popup-open")
+        engageByBackground()
+        val covered = ui.windowEvidence("cc-emoji-popup-covered")
+        assertOnlyCover("emoji popup, background lock")
+        enterAppLockCode()
+        Thread.sleep(COVER_SETTLE_MILLIS)
+        val unlocked = ui.windowEvidence("cc-emoji-popup-unlocked")
+        if (ui.ownWindows().size > 1 || ui.shownSideWindows().isNotEmpty()) fail("the skin-tone popup came back after the unlock")
+        if (ui.find("emoji-picker", 1_000) != null) ui.device.pressBack()
+        return "emoji skin-tone popup: open before the background lock ($open); under the cover only the cover ($covered); " +
+            "not back after the unlock ($unlocked)"
+    }
+
+    /**
+     * A camera result that returns into the locked account: the camera start is held (no camera opens), the lock engages,
+     * the result is handed back under the cover, and the refused capture file is deleted. Nothing opens after the unlock.
+     */
+    private fun coverCheckCamera(): String {
+        if (!ui.targetContext.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
+            return "camera result: NOT DRIVEN (the phone reports no camera)"
+        }
+        // The app asks for the camera through its permission explainer first; the realrun app is granted it here.
+        InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(ui.packageName, Manifest.permission.CAMERA)
+        val folder = File(ui.targetContext.cacheDir, "media-capture")
+        val held = ui.holdStarts(heldStartFilters(MediaStore.ACTION_IMAGE_CAPTURE))
+        try {
+            openAttachMenu()
+            ui.tapText(ui.str("chat_attach_camera"))
+            if (!ui.eventually(10_000, 300) { held.sumOf { it.hits } > 0 }) fail("the app did not request the camera")
+            val capture = folder.listFiles()?.singleOrNull() ?: fail("no capture file was prepared for the camera")
+            engageByBackground()
+            if (!ui.deliverHeldResult(Activity.RESULT_OK, null)) fail("the held camera result could not be handed back")
+            val deleted = ui.eventually(10_000, 300) { !capture.exists() }
+            val evidence = ui.windowEvidence("cc-camera-refused")
+            if (!deleted) fail("a camera result that returned into the locked account kept its capture file")
+            assertOnlyCover("camera result while locked")
+            enterAppLockCode()
+            if (ui.find("preview-send", 3_000) != null) fail("the refused capture opened the send preview after the unlock")
+            return "camera result under the cover: refused, capture file deleted, no preview after the unlock ($evidence)"
+        } finally {
+            held.forEach(ui::removeMonitor)
+        }
+    }
+
+    /** A photo-picker result that returns into the locked account is refused: no send preview, also not after the unlock. */
+    private fun coverCheckPhotoPicker(): String {
+        val image = File(ui.targetContext.cacheDir, "media-capture").apply { mkdirs() }.resolve("rr-cover.png")
+        image.writeBytes(testPng())
+        val uri = Uri.parse("content://${ui.packageName}.chatmedia/capture/rr-cover.png")
+        val held = ui.holdStarts(
+            heldStartFilters(MediaStore.ACTION_PICK_IMAGES, Intent.ACTION_OPEN_DOCUMENT, Intent.ACTION_GET_CONTENT)
+        )
+        try {
+            openAttachMenu()
+            ui.tapText(ui.str("chat_attach_photo"))
+            if (!ui.eventually(10_000, 300) { held.sumOf { it.hits } > 0 }) fail("the app did not request the photo picker")
+            engageByBackground()
+            if (!ui.deliverHeldResult(Activity.RESULT_OK, Intent().setData(uri))) fail("the held photo result could not be handed back")
+            Thread.sleep(COVER_SETTLE_MILLIS)
+            val evidence = ui.windowEvidence("cc-photo-refused")
+            assertOnlyCover("photo result while locked")
+            enterAppLockCode()
+            if (ui.find("preview-send", 5_000) != null) fail("the photo picked into the locked account opened the send preview")
+            return "photo picker result under the cover: refused, no preview after the unlock ($evidence)"
+        } finally {
+            held.forEach(ui::removeMonitor)
+            image.delete()
+        }
+    }
+
+    /** The contact-card share sheet starts in its own task (FLAG_ACTIVITY_NEW_TASK); the sheet itself is intercepted. */
+    private fun coverCheckShareTask(): String {
+        ensureShell()
+        openSettings()
+        if (ui.find("my-card", 1_500) == null) ui.tap("account-security")
+        ui.tap("my-card")
+        ui.need("my-card-text", Ui.LONG, "contact card text")
+        if (!ui.scrollTo("my-card-share")) fail("My contact card has no Share action: ${ui.screen()}")
+        var flags: Int? = null
+        val monitor = object : Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+                if (intent.action != Intent.ACTION_CHOOSER) return null
+                flags = intent.flags
+                return Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
+            }
+        }
+        InstrumentationRegistry.getInstrumentation().addMonitor(monitor)
+        try {
+            ui.tap("my-card-share")
+            if (!ui.eventually(10_000, 300) { flags != null }) fail("Share on My contact card started no share sheet")
+        } finally {
+            ui.removeMonitor(monitor)
+        }
+        val evidence = ui.windowEvidence("cc-share-task")
+        if ((flags ?: 0) and Intent.FLAG_ACTIVITY_NEW_TASK == 0) fail("the share sheet does not start in its own task")
+        ensureShell()
+        return "share sheet: starts in its own task (FLAG_ACTIVITY_NEW_TASK), intercepted, nothing opened ($evidence)"
+    }
+
+    /**
+     * f11 with --cover-checks: backup export across the lock. The save-location start is held, the lock engages, the location
+     * is handed back under the cover, and nothing is written (also not after the unlock).
+     */
+    private fun coverCheckBackupExport(): String = withImmediateAppLock {
+        ensureShell()
+        openSettings()
+        ui.open("backup", "backup-create")
+        ui.need("job-save", Ui.LONG, "a finished backup to save")
+        val target = File(ui.targetContext.cacheDir, "cc-export.rfbackup").apply { delete() }
+        val held = ui.holdStarts(heldStartFilters(Intent.ACTION_CREATE_DOCUMENT))
+        try {
+            ui.tap("job-save")
+            if (!ui.eventually(10_000, 300) { held.sumOf { it.hits } > 0 }) fail("the app did not ask for a save location")
+            engageByBackground()
+            if (!ui.deliverHeldResult(Activity.RESULT_OK, Intent().setData(Uri.fromFile(target)))) {
+                fail("the held save location could not be handed back")
+            }
+            Thread.sleep(COVER_SETTLE_MILLIS)
+            val evidence = ui.windowEvidence("cc-backup-export-refused")
+            assertOnlyCover("backup save location while locked")
+            if (target.exists()) fail("the backup was written while the account was locked")
+            enterAppLockCode()
+            if (ui.text(ui.str("backup_saved"), 3_000) != null || target.exists()) fail("the refused export was saved after the unlock")
+            "backup export across the lock: the save location handed back under the cover was refused, nothing written ($evidence)"
+        } finally {
+            held.forEach(ui::removeMonitor)
+            target.delete()
+        }
+    }
+
+    /** Runs [block] with the app lock on and the timeout Immediately, then puts back what was set before (off, or the timeout). */
+    private fun <T> withImmediateAppLock(block: () -> T): T {
+        openAppLockPage()
+        val wasOn = ui.need("app-lock-switch", Ui.LONG, "app lock switch").isChecked
+        if (!wasOn) {
+            ui.tap("app-lock-switch", Ui.LONG)
+            if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-switch", 300)?.isChecked == true }) fail("the app lock did not switch on")
+        }
+        val before = APP_LOCK_TIMEOUTS_MS.firstOrNull { timeout ->
+            ui.find("app-lock-timeout:$timeout", 300)?.let { it.isSelected || it.isChecked } == true
+        }
+        ui.tap("app-lock-timeout:0", Ui.LONG)
+        ensureShell()
+        try {
+            return block()
+        } finally {
+            runCatching {
+                if (ui.find("app-lock-code", 1_000) != null) enterAppLockCode()
+                if (!wasOn) {
+                    turnAppLockOffWithRunCode()
+                } else if (before != null && before != 0L) {
+                    openAppLockPage()
+                    ui.tap("app-lock-timeout:$before", Ui.LONG)
+                    if (ui.eventually(4_000, 300) { ui.windowNode("app-lock-reauth") != null }) enterReauthRunCode()
+                    ensureShell()
+                }
+            }
+        }
+    }
+
+    /**
+     * f22 with --cover-checks: the cover's own remove dialog stays on screen and usable while the window sweep runs (every
+     * 100 ms): after a hold it is still a visible window, and "I understand" still enables Remove.
+     */
+    private fun coverCheckRemoveDialog(): String {
+        Thread.sleep(REMOVE_DIALOG_HOLD_MILLIS)
+        val evidence = ui.windowEvidence("cc-remove-dialog-held")
+        val own = ui.ownWindows()
+        val held = REMOVE_DIALOG_HOLD_MILLIS / 1000
+        if (own.none { it.removeDialog }) fail("the cover's remove dialog is not a visible window after $held s: $own")
+        ui.tap("remove-understand")
+        if (!ui.eventually(Ui.SHORT, 300) { ui.find("remove-confirm", 300)?.isEnabled == true }) {
+            fail("the cover's remove dialog did not take 'I understand' while the sweep runs: ${ui.screen()}")
+        }
+        ui.tap("remove-understand")
+        if (!ui.eventually(Ui.SHORT, 300) { ui.find("remove-confirm", 300)?.isEnabled == false }) {
+            fail("'I understand' did not untick in the cover's remove dialog: ${ui.screen()}")
+        }
+        return "the cover's remove dialog stayed a visible, usable window through $held s of sweeps ($evidence)"
     }
 
     companion object {
         private const val BACKGROUND_WAIT = 8_000L
+
+        /** Cover checks: the settle time under the cover (many 100 ms sweeps), the emoji search bounds, the dialog hold. */
+        private const val COVER_SETTLE_MILLIS = 1_500L
+        private const val EMOJI_SCROLLS = 8
+        private const val EMOJI_TRIES_PER_PAGE = 3
+        private const val REMOVE_DIALOG_HOLD_MILLIS = 3_000L
+        private val APP_LOCK_TIMEOUTS_MS = longArrayOf(0L, 60_000L, 300_000L, 900_000L, 3_600_000L)
 
         /** The card gallery activity (realrun source set; not in any other build type). */
         private const val CARD_GALLERY = "org.ramflux.android.cardgallery.CardGalleryActivity"
@@ -2529,6 +2848,13 @@ class RealRunFlowTest {
         private const val WAIT_READ_SLACK_SECS = 25L
         private const val WAIT_END_SLACK_SECS = 90L
         private const val WAIT_EARLY_SLACK_SECS = 5L
+
+        /** Taps on the cover's Unlock while the form stays unanswered (a lost tap), and how long one answer may take. */
+        private const val UNLOCK_TAPS = 3
+
+        /** Decision 13: the short id line has at most eight characters (grouped `xxxx xxxx`). */
+        private const val SHORT_ID_CHARS = 8
+        private const val UNLOCK_ANSWER_MILLIS = 8_000L
         private const val PHRASE_WORDS = 24
         private const val CODE_DIGITS = 6
 

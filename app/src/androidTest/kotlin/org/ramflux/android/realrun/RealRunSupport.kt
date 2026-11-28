@@ -50,6 +50,13 @@ class RealRunArgs(private val bundle: Bundle) {
     val operatorKey get() = bundle.getString("rf_operator_key").orEmpty()
     val fingerprint get() = bundle.getString("rf_fingerprint").orEmpty()
     val nodeId get() = bundle.getString("rf_node_id").orEmpty()
+
+    /**
+     * The device checks of the app-lock cover gating (`scripts/realrun.sh --cover-checks`): extra steps inside f11, f20
+     * and f22 that drive windows and picker results across an engaged cover. Off by default, so the normal flows are
+     * unchanged.
+     */
+    val coverChecks get() = bundle.getString("rf_cover_checks") == "1"
     fun peer(name: String, field: String) = bundle.getString("rf_${name}_$field").orEmpty()
 
     companion object {
@@ -164,6 +171,11 @@ fun UiObject2.press(holdMillis: Long = 0) {
 
 private const val PRESS_DELIVERY_MILLIS = 90_000L
 private const val PRESS_RETRY_MILLIS = 300L
+
+/** One of the app's windows as accessibility reports it; [cover] holds the lock form or exhausted page, [removeDialog] the remove dialog. */
+data class OwnWindow(val type: Int, val layer: Int, val bounds: String, val cover: Boolean, val removeDialog: Boolean) {
+    override fun toString() = "type=$type layer=$layer bounds=$bounds cover=$cover removeDialog=$removeDialog"
+}
 
 /** A flow could not continue; [status] is what the table records (FAIL or BLOCKED). */
 class FlowStop(val status: String, message: String) : Exception(message)
@@ -586,6 +598,107 @@ class Ui(private val control: PeerControl) {
         val wanted = Regex("Focus|focus|Pending|pending|Inject|inject|Paused|paused|Waiting|ANR|Anr|Connection|realrun|TouchState|Window #")
         text.lineSequence().filter { wanted.containsMatchIn(it) }.take(400).joinToString("\n").encodeToByteArray()
     }.getOrDefault("unavailable".encodeToByteArray())
+
+    /**
+     * The app's own windows that accessibility reports on screen: the activity window and every dialog, popup or sheet
+     * window that is visible. A window the cover gate hid (made invisible) or removed is not in this list.
+     */
+    fun ownWindows(): List<OwnWindow> = runCatching {
+        instrumentation.uiAutomation.windows.mapNotNull { window ->
+            val root = window.root ?: return@mapNotNull null
+            if (root.packageName != packageName) return@mapNotNull null
+            val bounds = android.graphics.Rect().also(window::getBoundsInScreen)
+            val cover = findNode(root, "app-lock-code") != null || findNode(root, "app-lock-exhausted") != null
+            OwnWindow(window.type, window.layer, bounds.toShortString(), cover, findNode(root, "remove-dialog") != null)
+        }
+    }.getOrDefault(emptyList())
+
+    /**
+     * The app's window blocks of `dumpsys window windows` (no content: titles, types, flags, visibility and surface lines),
+     * read through the instrumentation's shell. Kept as evidence next to a screenshot by [windowEvidence].
+     */
+    fun windowDump(): String = runCatching {
+        val descriptor = instrumentation.uiAutomation.executeShellCommand("dumpsys window windows")
+        val text = android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes().decodeToString() }
+        val header = Regex("^\\s*Window #\\d+")
+        val wanted = Regex("Window #|mAttrs|ty=|mViewVisibility|mHasSurface|isOnScreen|isVisible|package=|mPolicyVisibility|fl=")
+        val blocks = mutableListOf<MutableList<String>>()
+        text.lineSequence().forEach { line ->
+            if (header.containsMatchIn(line)) blocks += mutableListOf(line) else blocks.lastOrNull()?.add(line)
+        }
+        blocks.filter { block -> block.any { it.contains(packageName) } }
+            .joinToString("\n") { block -> block.filter { wanted.containsMatchIn(it) }.joinToString("\n") }
+    }.getOrDefault("unavailable")
+
+    /**
+     * Titles of the app's windows other than the activity window that `dumpsys window` reports as shown: view visibility
+     * VISIBLE (0x0) and a surface. Empty when every such window is hidden or gone, or when the dump has no such lines
+     * (some vendor builds print fewer fields); [ownWindows] is the second, independent reading.
+     */
+    fun shownSideWindows(dump: String = windowDump()): List<String> {
+        val header = Regex("^\\s*Window #\\d+ (Window\\{[^}]*\\})")
+        val shown = mutableListOf<String>()
+        var title: String? = null
+        var visible = false
+        var surface = false
+        fun close() {
+            val name = title ?: return
+            if (visible && surface && !name.contains("MainActivity")) shown += name
+        }
+        dump.lineSequence().forEach { line ->
+            val match = header.find(line)
+            if (match != null) {
+                close()
+                title = match.groupValues[1]
+                visible = false
+                surface = false
+            }
+            if (line.contains("mViewVisibility=0x0")) visible = true
+            if (line.contains("mHasSurface=true")) surface = true
+        }
+        close()
+        return shown
+    }
+
+    /** A screenshot and the window state of this moment (accessibility windows and the dumpsys excerpt), for a cover check. */
+    fun windowEvidence(name: String): String {
+        shot(name)
+        val windows = ownWindows()
+        val dump = windowDump()
+        control.dump("$name-windows", (windows.joinToString("\n") + "\n---\n" + dump).encodeToByteArray())
+        val summary = "$name: ${windows.size} own window(s) [${windows.joinToString("; ")}], shown side windows " +
+            shownSideWindows(dump).ifEmpty { listOf("none") }.joinToString(",")
+        control.log(summary)
+        return summary
+    }
+
+    /**
+     * Holds the next activity start matching [filters]: the start is swallowed (no system picker, camera or file chooser
+     * opens on the shared phone) and the app keeps waiting for its result, which the flow hands back later with
+     * [deliverHeldResult] (for example after the app-lock cover came up).
+     */
+    fun holdStarts(filters: List<android.content.IntentFilter>): List<Instrumentation.ActivityMonitor> =
+        filters.map { filter -> Instrumentation.ActivityMonitor(filter, null, true).also(instrumentation::addMonitor) }
+
+    /**
+     * Hands [resultCode] and [data] to the activity-result launcher whose start was held: the one key the resumed
+     * activity's result registry still marks as launched. Runs on the main thread. False when no launch is pending.
+     */
+    fun deliverHeldResult(resultCode: Int, data: Intent?): Boolean {
+        var delivered = false
+        instrumentation.runOnMainSync {
+            val activity = resumed() as? androidx.activity.ComponentActivity ?: return@runOnMainSync
+            val registry = activity.activityResultRegistry
+            val saved = Bundle().also(registry::onSaveInstanceState)
+            val codes = saved.getIntegerArrayList("KEY_COMPONENT_ACTIVITY_REGISTERED_RCS").orEmpty()
+            val keys = saved.getStringArrayList("KEY_COMPONENT_ACTIVITY_REGISTERED_KEYS").orEmpty()
+            val launched = saved.getStringArrayList("KEY_COMPONENT_ACTIVITY_LAUNCHED_KEYS").orEmpty()
+            val key = launched.singleOrNull() ?: return@runOnMainSync
+            val code = codes.getOrNull(keys.indexOf(key)) ?: return@runOnMainSync
+            delivered = registry.dispatchResult(code, resultCode, data)
+        }
+        return delivered
+    }
 
     /** The windows on screen as accessibility reports them (type, layer, display, bounds, package), for failures. */
     fun windows(): String = runCatching {

@@ -161,8 +161,24 @@ The exhausted-lock recovery (`f22`, G10b) creates the run's only account itself,
 
 The two-account app lock (`f23`, G05e-A) runs on one fresh install in two phases and keeps both account codes in memory only (never logged, saved or shown on a screenshot). Phase 1, app lock off for both accounts: create A, reach the account chooser through Lock account and create B, switch B to A and A to B (each opens its target cleanly: no stuck retry, no leftover cover), three background and return cycles on B, one on A. This exercises the multi-account survey and the per-account app-lock calls through the unattended lease. Phase 2: open A, turn A's app lock on (Immediately); background and return on A raises the cover and A's code opens A; a relaunch with A engaged shows the cover and A's code opens A; three further returns on A (R8). While A's lock is engaged there is no route to the account chooser (Lock account raises A's cover; node.list is refused app_lock by design), a product gap tracked as G05e-B, so "B, or a switch, while A's lock is engaged" is not exercised until G05e-B and the PASS detail says so. The flow cannot read the app's private trace, so the runner must grep `app-trace.txt` for `app_lock_unauthorized` and expect no match (the PASS detail says this too). Fresh install, f23 alone: `scripts/realrun.sh --tests "f23" --out $O`.
 
-The app lock (`f20`) runs on the lock cover: off by default, on with timeout Immediately, the lock form with no account
-text, a wrong code refused, BACK keeps the form, relocks, a message menu under the cover. Its steps 7 and 8 start from a
+The cover checks (`--cover-checks`, off by default) add the device checks of the app-lock cover gating, which only the
+flow can drive because only the flow knows the account code. Each check saves a screenshot and a `-windows` dump (the
+app's accessibility windows and its `dumpsys window windows` blocks) under `dumps/`, logs a summary line, and asserts on
+window state: under the cover no window of the app besides the cover is visible and dumpsys reports no shown side window.
+`f20` (needs alice, after steps 1 to 6): the emoji picker's skin-tone popup opened before the background lock is gone
+under the cover and does not come back after the unlock; a camera result handed back under the cover is refused and its
+capture file deleted; a photo-picker result handed back under the cover is refused (no send preview, also after the
+unlock); the contact-card share sheet starts in its own task (intercepted, nothing opens). `f11`: a backup save location
+handed back under the cover writes nothing (the lock is set to Immediately for the check and put back afterwards). `f22`:
+the cover's own remove dialog is still a visible window after three seconds of window sweeps and still takes "I
+understand". Picker, camera and save-location starts are held by the instrumentation (nothing opens on the shared phone)
+and their results are handed back through the activity's result registry after the lock engaged. Not driven, and said so
+in the flow detail: "Lock now" with the popup open (Lock now sits on the App lock page, the popup belongs to the chat) and
+the card link browser (needs an agent card with a link). Run them with the normal invocations plus the flag, for example
+`scripts/realrun.sh --skip-build --no-install --tests "f20" --cover-checks --out $O`.
+
+The app lock (`f20`) runs on the lock cover: off by default, on with timeout Immediately, the lock form naming only its
+own account (no peer or message text), a wrong code refused, BACK keeps the form, relocks, a message menu under the cover. Its steps 7 and 8 start from a
 process the script killed (the suite cannot force-stop its own app process), so `f20` runs alone in two more invocations;
 between them the lock stays on, and the flows that expect no lock run after `f20` has passed. When a phase fails, it
 turns the lock off with the run's code before it reports (and starts the phases over), and a phase that finds a lock left on by an

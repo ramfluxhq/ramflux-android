@@ -7,7 +7,11 @@
 # run, with the alice and bob peers driven through the rf CLI on this machine.
 #
 #   scripts/realrun.sh [--out DIR] [--target phone|emulator] [--path lan|tunnel] [--keep-app] [--skip-build]
-#                      [--no-install | --test-apk-only] [--tests "f01 f02 ..."]
+#                      [--no-install | --test-apk-only] [--tests "f01 f02 ..."] [--cover-checks]
+#
+# --cover-checks adds the device checks of the app-lock cover gating to f11 (backup export across the lock), f20 (emoji
+# skin-tone popup, camera and photo results into the locked account, the share sheet's own task) and f22 (the cover's
+# remove dialog while the window sweep runs). Off by default: without it the flows run as before.
 #
 # Every environment-specific input is a setting; there are no defaults for them. A setting is an environment
 # variable, or a line KEY=value in scripts/realrun.local.env (untracked; see realrun.local.env.example; the
@@ -82,6 +86,7 @@ SKIP_BUILD=0
 NO_INSTALL=0
 TEST_APK_ONLY=0
 TESTS=""
+COVER_CHECKS=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --out) OUT=$2; shift 2 ;;
@@ -92,7 +97,8 @@ while [ $# -gt 0 ]; do
     --no-install) NO_INSTALL=1; shift ;;
     --test-apk-only) TEST_APK_ONLY=1; shift ;;
     --tests) TESTS=$2; shift 2 ;;
-    *) echo "usage: scripts/realrun.sh [--out DIR] [--target phone|emulator] [--path lan|tunnel] [--keep-app] [--skip-build] [--no-install | --test-apk-only] [--tests \"f01 f02\"]" >&2
+    --cover-checks) COVER_CHECKS=1; shift ;;
+    *) echo "usage: scripts/realrun.sh [--out DIR] [--target phone|emulator] [--path lan|tunnel] [--keep-app] [--skip-build] [--no-install | --test-apk-only] [--tests \"f01 f02\"] [--cover-checks]" >&2
        echo "settings: see the header of this script, scripts/realrun.local.env.example and docs/realrun.md" >&2; exit 2 ;;
   esac
 done
@@ -331,6 +337,7 @@ ARGS=(-e rf_realrun 1 -e rf_control "http://127.0.0.1:$CONTROL_PORT" -e rf_node_
 for name in alice bob; do
   ARGS+=(-e "rf_${name}_principal" "$(peer $name principal_id)" -e "rf_${name}_commitment" "$(peer $name principal_commitment)")
 done
+if [ "$COVER_CHECKS" = 1 ]; then ARGS+=(-e rf_cover_checks 1); fi
 # --tests names flow methods by prefix; they are resolved against the suite source so typos fail early.
 CLASS_ARG=$SUITE
 if [ -n "$TESTS" ]; then
