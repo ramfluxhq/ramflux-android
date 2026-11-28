@@ -191,7 +191,7 @@ class DirectDetailsViewModel @Inject constructor(
  * details and storage boards). Facts the SDK does not return are said to be unavailable.
  */
 @Composable
-internal fun BoxScope.DirectDetails(
+fun BoxScope.DirectDetails(
     state: DirectDetailsState,
     onAction: (DirectDetailsAction) -> Unit,
     onGallery: () -> Unit,
