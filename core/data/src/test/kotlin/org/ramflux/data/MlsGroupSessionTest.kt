@@ -1007,4 +1007,140 @@ class MlsGroupSessionTest {
         stores.appUnlocked()
         assertEquals(2L, s.epoch("b").first())
     }
+
+    // ---- M-2: the app lock's release admits exactly what that lock cleared --------------------------------------------
+
+    private enum class Kind { SWITCH, ACCOUNT_LOCK, SIGN_OUT, REMOVAL, APP_LOCK_NAMED, APP_LOCK_UNNAMED, UNLOCK }
+
+    /** One trigger as the host fires it through [AccountScopedStores]; [account] is null only for the unnamed lock and the unlock. */
+    private data class Trigger(val kind: Kind, val account: String? = null) {
+        override fun toString() = account?.let { "$kind($it)" } ?: kind.name
+    }
+
+    /** What the MLS state of an account must be: shown, cleared by the app lock (the release admits it), or cleared by anything else. */
+    private enum class Expected { OPEN, HELD, CLEARED }
+
+    private val walkAccounts = listOf("a", "b")
+
+    /** Fires [t] the way the host does: a switch is `switched` then `admit`, sign-out and removal are `purgeBeforeClose`. */
+    private suspend fun TestScope.fire(stores: AccountScopedStores, t: Trigger) {
+        val id = t.account.orEmpty()
+        when (t.kind) {
+            Kind.SWITCH -> {
+                stores.switched(id)
+                stores.admit(id)
+            }
+            Kind.ACCOUNT_LOCK -> stores.accountLocked(id)
+            Kind.SIGN_OUT, Kind.REMOVAL -> assertTrue(stores.purgeBeforeClose(id))
+            Kind.APP_LOCK_NAMED -> stores.appLocked(id)
+            Kind.APP_LOCK_UNNAMED -> stores.appLocked(null)
+            Kind.UNLOCK -> stores.appUnlocked()
+        }
+        runCurrent()
+    }
+
+    /** The rule: only the app lock holds an account, it never holds one cleared by anything else, and its release admits only what it held. */
+    private fun MutableMap<String, Expected>.step(t: Trigger) {
+        when (t.kind) {
+            Kind.SWITCH -> keys.forEach { this[it] = if (it == t.account) Expected.OPEN else Expected.CLEARED }
+            Kind.ACCOUNT_LOCK, Kind.SIGN_OUT, Kind.REMOVAL -> this[t.account.orEmpty()] = Expected.CLEARED
+            Kind.APP_LOCK_NAMED -> if (this[t.account] == Expected.OPEN) this[t.account.orEmpty()] = Expected.HELD
+            Kind.APP_LOCK_UNNAMED -> keys.forEach { if (this[it] == Expected.OPEN) this[it] = Expected.HELD }
+            Kind.UNLOCK -> keys.forEach { if (this[it] == Expected.HELD) this[it] = Expected.OPEN }
+        }
+    }
+
+    /**
+     * Runs [triggers] on a fresh session with both accounts seen, checks the purge mark against the rule after every trigger,
+     * and returns the accounts a call is made for afterwards (the ones the session admits).
+     */
+    private suspend fun TestScope.walk(triggers: List<Trigger>): Set<String> {
+        val fake = Fake()
+        val s = MlsGroupSession(fake, scope(this))
+        val stores = AccountScopedStores()
+        s.attach(stores)
+        walkAccounts.forEach { s.groups(it) }
+        val expected = walkAccounts.associateWith { Expected.OPEN }.toMutableMap()
+        for ((index, t) in triggers.withIndex()) {
+            fire(stores, t)
+            expected.step(t)
+            for (name in walkAccounts) {
+                assertEquals("$triggers, after step ${index + 1}: purge mark of $name", expected[name] != Expected.OPEN, name in s.data.value.purged)
+            }
+        }
+        val admitted = walkAccounts.filter { name ->
+            val before = fake.count("list")
+            s.loadGroups(name)
+            fake.count("list") > before
+        }.toSet()
+        assertEquals("$triggers: accounts a call is made for", expected.filterValues { it == Expected.OPEN }.keys, admitted)
+        return admitted
+    }
+
+    private fun t(kind: Kind, account: String? = null) = Trigger(kind, account)
+
+    @Test fun anAccountClearedByAnythingButTheAppLockIsNeverAdmittedByItsRelease() = runTest {
+        val rows = listOf(
+            // The two probes of the spot check: a clear first, an app lock that names no account second.
+            Triple("switch, then an unnamed lock", listOf(t(Kind.SWITCH, "b"), t(Kind.APP_LOCK_UNNAMED), t(Kind.UNLOCK)), setOf("b")),
+            Triple("sign-out, then an unnamed lock", listOf(t(Kind.SIGN_OUT, "b"), t(Kind.APP_LOCK_UNNAMED), t(Kind.UNLOCK)), setOf("a")),
+            Triple("removal, then an unnamed lock", listOf(t(Kind.REMOVAL, "b"), t(Kind.APP_LOCK_UNNAMED), t(Kind.UNLOCK)), setOf("a")),
+            Triple("account lock, then an unnamed lock", listOf(t(Kind.ACCOUNT_LOCK, "a"), t(Kind.APP_LOCK_UNNAMED), t(Kind.UNLOCK)), setOf("b")),
+            Triple("switch, then a lock naming the account left", listOf(t(Kind.SWITCH, "b"), t(Kind.APP_LOCK_NAMED, "a"), t(Kind.UNLOCK)), setOf("b")),
+            Triple("sign-out, then a lock naming that account", listOf(t(Kind.SIGN_OUT, "a"), t(Kind.APP_LOCK_NAMED, "a"), t(Kind.UNLOCK)), setOf("b")),
+            Triple("removal, then a lock naming that account", listOf(t(Kind.REMOVAL, "a"), t(Kind.APP_LOCK_NAMED, "a"), t(Kind.UNLOCK)), setOf("b")),
+            Triple("account lock, then a lock naming that account", listOf(t(Kind.ACCOUNT_LOCK, "a"), t(Kind.APP_LOCK_NAMED, "a"), t(Kind.UNLOCK)), setOf("b")),
+            // The opposite order, covered before: the clear while the lock is up removes the account from what the release admits.
+            Triple("unnamed lock, then a switch", listOf(t(Kind.APP_LOCK_UNNAMED), t(Kind.SWITCH, "b"), t(Kind.UNLOCK)), setOf("b")),
+            Triple("unnamed lock, then a sign-out", listOf(t(Kind.APP_LOCK_UNNAMED), t(Kind.SIGN_OUT, "a"), t(Kind.UNLOCK)), setOf("b")),
+            Triple("unnamed lock, then an account lock", listOf(t(Kind.APP_LOCK_UNNAMED), t(Kind.ACCOUNT_LOCK, "a"), t(Kind.UNLOCK)), setOf("b")),
+            // A second lock while the first is up keeps what the first held, and still skips what something else cleared.
+            Triple("named lock, then an unnamed lock", listOf(t(Kind.APP_LOCK_NAMED, "a"), t(Kind.APP_LOCK_UNNAMED), t(Kind.UNLOCK)), setOf("a", "b")),
+            Triple(
+                "unnamed lock, account lock, unnamed lock again",
+                listOf(t(Kind.APP_LOCK_UNNAMED), t(Kind.ACCOUNT_LOCK, "a"), t(Kind.APP_LOCK_UNNAMED), t(Kind.UNLOCK)),
+                setOf("b"),
+            ),
+            Triple("unnamed lock alone", listOf(t(Kind.APP_LOCK_UNNAMED), t(Kind.UNLOCK)), setOf("a", "b")),
+            // Only a deliberate switch back admits the account left behind.
+            Triple(
+                "switch, unnamed lock, unlock, switch back",
+                listOf(t(Kind.SWITCH, "b"), t(Kind.APP_LOCK_UNNAMED), t(Kind.UNLOCK), t(Kind.SWITCH, "a")),
+                setOf("a"),
+            ),
+        )
+        for ((name, triggers, admitted) in rows) assertEquals(name, admitted, walk(triggers))
+    }
+
+    @Test fun everyOrderingOfTheAccountTriggersAdmitsOnlyWhatTheAppLockCleared() = runTest {
+        // Every ordering of the seven kinds once each, for each choice of the switch target and of the account the others name.
+        fun permutations(rest: List<Kind>): List<List<Kind>> =
+            if (rest.isEmpty()) listOf(emptyList()) else rest.flatMap { k -> permutations(rest - k).map { listOf(k) + it } }
+        val orderings = permutations(Kind.entries)
+        assertEquals(5040, orderings.size)
+        var walked = 0
+        for (target in walkAccounts) for (named in walkAccounts) for (order in orderings) {
+            val triggers = order.map { kind ->
+                when (kind) {
+                    Kind.SWITCH -> t(kind, target)
+                    Kind.APP_LOCK_UNNAMED, Kind.UNLOCK -> t(kind)
+                    else -> t(kind, named)
+                }
+            }
+            walk(triggers + t(Kind.UNLOCK))
+            walked += 1
+        }
+        // Every sequence of up to three triggers over both accounts, so repeats and mixed accounts are walked too.
+        val alphabet = Kind.entries.flatMap { kind ->
+            if (kind == Kind.APP_LOCK_UNNAMED || kind == Kind.UNLOCK) listOf(t(kind)) else walkAccounts.map { t(kind, it) }
+        }
+        assertEquals(12, alphabet.size)
+        var sequences = listOf(emptyList<Trigger>())
+        repeat(3) {
+            sequences = sequences.flatMap { prefix -> alphabet.map { prefix + it } }
+            sequences.forEach { walk(it + t(Kind.UNLOCK)) }
+            walked += sequences.size
+        }
+        assertEquals(4 * 5040 + 12 + 12 * 12 + 12 * 12 * 12, walked)
+    }
 }

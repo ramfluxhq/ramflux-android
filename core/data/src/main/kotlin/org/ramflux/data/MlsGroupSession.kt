@@ -93,12 +93,15 @@ class MlsGroupSession(
 
     /**
      * The app lock engaged for [account], or for every account when null: each is cleared like [clearAccount] and admitted
-     * again by [appUnlocked] only. With no account named, every account this process has seen is cleared.
+     * again by [appUnlocked] only. With no account named, every account this process has seen is cleared. An account that is
+     * already cleared by something else (a switch away, an account lock, sign-out or removal) is skipped, named or not, so the
+     * release never admits it.
      */
     suspend fun appLocked(account: String?) {
         val jobs = guard.withLock {
             val targets = account?.let(::setOf) ?: (seen + data.value.accounts.keys + data.value.epochs.keys + watchers.keys)
-            targets.mapNotNull { name ->
+            val purged = data.value.purged
+            targets.filter { it !in purged || it in appLockHeld }.mapNotNull { name ->
                 appLockHeld.add(name)
                 purge(name)
             }
