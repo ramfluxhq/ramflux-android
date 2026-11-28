@@ -70,10 +70,12 @@ class FakeNodeSetup : NodeSetupRepository {
         lastAddress = address
         return discoverResult()
     }
+    var lastOperatorKey: String? = null
     override suspend fun confirm(candidate: DiscoveredNode, operatorKey: String): ClientResult<Unit> {
         confirmations++
         lastConfirmed = candidate
-        return if (candidate.node.keyChanged) {
+        lastOperatorKey = operatorKey
+        return if (candidate.node.keyChanged && operatorKey.isBlank()) {
             ClientResult.Unavailable(
                 ClientFeature.ONBOARDING,
                 UnavailableReason.UNSUPPORTED_BY_CORE
@@ -92,8 +94,8 @@ class FakeNodeSetup : NodeSetupRepository {
         is ClientResult.Unavailable -> result
     }
     companion object {
-        fun candidate(changed: Boolean = false) =
-            DiscoveredNode(SavedNode("node", "https://node.example", "public-key", false, changed, true), "a".repeat(64))
+        fun candidate(changed: Boolean = false, pinSource: String? = null) =
+            DiscoveredNode(SavedNode("node", "https://node.example", "public-key", false, changed, true, pinSource), "a".repeat(64))
     }
 }
 class FakeAccountCeremony : AccountCeremonyRepository {

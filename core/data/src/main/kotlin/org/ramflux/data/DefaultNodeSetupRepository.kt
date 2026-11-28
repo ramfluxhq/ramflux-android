@@ -20,7 +20,8 @@ internal class DefaultNodeSetupRepository(transport: RepositoryTransport) : Node
         require(warnings.size <= 64)
         val enabled = (row["enabled"] as? JsonPrimitive)?.booleanOrNull ?: throw IllegalArgumentException("missing enabled")
         return SavedNode(id, text("discovery_url"), text("node_public_key"), id == default,
-            warnings.any { it.jsonPrimitive.content == "key_changed" }, enabled)
+            warnings.any { it.jsonPrimitive.content == "key_changed" }, enabled,
+            (row["pin_source"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it.length <= 64 })
     }
     private fun <T> decode(result: CoreResult<JsonObject>, mutation: Boolean = false, project: (JsonObject) -> T): ClientResult<T> = when (result) {
         is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
@@ -49,10 +50,15 @@ internal class DefaultNodeSetupRepository(transport: RepositoryTransport) : Node
         }
     }
     override suspend fun confirm(candidate: DiscoveredNode, operatorKey: String): ClientResult<Unit> {
-        if (candidate.node.keyChanged) return ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.UNSUPPORTED_BY_CORE)
         // An entered operator key must equal the discovered key and pins as "operator"; without one the key the person was
         // shown is the expected key and the node pins on first connection ("tofu"). Both are the SDK's atomic predicate.
+        // A changed key is only ever accepted through a matching operator key, never on first connection.
         if (operatorKey.isNotBlank() && operatorKey != candidate.node.publicKey) return invalid
+        if (operatorKey.isBlank()) {
+            if (candidate.node.keyChanged) return ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.UNSUPPORTED_BY_CORE)
+            // First connection is https only; plain http needs the operator key.
+            if (!candidate.node.url.startsWith("https://")) return invalid
+        }
         val source = if (operatorKey.isBlank()) "tofu" else "operator"
         return decode(nodes.confirm(context(true), buildJsonObject {
             put("node_id", candidate.node.id); put("expected_public_key", candidate.node.publicKey); put("pin_source", source)

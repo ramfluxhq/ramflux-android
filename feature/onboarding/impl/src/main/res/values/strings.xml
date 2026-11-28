@@ -53,7 +53,6 @@
     <string name="ui_secure_setup_is_unavailable_no_phrase_or_account">Secure setup is unavailable. No phrase or account was created.</string>
     <string name="ui_set_up_a_connection">Set up a connection</string>
     <string name="ui_the_outcome_is_unknown_refresh_the_current_state">The outcome is unknown. Refresh the current state before starting another request.</string>
-    <string name="ui_the_saved_node_key_changed_confirmation_is_blocked">The saved node key changed. Confirmation is blocked; contact your node operator.</string>
     <string name="ui_this_action_is_not_available_in_this_version">This action is not available in this version.</string>
     <string name="ui_this_node_cannot_be_selected_review_its_identity">This node cannot be selected. Review its identity and availability with your node operator.</string>
     <string name="ui_this_setup_operation_is_unavailable">This setup operation is unavailable.</string>
@@ -263,6 +262,7 @@
     <string name="ui_hide">Hide</string>
     <string name="ui_use_an_https_address">Use an https address.</string>
     <string name="ui_enter_operator_key">Enter operator key</string>
+    <string name="ui_trust_new_key">Trust new key</string>
     <string name="ui_node_key_changed_title">This node\'s key has changed</string>
     <string name="ui_node_key_changed_body">Don\'t continue unless you expected this change.</string>
     <string name="ui_node_already_trusted">You already trust this node.</string>

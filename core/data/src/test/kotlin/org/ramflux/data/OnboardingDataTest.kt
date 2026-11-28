@@ -36,8 +36,31 @@ class OnboardingDataTest {
         assertEquals("operator", request.body["pin_source"]?.jsonPrimitive?.content)
         assertEquals("node.confirm", request.method); assertEquals("reviewed-key", request.body["expected_public_key"]?.jsonPrimitive?.content)
         assertFalse(request.operationId.isNullOrBlank())
-        assertTrue(repo.confirm(candidate.copy(node = candidate.node.copy(keyChanged = true)), "reviewed-key") is ClientResult.Unavailable)
         assertEquals(1, transport.calls.size)
+    }
+    @Test fun changedKeyIsConfirmedOnlyAsOperatorAndNeverAsTofu() = runTest(timeout = 5.seconds) {
+        val transport = PublicTransport().apply { answer = { reply(node()) } }
+        val repo = DefaultNodeSetupRepository(transport)
+        val changed = DiscoveredNode(SavedNode("node", "https://node.example", "reviewed-key", false, true, true), "a".repeat(64))
+        assertTrue(repo.confirm(changed, "") is ClientResult.Unavailable)
+        assertTrue(repo.confirm(changed, "other-key") is ClientResult.Failed)
+        assertTrue(transport.calls.isEmpty())
+        assertTrue(repo.confirm(changed, "reviewed-key") is ClientResult.Ready)
+        val request = transport.calls.single()
+        assertEquals("operator", request.body["pin_source"]?.jsonPrimitive?.content)
+        assertEquals("reviewed-key", request.body["expected_public_key"]?.jsonPrimitive?.content)
+    }
+    @Test fun firstConnectionIsHttpsOnlyInTheRepositoryToo() = runTest(timeout = 5.seconds) {
+        val transport = PublicTransport().apply { answer = { reply(node()) } }
+        val repo = DefaultNodeSetupRepository(transport)
+        val plain = DiscoveredNode(SavedNode("node", "http://node.example", "reviewed-key", false, false, true), "a".repeat(64))
+        assertTrue(repo.confirm(plain, "") is ClientResult.Failed)
+        assertTrue(transport.calls.isEmpty())
+        assertTrue(repo.confirm(plain, "reviewed-key") is ClientResult.Ready)
+        assertEquals("operator", transport.calls.single().body["pin_source"]?.jsonPrimitive?.content)
+        val secure = DiscoveredNode(SavedNode("node", "https://node.example", "reviewed-key", false, false, true), "a".repeat(64))
+        assertTrue(repo.confirm(secure, "") is ClientResult.Ready)
+        assertEquals("tofu", transport.calls.last().body["pin_source"]?.jsonPrimitive?.content)
     }
     @Test fun selectingNodeRechecksSafetyAndNeverWritesChangedKey() = runTest(timeout = 5.seconds) {
         val transport = PublicTransport().apply { answer = { reply(buildJsonObject { put("nodes", buildJsonArray { add(node(true)) }) }) } }

@@ -289,18 +289,9 @@ class OnboardingViewModel @Inject constructor(
                                 result.value.node.url,
                                 result.value.fingerprint,
                                 result.value.node.keyChanged,
-                                // A node already pinned with this very key is shown as trusted: nothing to confirm.
-                                alreadyTrusted = !result.value.node.keyChanged &&
-                                    savedNodes.any { it.id == result.value.node.id && it.publicKey == result.value.node.publicKey }
+                                alreadyTrusted = alreadyTrusted(result.value, operatorKey)
                             ),
-                            notice = if (result.value.node.keyChanged) {
-                                OnboardingNotice(
-                                    uiText(R.string.ui_the_saved_node_key_changed_confirmation_is_blocked),
-                                    OnboardingNoticeKind.UNAVAILABLE
-                                )
-                            } else {
-                                null
-                            }
+                            notice = null
                         )
                     }
                 }
@@ -311,10 +302,26 @@ class OnboardingViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * A node already pinned with this very key is shown as trusted: nothing to confirm. The reply decides first (the SDK keeps
+     * the stored non-TOFU pin of a same-key node in it), then the saved list. A TOFU pin does not count when the person enters
+     * the operator key, so the key can still be upgraded to an operator pin.
+     */
+    private fun alreadyTrusted(found: DiscoveredNode, operatorKey: String): Boolean {
+        if (found.node.keyChanged) return false
+        val stored = found.node.pinSource
+        if (stored != null && stored != "tofu") return true
+        val saved = savedNodes.find { it.id == found.node.id && it.publicKey == found.node.publicKey } ?: return false
+        return operatorKey.isBlank() || saved.pinSource != "tofu"
+    }
     private fun confirm() {
         val current = candidate ?: return
         val key = local.value.operatorKey
-        if (current.node.keyChanged || (key.isNotBlank() && current.node.publicKey != key)) return
+        if (key.isNotBlank() && current.node.publicKey != key) return
+        // A changed key is only trusted through the matching operator key.
+        if (current.node.keyChanged && key.isBlank()) return
+        if (key.isBlank() && !current.node.url.startsWith("https://")) return
         local.update { it.copy(page = OnboardingPage.SAVING) }
         launch {
             val result = nodes.confirm(current, key)

@@ -325,6 +325,15 @@ private fun OnboardingFooter(
                         enabled = !state.busy,
                         tag = "use-trusted-node"
                     )
+                } else if (identity?.keyChanged == true && state.operatorKey.isNotBlank()) {
+                    // The entered operator key matches the new key: trusting it pins as "operator".
+                    KitButton(
+                        stringResource(R.string.ui_trust_new_key),
+                        { onAction(OnboardingAction.Confirm) },
+                        enabled = !state.busy,
+                        kind = KitButtonKind.Destructive,
+                        tag = "trust-new-key"
+                    )
                 } else if (identity?.keyChanged == true) {
                     // A changed key: the only way on is the operator key.
                     KitButton(
@@ -458,12 +467,12 @@ private fun TrustNodePage(identity: IdentityFacts, viaOperatorKey: Boolean) {
             modifier = Modifier.testTag("node-trust-status")
         )
     } else {
+        // The operator-key line replaces the first-connection line (D-5.2).
         Text(
-            stringResource(R.string.ui_node_trust_first),
+            stringResource(if (viaOperatorKey) R.string.ui_node_trust_confirmed else R.string.ui_node_trust_first),
             color = LocalRFTheme.current.secondary,
             modifier = Modifier.testTag("node-trust-status")
         )
-        if (viaOperatorKey) Text(stringResource(R.string.ui_node_trust_confirmed), color = LocalRFTheme.current.secondary)
     }
     KitButton(stringResource(R.string.ui_details), { details = !details }, kind = KitButtonKind.Text, tag = "node-details-toggle")
     if (details) {

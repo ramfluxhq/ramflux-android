@@ -89,7 +89,25 @@ class OnboardingViewModelTest {
         assertNull(vm.state.value.identity)
     }
 
-    @Test fun changedKeyAndForgedPageCannotAdvanceConfirmation() = runTest(timeout = 5.seconds) {
+    @Test fun changedKeyWithoutOperatorKeyCannotAdvanceConfirmation() = runTest(timeout = 5.seconds) {
+        val nodes = FakeNodeSetup().apply { discoverResult = { ClientResult.Ready(FakeNodeSetup.candidate(true)) } }
+        val vm = OnboardingViewModel(FakeAccountAccess(), nodes, FakeOnboardingSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(OnboardingAction.Address("node.example"))
+        vm.onAction(OnboardingAction.ReviewAddress)
+        vm.onAction(OnboardingAction.Discover)
+        runCurrent()
+        assertEquals(OnboardingPage.IDENTITY_CHANGED, vm.state.value.page)
+        assertNull("the D-5.3 card is the only warning", vm.state.value.notice)
+        vm.onAction(OnboardingAction.Page(OnboardingPage.SAVED))
+        vm.onAction(OnboardingAction.Confirm)
+        runCurrent()
+        assertEquals(OnboardingPage.IDENTITY_CHANGED, vm.state.value.page)
+        assertEquals(0, nodes.confirmations)
+    }
+
+    @Test fun changedKeyIsTrustedOnlyThroughTheMatchingOperatorKey() = runTest(timeout = 5.seconds) {
         val nodes = FakeNodeSetup().apply { discoverResult = { ClientResult.Ready(FakeNodeSetup.candidate(true)) } }
         val vm = OnboardingViewModel(FakeAccountAccess(), nodes, FakeOnboardingSession())
         observe(vm)
@@ -100,11 +118,50 @@ class OnboardingViewModelTest {
         vm.onAction(OnboardingAction.ReviewAddress)
         vm.onAction(OnboardingAction.Discover)
         runCurrent()
-        vm.onAction(OnboardingAction.Page(OnboardingPage.SAVED))
+        assertEquals(OnboardingPage.IDENTITY_CHANGED, vm.state.value.page)
+        assertNull(vm.state.value.notice)
         vm.onAction(OnboardingAction.Confirm)
         runCurrent()
-        assertEquals(OnboardingPage.IDENTITY_CHANGED, vm.state.value.page)
-        assertEquals(0, nodes.confirmations)
+        assertEquals(1, nodes.confirmations)
+        assertEquals("public-key", nodes.lastOperatorKey)
+        assertEquals(OnboardingPage.SAVED, vm.state.value.page)
+    }
+
+    @Test fun anOperatorPinnedNodeIsTrustedFromTheReplyEvenWhenTheListIsNotLoaded() = runTest(timeout = 5.seconds) {
+        val nodes = FakeNodeSetup().apply {
+            listing = ClientResult.Ready(emptyList())
+            discoverResult = { ClientResult.Ready(FakeNodeSetup.candidate(pinSource = "operator")) }
+        }
+        val vm = OnboardingViewModel(FakeAccountAccess(), nodes, FakeOnboardingSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(OnboardingAction.Address("node.example"))
+        vm.onAction(OnboardingAction.ReviewAddress)
+        vm.onAction(OnboardingAction.Discover)
+        runCurrent()
+        assertEquals(true, vm.state.value.identity?.alreadyTrusted)
+    }
+
+    @Test fun aTofuPinCanBeUpgradedByTheOperatorKeyButIsTrustedWithoutOne() = runTest(timeout = 5.seconds) {
+        val saved = FakeNodeSetup.candidate(pinSource = "tofu").node
+        val nodes = FakeNodeSetup().apply {
+            listing = ClientResult.Ready(listOf(saved))
+            discoverResult = { ClientResult.Ready(FakeNodeSetup.candidate(pinSource = "tofu")) }
+        }
+        val vm = OnboardingViewModel(FakeAccountAccess(), nodes, FakeOnboardingSession())
+        observe(vm)
+        runCurrent()
+        vm.onAction(OnboardingAction.Address("node.example"))
+        vm.onAction(OnboardingAction.ReviewAddress)
+        vm.onAction(OnboardingAction.Discover)
+        runCurrent()
+        assertEquals(true, vm.state.value.identity?.alreadyTrusted)
+        vm.onAction(OnboardingAction.Page(OnboardingPage.ADDRESS))
+        vm.onAction(OnboardingAction.OperatorKey("public-key"))
+        vm.onAction(OnboardingAction.ReviewAddress)
+        vm.onAction(OnboardingAction.Discover)
+        runCurrent()
+        assertEquals(false, vm.state.value.identity?.alreadyTrusted)
     }
 
     @Test fun uncertainSaveClearsCandidateAndRequiresReadBeforeAnotherConfirmation() = runTest(timeout = 5.seconds) {
