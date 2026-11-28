@@ -10,4 +10,23 @@
     <string name="card_gallery_not_run">Conformance not run</string>
     <string name="card_gallery_fixtures">Fixtures</string>
     <string name="card_gallery_scenarios">Scenarios</string>
+    <string name="mls_gallery_title">MLS gallery (test build)</string>
+    <string name="mls_gallery_dark">Dark</string>
+    <string name="mls_view_chat">Chat</string>
+    <string name="mls_view_contact">Contact detail</string>
+    <string name="mls_view_details">Direct details</string>
+    <string name="mls_view_row">Conversation row</string>
+    <string name="mls_back">Back to fixtures</string>
+    <!-- Debug counters of the fixture repository: status reads, security reads, accepts and the anchor of the last accept. -->
+    <string name="mls_counters">status %1$d, security %2$d, accepts %3$d, anchor %4$s</string>
+    <string name="mls_fixture_f1_1">Ana, first sighting, encrypted, 2 devices</string>
+    <string name="mls_fixture_f1_2">Ben, verified</string>
+    <string name="mls_fixture_f1_3">Chen, identity changed, event after 1 s</string>
+    <string name="mls_fixture_f1_4">Chen, send refused until reviewed</string>
+    <string name="mls_fixture_f1_5">Chen, accept mismatch, then a newer change</string>
+    <string name="mls_fixture_f1_6">Chen, change already handled</string>
+    <string name="mls_fixture_f1_7">Scout (AI agent), identity changed</string>
+    <string name="mls_fixture_f1_8">Encryption pending, then re-established</string>
+    <string name="mls_fixture_f1_9">Devices changed events, silent re-read</string>
+    <string name="mls_fixture_f1_10">Chen, changed with no new identity known</string>
 </resources>

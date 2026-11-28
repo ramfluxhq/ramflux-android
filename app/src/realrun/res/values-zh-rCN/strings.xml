@@ -9,4 +9,22 @@
     <string name="card_gallery_not_run">尚未运行一致性检查</string>
     <string name="card_gallery_fixtures">夹具</string>
     <string name="card_gallery_scenarios">场景</string>
+    <string name="mls_gallery_title">MLS 画廊（测试版）</string>
+    <string name="mls_gallery_dark">深色</string>
+    <string name="mls_view_chat">聊天</string>
+    <string name="mls_view_contact">联系人详情</string>
+    <string name="mls_view_details">单聊详情</string>
+    <string name="mls_view_row">会话行</string>
+    <string name="mls_back">返回样例列表</string>
+    <string name="mls_counters">状态读取 %1$d，加密读取 %2$d，接受 %3$d，锚点 %4$s</string>
+    <string name="mls_fixture_f1_1">Ana，首次见到，已加密，2 台设备</string>
+    <string name="mls_fixture_f1_2">Ben，已验证</string>
+    <string name="mls_fixture_f1_3">Chen，身份已更改，1 秒后收到事件</string>
+    <string name="mls_fixture_f1_4">Chen，查看前发送被拒绝</string>
+    <string name="mls_fixture_f1_5">Chen，接受不匹配，随后又有新更改</string>
+    <string name="mls_fixture_f1_6">Chen，更改已处理</string>
+    <string name="mls_fixture_f1_7">Scout（AI 智能体），身份已更改</string>
+    <string name="mls_fixture_f1_8">加密建立中，随后重新建立</string>
+    <string name="mls_fixture_f1_9">设备变更事件，静默重新读取</string>
+    <string name="mls_fixture_f1_10">Chen，已更改但新身份未知</string>
 </resources>

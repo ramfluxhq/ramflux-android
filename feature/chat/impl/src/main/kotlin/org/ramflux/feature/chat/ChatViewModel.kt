@@ -57,8 +57,12 @@ class ChatViewModel @Inject constructor(
         history: MessageHistoryRepository,
         accounts: AccountAccessRepository,
         session: ClientSessionRepository,
-        drafts: ChatDraftRepository = NoChatDrafts
-    ) : this(history, accounts, session, drafts, UnavailableMediaRepository(), NoMediaStager)
+        drafts: ChatDraftRepository = NoChatDrafts,
+        identity: ContactIdentityRepository = UnavailableContactIdentity
+    ) : this(
+        history, accounts, session, drafts, UnavailableMediaRepository(), NoMediaStager, localQueue(UnavailableMediaRepository(), session),
+        UnavailableCardSessionRepository(), NoChatOutbox, identity
+    )
 
     private data class Target(val account: String, val conversation: String, val group: String?)
     private var target: Target? = null
