@@ -36,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardImageSource
@@ -44,7 +43,7 @@ import org.ramflux.data.cards.CardLifecycle
 import org.ramflux.data.cards.CardSlotOutcome
 import org.ramflux.data.cards.CardStamp
 import org.ramflux.data.cards.CardTree
-import org.ramflux.designsystem.LocalAppLockCovered
+import org.ramflux.designsystem.CoverAwareDialog
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
 import org.ramflux.designsystem.kit.KitAiMarker
@@ -287,11 +286,11 @@ private fun LinkSheet(input: CardRenderInput, actions: CardActions) {
     val slotId = request.str("slot_id") ?: return
     val requestId = request.str("request_id") ?: return
     val token = request.obj("token") ?: return
-    if (LocalAppLockCovered.current) return
     val theme = LocalRFTheme.current
     val host = remember(url) { runCatching { java.net.URI(url).host }.getOrNull().orEmpty() }
     val shape = RoundedCornerShape(theme.radius_dialog.dp)
-    Dialog(onDismissRequest = { actions.slot(slotId, requestId, token, CardSlotOutcome.CANCEL, url) }) {
+    // Not shown under the app-lock cover. The request stays pending, so the sheet is shown again after unlock.
+    CoverAwareDialog(onDismissRequest = { actions.slot(slotId, requestId, token, CardSlotOutcome.CANCEL, url) }, onCovered = {}) {
         Column(
             Modifier
                 .background(theme.overlay, shape)

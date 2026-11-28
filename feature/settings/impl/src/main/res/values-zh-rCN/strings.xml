@@ -290,8 +290,6 @@
     <string name="settings_lock_now">立即锁定</string>
     <string name="settings_account_unknown">未知</string>
     <string name="settings_requests_auto_switch">自动接受联系人请求</string>
-    <string name="settings_account_removed">已从本设备移除 %1$s。</string>
-    <string name="settings_account_removed_unnamed">已从本设备移除此账户。</string>
     <string name="settings_remove_understand">我已了解</string>
     <string name="settings_remove_dialog_body">未备份的本地记录将丢失，且无法撤销。之后可以用备份和恢复短语恢复此账户。</string>
 </resources>

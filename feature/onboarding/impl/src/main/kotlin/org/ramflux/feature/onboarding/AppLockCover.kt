@@ -3,13 +3,13 @@
 
 package org.ramflux.feature.onboarding
 
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,14 +17,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -33,6 +38,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -41,13 +49,12 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -63,8 +70,13 @@ import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.ClientSnapshot
 import org.ramflux.data.accountCodeRefusal
 import org.ramflux.data.appLockCovers
+import org.ramflux.data.clientDebugEvent
+import org.ramflux.designsystem.AppLockCoverFocus
+import org.ramflux.designsystem.LocalAppLockCoverFocus
+import org.ramflux.designsystem.LocalInAppLockCover
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
+import org.ramflux.designsystem.focusTrap
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
 import org.ramflux.designsystem.kit.kitFormColumn
@@ -119,10 +131,12 @@ class AppLockViewModel @Inject constructor(
 
     /** The account the open confirmation was raised for; confirm removes it only while it is still the locked account. */
     private var removeTarget: String? = null
-    private val removedChannel = Channel<String?>(Channel.BUFFERED)
 
-    /** One item (the removed account's display name, or null) after the account was removed; the cover is already gone or going. */
-    val removed = removedChannel.receiveAsFlow()
+    /**
+     * One item (the removed account's display name, or null) after an account was removed from this device, here or in
+     * Settings; the cover draws the notice above the destination.
+     */
+    val removed = accounts.removedNotices
 
     init {
         // Any account change (unlock, switch, lock, sign-out) can change which account the lock applies to.
@@ -281,7 +295,7 @@ class AppLockViewModel @Inject constructor(
                 when (accounts.removeLocal(account)) {
                     is ClientResult.Ready -> {
                         resetCover()
-                        removedChannel.send(removedName)
+                        accounts.announceRemoved(removedName)
                         session.recheckAppLock()
                     }
                     else -> local.update { it.copy(removeFailed = true) }
@@ -317,6 +331,12 @@ class AppLockViewModel @Inject constructor(
     fun unlock(code: ErasableBuffer) {
         val digits = code.snapshot()
         code.clear()
+        // Debug trace only (a no-op in release): flags and the digit check, never the code.
+        val busy = local.value.busy
+        val wait = local.value.waitSecs
+        val exhausted = local.value.exhausted
+        val complete = AccountCode.complete(digits)
+        clientDebugEvent("app_lock.unlock:busy.$busy.wait.$wait.exhausted.$exhausted.complete.$complete")
         if (local.value.busy || local.value.waitSecs > 0L || local.value.exhausted) {
             digits.fill('\u0000')
             return
@@ -365,7 +385,9 @@ class AppLockViewModel @Inject constructor(
      * is read from core's state, so the wait is what core holds, and any other failure says so without a guess.
      */
     private suspend fun failed(account: String, problem: ClientProblem) {
-        when (problem.accountCodeRefusal()) {
+        val refusal = problem.accountCodeRefusal()
+        clientDebugEvent("app_lock.unlock.failed:$refusal")
+        when (refusal) {
             AccountCodeRefusal.WRONG_CODE -> {
                 local.update { it.copy(notice = codeText(AccountCodeRefusal.WRONG_CODE, null)) }
                 readThrottle(account)
@@ -376,7 +398,7 @@ class AppLockViewModel @Inject constructor(
             AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> local.update { it.copy(exhausted = true, notice = null) }
             else -> local.update {
                 it.copy(
-                    notice = problem.accountCodeRefusal()?.let { refusal -> codeText(refusal, problem.retryAfterSecs) }
+                    notice = refusal?.let { kind -> codeText(kind, problem.retryAfterSecs) }
                         ?: uiText(R.string.app_lock_unlock_failed)
                 )
             }
@@ -385,7 +407,11 @@ class AppLockViewModel @Inject constructor(
 
     /** Reads the state core holds now (exhausted or a throttle) and counts a wait down; the field stays disabled until it ends. */
     private suspend fun readThrottle(account: String) {
-        val status = (security.appLockState(account) as? ClientResult.Ready)?.value ?: return
+        val status = (security.appLockState(account) as? ClientResult.Ready)?.value
+        val exhausted = status?.codeAttemptsExhausted
+        val wait = status?.codeRetryAfterSecs
+        clientDebugEvent("app_lock.throttle:exhausted.$exhausted.wait.$wait")
+        status ?: return
         if (status.codeAttemptsExhausted) {
             waitJob?.cancel()
             waitJob = null
@@ -394,10 +420,10 @@ class AppLockViewModel @Inject constructor(
         }
         // The field returns only when core's state says the account is not exhausted.
         local.update { it.copy(exhausted = false) }
-        val waitMs = status.codeRetryAfterMs?.takeIf { it > 0L } ?: return
+        val waitSecs = status.codeRetryAfterSecs?.takeIf { it > 0L } ?: return
         // One status line: the countdown replaces any notice, and the notice does not return when the wait ends.
         local.update { it.copy(notice = null) }
-        val deadline = System.nanoTime() + waitMs * 1_000_000L
+        val deadline = System.nanoTime() + waitSecs * 1_000_000_000L
         waitJob?.cancel()
         waitJob = viewModelScope.launch {
             while (true) {
@@ -431,6 +457,8 @@ fun CoverBackGuard(covered: Boolean, onBack: () -> Unit) {
     if (covered) BackHandler(enabled = true, onBack = onBack)
 }
 
+private const val REMOVED_NOTICE_MILLIS = 5_000L
+
 /** The cover for the app lock. Callers draw it above the shell, so the shell keeps its navigation state underneath. */
 @Composable
 fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
@@ -450,26 +478,34 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
         }
     }
     val recovering = ui.recoveryAccount
+    // The removal notice (from this cover or from Settings) is drawn in this window, above the destination (the picker or
+    // onboarding): it outlives the cover going down and the Settings page leaving, and unlike a system toast it belongs to
+    // the screen the app lands on. The name is held in this composition only.
     val context = LocalContext.current
+    var removedText by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(vm) {
-        vm.removed.collect { name ->
-            val text = if (name.isNullOrBlank()) {
+        vm.removed.collectLatest { name ->
+            removedText = if (name.isNullOrBlank()) {
                 context.getString(R.string.ui_account_removed_unnamed)
             } else {
                 context.getString(R.string.ui_account_removed, name)
             }
-            Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+            delay(REMOVED_NOTICE_MILLIS)
+            removedText = null
         }
     }
     if (ui.removeOpen && ui.phase == AppLockPhase.LOCKED) {
-        RemoveAccountDialog(
-            ui.removeName,
-            ui.removeId,
-            ui.removing,
-            ui.removeFailed,
-            onConfirm = vm::confirmRemove,
-            onDismiss = vm::cancelRemove
-        )
+        // The cover's own window: it is shown while the cover is up.
+        CompositionLocalProvider(LocalInAppLockCover provides true) {
+            RemoveAccountDialog(
+                ui.removeName,
+                ui.removeId,
+                ui.removing,
+                ui.removeFailed,
+                onConfirm = vm::confirmRemove,
+                onDismiss = vm::cancelRemove
+            )
+        }
     }
     when (ui.phase) {
         AppLockPhase.OPEN -> Unit
@@ -577,6 +613,19 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
             }
         }
     }
+    removedText?.let { text ->
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(theme.gap.dp), Alignment.BottomCenter) {
+            Surface(
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                shape = RoundedCornerShape(theme.gap.dp),
+                // Announced once by TalkBack, without taking focus.
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("account-removed-notice")
+            ) {
+                Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(theme.gap.dp))
+            }
+        }
+    }
 }
 
 /**
@@ -650,31 +699,44 @@ private fun LockRecovery(
 }
 
 /**
- * An opaque cover: the content under it receives no pointer input while it is up. The form column is capped at
- * the kit's form width (480 dp) and centred, and scrolls, so in landscape or on a tall screen the code slots keep their size.
+ * An opaque cover: the content under it receives no pointer input while it is up. The blocker is a sibling drawn behind
+ * the cover's own content, not a modifier on their common parent: a touch on a control reaches only that control, and a
+ * touch anywhere else ends at the blocker, so the shell underneath is never hit. A parent that consumed every event would
+ * also consume the simulated move Compose sends when the layout changes under a held pointer (the countdown line going
+ * away, the keyboard insets), and a pressed button that sees a consumed move cancels its click. The form column is capped
+ * at the kit's form width (480 dp) and centred, and scrolls, so in landscape or on a tall screen the code slots keep their size.
  */
 @Composable
 private fun CoverSurface(content: @Composable () -> Unit) {
     val theme = LocalRFTheme.current
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(theme.bg)
-            .consumeAllPointers()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(theme.gap.dp)
-    ) {
-        Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(Modifier.kitFormColumn()) { content() }
+    val focus = LocalFocusManager.current
+    val coverFocus = LocalAppLockCoverFocus.current ?: remember { AppLockCoverFocus() }
+    // Focus starts on the cover's anchor, a non-text target, so the keyboard is not raised when the app returns from the
+    // background; the code field takes focus only when the user taps it or tabs to it. Focus cannot leave the cover.
+    LaunchedEffect(coverFocus) {
+        focus.clearFocus(force = true)
+        coverFocus.take()
+    }
+    CompositionLocalProvider(LocalInAppLockCover provides true) {
+        Box(Modifier.fillMaxSize().background(theme.bg).focusTrap()) {
+            Spacer(Modifier.matchParentSize().consumeAllPointers())
+            Box(
+                Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(theme.gap.dp)
+                    .let { with(coverFocus) { it.coverAnchor() } }
+            ) {
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(Modifier.kitFormColumn()) { content() }
+                }
+            }
         }
     }
 }
 
-/** Takes the pointer events the content does not handle, so nothing under the cover is pressed or scrolled. */
+/** Takes the pointer events no cover control handles, so nothing under the cover is pressed or scrolled. */
 private fun Modifier.consumeAllPointers(): Modifier = pointerInput(Unit) {
     awaitPointerEventScope {
         while (true) {

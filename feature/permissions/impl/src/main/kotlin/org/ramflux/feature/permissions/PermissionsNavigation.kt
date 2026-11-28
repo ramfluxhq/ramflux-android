@@ -14,6 +14,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.ramflux.data.*
+import org.ramflux.designsystem.rememberAppLockCheckedResult
 import org.ramflux.feature.permissions.api.PermissionsRoute
 import org.ramflux.feature.permissions.impl.R
 
@@ -37,14 +38,14 @@ fun PermissionsNavigation(
     val settings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         vm.onAction(PermissionsAction.SystemFinished)
     }
-    val photo = rememberLauncherForActivityResult(PermissionsPlatform.photoPicker()) { uri ->
+    // A selection that comes back into a locked account is refused, as an empty one is.
+    val picked = { uri: android.net.Uri? ->
         vm.onAction(PermissionsAction.Picked(PermissionsPlatform.validSelection(uri)))
         if (PermissionsPlatform.validSelection(uri)) selection(uri.toString())
     }
-    val file = rememberLauncherForActivityResult(PermissionsPlatform.filePicker()) { uri ->
-        vm.onAction(PermissionsAction.Picked(PermissionsPlatform.validSelection(uri)))
-        if (PermissionsPlatform.validSelection(uri)) selection(uri.toString())
-    }
+    val checkedPick = rememberAppLockCheckedResult(onRefused = { _: android.net.Uri? -> picked(null) }, onResult = picked)
+    val photo = rememberLauncherForActivityResult(PermissionsPlatform.photoPicker(), checkedPick)
+    val file = rememberLauncherForActivityResult(PermissionsPlatform.filePicker(), checkedPick)
     val labels = NotificationChannelLabels(
         stringResource(R.string.permissions_messages_channel),
         stringResource(R.string.permissions_calls_channel),

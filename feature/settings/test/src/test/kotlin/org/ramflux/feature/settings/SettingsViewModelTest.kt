@@ -305,7 +305,8 @@ class SettingsViewModelTest {
         vm.onAction(SettingsAction.ConfirmAccountExit)
         runCurrent()
         assertEquals(listOf("a"), accounts.removed)
-        assertEquals(listOf(SettingsEvent.AccountRemoved("Work"), SettingsEvent.OpenAccount), events)
+        assertEquals("the app window names the account the confirmation showed", listOf<String?>("Work"), accounts.announced)
+        assertEquals(listOf(SettingsEvent.OpenAccount), events)
         assertFalse(vm.state.value.exitUnderstood)
     }
 

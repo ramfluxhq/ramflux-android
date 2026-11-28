@@ -231,7 +231,9 @@ class SettingsViewModel @Inject constructor(
                         SettingsAccountExit.REMOVE -> accounts.removeLocal(target)
                     }.also {
                         if (it is ClientResult.Ready) {
-                            if (exit == SettingsAccountExit.REMOVE) event(SettingsEvent.AccountRemoved(name))
+                            // The notice is drawn by the app window, so it survives this page leaving for the picker
+                            // or onboarding (the last account) and names the account the confirmation showed.
+                            if (exit == SettingsAccountExit.REMOVE) accounts.announceRemoved(name)
                             event(SettingsEvent.OpenAccount)
                         }
                     }
@@ -605,11 +607,11 @@ class SettingsViewModel @Inject constructor(
                                 null
                             },
                             exhausted = status.codeAttemptsExhausted,
-                            waitSecs = status.codeRetryAfterMs?.let { (it + 999L) / 1000L } ?: 0L
+                            waitSecs = status.codeRetryAfterSecs ?: 0L
                         )
                     )
                 }
-                startWait(status.codeRetryAfterMs)
+                startWait(status.codeRetryAfterSecs)
             }
             is ClientResult.Failed -> local.update {
                 it.copy(appLock = it.appLock.copy(loading = false, problem = result.problem.message()))
@@ -624,10 +626,10 @@ class SettingsViewModel @Inject constructor(
      * Counts the throttle wait down from core's figure on the monotonic clock. Nothing is stored and nothing is asked
      * again when the count ends.
      */
-    private fun startWait(waitMs: Long?) {
+    private fun startWait(waitSecs: Long?) {
         waitJob?.cancel()
-        if (waitMs == null || waitMs <= 0L) return
-        val deadline = System.nanoTime() + waitMs * 1_000_000L
+        if (waitSecs == null || waitSecs <= 0L) return
+        val deadline = System.nanoTime() + waitSecs * 1_000_000_000L
         waitJob = viewModelScope.launch {
             while (true) {
                 val left = (deadline - System.nanoTime()).coerceAtLeast(0L)

@@ -7,8 +7,11 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -50,6 +53,14 @@ internal class DefaultAccountAccessRepository(
     }
 
     override fun knownLabel(id: String): String? = labels[id]
+
+    /** Removal notices waiting for the app window; a burst keeps the newest few. Memory only, never logged. */
+    private val removals = Channel<String?>(REMOVAL_NOTICES, BufferOverflow.DROP_OLDEST)
+    override val removedNotices: Flow<String?> = removals.receiveAsFlow()
+
+    override fun announceRemoved(name: String?) {
+        removals.trySend(name)
+    }
 
     /** A row with a name renews it; a row without one (an app-locked account) keeps it; an account no longer listed drops it. */
     private fun remember(rows: List<AccountListEntry>) {
@@ -190,3 +201,5 @@ internal class DefaultAccountAccessRepository(
     override suspend fun setup(action: AccountSetupAction): ClientResult<Unit> = unavailable()
     private fun unavailable() = ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
 }
+
+private const val REMOVAL_NOTICES = 4

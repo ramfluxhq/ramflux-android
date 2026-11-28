@@ -41,6 +41,7 @@ jobs:
             robolectric-android-all-v1-${{ runner.os }}-
       - run: python3 scripts/check-secret-boundary.py
       - run: python3 scripts/check-client-architecture.py
+      - run: python3 scripts/check-app-lock-windows.py
       - run: python3 scripts/check-os-permissions.py
       - run: python3 scripts/test-native-emulator.py
       - run: python3 scripts/check-ui-resources.py

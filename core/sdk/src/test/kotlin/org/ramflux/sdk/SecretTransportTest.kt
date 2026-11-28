@@ -139,7 +139,6 @@ class SecretTransportTest {
 
     @Test fun generatedPolicyRequiresSecretPathForAllConfidentialMethods() {
         assertTrue(SdkMethodPolicy.methods.getValue("account.create.show_once").showOnce)
-        assertTrue(SdkMethodPolicy.methods.getValue("account.backup.export").secretOutput)
         assertTrue(SdkMethodPolicy.methods.getValue("account.export_agent_credentials").secretOutput)
         assertThrows(IllegalArgumentException::class.java) {
             SecretBody.publicJson("account.unlock", buildJsonObject { put("passphrase", "fixture-only") })

@@ -2006,8 +2006,11 @@ class RealRunFlowTest {
                 fail("the cover is still up after a recovery with the right phrase and code: ${ui.screen()}")
             }
             openAppLockPageWithoutUnlock()
-            val lockSwitch = ui.need("app-lock-switch", Ui.LONG, "app lock switch")
-            if (!lockSwitch.isChecked) fail("the app lock setting is off after the recovery: ${ui.screen()}")
+            ui.need("app-lock-switch", Ui.LONG, "app lock switch")
+            // The page draws the switch before account.app_lock.state answers: wait for the read, not the first frame.
+            if (!ui.eventually(Ui.LONG, 300) { ui.find("app-lock-switch", 300)?.isChecked == true }) {
+                fail("the app lock setting is off after the recovery: ${ui.screen()}")
+            }
             ui.shot("22-recovered-lock-still-on")
             notes += "the app lock setting is still on after the recovery"
             // Step 4: exhaust again, then remove from this device.

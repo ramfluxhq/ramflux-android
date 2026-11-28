@@ -65,4 +65,15 @@ interface AccountAccessRepository {
      */
     suspend fun removeLocal(id: String): ClientResult<Unit> =
         ClientResult.Unavailable(ClientFeature.ONBOARDING, UnavailableReason.CUSTODY_PROVIDER_REQUIRED)
+
+    /**
+     * One item per account a screen removed from this device: the display name its confirmation showed, or null when it
+     * showed the neutral word. The app draws the notice in its own window above the destination (the picker or
+     * onboarding), so it survives the removing screen going away. Memory only: never persisted or logged.
+     */
+    val removedNotices: Flow<String?>
+        get() = emptyFlow()
+
+    /** Posts the removal notice for an account the caller has just removed with [removeLocal]. */
+    fun announceRemoved(name: String?) = Unit
 }

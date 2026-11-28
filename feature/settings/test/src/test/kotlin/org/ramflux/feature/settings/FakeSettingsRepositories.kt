@@ -25,6 +25,10 @@ class FakeSettingsAccounts : AccountAccessRepository {
         removed += id
         return ClientResult.Ready(Unit)
     }
+    val announced = mutableListOf<String?>()
+    override fun announceRemoved(name: String?) {
+        announced += name
+    }
 }
 class FakeDeviceDirectory : DeviceDirectoryRepository {
     var reads = 0

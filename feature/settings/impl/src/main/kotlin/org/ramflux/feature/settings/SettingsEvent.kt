@@ -5,9 +5,6 @@ package org.ramflux.feature.settings
 sealed interface SettingsEvent {
     data object Back : SettingsEvent
     data object OpenAccount : SettingsEvent
-
-    /** The account was removed from this phone; [name] is the display name it had when the confirmation opened. */
-    data class AccountRemoved(val name: String?) : SettingsEvent
     data object Permissions : SettingsEvent
     data object Delivery : SettingsEvent
     data object MyCard : SettingsEvent

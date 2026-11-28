@@ -55,9 +55,11 @@ import java.time.format.FormatStyle
 import java.util.Locale
 import org.ramflux.data.ChatReaction
 import org.ramflux.designsystem.Bidi
+import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.UntrustedKind
+import org.ramflux.designsystem.appLockWindowContext
 import org.ramflux.designsystem.kit.KitAvatar
 import org.ramflux.designsystem.kit.KitAvatarKind
 import org.ramflux.designsystem.kit.KitBubble
@@ -78,6 +80,7 @@ import org.ramflux.designsystem.kit.KitRowTrailing
 import org.ramflux.designsystem.kit.KitTipBar
 import org.ramflux.designsystem.kit.KitUnreadDivider
 import org.ramflux.designsystem.kit.kitBubbleCap
+import org.ramflux.designsystem.rememberAppLockCoveredNow
 import org.ramflux.designsystem.render
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
@@ -744,7 +747,10 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
     )
     val reactions = !row.deleted && !row.placeholder && row.delivery == null
     var picker by remember(row.id) { mutableStateOf(false) }
-    if (picker) {
+    // The sheet closes when the app-lock cover rises, so it is not there after unlock either.
+    val covered = LocalAppLockCovered.current
+    LaunchedEffect(covered) { if (covered) picker = false }
+    if (picker && !covered) {
         EmojiSheet({ onAction(ChatAction.React(it)) }, { picker = false })
         return
     }
@@ -784,18 +790,21 @@ private fun androidx.compose.foundation.layout.BoxScope.MessageActions(
 
 /**
  * The platform emoji picker (androidx.emoji2) for any reaction; the view model accepts one grapheme the
- * SDK takes. The picker view draws with the system emoji font and stays inside this window.
+ * SDK takes. The picker view draws with the system emoji font. A long press opens the library's skin-tone popup, a
+ * window of its own: the view is created in an app-lock window context, so that popup is closed when the cover rises
+ * (on every API level), and a pick that arrives while the cover is up, from that popup or the grid, is dropped.
  */
 @Composable
 private fun androidx.compose.foundation.layout.BoxScope.EmojiSheet(onPick: (String) -> Unit, onClose: () -> Unit) {
     val theme = LocalRFTheme.current
+    val coveredNow = rememberAppLockCoveredNow()
     BackHandler(onBack = onClose)
     Column(Modifier.matchParentSize().background(theme.bg).testTag("emoji-picker")) {
         KitPageHeader(stringResource(R.string.chat_react_more), actionLabel = stringResource(R.string.ui_cancel), onAction = onClose)
         androidx.compose.ui.viewinterop.AndroidView(
             factory = { context ->
-                androidx.emoji2.emojipicker.EmojiPickerView(context).apply {
-                    setOnEmojiPickedListener { picked -> onPick(picked.emoji) }
+                androidx.emoji2.emojipicker.EmojiPickerView(context.appLockWindowContext()).apply {
+                    setOnEmojiPickedListener { picked -> if (!coveredNow()) onPick(picked.emoji) }
                 }
             },
             modifier = Modifier.fillMaxWidth().weight(1f)
