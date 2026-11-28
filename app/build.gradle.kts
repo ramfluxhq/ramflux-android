@@ -69,6 +69,8 @@ dependencies {
     implementation(project(":feature:agents:impl"))
     implementation(project(":feature:calls:impl"))
     implementation(project(":feature:groups:impl"))
+    // The MLS groups module is linked into the realrun gallery only. // W: implementation(project(":feature:mlsgroups:impl"))
+    "realrunImplementation"(project(":feature:mlsgroups:impl"))
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
     // The opt-in real-run suite (org.ramflux.android.realrun, scripts/realrun.sh); no CI task runs it.
