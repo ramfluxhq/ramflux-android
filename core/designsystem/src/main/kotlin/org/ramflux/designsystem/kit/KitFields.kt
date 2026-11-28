@@ -52,7 +52,7 @@ fun KitTextField(
      * and no autocorrect history. Off for every other field.
      */
     secure: Boolean = false,
-    /** An opaque code entry (an invite link): no autocorrect, no capitalisation, no suggestions. Off for every other field. */
+    /** An opaque code entry (an invite link): no autocorrect, no capitalisation, and the password keyboard variant so the IME makes no suggestions and learns nothing. Off for every other field. */
     code: Boolean = false
 ) {
     val theme = LocalRFTheme.current
@@ -84,7 +84,8 @@ fun KitTextField(
                 KeyboardOptions(
                     capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
                     autoCorrectEnabled = false,
-                    keyboardType = KeyboardType.Ascii
+                    // The password variant is the one the IME treats as no suggestions and no learning; the text itself stays visible.
+                    keyboardType = KeyboardType.Password
                 )
             } else {
                 KeyboardOptions.Default

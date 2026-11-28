@@ -75,14 +75,16 @@ class MlsGroupSessionTest {
             return joinGate?.await() ?: ClientResult.Ready(MlsGroupJoin.Refused(MlsGroupRefusal.INVITE_INVALID))
         }
 
+        var memberRows: List<MlsGroupMember> = emptyList()
+        var pendingGate: CompletableDeferred<ClientResult<List<MlsGroupPending>>>? = null
         override suspend fun pendingJoins(account: String): ClientResult<List<MlsGroupPending>> {
             hit("pending")
-            return ClientResult.Ready(emptyList())
+            return pendingGate?.await() ?: ClientResult.Ready(emptyList())
         }
 
         override suspend fun members(account: String, groupId: String, cursor: String?): ClientResult<MlsGroupPage<MlsGroupMember>> {
             hit("members")
-            return ClientResult.Ready(MlsGroupPage(emptyList(), null))
+            return ClientResult.Ready(MlsGroupPage(memberRows, null))
         }
 
         override suspend fun history(account: String, groupId: String, afterLogSeq: Long?, beforeLogSeq: Long?, limit: Int): ClientResult<MlsGroupHistory> {
@@ -428,5 +430,240 @@ class MlsGroupSessionTest {
         assertEquals(3, lines.size)
         assertEquals(4, (lines[0] as MlsLine.Group).count)
         assertEquals(1, (lines[2] as MlsLine.Group).count)
+    }
+
+    // ---- audit round 1 regressions ----
+
+    @Test fun aTrimmedWindowKeepsAnOwnPostThatBecomesSentAndRefreshReloadsTheNewestPage() = runTest {
+        val fake = Fake()
+        fake.history = { after, before ->
+            when {
+                before != null -> page(*((before - 50) until before).map { post(it) }.toTypedArray(), more = true)
+                after != null -> page()
+                else -> page(*(951L..1000L).map { post(it) }.toTypedArray(), more = true)
+            }
+        }
+        val s = MlsGroupSession(fake, scope(this))
+        s.watch(account)
+        s.openGroup(account, group)
+        runCurrent()
+        repeat(12) { s.loadOlder(account, group); runCurrent() }
+        val t0 = s.timelineNow()
+        fake.sendGate = CompletableDeferred(ClientResult.Ready(MlsGroupSend("p-mine", MlsGroupPostState.Sent(1001))))
+        s.send(account, group, "mine", null, emptyList())
+        runCurrent()
+        val t1 = s.timelineNow()
+        val visible = t1.locals.any { it.text == "mine" } || t1.window.posts.any { it.postId == "p-mine" }
+        // Another member's post event also held.
+        fake.events.tryEmit(MlsGroupSignal.Post(group, post(1002, id = "other")))
+        runCurrent()
+        // What the chat's Refresh does when loaded and no problem: only refreshGroup. And reopening.
+        testScheduler.advanceTimeBy(6_000)
+        s.refreshGroup(account, group)
+        s.openGroup(account, group)
+        runCurrent()
+        val t2 = s.timelineNow()
+        assertTrue("own sent post stays visible while trimmed", visible)
+        assertFalse(t2.window.trimmedNewest)
+        assertTrue(t2.window.posts.any { it.logSeq == 1001L })
+    }
+
+    @Test fun refreshAndReopenReloadTheNewestPageOfATrimmedWindow() = runTest {
+        val fake = Fake()
+        var newest = 1000L
+        fake.history = { _, before ->
+            when {
+                before != null -> page(*((before - 50) until before).map { post(it) }.toTypedArray(), more = true)
+                else -> page(*((newest - 49)..newest).map { post(it) }.toTypedArray(), more = true)
+            }
+        }
+        val s = MlsGroupSession(fake, scope(this))
+        s.watch(account)
+        s.openGroup(account, group)
+        runCurrent()
+        repeat(12) { s.loadOlder(account, group); runCurrent() }
+        assertTrue(s.timelineNow().window.trimmedNewest)
+        newest = 1010L
+        testScheduler.advanceTimeBy(6_000)
+        s.refreshGroup(account, group)
+        runCurrent()
+        val refreshed = s.timelineNow().window
+        assertFalse(refreshed.trimmedNewest)
+        assertEquals(1010L, refreshed.newest)
+        repeat(12) { s.loadOlder(account, group); runCurrent() }
+        assertTrue(s.timelineNow().window.trimmedNewest)
+        newest = 1020L
+        s.openGroup(account, group)
+        runCurrent()
+        val reopened = s.timelineNow().window
+        assertFalse(reopened.trimmedNewest)
+        assertEquals(1020L, reopened.newest)
+    }
+
+    @Test fun anOwnPostOfATrimmedWindowThatArrivesByEventRestartsTheWindowThere() = runTest {
+        val fake = Fake()
+        fake.history = { after, before ->
+            when {
+                before != null -> page(*((before - 50) until before).map { post(it) }.toTypedArray(), more = true)
+                after != null -> page()
+                else -> page(*(951L..1000L).map { post(it) }.toTypedArray(), more = true)
+            }
+        }
+        val s = MlsGroupSession(fake, scope(this))
+        s.watch(account)
+        s.openGroup(account, group)
+        runCurrent()
+        repeat(12) { s.loadOlder(account, group); runCurrent() }
+        fake.sendGate = CompletableDeferred(ClientResult.Ready(MlsGroupSend("p-mine", MlsGroupPostState.Queued(MlsGroupQueuedReason.CATCHING_UP))))
+        s.send(account, group, "mine", null, emptyList())
+        runCurrent()
+        fake.events.tryEmit(MlsGroupSignal.Post(group, post(1001, id = "p-mine", me = true)))
+        runCurrent()
+        val t = s.timelineNow()
+        assertTrue(t.window.posts.any { it.postId == "p-mine" })
+        assertTrue(t.locals.none { it.postId == "p-mine" })
+        assertFalse(t.window.trimmedNewest)
+    }
+
+    @Test fun anEvictedGroupHoldsNoWindowAndStillBumpsItsListRow() = runTest {
+        val fake = Fake()
+        val s = MlsGroupSession(fake, scope(this))
+        s.watch(account)
+        for (g in listOf("g1", "g2", "g3", "g4")) {
+            s.openGroup(account, g)
+            runCurrent()
+        }
+        for (i in 1L..700L) {
+            fake.events.tryEmit(MlsGroupSignal.Post("g1", post(i)))
+            if (i % 50 == 0L) runCurrent()
+        }
+        runCurrent()
+        assertEquals(0, s.timeline(account, "g1").first().window.posts.size)
+    }
+
+    @Test fun theLimitTimerSendsNothingAndAClearCancelsIt() = runTest {
+        val fake = Fake()
+        val base = 5_000_000L
+        val s = MlsGroupSession(fake, scope(this), { base + testScheduler.currentTime })
+        s.watch(account)
+        runCurrent()
+        fake.sendGate = CompletableDeferred(ClientResult.Ready(MlsGroupSend("p", MlsGroupPostState.RateLimited(MlsGroupQuota(20, 0, false, base + 10_000)))))
+        s.send(account, group, "x", null, emptyList())
+        runCurrent()
+        assertEquals(1, fake.count("send"))
+        s.clearAccount(account)
+        s.admit(account)
+        testScheduler.advanceTimeBy(60_000)
+        runCurrent()
+        assertEquals(1, fake.count("send"))
+        assertNull(s.timelineNow().limitedUntil)
+    }
+
+    @Test fun eventsForGroupsThatWereNeverOpenedHoldNoRows() = runTest {
+        val fake = Fake()
+        val s = MlsGroupSession(fake, scope(this))
+        s.watch(account)
+        runCurrent()
+        for (g in listOf("x", "y", "z", "w", "v")) for (i in 1L..700L) fake.events.tryEmit(MlsGroupSignal.Post(g, post(i))).also { if (i % 50 == 0L) runCurrent() }
+        runCurrent()
+        val total = listOf("x", "y", "z", "w", "v").sumOf { s.timeline(account, it).first().window.posts.size }
+        assertTrue("rows of never-opened groups are held: $total", total == 0)
+    }
+
+    @Test fun theLimitLockLiftsAtTheLatestResetWhenItMovesLater() = runTest {
+        val fake = Fake()
+        val base = 5_000_000L
+        val s = MlsGroupSession(fake, scope(this), { base + testScheduler.currentTime })
+        s.watch(account)
+        runCurrent()
+        // A queued post first.
+        fake.sendGate = CompletableDeferred(ClientResult.Ready(MlsGroupSend("pq", MlsGroupPostState.Queued(MlsGroupQueuedReason.CATCHING_UP))))
+        s.send(account, group, "q", null, emptyList())
+        runCurrent()
+        // Then a send hits the limit with reset T1.
+        fake.sendGate = CompletableDeferred(ClientResult.Ready(MlsGroupSend("p", MlsGroupPostState.RateLimited(MlsGroupQuota(20, 0, false, base + 10_000)))))
+        s.send(account, group, "x", null, emptyList())
+        runCurrent()
+        // The queued post is refused later by event with a later reset T2.
+        fake.events.tryEmit(MlsGroupSignal.PostState(group, "pq", MlsGroupPostState.RateLimited(MlsGroupQuota(20, 0, false, base + 30_000)), null))
+        runCurrent()
+        testScheduler.advanceTimeBy(40_000)
+        runCurrent()
+        assertNull("lock never lifts", s.timelineNow().limitedUntil)
+    }
+
+    @Test fun aPendingJoinRebuildKeepsARecordMadeDuringTheRead() = runTest {
+        val fake = Fake()
+        val s = MlsGroupSession(fake, scope(this))
+        val gate = CompletableDeferred<ClientResult<List<MlsGroupPending>>>()
+        fake.pendingGate = gate
+        s.loadGroups(account)
+        runCurrent()
+        fake.joinGate = CompletableDeferred(ClientResult.Ready(MlsGroupJoin.Pending("req1", "g9", MlsGroupPendingReason.AWAITING_ADMIN, 9_000_000_000_000L)))
+        s.submitJoin(account, "rfinv-admin")
+        runCurrent()
+        assertEquals(listOf("req1"), s.joinNow().pending.map { it.requestId })
+        gate.complete(ClientResult.Ready(emptyList()))
+        runCurrent()
+        assertEquals(listOf("req1"), s.joinNow().pending.map { it.requestId })
+    }
+
+    @Test fun aReopenedSheetSeesJoiningAndASecondJoinIsRefused() = runTest {
+        val fake = Fake()
+        val gate = CompletableDeferred<ClientResult<MlsGroupJoin>>()
+        fake.joinGate = gate
+        val s = MlsGroupSession(fake, scope(this))
+        s.submitJoin(account, "rfinv-a")
+        s.joinSheetChanged(account)
+        s.joinSheetChanged(account)
+        assertTrue(s.joinNow().inFlight)
+        s.submitJoin(account, "rfinv-b")
+        s.submitJoin(account, "bad link")
+        runCurrent()
+        assertEquals(1, fake.count("join"))
+        assertNull(s.joinNow().outcome)
+        gate.complete(ClientResult.Ready(MlsGroupJoin.Joined("g1")))
+        runCurrent()
+        assertNull(s.joinNow().outcome)
+    }
+
+    @Test fun admitOfOneAccountNeverUndoesTheClearOfAnother() {
+        val repo = Fake()
+        var lost = 0
+        var lostAdmit = 0
+        repeat(3000) {
+            val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
+            val s = MlsGroupSession(repo, scope)
+            kotlinx.coroutines.runBlocking {
+                s.clearAccount("A")
+                val a = launch(kotlinx.coroutines.Dispatchers.Default) { s.clearAccount("B") }
+                val b = launch(kotlinx.coroutines.Dispatchers.Default) { s.admit("A") }
+                a.join(); b.join()
+            }
+            val f = MlsGroupSession::class.java.getDeclaredField("data").also { it.isAccessible = true }
+            val flow = f.get(s) as kotlinx.coroutines.flow.MutableStateFlow<*>
+            val purged = flow.value!!.javaClass.getDeclaredMethod("getPurged").invoke(flow.value) as Set<*>
+            if ("B" !in purged) lost += 1 else if ("A" in purged) lostAdmit += 1
+        }
+        assertEquals(0, lost)
+    }
+
+    @Test fun theAiMarkerSurvivesARejoinWithAiFlagFalseInTheMembers() = runTest {
+        val fake = Fake()
+        fake.memberRows = listOf(MlsGroupMember("bot", "Scout", MlsGroupRole.MEMBER, true, 1, false))
+        val s = MlsGroupSession(fake, scope(this))
+        s.watch(account)
+        s.openGroup(account, group)
+        s.loadMembers(account, group)
+        runCurrent()
+        fun svc(seq: Long, kind: MlsGroupChangeKind) = MlsGroupPost(
+            seq, "", null, 5, MlsGroupPostKind.MEMBERSHIP, null, null, emptyList(), MlsGroupPostState.Sent(seq),
+            listOf(MlsGroupChange(kind, "bot", "Scout", false, null, false)), null, null, null,
+        )
+        fake.events.tryEmit(MlsGroupSignal.Service(group, svc(1, MlsGroupChangeKind.LEFT)))
+        fake.events.tryEmit(MlsGroupSignal.Service(group, svc(2, MlsGroupChangeKind.JOINED)))
+        runCurrent()
+        val row = s.members(account, group).first().rows.single { it.anchor == "bot" }
+        assertTrue(row.aiFlag)
     }
 }
