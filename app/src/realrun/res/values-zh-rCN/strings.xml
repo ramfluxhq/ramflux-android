@@ -27,4 +27,23 @@
     <string name="mls_fixture_f1_8">加密建立中，随后重新建立</string>
     <string name="mls_fixture_f1_9">设备变更事件，静默重新读取</string>
     <string name="mls_fixture_f1_10">Chen，已更改但新身份未知</string>
+    <string name="mls_group_section">群组（M2）</string>
+    <string name="mls_group_view_list">群组列表</string>
+    <string name="mls_group_view_create">创建</string>
+    <string name="mls_group_view_invites">邀请</string>
+    <string name="mls_group_view_info">群组信息</string>
+    <string name="mls_group_view_members">成员</string>
+    <string name="mls_group_view_chat">群聊</string>
+    <string name="mls_group_calls">%1$s：%2$d</string>
+    <string name="mls_group_f2_1">群组列表，3 页共 120 个群组</string>
+    <string name="mls_group_f2_2">成员，987 行，第 3 页失败一次</string>
+    <string name="mls_group_f2_3">历史，260 条消息，服务行</string>
+    <string name="mls_group_f2_4">发送状态，每种状态一次发送</string>
+    <string name="mls_group_f2_5">通过链接加入，各种结果</string>
+    <string name="mls_group_f2_6">创建、邀请、延迟撤销</string>
+    <string name="mls_group_f2_7">成员事件，随后被移出</string>
+    <string name="mls_group_f2_8">群主与成员退出群组</string>
+    <string name="mls_group_f2_9">规模，1000 位成员，20000 条消息</string>
+    <string name="mls_group_f2_10">删除自己的消息</string>
+    <string name="mls_group_f2_11">当前版本不可用</string>
 </resources>

@@ -65,7 +65,12 @@ internal fun MlsGalleryScreen(dark: Boolean, onDark: (Boolean) -> Unit) {
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     var view by rememberSaveable { mutableStateOf<String?>(null) }
     var reviewRequested by remember { mutableStateOf(false) }
+    var groupOpen by rememberSaveable { mutableStateOf<String?>(null) }
     val fixture = FIXTURES.firstOrNull { it.id == open }
+    if (groupOpen != null) {
+        MlsGroupGallery(groupOpen) { groupOpen = it }
+        return
+    }
     BackHandler(enabled = open != null) {
         if (view != null) view = null else open = null
     }
@@ -88,6 +93,16 @@ internal fun MlsGalleryScreen(dark: Boolean, onDark: (Boolean) -> Unit) {
                     view = null
                 }, Modifier.fillMaxWidth().testTag("mls-fixture-" + item.id)) {
                     Text(item.id + " " + stringResource(item.title))
+                }
+            }
+            item { Text(stringResource(R.string.mls_group_section), style = MaterialTheme.typography.titleMedium) }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    GROUP_FIXTURES.forEach { item ->
+                        Button({ groupOpen = item.id }, Modifier.fillMaxWidth().testTag("mls-group-fixture-" + item.id)) {
+                            Text(item.id + " " + stringResource(item.title))
+                        }
+                    }
                 }
             }
         }

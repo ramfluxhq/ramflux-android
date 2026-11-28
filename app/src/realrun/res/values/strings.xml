@@ -29,4 +29,23 @@
     <string name="mls_fixture_f1_8">Encryption pending, then re-established</string>
     <string name="mls_fixture_f1_9">Devices changed events, silent re-read</string>
     <string name="mls_fixture_f1_10">Chen, changed with no new identity known</string>
+    <string name="mls_group_section">Groups (M2)</string>
+    <string name="mls_group_view_list">Groups list</string>
+    <string name="mls_group_view_create">Create</string>
+    <string name="mls_group_view_invites">Invites</string>
+    <string name="mls_group_view_info">Group info</string>
+    <string name="mls_group_view_members">Members</string>
+    <string name="mls_group_view_chat">Group chat</string>
+    <string name="mls_group_calls">%1$s: %2$d</string>
+    <string name="mls_group_f2_1">Group list, 120 groups over 3 pages</string>
+    <string name="mls_group_f2_2">Members, 987 rows, page 3 fails once</string>
+    <string name="mls_group_f2_3">History, 260 posts, service lines</string>
+    <string name="mls_group_f2_4">Send states, one send per state</string>
+    <string name="mls_group_f2_5">Join by link, every outcome</string>
+    <string name="mls_group_f2_6">Create, invites, slow revoke</string>
+    <string name="mls_group_f2_7">Membership events, then removed</string>
+    <string name="mls_group_f2_8">Leave as owner and as member</string>
+    <string name="mls_group_f2_9">Scale, 1000 members, 20000 posts</string>
+    <string name="mls_group_f2_10">Delete own post</string>
+    <string name="mls_group_f2_11">Unavailable at the current pin</string>
 </resources>
