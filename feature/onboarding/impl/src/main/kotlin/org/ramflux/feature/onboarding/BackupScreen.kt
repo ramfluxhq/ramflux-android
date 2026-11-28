@@ -3,6 +3,7 @@
 
 package org.ramflux.feature.onboarding
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,11 +36,21 @@ fun BackupNavigation(freshInstall: Boolean, onBack: () -> Unit, modifier: Modifi
     val state by vm.state.collectAsStateWithLifecycle()
     val back by rememberUpdatedState(onBack)
     var saving by remember { mutableStateOf<String?>(null) }
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { vm.onAction(BackupAction.Picked(it)) }
-    val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+    // A pick or a save location that comes back into a locked account is refused, as a cancelled picker is.
+    val pick = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+        rememberAppLockCheckedResult(
+            onRefused = { vm.onAction(BackupAction.Picked(null)) }
+        ) { uri: Uri? -> vm.onAction(BackupAction.Picked(uri)) }
+    )
+    val exported = { uri: Uri? ->
         saving?.let { vm.onAction(BackupAction.Exported(it, uri)) }
         saving = null
     }
+    val save = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+        rememberAppLockCheckedResult(onRefused = { exported(null) }, onResult = exported)
+    )
     LaunchedEffect(freshInstall) { vm.onAction(BackupAction.Open(freshInstall)) }
     LifecycleEventEffect(Lifecycle.Event.ON_START) { vm.onAction(BackupAction.Visible(true)) }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { vm.onAction(BackupAction.Visible(false)) }

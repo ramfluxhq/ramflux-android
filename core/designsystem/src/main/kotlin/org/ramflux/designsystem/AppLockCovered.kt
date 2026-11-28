@@ -11,7 +11,9 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -23,8 +25,12 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import java.util.Collections
 import java.util.WeakHashMap
+import kotlinx.coroutines.delay
 
 /**
  * True while the app-lock cover is up (the lock is on or its state is unread). Windows and menus are not shown then,
@@ -135,13 +141,17 @@ private fun View.isBelow(root: View): Boolean {
  *   is moved at once, in the focus-change callback, to the cover's [AppLockCoverFocus] anchor (to the Compose host first
  *   when the cover is not composed yet), and the keyboard is hidden through the window token, a keyboard a native view
  *   raised included, so no input connection stays open to a shell view. The keyboard is also hidden when the cover rises.
- *   This guard covers the activity window only; other windows follow [AppLockGatedWindow]. The focus-change listener sees every
+ *   The focus part covers the activity window only; other windows follow [AppLockGatedWindow] or the sweep below. The focus-change listener sees every
  *   View-system route (`View.requestFocus()`, a view's own auto-focus), which is why it is used instead of making the
  *   host view non-focusable: the cover's own code field is a native view in the same window, so blocking the whole host
  *   would block the cover too.
  * - The holders of the shell's native views are also hidden from accessibility services (`importantForAccessibility`)
  *   and refuse focus (`descendantFocusability`), so they cannot be reached before the listener acts. This is checked in
  *   Robolectric, not with TalkBack on a device. The previous values are restored when the cover goes.
+ * - Windows that a library view opens by itself, outside the gate, are closed or hidden by [LibraryWindowSweeper]
+ *   (AppLockLibraryWindows.kt): when the cover rises, right after a window is added through an [appLockWindowContext]
+ *   (API 28), when this window loses window focus (a focusable window came up), and every [SWEEP_INTERVAL_MS] while the
+ *   activity is started. A window hidden this way is given back when the cover goes.
  */
 @Composable
 fun AppLockFocusGuard(covered: Boolean) {
@@ -149,8 +159,27 @@ fun AppLockFocusGuard(covered: Boolean) {
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val cover = LocalAppLockCoverFocus.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val sweeper = remember(host) { LibraryWindowSweeper(host) }
+    LaunchedEffect(sweeper, covered, lifecycle) {
+        if (!covered) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                sweeper.sweep()
+                delay(SWEEP_INTERVAL_MS)
+            }
+        }
+    }
     DisposableEffect(host, covered) {
         if (!covered) return@DisposableEffect onDispose { }
+        var active = true
+        fun sweepSoon() {
+            if (active) sweeper.sweep()
+        }
+        // A tracked root is swept once it is attached (View.post runs after the attach); a lost window focus means a
+        // focusable window came up above this one.
+        val stopTracking = TrackedWindowRoots.listen { root -> root.post { sweepSoon() } }
+        val windowFocusListener = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus -> if (!hasFocus) host.post { sweepSoon() } }
         val root = host.rootView
         val blocker = NativeShellBlocker(host)
         val imm = host.context.getSystemService(InputMethodManager::class.java)
@@ -182,16 +211,25 @@ fun AppLockFocusGuard(covered: Boolean) {
         val layoutListener = ViewTreeObserver.OnGlobalLayoutListener { blocker.sweep() }
         root.viewTreeObserver.addOnGlobalFocusChangeListener(focusListener)
         root.viewTreeObserver.addOnGlobalLayoutListener(layoutListener)
+        root.viewTreeObserver.addOnWindowFocusChangeListener(windowFocusListener)
         blocker.sweep()
+        sweeper.sweep()
         root.findFocus()?.let(::evict)
         hideKeyboard()
         onDispose {
+            active = false
+            stopTracking()
             root.viewTreeObserver.removeOnGlobalFocusChangeListener(focusListener)
             root.viewTreeObserver.removeOnGlobalLayoutListener(layoutListener)
+            root.viewTreeObserver.removeOnWindowFocusChangeListener(windowFocusListener)
             blocker.release()
+            sweeper.restore()
         }
     }
 }
+
+/** How often [AppLockFocusGuard] looks for library windows while the cover is up and the activity is started. */
+private const val SWEEP_INTERVAL_MS = 100L
 
 /** Blocks focus and accessibility on the holders of the shell's native views while the cover is up, and restores them. */
 private class NativeShellBlocker(private val host: View) {

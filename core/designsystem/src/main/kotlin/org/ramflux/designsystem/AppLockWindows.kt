@@ -39,6 +39,10 @@ import androidx.compose.ui.window.SecureFlagPolicy
  * [CoverAwareDialog], [CoverAwarePopup], [CoverAwareDropdownMenu] and [CoverAwareModalBottomSheet] are the gated forms
  * of the Compose windows; any other window (a Material date or time picker) is called inside an [AppLockGatedWindow]
  * lambda and passes on the policy it is given. `scripts/check-app-lock-windows.py` refuses a window call anywhere else.
+ * The wrappers also mark the windows the cover itself opens, so the runtime backstop for library windows
+ * (AppLockLibraryWindows.kt) leaves them shown; the cover therefore opens windows only through the wrappers.
+ * A library view that opens windows on its own (androidx.emoji2 EmojiPickerView: its skin-tone PopupWindow) is created
+ * with [appLockWindowContext], and its windows are closed by that backstop while the cover is up.
  */
 
 /**
@@ -83,9 +87,11 @@ fun CoverAwareDialog(
                 usePlatformDefaultWidth = properties.usePlatformDefaultWidth,
                 decorFitsSystemWindows = properties.decorFitsSystemWindows,
                 windowTitle = properties.windowTitle
-            ),
-            content = content
-        )
+            )
+        ) {
+            CoverWindowMark()
+            content()
+        }
     }
 }
 
@@ -112,9 +118,11 @@ fun CoverAwarePopup(
                 excludeFromSystemGesture = properties.excludeFromSystemGesture,
                 clippingEnabled = properties.clippingEnabled,
                 usePlatformDefaultWidth = properties.usePlatformDefaultWidth
-            ),
-            content = content
-        )
+            )
+        ) {
+            CoverWindowMark()
+            content()
+        }
     }
 }
 
@@ -127,16 +135,22 @@ fun CoverAwareDropdownMenu(
     offset: DpOffset = DpOffset.Zero,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val open by rememberUpdatedState(expanded)
-    AppLockGatedWindow(onCovered = { if (open) onDismissRequest() }) { policy ->
+    // The menu stays composed while it is closed, so the gate's own effect has run before `expanded` turns true: a menu
+    // opened while covered is dismissed here, and so does not show after unlock either.
+    val gated = LocalAppLockCovered.current && !LocalInAppLockCover.current
+    val dismiss by rememberUpdatedState(onDismissRequest)
+    LaunchedEffect(gated, expanded) { if (gated && expanded) dismiss() }
+    AppLockGatedWindow(onCovered = {}) { policy ->
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = onDismissRequest,
             modifier = modifier,
             offset = offset,
-            properties = PopupProperties(focusable = true, securePolicy = policy),
-            content = content
-        )
+            properties = PopupProperties(focusable = true, securePolicy = policy)
+        ) {
+            CoverWindowMark()
+            content()
+        }
     }
 }
 
@@ -157,8 +171,10 @@ fun CoverAwareModalBottomSheet(
             modifier = modifier,
             sheetState = sheetState,
             containerColor = containerColor,
-            properties = ModalBottomSheetProperties(securePolicy = policy),
-            content = content
-        )
+            properties = ModalBottomSheetProperties(securePolicy = policy)
+        ) {
+            CoverWindowMark()
+            content()
+        }
     }
 }

@@ -27,6 +27,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.flow.map
 import org.ramflux.android.notify.AndroidMessageNotifier
 import org.ramflux.android.notify.InAppBanners
 import org.ramflux.android.notify.NotificationOpener
@@ -38,15 +39,21 @@ import org.ramflux.android.shell.SHELL_TAB_ROOTS
 import org.ramflux.android.shell.StartupHost
 import org.ramflux.android.shell.StartupModel
 import org.ramflux.android.shell.StartupPlace
+import org.ramflux.data.AppLockPhase
 import org.ramflux.data.AppearanceRepository
+import org.ramflux.data.ClientPhase
 import org.ramflux.data.ClientSessionRepository
+import org.ramflux.data.ClientSnapshot
 import org.ramflux.data.LanguageRepository
 import org.ramflux.data.appLockCovers
 import org.ramflux.data.appLockGuarded
 import org.ramflux.designsystem.AppLanguageProvider
 import org.ramflux.designsystem.AppLockCoverFocus
+import org.ramflux.designsystem.AppLockCoverReader
+import org.ramflux.designsystem.AppLockCoverState
 import org.ramflux.designsystem.AppLockFocusGuard
 import org.ramflux.designsystem.LocalAppLockCoverFocus
+import org.ramflux.designsystem.LocalAppLockCoverReader
 import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalSecureWindows
 import org.ramflux.designsystem.focusBlockedWhileCovered
@@ -111,11 +118,17 @@ class MainActivity : ComponentActivity() {
                     }
                     DisposableEffect(Unit) { onDispose { banners.chatOpened(null, null) } }
                     val coverFocus = remember { AppLockCoverFocus() }
+                    // Picker results and taps in library windows read the cover from the session itself: on the return
+                    // from the background they can arrive before this composition has seen the cover rise.
+                    val coverReader = remember(session) {
+                        AppLockCoverReader({ session.status.value.coverState() }, session.status.map { it.coverState() })
+                    }
                     // The realrun build shows the account-code sheet unsecured so UI automation can read it; never shipped.
                     // Shell windows refuse capture in release builds; debug builds let them follow this window.
                     CompositionLocalProvider(
                         LocalAppLockCovered provides covered,
                         LocalAppLockCoverFocus provides coverFocus,
+                        LocalAppLockCoverReader provides coverReader,
                         LocalSecureWindows provides !BuildConfig.DEBUG,
                         LocalAppLockReauthSecure provides !BuildConfig.REALRUN,
                         LocalRemoveDialogSecure provides !BuildConfig.REALRUN
@@ -213,6 +226,13 @@ class MainActivity : ComponentActivity() {
         notificationRoutes.open(intent?.getStringExtra(AndroidMessageNotifier.EXTRA_TOKEN))
         intent?.removeExtra(AndroidMessageNotifier.EXTRA_TOKEN)
     }
+}
+
+/** The cover as [appLockCovers] decides it, split into an unread lock state (held results wait) and a locked one. */
+internal fun ClientSnapshot.coverState(): AppLockCoverState = when {
+    !appLockCovers() -> AppLockCoverState.DOWN
+    phase == ClientPhase.OPEN && appLock == AppLockPhase.UNKNOWN -> AppLockCoverState.UNREAD
+    else -> AppLockCoverState.LOCKED
 }
 
 /**
