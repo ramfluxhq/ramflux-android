@@ -14,7 +14,7 @@ FLOWS = [
     ("01-connect-create", "1 Connect to the node, create an account (phrase, word check, code), completion follows networking"),
     ("02-lock-unlock", "1 Lock from settings; the locked state offers the account; unlock with the code"),
     ("03-cold-start", "1 Cold start (new app process) offers the account; unlock"),
-    ("04-contacts-alice", "6 Contacts: add alice, she accepts, safety number equals hers, verify"),
+    ("04-contacts-alice", "6 Contacts: add alice, she accepts, alice listed, her profile opens"),
     ("05-conversations", "3 Conversation list shows the direct conversation with alice"),
     ("06-direct-chat", "4 Direct chat with alice: send, live receive, receipts, typing, reply, edit, erase for everyone"),
     ("07-background", "4 Background and return keeps the session, the open chat and the draft"),
