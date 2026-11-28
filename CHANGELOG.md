@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Core pinned to `089f11657` (core next, release profile): `card.session.resume` at the process cap answers the typed `card_limit_exceeded` like `open`, so the untyped invalid-argument path on resume is dropped and the card shows the same over-limit state; the lock-screen code countdown reads `code_retry_after_secs` from `account.app_lock.state` instead of converting milliseconds. Contract pin, descriptor and card fixtures re-synced; C ABI header unchanged.
 - Core pinned to `a48b182dd` (core next): manifest local accounts and `account.backup.export` / `account.backup.import` are gone from the core (restored accounts use `restore-...` ids), so the method policy loses those two entries and the dead `AccountsRepository` proxies are removed; recovery re-admits the recovered identity, and removing a locked or unopened account works and clears its old key references and push route (RECOVER-PUBPENDING-01). Card fixtures and descriptor re-synced; C ABI header unchanged.
 
 - Fix (G05e-A, round 3): an app-lock lease with no event pump running first sends `subscription.close`, so an attended mark core kept after a refused `bus.subscribe` or a lock no longer refuses app-lock reads for another account (`app_lock_unauthorized` on `account.app_lock.state` after creating a second account).

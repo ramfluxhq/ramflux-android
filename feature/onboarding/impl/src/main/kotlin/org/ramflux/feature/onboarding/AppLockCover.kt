@@ -343,8 +343,8 @@ class AppLockViewModel @Inject constructor(
         }
         // The field returns only when core's state says the account is not exhausted.
         local.update { it.copy(exhausted = false) }
-        val waitMs = status.codeRetryAfterMs?.takeIf { it > 0L } ?: return
-        val deadline = System.nanoTime() + waitMs * 1_000_000L
+        val waitSecs = status.codeRetryAfterSecs?.takeIf { it > 0L } ?: return
+        val deadline = System.nanoTime() + waitSecs * 1_000_000_000L
         waitJob?.cancel()
         waitJob = viewModelScope.launch {
             while (true) {
