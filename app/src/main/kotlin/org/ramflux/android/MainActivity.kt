@@ -48,6 +48,7 @@ import org.ramflux.designsystem.AppLockCoverFocus
 import org.ramflux.designsystem.AppLockFocusGuard
 import org.ramflux.designsystem.LocalAppLockCoverFocus
 import org.ramflux.designsystem.LocalAppLockCovered
+import org.ramflux.designsystem.LocalSecureWindows
 import org.ramflux.designsystem.focusBlockedWhileCovered
 import org.ramflux.designsystem.hiddenWhileCovered
 import org.ramflux.feature.appshell.AppShellNavigation
@@ -111,9 +112,11 @@ class MainActivity : ComponentActivity() {
                     DisposableEffect(Unit) { onDispose { banners.chatOpened(null, null) } }
                     val coverFocus = remember { AppLockCoverFocus() }
                     // The realrun build shows the account-code sheet unsecured so UI automation can read it; never shipped.
+                    // Shell windows refuse capture in release builds; debug builds let them follow this window.
                     CompositionLocalProvider(
                         LocalAppLockCovered provides covered,
                         LocalAppLockCoverFocus provides coverFocus,
+                        LocalSecureWindows provides !BuildConfig.DEBUG,
                         LocalAppLockReauthSecure provides !BuildConfig.REALRUN,
                         LocalRemoveDialogSecure provides !BuildConfig.REALRUN
                     ) {

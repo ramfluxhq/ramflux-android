@@ -433,7 +433,10 @@ fun AppLockCover(vm: AppLockViewModel = hiltViewModel()) {
         }
     }
     if (ui.removeOpen && ui.phase == AppLockPhase.LOCKED) {
-        RemoveAccountDialog(ui.removeName, ui.removing, ui.removeFailed, onConfirm = vm::confirmRemove, onDismiss = vm::cancelRemove)
+        // The cover's own window: it is shown while the cover is up.
+        CompositionLocalProvider(LocalInAppLockCover provides true) {
+            RemoveAccountDialog(ui.removeName, ui.removing, ui.removeFailed, onConfirm = vm::confirmRemove, onDismiss = vm::cancelRemove)
+        }
     }
     when (ui.phase) {
         AppLockPhase.OPEN -> Unit
