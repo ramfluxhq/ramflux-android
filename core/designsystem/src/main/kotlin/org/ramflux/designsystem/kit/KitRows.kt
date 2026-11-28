@@ -207,7 +207,9 @@ fun KitConversationRow(
     badge: String? = null,
     enabled: Boolean = true,
     tag: String? = null,
-    ai: Boolean = false
+    ai: Boolean = false,
+    /** The accessibility text of a warning glyph beside the title (a contact whose identity changed); null shows none. */
+    warning: String? = null
 ) {
     val theme = LocalRFTheme.current
     val interaction = remember { MutableInteractionSource() }
@@ -245,6 +247,9 @@ fun KitConversationRow(
                     ).copy(textDirection = TextDirection.Content)
                 )
                 if (ai) KitAiMarker()
+                if (warning != null) {
+                    KitIcon("triangle-alert", RfMetrics.metaIcon, theme.warning, Modifier.kitTag("identity-badge"), description = warning)
+                }
                 if (muted) KitIcon("bell-off", RfMetrics.metaIcon, theme.secondary)
                 Box(Modifier.weight(1f))
                 KitText(

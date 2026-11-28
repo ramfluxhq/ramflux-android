@@ -134,7 +134,14 @@ fun ConversationsScreen(
                                 muted = row.muted,
                                 badge = row.unread.takeIf { row.hasUnread },
                                 tag = "conversation-" + row.id,
-                                ai = row.ai
+                                ai = row.ai,
+                                warning = if (row.peer != null && row.peer in state.changedPeers) {
+                                    stringResource(
+                                        R.string.identity_state_changed
+                                    )
+                                } else {
+                                    null
+                                }
                             )
                         } else {
                             ExactConversationRow(
@@ -144,7 +151,14 @@ fun ConversationsScreen(
                                 row.timestamp.render(),
                                 row.unread,
                                 row.hasUnread,
-                                onSelect = { onAction(ConversationsAction.Open(it)) }
+                                onSelect = { onAction(ConversationsAction.Open(it)) },
+                                warning = if (row.peer != null && row.peer in state.changedPeers) {
+                                    stringResource(
+                                        R.string.identity_state_changed
+                                    )
+                                } else {
+                                    null
+                                }
                             )
                         }
                     }

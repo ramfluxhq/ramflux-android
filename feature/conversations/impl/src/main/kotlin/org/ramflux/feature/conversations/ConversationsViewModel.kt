@@ -24,7 +24,8 @@ import org.ramflux.feature.conversations.impl.R
 class ConversationsViewModel @Inject constructor(
     private val directory: ConversationDirectoryRepository,
     private val accounts: AccountAccessRepository,
-    private val session: ClientSessionRepository
+    private val session: ClientSessionRepository,
+    private val identity: ContactIdentityRepository = UnavailableContactIdentity
 ) : ViewModel() {
     private val local = MutableStateFlow(ConversationsState())
     private val channel = Channel<ConversationsEvent>(Channel.BUFFERED)
@@ -152,6 +153,7 @@ class ConversationsViewModel @Inject constructor(
                             accountId = selected.id, accountLabel = selected.label ?: selected.id,
                             rows = rows, loaded = true, hasMore = cursor != null, autoLoad = added > 0, requests = requests,
                             searchAvailable = previous.searchAvailable,
+                            changedPeers = previous.changedPeers,
                             unavailable = if (more) previous.unavailable else null,
                             unavailableReason = if (more) previous.unavailableReason else null
                         )
@@ -206,6 +208,15 @@ class ConversationsViewModel @Inject constructor(
         watchedAccount = account
         val generation = session.status.value.generation
         watch = viewModelScope.launch {
+            // The signals are only collected so the repository learns of changes; the badge reads its changed set.
+            launch { identity.changes(account).collect { } }
+            launch {
+                identity.changed(account).collect { peers ->
+                    if (session.status.value.generation == generation && local.value.accountId == account) {
+                        local.update { it.copy(changedPeers = peers.toPersistentSet()) }
+                    }
+                }
+            }
             directory.changes(account).collect { result ->
                 if (session.status.value.generation != generation || local.value.accountId != account) return@collect
                 val change = (result as? ClientResult.Ready)?.value ?: return@collect
@@ -255,7 +266,8 @@ class ConversationsViewModel @Inject constructor(
             group = row.group,
             groupId = row.groupId,
             identifier = row.titleIsIdentifier,
-            ai = row.ai
+            ai = row.ai,
+            peer = row.peer
         )
     }.toPersistentList()
 

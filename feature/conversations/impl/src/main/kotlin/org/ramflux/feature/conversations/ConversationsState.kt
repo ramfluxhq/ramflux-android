@@ -22,7 +22,9 @@ import org.ramflux.designsystem.UiText
     /** [title] is a short identifier (no contact name is known); shown left-to-right isolated. */
     val identifier: Boolean = false,
     /** The direct peer is an SDK-verified AI agent: shown with the AI marker, otherwise like a person. */
-    val ai: Boolean = false
+    val ai: Boolean = false,
+    /** The direct peer's contact identifier, to match identity changes against; null for a group. */
+    val peer: String? = null
 ) {
     /** The title as drawn: identifiers through the left-to-right identifier primitive. */
     val shownTitle: String get() = if (identifier) Bidi.ltr(title) else title
@@ -44,5 +46,7 @@ import org.ramflux.designsystem.UiText
     val problemKind: ClientFailureKind? = null,
     val unavailable: UiText? = null,
     val unavailableReason: UnavailableReason? = null,
-    val searchAvailable: Boolean = false
+    val searchAvailable: Boolean = false,
+    /** Contacts whose identity is changed and not accepted (the list shows a warning glyph on their direct rows). */
+    val changedPeers: ImmutableSet<String> = persistentSetOf()
 )
