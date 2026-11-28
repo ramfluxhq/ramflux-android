@@ -11,7 +11,7 @@ enum class IdentityState { VERIFIED, TOFU, CHANGED, UNKNOWN }
 
 /**
  * A contact identity the person has not accepted yet. [newAnchor] is the anchor the sheet sends back on accept. [username] and
- * [aiFlag] come from the event; a change rebuilt from a status read has no username and a false flag. Anchors are public
+ * [aiFlag] come from the event; a change rebuilt from a status read carries the status's own flag, else the flag and username the last event of that contact gave. Anchors are public
  * identity values and never reach a log.
  */
 data class IdentityChange(

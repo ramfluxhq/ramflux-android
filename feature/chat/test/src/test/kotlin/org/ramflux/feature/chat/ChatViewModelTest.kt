@@ -385,6 +385,91 @@ class ChatViewModelTest {
         assertTrue(outbox.stored["a/c"].isNullOrEmpty())
     }
 
+    @Test fun aSendBlockedByAnIdentityChangeIsPersistedBlockedAndNeverResentByItself() = runTest(timeout = 5.seconds) {
+        // The refusal is classified offline as well; the identity block still wins and the send is not queued.
+        val blocked = ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE, statusName = SendBlock.IDENTITY_CHANGE_PENDING)
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            sendResult = ClientResult.Failed(blocked)
+        }
+        val outbox = FakeChatOutbox()
+        fun model(): ChatViewModel {
+            val media = FakeChatMedia()
+            val session = FakeChatSession()
+            return ChatViewModel(
+                history, FakeChatAccounts(), session, FakeChatDrafts(), media, FakeChatStager(),
+                MediaTransfers(media, session, backgroundScope), FakeChatCards(), outbox
+            )
+        }
+        val first = model()
+        observe(first)
+        runCurrent()
+        load(first)
+        first.onAction(ChatAction.Draft("held back"))
+        first.onAction(ChatAction.Send)
+        runCurrent()
+        assertFalse("a blocked send is not queued", first.state.value.queued)
+        assertEquals(LocalDelivery.FAILED, (first.state.value.rows.single() as MessageItem).delivery)
+        val stored = outbox.stored["a/c"].orEmpty().single()
+        assertTrue("the block is persisted", stored.blocked)
+        // Reopen, unlock or relaunch: it comes back as a failed bubble and nothing is sent.
+        history.sendResult = ClientResult.Ready(SendReceipt("sent"))
+        val second = model()
+        observe(second)
+        runCurrent()
+        load(second)
+        runCurrent()
+        assertEquals(1, history.sends)
+        assertFalse(second.state.value.queued)
+        assertEquals(LocalDelivery.FAILED, (second.state.value.rows.single() as MessageItem).delivery)
+        assertTrue(outbox.stored["a/c"].orEmpty().single().blocked)
+        // Only the person's explicit resend sends it, and it leaves the outbox when admitted.
+        second.onAction(ChatAction.Retry(stored.id))
+        runCurrent()
+        assertEquals(2, history.sends)
+        assertTrue(outbox.stored["a/c"].isNullOrEmpty())
+    }
+
+    @Test fun anAlreadyHandledAcceptNeverClearsANewerPendingChange() = runTest(timeout = 5.seconds) {
+        class Identity : ContactIdentityRepository {
+            val signals = MutableSharedFlow<IdentitySignal>(extraBufferCapacity = 4)
+            val outcome = CompletableDeferred<AcceptOutcome>()
+            var pending = IdentityChange("peer", null, "old", "a1", false, 0L)
+            override suspend fun identity(account: String, contact: String) = ClientResult.Ready(IdentityState.CHANGED to pending)
+            override suspend fun security(account: String, conversation: String): ClientResult<ConversationSecurity> =
+                ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
+            override suspend fun accept(account: String, contact: String, newAnchor: String) = outcome.await()
+            override fun changes(account: String): Flow<IdentitySignal> = signals
+        }
+        val identity = Identity()
+        val history = FakeChatHistory().apply { heading = ClientResult.Ready(ConversationHeader(null, peer = "peer")) }
+        val media = FakeChatMedia()
+        val session = FakeChatSession()
+        val vm = ChatViewModel(
+            history, FakeChatAccounts(), session, FakeChatDrafts(), media, FakeChatStager(),
+            MediaTransfers(media, session, backgroundScope), FakeChatCards(), FakeChatOutbox(), identity
+        )
+        observe(vm)
+        runCurrent()
+        load(vm)
+        runCurrent()
+        assertEquals(IdentityState.CHANGED, vm.state.value.identityState)
+        vm.onAction(ChatAction.ReviewIdentity)
+        runCurrent()
+        vm.onAction(ChatAction.AcceptIdentity)
+        runCurrent()
+        // A newer change arrives while the accept runs; the core then answers that the first was handled already.
+        identity.pending = IdentityChange("peer", null, "a1", "a2", false, 0L)
+        identity.signals.emit(IdentitySignal.Changed(identity.pending))
+        runCurrent()
+        identity.outcome.complete(AcceptOutcome.AlreadyHandled)
+        runCurrent()
+        assertEquals("the newer change still blocks", IdentityState.CHANGED, vm.state.value.identityState)
+        val sheet = vm.state.value.review!!
+        assertEquals(IdentityReviewError.CHANGED_AGAIN, sheet.error)
+        assertEquals("a2", sheet.newAnchor)
+    }
+
     @Test fun unknownSendRetriesTheSameOperationAndALaterEqualTextIsNew() = runTest(timeout = 5.seconds) {
         val unknown = ClientResult.Failed(ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.UNKNOWN))
         val history = FakeChatHistory().apply {

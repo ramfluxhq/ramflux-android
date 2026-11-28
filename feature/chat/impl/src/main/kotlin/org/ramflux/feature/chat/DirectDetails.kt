@@ -37,6 +37,7 @@ import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.ContactDirectoryRepository
 import org.ramflux.data.ContactIdentityRepository
 import org.ramflux.data.ConversationSecurity
+import org.ramflux.data.IdentitySignal
 import org.ramflux.data.IdentityState
 import org.ramflux.data.MediaRepository
 import org.ramflux.data.MessageHistoryRepository
@@ -101,6 +102,7 @@ class DirectDetailsViewModel @Inject constructor(
 
     private var target: Target? = null
     private var job: Job? = null
+    private var watching: Job? = null
     private val local = MutableStateFlow(DirectDetailsState())
     val state: StateFlow<DirectDetailsState> = local.asStateFlow()
 
@@ -111,6 +113,7 @@ class DirectDetailsViewModel @Inject constructor(
         val opened = Target(account, conversation, status.generation)
         target = opened
         job?.cancel()
+        watching?.cancel()
         local.value = DirectDetailsState(name = title.orEmpty())
         job = viewModelScope.launch {
             val header = history.header(account, conversation)
@@ -128,6 +131,7 @@ class DirectDetailsViewModel @Inject constructor(
             val security = (identity.security(account, conversation) as? ClientResult.Ready)?.value
             val bytes = usage(account, conversation)
             if (!current(opened)) return@launch
+            if (peer != null) watch(opened, peer)
             local.update {
                 it.copy(
                     loading = false,
@@ -142,8 +146,35 @@ class DirectDetailsViewModel @Inject constructor(
         }
     }
 
+    /** Follows the identity events while the details are open: a change or a device update shows without reopening. */
+    private fun watch(opened: Target, peer: String) {
+        watching?.cancel()
+        watching = viewModelScope.launch {
+            identity.changes(opened.account).collect { signal ->
+                if (!current(opened)) return@collect
+                when (signal) {
+                    is IdentitySignal.Changed ->
+                        if (signal.change.contact == peer) local.update { it.copy(identity = IdentityState.CHANGED) }
+                    is IdentitySignal.DevicesChanged ->
+                        if (signal.conversation == null || signal.conversation == opened.conversation) {
+                            refresh(opened, peer, identityToo = false)
+                        }
+                    IdentitySignal.Resync -> refresh(opened, peer, identityToo = true)
+                }
+            }
+        }
+    }
+
+    private suspend fun refresh(opened: Target, peer: String, identityToo: Boolean) {
+        val state = if (identityToo) (identity.identity(opened.account, peer) as? ClientResult.Ready)?.value?.first else null
+        val security = (identity.security(opened.account, opened.conversation) as? ClientResult.Ready)?.value
+        if (!current(opened)) return
+        local.update { it.copy(identity = state ?: it.identity, security = security ?: it.security) }
+    }
+
     fun close() {
         job?.cancel()
+        watching?.cancel()
         target = null
         local.value = DirectDetailsState()
     }

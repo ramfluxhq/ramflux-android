@@ -35,8 +35,11 @@ assert not any(x in secret_section for x in ('decodeToString', 'parseToJsonEleme
 scanner = (root / 'core/sdk/src/main/kotlin/org/ramflux/sdk/ByteJson.kt').read_text()
 assert 'decodeToString' not in scanner and 'String(' not in scanner, 'secret scanner must remain byte/char based'
 # Methods the MLS GUI batches call by name before the core pin carries them. The transport refuses them with
-# UnsupportedVersion while they are missing from the generated policy. Batch W regenerates the policy and empties this set.
+# UnsupportedVersion while they are missing from the generated policy. Batch W regenerates the policy and empties this set:
+# PENDING_PIN must be empty at the W pin, and the assertion below fails the build as soon as a listed method is classified.
 PENDING_PIN = {'conversation.security', 'contact.trust.accept_change'}
+classified = sorted(PENDING_PIN & set(expected))
+assert not classified, f'PENDING_PIN must be empty at the W pin; the policy now classifies {classified}: remove them from PENDING_PIN'
 for file in (root / 'core/data/src/main/kotlin/org/ramflux/data').glob('*Repository.kt'):
     text = file.read_text()
     for method in re.findall(r'executeSecret\("([^"]+)"', text):

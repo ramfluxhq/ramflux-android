@@ -8,7 +8,13 @@ package org.ramflux.sdk
  * the reply carries none. [pendingAnchor] and [previousAnchor] are present only while the state is `changed` and core reports
  * them. Anchors are public identity values and are never logged.
  */
-data class ContactIdentityStatus(val state: String?, val pendingAnchor: String?, val previousAnchor: String?) {
+data class ContactIdentityStatus(
+    val state: String?,
+    val pendingAnchor: String?,
+    val previousAnchor: String?,
+    /** The reply's own `ai_flag`; null when it carries none (the caller then keeps the flag an event gave). */
+    val aiFlag: Boolean? = null,
+) {
     override fun toString() = "ContactIdentityStatus(<redacted>)"
 }
 
@@ -43,12 +49,12 @@ object ContactIdentityMetadataReader {
     private const val BOUND = 4096
     private const val DEVICES = 1024
 
-    /** `contact.verification.status`: only the three identity fields are read. */
+    /** `contact.verification.status`: the identity fields and the optional `ai_flag` are read. */
     fun status(reply: SecretReply): CoreResult<ContactIdentityStatus> = try {
         reply.useOnce { raw ->
             val fields = DisplayFields(raw)
             val state = token(fields.text(fields.root, "identity_state"))
-            CoreResult.Success(ContactIdentityStatus(state, anchor(fields, fields.root, "pending_anchor"), anchor(fields, fields.root, "previous_anchor")))
+            CoreResult.Success(ContactIdentityStatus(state, anchor(fields, fields.root, "pending_anchor"), anchor(fields, fields.root, "previous_anchor"), fields.optionalBoolean(fields.root, "ai_flag")))
         }
     } catch (_: Exception) { CoreResult.Failure(CoreError.InvalidResponse()) }
     finally { reply.close() }

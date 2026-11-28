@@ -109,30 +109,50 @@ class IdentityReview(
             when (outcome) {
                 AcceptOutcome.Accepted ->
                     // A newer change may have arrived during the call: keep the sheet open on it, needing a new tap.
-                    if (latest == null || latest == anchor) {
+                    if (newer(anchor) == null) {
                         local.value = null
                     } else {
-                        local.update { it?.copy(accepting = false, error = IdentityReviewError.CHANGED_AGAIN) }
+                        local.update { it?.copy(accepting = false, newAnchor = newer(anchor), error = IdentityReviewError.CHANGED_AGAIN) }
                     }
                 AcceptOutcome.AlreadyHandled -> {
-                    local.update { it?.copy(accepting = false, error = IdentityReviewError.ALREADY_HANDLED) }
-                    onOutcome(shown.account, shown.contact, outcome, anchor)
-                    delay(CLOSE_AFTER_MS)
-                    local.update { if (it?.error == IdentityReviewError.ALREADY_HANDLED) null else it }
-                    return@launch
-                }
-                AcceptOutcome.ChangedAgain -> {
-                    // The status read only supplies the latest anchor to show; it is never sent without a new tap.
-                    val latest = (identity.identity(shown.account, shown.contact) as? ClientResult.Ready)?.value?.second
-                    local.update {
-                        it?.copy(accepting = false, error = IdentityReviewError.CHANGED_AGAIN, newAnchor = latest?.newAnchor?.takeIf { next -> next != anchor })
+                    // Only the accepted anchor is handled. A newer pending change is shown as changed again and the sheet stays open.
+                    val next = newer(anchor)
+                    if (next != null) {
+                        local.update { it?.copy(accepting = false, newAnchor = next, error = IdentityReviewError.CHANGED_AGAIN) }
+                    } else {
+                        local.update { it?.copy(accepting = false, error = IdentityReviewError.ALREADY_HANDLED) }
+                        onOutcome(shown.account, shown.contact, outcome, anchor)
+                        delay(CLOSE_AFTER_MS)
+                        // A newer change that arrived while "handled" showed turns the error into "changed again": it stays.
+                        local.update { if (it?.error == IdentityReviewError.ALREADY_HANDLED && newer(anchor) == null) null else it }
+                        return@launch
                     }
                 }
-                is AcceptOutcome.Failed -> local.update { it?.copy(accepting = false, error = IdentityReviewError.FAILED) }
+                AcceptOutcome.ChangedAgain -> {
+                    // The status read only supplies the newest anchor to show; it is never sent without a new tap.
+                    val fresh = ((identity.identity(shown.account, shown.contact) as? ClientResult.Ready)?.value?.second)?.newAnchor
+                    if (fresh != null && fresh != anchor) latest = fresh
+                    val next = newer(anchor)
+                    local.update { it?.copy(accepting = false, error = IdentityReviewError.CHANGED_AGAIN, newAnchor = next) }
+                }
+                // A failure never hides a newer change: the retry tap is a new decision on the anchor then shown.
+                is AcceptOutcome.Failed -> {
+                    val next = newer(anchor)
+                    local.update {
+                        it?.copy(
+                            accepting = false,
+                            newAnchor = next ?: it.newAnchor,
+                            error = if (next != null) IdentityReviewError.CHANGED_AGAIN else IdentityReviewError.FAILED
+                        )
+                    }
+                }
             }
             onOutcome(shown.account, shown.contact, outcome, anchor)
         }
     }
+
+    /** The newest known pending anchor when it is not [anchor] (the one that was just sent), else null. */
+    private fun newer(anchor: String): String? = latest?.takeIf { it != anchor }
 
     private companion object {
         const val CLOSE_AFTER_MS = 1_500L
