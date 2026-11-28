@@ -1846,9 +1846,8 @@ class RealRunFlowTest {
     // recovery with the phrase and the right code (unlocked, the lock still on); exhaust again; remove from this device
     // (the confirmation dialog, cancel, confirm). It runs about 50 minutes: the waits alone are two rounds of 15.5 minutes
     // plus up to 8 minutes each after the two recoveries. Run it alone, in its own invocation, as a background command: it
-    // is longer than a ten-minute command. It needs a fresh install with no account (it never creates a second account:
-    // a second account on a connection still attended for the first is refused by core, G05e): it creates the one
-    // throwaway account itself through the onboarding path of flow 01 and removes it at the end.
+    // is longer than a ten-minute command. It needs a fresh install with no account (one account is enough for it): it
+    // creates the one throwaway account itself through the onboarding path of flow 01 and removes it at the end.
 
     @Test fun f22_exhaustRecoverRemove() = flow("22-exhaust-recover-remove", needsAccount = false) {
         val name = "Phone Throwaway " + token()
@@ -1939,6 +1938,169 @@ class RealRunFlowTest {
         notes.joinToString("; ")
     }
 
+    // Flow 23: two accounts with the app lock (G05e-A). Creating or switching to a second account, and returning from the
+    // background with two accounts, must open the target and never stick on the lock cover's retry (app_lock_unauthorized
+    // on account.app_lock.state for the account the event subscription is not attended for). The words and codes of both
+    // accounts exist only in this process (secure fields, in memory only): nothing is logged, saved or shown on a
+    // screenshot while a secret is on screen. The app offers another account only through Lock account (Settings > Account
+    // and security), which leads to the account chooser. While A's app lock is engaged there is no route to the chooser
+    // (Lock account raises A's cover; node.list is refused app_lock by design), a product gap tracked as G05e-B, so the
+    // flow runs in two phases on one fresh install: phase 1 with the app lock of both accounts off, phase 2 turns A's lock
+    // on and never leaves A. Run it alone on a fresh install (scripts/realrun.sh ... --tests f23 without --no-install, after
+    // uninstall).
+
+    @Test fun f23_twoAccountsAppLock() = flow("23-two-accounts-app-lock", needsAccount = false) {
+        val token = token()
+        val nameA = "Phone Two A $token"
+        val nameB = "Phone Two B $token"
+        val notes = mutableListOf<String>()
+        val a = createThrowawayAccount(nameA) {
+            blocked("run f23 alone on a fresh install (scripts/realrun.sh ... --tests f23 without --no-install, after uninstall)")
+        }
+        var b: Throwaway? = null
+        try {
+            // Phase 1, app lock off for both accounts. P1: from A, open the chooser and create B: B opens, no cover left.
+            leaveToShell()
+            openAccountChooser()
+            ui.tap("CREATE")
+            b = createCeremony(nameB)
+            assertTwoAccountShell("P1 create B")
+            notes += "P1: A created, B created from the chooser and opened (lock off)"
+            // P2: switch B to A and A to B; each opens its target cleanly.
+            switchTo(nameA, a.code, "P2 B to A")
+            switchTo(nameB, b.code, "P2 A to B")
+            notes += "P2: B to A and A to B each opened the target, no retry, no leftover cover"
+            // P3: three background and return cycles on B, one on A (two accounts in the survey on every return).
+            repeat(3) { cycle ->
+                relaunch()
+                val state = settledState("P3 B cycle ${cycle + 1}")
+                if (state != "shell-tabs") fail("P3 B cycle ${cycle + 1}: expected B's shell, saw '$state': ${ui.screen()}")
+                assertTwoAccountShell("P3 B cycle ${cycle + 1}")
+            }
+            switchTo(nameA, a.code, "P3 A")
+            relaunch()
+            val onA = settledState("P3 A cycle")
+            if (onA != "shell-tabs") fail("P3 A cycle: expected A's shell, saw '$onA': ${ui.screen()}")
+            assertTwoAccountShell("P3 A cycle")
+            notes += "P3: three returns on B and one on A ended on the shell"
+            // Phase 2: A is open; turn A's app lock on (Immediately).
+            appLockOnForThrowaway()
+            notes += "P4: A's app lock on, Immediately"
+            // Leave Settings so a return restores A's shell rather than the app-lock page.
+            for (step in 0 until 6) {
+                if (ui.find("shell-tabs", 1_500) != null) break
+                ui.device.pressBack()
+            }
+            ui.need("shell-tabs", Ui.SHORT, "A's shell before P5")
+            // P5: background and return on A raises the cover; A's code opens A.
+            relaunch()
+            lockForm()
+            enterCode("app-lock-code", a.code)
+            ui.tap("app-lock-unlock")
+            appLockOpened()
+            assertTwoAccountShell("P5 return on A")
+            notes += "P5: return on A raised the cover; A's code opened A"
+            // P6: relaunch with A engaged shows the cover; A's code opens A.
+            relaunch()
+            lockForm()
+            enterCode("app-lock-code", a.code)
+            ui.tap("app-lock-unlock")
+            appLockOpened()
+            assertTwoAccountShell("P6 relaunch on A")
+            notes += "P6: relaunch with A engaged showed the cover; A's code opened A"
+            // R8 on A: three returns, each raises the cover and A's code opens A's shell.
+            repeat(3) { cycle ->
+                relaunch()
+                lockForm()
+                enterCode("app-lock-code", a.code)
+                ui.tap("app-lock-unlock")
+                appLockOpened()
+                assertTwoAccountShell("R8 A cycle ${cycle + 1}")
+            }
+            notes += "R8: three returns on A each raised the cover and A's code opened A's shell"
+            // The flow runs in the instrumentation process and cannot read the app's private trace file.
+            notes += "app_lock_unauthorized absence is NOT asserted by the flow (the app trace is not readable here): the runner " +
+                "must grep app-trace.txt for app_lock_unauthorized and expect none"
+            notes += "NOT exercised: B, or a switch, while A's lock is engaged (no route to the chooser until G05e-B)"
+        } finally {
+            secretScreen = false
+            a.phrase.fill('\u0000')
+            a.code.fill('\u0000')
+            b?.phrase?.fill('\u0000')
+            b?.code?.fill('\u0000')
+        }
+        notes.joinToString("; ")
+    }
+
+    /** Back to the open account's shell from a settings page. */
+    private fun leaveToShell() {
+        repeat(6) {
+            if (ui.find("shell-tabs", 1_500) != null) return
+            ui.device.pressBack()
+        }
+        ui.need("shell-tabs", Ui.SHORT, "shell")
+    }
+
+    /** Settings > Account and security > Lock account leaves the open account and shows the account chooser. */
+    private fun openAccountChooser() {
+        openSettings()
+        if (ui.find("lock-account", 1_500) == null) ui.tap("account-security") // Settings may reopen on this page
+        ui.tap("lock-account", Ui.SHORT)
+        confirmIfAsked()
+        ui.need("onboarding-header", Ui.LONG, "account chooser")
+    }
+
+    /** Opens [name] from the chooser with its account code, and lowers the app-lock cover with the same code if it asks. */
+    private fun openFromChooser(name: String, code: CharArray, step: String) {
+        ui.tapText(name, Ui.LONG, "$step: chooser row")
+        ui.need("unlock-account-name", Ui.LONG, "$step: unlock page")
+        enterCode("unlock-code", code)
+        ui.tap("unlock-account")
+        val reached = ui.eventually(Ui.LONG) {
+            ui.find("shell-tabs", 500) != null || ui.find("app-lock-code", 500) != null
+        }
+        if (!reached) fail("$step: neither the shell nor the code form showed: ${ui.screen()}")
+        if (ui.find("app-lock-code", 500) != null) {
+            enterCode("app-lock-code", code)
+            ui.tap("app-lock-unlock")
+            appLockOpened()
+        }
+    }
+
+    /** Leaves the open account through the chooser and opens [name]. */
+    private fun switchTo(name: String, code: CharArray, step: String) {
+        leaveToShell()
+        openAccountChooser()
+        openFromChooser(name, code, step)
+        assertTwoAccountShell(step)
+    }
+
+    private fun enterCode(tag: String, code: CharArray) {
+        ui.keys(tag, code)
+    }
+
+    /** The shell is up and no cover is stuck on retry or the code form. */
+    private fun assertTwoAccountShell(step: String) {
+        val ok = ui.eventually(Ui.LONG) {
+            ui.find("shell-tabs", 500) != null && ui.find("app-lock-retry", 300) == null && ui.find("app-lock-code", 300) == null
+        }
+        if (!ok) fail("$step: the shell did not open cleanly (a cover or retry is up): ${ui.screen()}")
+    }
+
+    /**
+     * After a return or relaunch the app settles on the code form, the shell or the account chooser. A cover that stays on
+     * retry is the defect; the retry action is not tapped. Returns the tag it settled on.
+     */
+    private fun settledState(step: String): String {
+        val good = arrayOf("app-lock-code", "shell-tabs", "onboarding-header")
+        var seen: String? = null
+        ui.eventually(Ui.LONG) {
+            seen = ui.first(*good, timeout = 500)
+            seen != null
+        }
+        return seen ?: fail("$step: no code form, shell or chooser (stuck cover?): ${ui.screen()}")
+    }
+
     private class Throwaway(val phrase: CharArray, val code: CharArray)
 
     private enum class RecoveryOutcome { UNLOCKED, RETRY_LATER, WRONG_CODE }
@@ -1950,6 +2112,11 @@ class RealRunFlowTest {
      */
     private fun createThrowawayAccount(name: String, existing: () -> Nothing): Throwaway {
         onboardToDisplayName(existing)
+        return createCeremony(name)
+    }
+
+    /** The create ceremony from the display-name form to the shell: words, word check and code stay in memory only. */
+    private fun createCeremony(name: String): Throwaway {
         ui.type("display-name", name)
         ui.tap("begin-create")
         ui.need("phrase-saved", Ui.LONG, "recovery phrase")
@@ -2013,7 +2180,7 @@ class RealRunFlowTest {
             ui.device.pressBack()
         }
         openSettings()
-        ui.tap("account-security")
+        if (ui.find("privacy", 1_500) == null) ui.tap("account-security") // Settings may reopen on this page
         ui.tap("privacy")
         ui.tap("app-lock")
     }

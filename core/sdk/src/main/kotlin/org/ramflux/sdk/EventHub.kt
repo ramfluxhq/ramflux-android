@@ -4,8 +4,8 @@
 package org.ramflux.sdk
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -46,6 +47,7 @@ class EventHub internal constructor(
     private val reset: suspend (ULong) -> CoreResult<JsonObject>,
     private val scope: CoroutineScope,
     private val capacity: Int = SUBSCRIBER_CAPACITY,
+    private val detach: suspend () -> Unit = {},
 ) {
     private class Subscriber(val account: String?, val topics: Set<String>, val channel: Channel<CoreUpdate>)
 
@@ -56,6 +58,9 @@ class EventHub internal constructor(
     private var pumpTopics: Set<String> = emptySet()
     private var generation = 0uL
     private var paused = false
+    private var detached = 0
+    // Pumps that were cancelled but have not finished yet: their native subscription is still open or closing.
+    private val stopping = LinkedHashSet<Job>()
 
     /** Number of collectors currently registered (for tests and diagnostics). */
     val collectorCount: Int get() = synchronized(lock) { subscribers.size }
@@ -83,24 +88,68 @@ class EventHub internal constructor(
     suspend fun pause() {
         val job = synchronized(lock) {
             paused = true
-            pump.also { pump = null }
+            retire(pump).also { pump = null }
         }
-        job?.cancelAndJoin()
+        job?.join()
     }
 
     /** The client resumed: the pump reopens from the journal head and every collector gets `resync_required`. */
     fun resume() = synchronized(lock) {
         paused = false
-        if (pump == null && subscribers.isNotEmpty()) {
+        if (detached == 0 && pump == null && subscribers.isNotEmpty()) {
             val account = pumpAccount
             start(account, union(subscribers.filter { it.account == account }))
             subscribers.forEach { offer(it, resync()) }
         }
     }
 
+    /**
+     * Runs [block] while the shared subscription is not attended for an account other than [account] (null: for any
+     * account). Core refuses app-lock calls for another account on an attended connection (`refuse_attended`).
+     */
+    suspend fun <T> unattended(account: String?, block: suspend () -> T): T {
+        // The lease always holds: while it runs no pump is started, and a collector that registers meanwhile detaches
+        // a live pump. Before the block runs, every pump that is cancelled but not finished is awaited, whether or not
+        // this call cancelled it, so core no longer sees an attended mark for another account.
+        val pending = synchronized(lock) {
+            val current = pumpAccount
+            val needed = detached > 0 || (pump != null && current != null && (account == null || account != current))
+            detached++
+            if (needed) {
+                retire(pump)
+                pump = null
+            }
+            stopping.toList()
+        }
+        try {
+            pending.forEach { it.join() }
+            // A pump that ended on its own (a refused subscribe, a lock) can leave core's attended mark behind with no
+            // subscription the hub knows of: with no pump running, the core subscription is closed explicitly.
+            if (synchronized(lock) { pump == null }) detach()
+            return block()
+        } finally {
+            withContext(NonCancellable) {
+                synchronized(lock) {
+                    if (detached > 0) detached--
+                    if (detached == 0) {
+                        if (!paused && pump == null && subscribers.isNotEmpty()) {
+                            val current = pumpAccount
+                            start(current, union(subscribers.filter { it.account == current }))
+                            subscribers.forEach { offer(it, resync()) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun register(subscriber: Subscriber) = synchronized(lock) {
-        if (paused) {
-            // Collectors that join while the client is suspended wait for [resume]; one account at a time still holds.
+        if (paused || detached > 0) {
+            // Collectors that join while the client is suspended or leased wait for [resume] or the lease end; a live
+            // pump (lease that did not detach) stops so the lease end restarts it with the new topics or account.
+            retire(pump)
+            pump = null
+            pumpTopics = emptySet()
             if (pumpAccount != subscriber.account) {
                 subscribers.filter { it.account != subscriber.account }.forEach { other ->
                     subscribers.remove(other)
@@ -127,7 +176,7 @@ class EventHub internal constructor(
         val covered = running && pumpAccount == subscriber.account && covers(pumpTopics, subscriber.topics)
         if (!covered) {
             val restarting = running && pumpAccount == subscriber.account
-            pump?.cancel()
+            retire(pump)
             if (restarting) {
                 subscribers.filter { it !== subscriber }.forEach { offer(it, resync()) }
             }
@@ -138,19 +187,30 @@ class EventHub internal constructor(
     private fun unregister(subscriber: Subscriber) = synchronized(lock) {
         subscribers.remove(subscriber)
         if (subscribers.isEmpty()) {
-            pump?.cancel()
+            retire(pump)
             pump = null
             pumpTopics = emptySet()
         }
     }
 
+    /** Cancels [job] and tracks it until it has finished, so later pumps and leases can wait for its cleanup. */
+    private fun retire(job: Job?): Job? {
+        if (job == null) return null
+        job.cancel()
+        synchronized(lock) {
+            if (stopping.add(job)) job.invokeOnCompletion { synchronized(lock) { stopping.remove(job) } }
+        }
+        return job
+    }
+
     private fun start(account: String?, topics: Set<String>) {
-        val previous = pump
+        retire(pump)
+        val previous = stopping.toList()
         pumpAccount = account
         pumpTopics = topics
         pump = scope.launch {
-            // The native lane admits one subscription: the cancelled pump finishes its cleanup first.
-            previous?.join()
+            // The native lane admits one subscription: every cancelled pump finishes its cleanup first.
+            previous.forEach { it.join() }
             pumpLoop(account, topics, coroutineContext.job)
         }
     }
