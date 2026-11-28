@@ -22,10 +22,14 @@ import kotlinx.coroutines.withContext
 fun MlsGroupSession.admin(account: String, group: String): Flow<MlsAdminState> = view(account) { it.groups[group]?.admin ?: MlsAdminState() }
 
 /**
- * The lock epoch of [account]: it moves when [MlsGroupSession.clearAccount] runs (a lock, an account switch or removal). A screen
- * that sees it move closes every sheet, dialog and confirmation it holds and drops their state (nothing may survive a lock).
+ * The lock epoch of [account]: it moves when the account is cleared (the app lock, an account lock, a switch away from it,
+ * sign-out or removal) and when a cleared account is admitted again. A screen that sees it move closes every sheet, dialog and
+ * confirmation it holds and drops their state (nothing may survive a lock, and a screen opened while purged does not stay empty).
  */
-fun MlsGroupSession.epoch(account: String): Flow<Long> = data.map { it.epochs[account] ?: 0L }.distinctUntilChanged()
+fun MlsGroupSession.epoch(account: String): Flow<Long> {
+    seen.add(account)
+    return data.map { it.epochs[account] ?: 0L }.distinctUntilChanged()
+}
 
 fun MlsGroupSession.requests(account: String, group: String): Flow<MlsRequestsState> =
     view(account) { it.groups[group]?.admin?.requests ?: MlsRequestsState() }

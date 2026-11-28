@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -22,7 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import org.ramflux.designsystem.LocalAppLockCovered
+import org.ramflux.designsystem.AppLockGatedWindow
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
@@ -43,66 +44,70 @@ private const val GRABBER_R = 2f
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MlsJoinSheet(sheet: MlsJoinSheetUi, onAction: (MlsGroupsAction) -> Unit, links: MlsLinkActions) {
-    // Not shown under the app-lock cover.
-    if (LocalAppLockCovered.current) return
     val theme = LocalRFTheme.current
     val shape = RoundedCornerShape(topStart = theme.radius_sheet.dp, topEnd = theme.radius_sheet.dp)
-    ModalBottomSheet(
-        onDismissRequest = { onAction(MlsGroupsAction.CloseJoin) },
-        modifier = Modifier.testTag("mls-join-sheet"),
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = shape,
-        containerColor = theme.overlay,
-        contentColor = theme.text,
-        dragHandle = {
-            Box(
-                Modifier.padding(top = theme.gap.dp).size(GRABBER_W.dp, GRABBER_H.dp).clip(shapeOf(GRABBER_R)).background(theme.line_strong)
-            )
-        }
-    ) {
-        Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = theme.gap.dp, vertical = theme.gap.dp),
-            verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
-        ) {
-            KitMeta(stringResource(R.string.group_join_title), Modifier.testTag("mls-join-title"))
-            KitTextField(
-                value = sheet.link,
-                onValue = { onAction(MlsGroupsAction.Link(it)) },
-                label = stringResource(R.string.group_join_field),
-                enabled = !sheet.joining,
-                tag = "mls-join-field",
-                code = true
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy((theme.gap * HALF).dp)) {
-                Box(Modifier.weight(1f)) {
-                    KitButton(
-                        stringResource(R.string.group_join_paste),
-                        { links.paste()?.let { onAction(MlsGroupsAction.Paste(it)) } },
-                        Modifier.fillMaxWidth(),
-                        kind = KitButtonKind.Secondary,
-                        enabled = !sheet.joining,
-                        tag = "mls-join-paste"
-                    )
-                }
-                Box(Modifier.weight(1f)) {
-                    KitButton(
-                        if (sheet.joining) stringResource(R.string.group_join_joining) else stringResource(R.string.group_join_submit),
-                        { if (!sheet.joining) onAction(MlsGroupsAction.Submit) },
-                        Modifier.fillMaxWidth(),
-                        enabled = !sheet.joining && sheet.link.isNotBlank(),
-                        loading = sheet.joining,
-                        tag = "mls-join-submit"
-                    )
-                }
+    // The sheet is its own window: it is gated by the app-lock cover. When the cover rises the window goes in the same frame
+    // and the sheet is closed, which drops the typed link, so it does not come back on unlock.
+    AppLockGatedWindow(onCovered = { onAction(MlsGroupsAction.CloseJoin) }) { policy ->
+        ModalBottomSheet(
+            onDismissRequest = { onAction(MlsGroupsAction.CloseJoin) },
+            modifier = Modifier.testTag("mls-join-sheet"),
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            shape = shape,
+            containerColor = theme.overlay,
+            contentColor = theme.text,
+            properties = ModalBottomSheetProperties(securePolicy = policy),
+            dragHandle = {
+                Box(
+                    Modifier.padding(top = theme.gap.dp).size(GRABBER_W.dp, GRABBER_H.dp)
+                        .clip(shapeOf(GRABBER_R)).background(theme.line_strong)
+                )
             }
-            sheet.result?.let { Outcome(it, onAction) }
-            KitButton(
-                stringResource(R.string.group_join_close),
-                { onAction(MlsGroupsAction.CloseJoin) },
-                Modifier.fillMaxWidth(),
-                kind = KitButtonKind.Text,
-                tag = "mls-join-close"
-            )
+        ) {
+            Column(
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = theme.gap.dp, vertical = theme.gap.dp),
+                verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
+            ) {
+                KitMeta(stringResource(R.string.group_join_title), Modifier.testTag("mls-join-title"))
+                KitTextField(
+                    value = sheet.link,
+                    onValue = { onAction(MlsGroupsAction.Link(it)) },
+                    label = stringResource(R.string.group_join_field),
+                    enabled = !sheet.joining,
+                    tag = "mls-join-field",
+                    code = true
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy((theme.gap * HALF).dp)) {
+                    Box(Modifier.weight(1f)) {
+                        KitButton(
+                            stringResource(R.string.group_join_paste),
+                            { links.paste()?.let { onAction(MlsGroupsAction.Paste(it)) } },
+                            Modifier.fillMaxWidth(),
+                            kind = KitButtonKind.Secondary,
+                            enabled = !sheet.joining,
+                            tag = "mls-join-paste"
+                        )
+                    }
+                    Box(Modifier.weight(1f)) {
+                        KitButton(
+                            if (sheet.joining) stringResource(R.string.group_join_joining) else stringResource(R.string.group_join_submit),
+                            { if (!sheet.joining) onAction(MlsGroupsAction.Submit) },
+                            Modifier.fillMaxWidth(),
+                            enabled = !sheet.joining && sheet.link.isNotBlank(),
+                            loading = sheet.joining,
+                            tag = "mls-join-submit"
+                        )
+                    }
+                }
+                sheet.result?.let { Outcome(it, onAction) }
+                KitButton(
+                    stringResource(R.string.group_join_close),
+                    { onAction(MlsGroupsAction.CloseJoin) },
+                    Modifier.fillMaxWidth(),
+                    kind = KitButtonKind.Text,
+                    tag = "mls-join-close"
+                )
+            }
         }
     }
 }

@@ -12,8 +12,9 @@ import org.ramflux.data.MlsGroupSession
 import org.ramflux.data.epoch
 
 /**
- * Runs [onLock] each time the lock epoch of [account] moves after the first read: the app lock engaged, the account was
- * switched or removed. The caller closes every sheet, dialog and confirmation it holds and drops their state there, so nothing
+ * Runs [onLock] each time the lock epoch of [account] moves after the first read: the app lock engaged, the account was locked,
+ * switched away from, signed out or removed, or the purged account was admitted again (a screen opened while it was purged then
+ * closes instead of staying empty). The caller closes every sheet, dialog and confirmation it holds and drops their state there, so nothing
  * of an admin action, a typed link or an invite survives a lock and nothing comes back after the unlock.
  */
 internal fun ViewModel.dropOnLock(session: MlsGroupSession, account: String, onLock: () -> Unit): Job =

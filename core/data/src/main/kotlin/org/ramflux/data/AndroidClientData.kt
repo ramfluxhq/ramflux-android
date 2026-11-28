@@ -4,6 +4,9 @@
 package org.ramflux.data
 
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.ramflux.data.cards.CardSessionPool
 import org.ramflux.data.cards.CardSessionRepository
 
@@ -23,7 +26,13 @@ class AndroidClientData(context: Context, expectedDescriptor: String, languages:
     }
     /** The card runtime: sessions shared by every chat screen, suspended and resumed with the client. */
     val cardSessions: CardSessionRepository = cardPool
-    val session: ClientSessionRepository = DefaultClientSessionRepository(driver, cards = cardPool)
+    /**
+     * The MLS groups session, one per process. It makes no call until a screen asks (none is linked yet); it is attached here so
+     * the app lock, an account lock, a switch, sign-out and removal clear what it holds.
+     */
+    val mlsGroups = MlsGroupSession(DefaultMlsGroupRepository(driver.transport), CoroutineScope(SupervisorJob() + Dispatchers.IO))
+        .also { it.attach(accountStores) }
+    val session: ClientSessionRepository = DefaultClientSessionRepository(driver, cards = cardPool, stores = accountStores)
 
     val nodes: NodeSetupRepository = DefaultNodeSetupRepository(driver.transport)
     val accounts: AccountAccessRepository = DefaultAccountAccessRepository(driver.transport, accountStores)

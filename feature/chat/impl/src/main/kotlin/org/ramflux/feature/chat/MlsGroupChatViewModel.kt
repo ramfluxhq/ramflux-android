@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +15,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.ramflux.data.MlsAdminKind
@@ -30,6 +28,7 @@ import org.ramflux.data.MlsGroupWarning
 import org.ramflux.data.MlsInfoState
 import org.ramflux.data.MlsMembersState
 import org.ramflux.data.MlsReadOnly
+import org.ramflux.data.MlsScreenEvents
 import org.ramflux.data.MlsTimelineState
 import org.ramflux.data.admin
 import org.ramflux.data.epoch
@@ -79,8 +78,8 @@ class MlsGroupChatViewModel(
     private val ids = MutableStateFlow<Ids?>(null)
     private var lockWatch: Job? = null
     private val local = MutableStateFlow(Local())
-    private val channel = Channel<ChatEvent>(Channel.BUFFERED)
-    val events = channel.receiveAsFlow()
+    private val channel = MlsScreenEvents<ChatEvent>()
+    val events = channel.flow
 
     private data class Remote(
         val timeline: MlsTimelineState,
@@ -259,7 +258,7 @@ class MlsGroupChatViewModel(
             ChatAction.Copy -> {
                 val text = (rowOf(local.value.selectedId)?.content as? UiText.Data)?.value
                 local.value = local.value.copy(selectedId = null)
-                if (text != null) channel.trySend(ChatEvent.Copy(text))
+                if (text != null) channel.send(ChatEvent.Copy(text))
             }
             ChatAction.DeleteForEveryone -> {
                 val id = local.value.selectedId
@@ -303,8 +302,8 @@ class MlsGroupChatViewModel(
                 local.value = local.value.copy(voidTarget = null)
                 if (target != null && slot != null) session.voidCommit(target.account, target.group, slot)
             }
-            ChatAction.MlsOpenInvite -> channel.trySend(ChatEvent.MlsInvite)
-            ChatAction.MlsOpenAlerts -> channel.trySend(ChatEvent.MlsAlerts)
+            ChatAction.MlsOpenInvite -> channel.send(ChatEvent.MlsInvite)
+            ChatAction.MlsOpenAlerts -> channel.send(ChatEvent.MlsAlerts)
             ChatAction.MentionOpen -> if (target != null) {
                 if (!state.value.loaded || state.value.mls?.mention == null) session.loadMembers(target.account, target.group)
                 local.value = local.value.copy(mentionOpen = true)
@@ -312,8 +311,8 @@ class MlsGroupChatViewModel(
             ChatAction.MentionMore -> target?.let { session.loadMoreMembers(it.account, it.group) }
             ChatAction.MentionClose -> local.value = local.value.copy(mentionOpen = false)
             is ChatAction.MentionPick -> pick(action.anchor)
-            ChatAction.Back -> channel.trySend(ChatEvent.Back)
-            ChatAction.Details -> channel.trySend(ChatEvent.Details)
+            ChatAction.Back -> channel.send(ChatEvent.Back)
+            ChatAction.Details -> channel.send(ChatEvent.Details)
             // Attachments, cards, forwarding, editing, reactions and the gallery are not part of M2 groups (L2).
             else -> Unit
         }
@@ -359,14 +358,16 @@ class MlsGroupChatViewModel(
         val next = Ids(action.accountId, group, action.title)
         if (ids.value == next) return
         ids.value = next
+        channel.reopened()
         local.value = Local()
         lockWatch?.cancel()
-        // The app lock engaged or the account went away: every dialog, sheet and draft of this chat is dropped and the chat closes.
+        // The app lock engaged or the account went away: every dialog, sheet and draft of this chat is dropped and the chat closes
+        // (a chat not on screen keeps no Back, so it does not close at once when opened again after the unlock).
         lockWatch = viewModelScope.launch {
             session.epoch(action.accountId).drop(1).collect {
                 local.value = Local()
                 ids.value = null
-                channel.trySend(ChatEvent.Back)
+                channel.lockBack(ChatEvent.Back)
             }
         }
         session.watch(action.accountId)

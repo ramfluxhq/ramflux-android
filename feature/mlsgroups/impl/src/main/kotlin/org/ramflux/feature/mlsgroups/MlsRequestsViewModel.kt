@@ -7,15 +7,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import org.ramflux.data.MlsAdminRules
 import org.ramflux.data.MlsGroupSession
 import org.ramflux.data.MlsRequestPhase
+import org.ramflux.data.MlsScreenEvents
 import org.ramflux.data.admin
 import org.ramflux.data.approveRequest
 import org.ramflux.data.declineRequest
@@ -40,8 +39,8 @@ class MlsRequestsViewModel(private val session: MlsGroupSession) : ViewModel() {
     private var lockWatch: Job? = null
     private val ask = MutableStateFlow<Pair<MlsRequestConfirmKind, String>?>(null)
     private val noticeSeen = MutableStateFlow(0)
-    private val channel = Channel<MlsRequestsEvent>(Channel.BUFFERED)
-    val events = channel.receiveAsFlow()
+    private val channel = MlsScreenEvents<MlsRequestsEvent>()
+    val events = channel.flow
     private val shown = MutableStateFlow(MlsRequestsUi())
     val state: StateFlow<MlsRequestsUi> = shown
 
@@ -66,7 +65,7 @@ class MlsRequestsViewModel(private val session: MlsGroupSession) : ViewModel() {
             MlsRequestsAction.Cancel -> ask.value = null
             MlsRequestsAction.DismissNotice -> noticeSeen.value = lastGone
             MlsRequestsAction.Confirm -> confirm(ids)
-            MlsRequestsAction.Back -> channel.trySend(MlsRequestsEvent.Back)
+            MlsRequestsAction.Back -> channel.send(MlsRequestsEvent.Back)
         }
     }
 
@@ -93,6 +92,7 @@ class MlsRequestsViewModel(private val session: MlsGroupSession) : ViewModel() {
     private fun open(account: String, group: String) {
         if (current?.account == account && current?.group == group) return
         current = Ids(account, group)
+        channel.reopened()
         requestedFirst = false
         session.watch(account)
         session.loadInfo(account, group)
@@ -104,7 +104,7 @@ class MlsRequestsViewModel(private val session: MlsGroupSession) : ViewModel() {
             noticeSeen.value = 0
             shown.value = MlsRequestsUi()
             current = null
-            channel.trySend(MlsRequestsEvent.Back)
+            channel.lockBack(MlsRequestsEvent.Back)
         }
         collector?.cancel()
         collector = viewModelScope.launch {

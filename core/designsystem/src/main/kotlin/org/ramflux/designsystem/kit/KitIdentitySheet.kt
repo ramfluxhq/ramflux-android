@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,8 +24,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import org.ramflux.core.designsystem.R
+import org.ramflux.designsystem.AppLockGatedWindow
 import org.ramflux.designsystem.Bidi
-import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
 
@@ -49,88 +50,91 @@ fun KitIdentityChangeSheet(
     onLater: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Not shown under the app-lock cover.
-    if (LocalAppLockCovered.current) return
     val theme = LocalRFTheme.current
     val shape = RoundedCornerShape(topStart = dp(theme.radius_sheet), topEnd = dp(theme.radius_sheet))
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val shown = Bidi.isolate(name, UntrustedKind.Name)
-    ModalBottomSheet(
-        onDismissRequest = { if (!accepting) onLater() },
-        modifier = modifier.kitTag("identity-sheet"),
-        sheetState = state,
-        shape = shape,
-        containerColor = theme.overlay,
-        contentColor = theme.text,
-        dragHandle = {
-            Box(
-                Modifier.padding(top = dp(RfMetrics.sheetPadTop)).size(dp(RfMetrics.grabberWidth), dp(RfMetrics.grabberHeight))
-                    .clip(shapeOf(RfMetrics.grabberRadius)).background(theme.line_strong)
-            )
-        }
-    ) {
-        Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(
-                start = dp(RfMetrics.sheetPadH),
-                top = dp(RfMetrics.sheetGap),
-                end = dp(RfMetrics.sheetPadH),
-                bottom = dp(RfMetrics.sheetPadBottom)
-            ),
-            verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.sheetGap))
-        ) {
-            KitText(
-                stringResource(R.string.identity_sheet_title, shown),
-                style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
-            )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))) {
-                username?.takeIf { it.isNotBlank() }?.let {
-                    UntrustedText(
-                        USERNAME_SIGIL + it,
-                        Modifier.kitTag("identity-sheet-username"),
-                        UntrustedKind.Name,
-                        kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary),
-                        maxLines = 1
-                    )
-                }
-                if (ai) KitAiMarker()
-            }
-            KitText(
-                stringResource(R.string.identity_sheet_body, shown),
-                style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody)
-            )
-            val line = when {
-                notice == KitIdentityNotice.AlreadyHandled -> stringResource(R.string.identity_accept_already)
-                notice == KitIdentityNotice.ChangedAgain -> stringResource(R.string.identity_accept_again)
-                notice == KitIdentityNotice.Failed -> stringResource(R.string.identity_accept_failed)
-                waiting -> stringResource(R.string.identity_sheet_waiting)
-                else -> null
-            }
-            if (line != null) {
-                KitText(
-                    line,
-                    Modifier.kitTag("identity-sheet-notice"),
-                    style = kitStyle(
-                        theme.size_secondary,
-                        FontWeight.Normal,
-                        if (waiting && notice == null) theme.secondary else theme.warning,
-                        RfMetrics.lineSecondary
-                    )
+    // The sheet is its own window: it is gated by the app-lock cover. When the cover rises the window goes in the same frame
+    // and "Not now" runs, so the sheet does not come back on unlock (an accept already tapped keeps it until its answer).
+    AppLockGatedWindow(onCovered = onLater) { policy ->
+        ModalBottomSheet(
+            onDismissRequest = { if (!accepting) onLater() },
+            modifier = modifier.kitTag("identity-sheet"),
+            sheetState = state,
+            shape = shape,
+            containerColor = theme.overlay,
+            contentColor = theme.text,
+            properties = ModalBottomSheetProperties(securePolicy = policy),
+            dragHandle = {
+                Box(
+                    Modifier.padding(top = dp(RfMetrics.sheetPadTop)).size(dp(RfMetrics.grabberWidth), dp(RfMetrics.grabberHeight))
+                        .clip(shapeOf(RfMetrics.grabberRadius)).background(theme.line_strong)
                 )
             }
-            KitButton(
-                stringResource(R.string.identity_sheet_accept),
-                onAccept,
-                enabled = !waiting && !accepting && notice != KitIdentityNotice.AlreadyHandled,
-                loading = accepting,
-                tag = "identity-accept"
-            )
-            KitButton(
-                stringResource(R.string.identity_sheet_later),
-                onLater,
-                kind = KitButtonKind.Secondary,
-                enabled = !accepting,
-                tag = "identity-later"
-            )
+        ) {
+            Column(
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(
+                    start = dp(RfMetrics.sheetPadH),
+                    top = dp(RfMetrics.sheetGap),
+                    end = dp(RfMetrics.sheetPadH),
+                    bottom = dp(RfMetrics.sheetPadBottom)
+                ),
+                verticalArrangement = Arrangement.spacedBy(dp(RfMetrics.sheetGap))
+            ) {
+                KitText(
+                    stringResource(R.string.identity_sheet_title, shown),
+                    style = kitStyle(theme.size_mobile_body, FontWeight.SemiBold, theme.text, RfMetrics.lineTitle)
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))) {
+                    username?.takeIf { it.isNotBlank() }?.let {
+                        UntrustedText(
+                            USERNAME_SIGIL + it,
+                            Modifier.kitTag("identity-sheet-username"),
+                            UntrustedKind.Name,
+                            kitStyle(theme.size_secondary, FontWeight.Normal, theme.secondary, RfMetrics.lineSecondary),
+                            maxLines = 1
+                        )
+                    }
+                    if (ai) KitAiMarker()
+                }
+                KitText(
+                    stringResource(R.string.identity_sheet_body, shown),
+                    style = kitStyle(theme.size_body, FontWeight.Normal, theme.text, RfMetrics.lineBody)
+                )
+                val line = when {
+                    notice == KitIdentityNotice.AlreadyHandled -> stringResource(R.string.identity_accept_already)
+                    notice == KitIdentityNotice.ChangedAgain -> stringResource(R.string.identity_accept_again)
+                    notice == KitIdentityNotice.Failed -> stringResource(R.string.identity_accept_failed)
+                    waiting -> stringResource(R.string.identity_sheet_waiting)
+                    else -> null
+                }
+                if (line != null) {
+                    KitText(
+                        line,
+                        Modifier.kitTag("identity-sheet-notice"),
+                        style = kitStyle(
+                            theme.size_secondary,
+                            FontWeight.Normal,
+                            if (waiting && notice == null) theme.secondary else theme.warning,
+                            RfMetrics.lineSecondary
+                        )
+                    )
+                }
+                KitButton(
+                    stringResource(R.string.identity_sheet_accept),
+                    onAccept,
+                    enabled = !waiting && !accepting && notice != KitIdentityNotice.AlreadyHandled,
+                    loading = accepting,
+                    tag = "identity-accept"
+                )
+                KitButton(
+                    stringResource(R.string.identity_sheet_later),
+                    onLater,
+                    kind = KitButtonKind.Secondary,
+                    enabled = !accepting,
+                    tag = "identity-later"
+                )
+            }
         }
     }
 }

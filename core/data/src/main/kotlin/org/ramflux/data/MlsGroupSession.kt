@@ -5,6 +5,7 @@ package org.ramflux.data
 
 import java.text.BreakIterator
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -64,45 +65,118 @@ class MlsGroupSession(
     fun members(account: String, group: String): Flow<MlsMembersState> = view(account) { it.groups[group]?.members ?: MlsMembersState() }
     fun timeline(account: String, group: String): Flow<MlsTimelineState> = view(account) { it.groups[group]?.timeline ?: MlsTimelineState() }
 
-    internal fun <T> view(account: String, read: (MlsAccountData) -> T): Flow<T> =
-        data.map { read(it.accounts[account] ?: MlsAccountData()) }.distinctUntilChanged()
+    internal fun <T> view(account: String, read: (MlsAccountData) -> T): Flow<T> {
+        seen.add(account)
+        return data.map { read(it.accounts[account] ?: MlsAccountData()) }.distinctUntilChanged()
+    }
 
     // ---- account lifecycle -----------------------------------------------------------------------------------------
 
+    /** Every account a screen or a call has named in this process: the app lock that names no account clears all of them. */
+    internal val seen: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** Accounts the app lock cleared (guarded by [guard]): the app lock opening again admits exactly these. */
+    private val appLockHeld = HashSet<String>()
+
     /**
-     * Empties everything of [account] and marks it purged: late results and new calls are dropped until [admit]. W registers
-     * this through `AccountScopedStore` (a lock, an account removal). // W: AccountScopedStore.purgeBeforeClose
+     * Empties everything of [account] and marks it purged: late results and new calls are dropped until [admit], and the lock
+     * epoch moves, so every open screen of the account closes. Registered by [attach] for sign-out and removal
+     * (`AccountScopedStore`), an account lock and a switch away from the account; the app lock goes through [appLocked].
      */
     suspend fun clearAccount(account: String) {
         val job = guard.withLock {
-            val now = data.value
-            data.value = now.copy(
-                accounts = now.accounts - account,
-                purged = now.purged + account,
-                epochs = now.epochs + (account to (now.epochs[account] ?: 0L) + 1L),
-            )
-            limitTimers.keys.filter { it.startsWith(account + TIMER_SEPARATOR) }.forEach { key -> limitTimers.remove(key)?.second?.cancel() }
-            adminTimers.keys.filter { it.startsWith(account + TIMER_SEPARATOR) }.forEach { key -> adminTimers.remove(key)?.second?.cancel() }
-            watchers.remove(account)
+            appLockHeld.remove(account)
+            purge(account)
         }
         job?.cancel()
     }
 
-    /** Lifts the purge mark of [account] (an unlock, an account added). W registers this through `onAdmit`. // W: AccountScopedStore.onAdmit */
+    /**
+     * The app lock engaged for [account], or for every account when null: each is cleared like [clearAccount] and admitted
+     * again by [appUnlocked] only. With no account named, every account this process has seen is cleared.
+     */
+    suspend fun appLocked(account: String?) {
+        val jobs = guard.withLock {
+            val targets = account?.let(::setOf) ?: (seen + data.value.accounts.keys + data.value.epochs.keys + watchers.keys)
+            targets.mapNotNull { name ->
+                appLockHeld.add(name)
+                purge(name)
+            }
+        }
+        jobs.forEach(Job::cancel)
+    }
+
+    /** The app lock opened again: the accounts it cleared are admitted. An account signed out or switched away meanwhile is not. */
+    suspend fun appUnlocked() {
+        val held = guard.withLock { appLockHeld.toList().also { appLockHeld.clear() } }
+        held.forEach { admit(it) }
+    }
+
+    /** [active] became the active account: every other account this process holds is cleared until it is admitted again. */
+    suspend fun switched(active: String) {
+        val others = guard.withLock {
+            // An account the app lock cleared and that is not the active one any more is not admitted when the lock opens.
+            appLockHeld.retainAll(setOf(active))
+            (seen + data.value.accounts.keys + watchers.keys) - active - data.value.purged
+        }
+        others.forEach { clearAccount(it) }
+    }
+
+    /** Under [guard]: drops the state of [account], marks it purged and moves its epoch. Returns its event watcher to cancel. */
+    private fun purge(account: String): Job? {
+        val now = data.value
+        data.value = now.copy(
+            accounts = now.accounts - account,
+            purged = now.purged + account,
+            epochs = now.epochs + (account to (now.epochs[account] ?: 0L) + 1L),
+        )
+        limitTimers.keys.filter { it.startsWith(account + TIMER_SEPARATOR) }.forEach { key -> limitTimers.remove(key)?.second?.cancel() }
+        adminTimers.keys.filter { it.startsWith(account + TIMER_SEPARATOR) }.forEach { key -> adminTimers.remove(key)?.second?.cancel() }
+        return watchers.remove(account)
+    }
+
+    /**
+     * Lifts the purge mark of [account] (an unlock, a switch to it, an app lock opening again). The epoch moves once more, so
+     * a screen opened while the account was purged (its loads were dropped) closes instead of staying empty. An account that
+     * is not purged is left as it is.
+     */
     suspend fun admit(account: String) {
-        guard.withLock { data.value = data.value.let { it.copy(purged = it.purged - account) } }
+        guard.withLock {
+            val now = data.value
+            if (account in now.purged) {
+                data.value = now.copy(purged = now.purged - account, epochs = now.epochs + (account to (now.epochs[account] ?: 0L) + 1L))
+            }
+        }
     }
 
     /**
      * The non-suspending form for the `onAdmit` listener. It starts undispatched, so it queues on the fair guard in call order:
-     * an admit can never run after a later [clearAccount] of the same account (R2-F1). // W: register as onAdmit(session::admitInOrder)
+     * an admit can never run after a later [clearAccount] of the same account (R2-F1).
      */
     fun admitInOrder(account: String) {
         scope.launch(start = CoroutineStart.UNDISPATCHED) { admit(account) }
     }
 
+    /**
+     * Registers this session with the host's account hook points: sign-out and removal clear the account before it closes, an
+     * unlock or a switch admits it, and the app lock, an account lock and a switch away clear what may not stay on screen.
+     */
+    fun attach(stores: AccountScopedStores) {
+        stores.register { clearAccount(it) }
+        stores.onAdmit(::admitInOrder)
+        stores.onActivity(
+            object : AccountActivityListener {
+                override suspend fun appLocked(account: String?) = this@MlsGroupSession.appLocked(account)
+                override suspend fun appUnlocked() = this@MlsGroupSession.appUnlocked()
+                override suspend fun accountLocked(account: String) = clearAccount(account)
+                override suspend fun switched(active: String) = this@MlsGroupSession.switched(active)
+            }
+        )
+    }
+
     /** Follows the `group.event` topic of [account] while a surface needs it. One subscription per account. */
     fun watch(account: String) {
+        seen.add(account)
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             val epoch = epochOf(account)
             val started = guard.withLock {
@@ -1085,6 +1159,7 @@ class MlsGroupSession(
     // ---- helpers ---------------------------------------------------------------------------------------------------
 
     internal fun launchFor(account: String, block: suspend (epoch: Long) -> Unit) {
+        seen.add(account)
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             if (account in data.value.purged) return@launch
             block(epochOf(account))

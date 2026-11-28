@@ -14,6 +14,8 @@ internal class DefaultClientSessionRepository(
     private val io: CoroutineDispatcher = Dispatchers.IO,
     /** Cards are suspended before the client goes to the background or the app lock engages, and resumed after. */
     private val cards: CardLifecycleHooks = NoCardLifecycle,
+    /** Host state that may not outlive the app lock (the MLS groups session) hears the lock engage and open again here. */
+    private val stores: AccountScopedStores = AccountScopedStores(),
 ) : ClientSessionRepository {
     private val transitions = Mutex()
     private val mutable = MutableStateFlow(ClientSnapshot())
@@ -130,7 +132,10 @@ internal class DefaultClientSessionRepository(
         // The lock closed the account in the SDK, so every screen read behind the cover failed or saw no active account.
         // The release is a new generation: open screens clear and read again, and the navigation stack stays as it was.
         val released = phase == AppLockPhase.OPEN && lockEngaged
-        if (released) lockEngaged = false
+        if (released) {
+            lockEngaged = false
+            stores.appUnlocked()
+        }
         mutable.update {
             if (it.phase == ClientPhase.OPEN) {
                 it.copy(
@@ -160,12 +165,13 @@ internal class DefaultClientSessionRepository(
 
     /**
      * The app lock engaged: core dropped the locked account's card sessions (every account's when [account] is null), so the
-     * handles are forgotten here with no bus call. Idempotent,
+     * handles are forgotten here with no bus call, and the account-scoped host state that may not survive a lock is cleared. Idempotent,
      * and the cards come back through [resumeCards] only after the lock lifts, as suspended cards that open on the next tap.
      */
     private suspend fun dropCards(account: String? = null) {
         cardsSuspended = true
         cards.locked(account)
+        stores.appLocked(account)
     }
 
     /** Resumes suspended cards only when the client is open and the app lock is open. */

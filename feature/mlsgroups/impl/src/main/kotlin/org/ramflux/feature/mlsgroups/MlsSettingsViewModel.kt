@@ -6,16 +6,15 @@ package org.ramflux.feature.mlsgroups
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import org.ramflux.data.MlsAdminKind
 import org.ramflux.data.MlsAdminRules
 import org.ramflux.data.MlsGroupSession
 import org.ramflux.data.MlsNameError
+import org.ramflux.data.MlsScreenEvents
 import org.ramflux.data.admin
 import org.ramflux.data.setApproval
 import org.ramflux.data.setName
@@ -35,8 +34,8 @@ class MlsSettingsViewModel(private val session: MlsGroupSession) : ViewModel() {
     private var lockWatch: Job? = null
     private val draft = MutableStateFlow<String?>(null)
     private val confirmOff = MutableStateFlow(false)
-    private val channel = Channel<MlsSettingsEvent>(Channel.BUFFERED)
-    val events = channel.receiveAsFlow()
+    private val channel = MlsScreenEvents<MlsSettingsEvent>()
+    val events = channel.flow
     private val shown = MutableStateFlow(MlsSettingsUi())
     val state: StateFlow<MlsSettingsUi> = shown
 
@@ -57,13 +56,14 @@ class MlsSettingsViewModel(private val session: MlsGroupSession) : ViewModel() {
                 if (ids != null) session.setApproval(ids.account, ids.group, false)
             }
             MlsSettingsAction.CancelApprovalOff -> confirmOff.value = false
-            MlsSettingsAction.Back -> channel.trySend(MlsSettingsEvent.Back)
+            MlsSettingsAction.Back -> channel.send(MlsSettingsEvent.Back)
         }
     }
 
     private fun open(account: String, group: String) {
         if (current?.account == account && current?.group == group) return
         current = Ids(account, group)
+        channel.reopened()
         session.watch(account)
         session.loadInfo(account, group)
         lockWatch?.cancel()
@@ -74,7 +74,7 @@ class MlsSettingsViewModel(private val session: MlsGroupSession) : ViewModel() {
             confirmOff.value = false
             shown.value = MlsSettingsUi()
             current = null
-            channel.trySend(MlsSettingsEvent.Back)
+            channel.lockBack(MlsSettingsEvent.Back)
         }
         collector?.cancel()
         collector = viewModelScope.launch {

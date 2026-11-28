@@ -7,15 +7,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import org.ramflux.data.MlsAdminKind
 import org.ramflux.data.MlsGroupRole
 import org.ramflux.data.MlsGroupSession
+import org.ramflux.data.MlsScreenEvents
 import org.ramflux.data.admin
 import org.ramflux.data.banMember
 import org.ramflux.data.clearAdminFailure
@@ -39,8 +38,8 @@ class MlsMembersViewModel(private val session: MlsGroupSession) : ViewModel() {
     private val menu = MutableStateFlow<String?>(null)
     private val ask = MutableStateFlow<Pair<MlsMemberActionKind, String>?>(null)
     private val clock: () -> Long = System::currentTimeMillis
-    private val channel = Channel<MlsMembersEvent>(Channel.BUFFERED)
-    val events = channel.receiveAsFlow()
+    private val channel = MlsScreenEvents<MlsMembersEvent>()
+    val events = channel.flow
     private val shown = MutableStateFlow(MlsMembersUi())
     val state: StateFlow<MlsMembersUi> = shown
 
@@ -81,7 +80,7 @@ class MlsMembersViewModel(private val session: MlsGroupSession) : ViewModel() {
                     }
                 }
             }
-            MlsMembersAction.Back -> channel.trySend(MlsMembersEvent.Back)
+            MlsMembersAction.Back -> channel.send(MlsMembersEvent.Back)
         }
     }
 
@@ -108,6 +107,7 @@ class MlsMembersViewModel(private val session: MlsGroupSession) : ViewModel() {
         if (this.account == account && this.group == group) return
         this.account = account
         this.group = group
+        channel.reopened()
         session.watch(account)
         session.loadMembers(account, group)
         session.loadInfo(account, group)
@@ -121,7 +121,7 @@ class MlsMembersViewModel(private val session: MlsGroupSession) : ViewModel() {
             shown.value = MlsMembersUi()
             this.account = null
             this.group = null
-            channel.trySend(MlsMembersEvent.Back)
+            channel.lockBack(MlsMembersEvent.Back)
         }
         collector?.cancel()
         collector = viewModelScope.launch {

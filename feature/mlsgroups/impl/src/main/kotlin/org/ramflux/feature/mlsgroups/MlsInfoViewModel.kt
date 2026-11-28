@@ -7,12 +7,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.ramflux.data.MlsAdminRules
@@ -24,6 +22,7 @@ import org.ramflux.data.MlsGroupWarning
 import org.ramflux.data.MlsInfoState
 import org.ramflux.data.MlsReadOnly
 import org.ramflux.data.MlsRequestsState
+import org.ramflux.data.MlsScreenEvents
 import org.ramflux.data.MlsTimelineState
 import org.ramflux.data.admin
 import org.ramflux.data.loadRequests
@@ -38,8 +37,8 @@ class MlsInfoViewModel(private val session: MlsGroupSession) : ViewModel() {
     private class Ids(val account: String, val group: String)
 
     private val confirm = MutableStateFlow(false)
-    private val channel = Channel<MlsInfoEvent>(Channel.BUFFERED)
-    val events = channel.receiveAsFlow()
+    private val channel = MlsScreenEvents<MlsInfoEvent>()
+    val events = channel.flow
     private var current: Ids? = null
     private var requestedFirst = false
     private var collector: Job? = null
@@ -60,18 +59,19 @@ class MlsInfoViewModel(private val session: MlsGroupSession) : ViewModel() {
                 confirm.value = false
                 target?.let { session.leaveGroup(it.account, it.group) }
             }
-            MlsInfoAction.Invites -> target?.let { channel.trySend(MlsInfoEvent.Invites(it.account, it.group)) }
-            MlsInfoAction.Members -> target?.let { channel.trySend(MlsInfoEvent.Members(it.account, it.group)) }
-            MlsInfoAction.Requests -> target?.let { channel.trySend(MlsInfoEvent.Requests(it.account, it.group)) }
-            MlsInfoAction.Settings -> target?.let { channel.trySend(MlsInfoEvent.Settings(it.account, it.group)) }
+            MlsInfoAction.Invites -> target?.let { channel.send(MlsInfoEvent.Invites(it.account, it.group)) }
+            MlsInfoAction.Members -> target?.let { channel.send(MlsInfoEvent.Members(it.account, it.group)) }
+            MlsInfoAction.Requests -> target?.let { channel.send(MlsInfoEvent.Requests(it.account, it.group)) }
+            MlsInfoAction.Settings -> target?.let { channel.send(MlsInfoEvent.Settings(it.account, it.group)) }
             is MlsInfoAction.Push -> target?.let { session.setPush(it.account, it.group, action.push) }
-            MlsInfoAction.Back -> channel.trySend(MlsInfoEvent.Back)
+            MlsInfoAction.Back -> channel.send(MlsInfoEvent.Back)
         }
     }
 
     private fun open(account: String, group: String) {
         if (current?.account == account && current?.group == group) return
         current = Ids(account, group)
+        channel.reopened()
         requestedFirst = false
         session.watch(account)
         session.loadInfo(account, group)
@@ -82,7 +82,7 @@ class MlsInfoViewModel(private val session: MlsGroupSession) : ViewModel() {
             remote.value = MlsInfoUi()
             collector?.cancel()
             current = null
-            channel.trySend(MlsInfoEvent.Back)
+            channel.lockBack(MlsInfoEvent.Back)
         }
         collector?.cancel()
         collector = viewModelScope.launch {

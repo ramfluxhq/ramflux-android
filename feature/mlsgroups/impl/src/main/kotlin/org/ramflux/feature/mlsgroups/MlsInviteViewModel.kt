@@ -7,15 +7,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import org.ramflux.data.MlsGroupInvite
 import org.ramflux.data.MlsGroupNotices
 import org.ramflux.data.MlsGroupSession
+import org.ramflux.data.MlsScreenEvents
 import org.ramflux.designsystem.kit.InvitationQr
 
 /**
@@ -37,8 +36,8 @@ class MlsInviteViewModel(
     private var account: String? = null
     private var group: String? = null
     private val local = MutableStateFlow(Local())
-    private val channel = Channel<MlsInviteEvent>(Channel.BUFFERED)
-    val events = channel.receiveAsFlow()
+    private val channel = MlsScreenEvents<MlsInviteEvent>()
+    val events = channel.flow
     private val shown = MutableStateFlow(MlsInviteUi())
     val state: StateFlow<MlsInviteUi> = shown
 
@@ -73,7 +72,7 @@ class MlsInviteViewModel(
                 if (a != null && g != null) notices.markHostIpSeen(a, g)
                 local.value = copy(noticePending = false)
             }
-            MlsInviteAction.Back -> channel.trySend(MlsInviteEvent.Back)
+            MlsInviteAction.Back -> channel.send(MlsInviteEvent.Back)
         }
     }
 
@@ -84,6 +83,7 @@ class MlsInviteViewModel(
         if (account == action.account && group == action.groupId) return
         account = action.account
         group = action.groupId
+        channel.reopened()
         local.value = Local(noticePending = action.fromCreate && !notices.hostIpSeen(action.account, action.groupId))
         session.watch(action.account)
         session.loadInvites(action.account, action.groupId)
@@ -100,7 +100,7 @@ class MlsInviteViewModel(
             shown.value = MlsInviteUi()
             account = null
             group = null
-            channel.trySend(MlsInviteEvent.Back)
+            channel.lockBack(MlsInviteEvent.Back)
         }
         collector?.cancel()
         collector = viewModelScope.launch {

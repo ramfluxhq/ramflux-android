@@ -139,6 +139,8 @@ internal class DefaultAccountAccessRepository(
             is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
             is CoreResult.Success -> {
                 result.value.close()
+                // The account left behind is no longer shown: what it held on screen is cleared before the new one is admitted.
+                stores.switched(id)
                 stores.admit(id)
                 publishedRevisions.emit(revisionCount.incrementAndGet())
                 ClientResult.Ready(Unit)
@@ -151,6 +153,7 @@ internal class DefaultAccountAccessRepository(
                 is CoreResult.Failure -> ClientResult.Failed(locked.appProblem())
                 is CoreResult.Success -> {
                     locked.value.close()
+                    stores.accountLocked(id)
                     publishedRevisions.emit(revisionCount.incrementAndGet())
                     ClientResult.Ready(Unit)
                 }

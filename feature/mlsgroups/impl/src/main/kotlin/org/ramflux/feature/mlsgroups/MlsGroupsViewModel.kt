@@ -8,20 +8,19 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.ramflux.data.MlsGroupListState
 import org.ramflux.data.MlsGroupSession
 import org.ramflux.data.MlsJoinOutcome
 import org.ramflux.data.MlsJoinState
+import org.ramflux.data.MlsScreenEvents
 
 /**
  * The groups list and its join sheet. It owns no call: every call runs in the process-wide [MlsGroupSession], so a result is
@@ -38,8 +37,8 @@ class MlsGroupsViewModel(
     private val account = MutableStateFlow<String?>(null)
     private val sheet = MutableStateFlow(Sheet())
     private var lockWatch: Job? = null
-    private val channel = Channel<MlsGroupsEvent>(Channel.BUFFERED)
-    val events = channel.receiveAsFlow()
+    private val channel = MlsScreenEvents<MlsGroupsEvent>()
+    val events = channel.flow
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val remote = account.flatMapLatest { id ->
@@ -97,17 +96,26 @@ class MlsGroupsViewModel(
         val id = account.value
         when (action) {
             is MlsGroupsAction.Open -> {
+                if (account.value != action.account) channel.reopened()
                 account.value = action.account
                 lockWatch?.cancel()
-                // The join sheet and the typed link close and are dropped when the lock engages or the account goes away.
-                lockWatch = dropOnLock(session, action.account) { sheet.value = Sheet() }
+                // The join sheet and the typed link close and are dropped when the lock engages or the account goes away. A list on
+                // screen reads again (the session drops the read while the account is purged), so once the account is admitted the
+                // list comes back instead of staying empty; a list not on screen reads on its next open.
+                lockWatch = dropOnLock(session, action.account) {
+                    sheet.value = Sheet()
+                    if (channel.attached) {
+                        session.watch(action.account)
+                        session.loadGroups(action.account)
+                    }
+                }
                 session.watch(action.account)
                 session.loadGroups(action.account)
             }
             MlsGroupsAction.Refresh -> id?.let(session::loadGroups)
             MlsGroupsAction.LoadMore -> id?.let(session::loadMoreGroups)
-            is MlsGroupsAction.OpenGroup -> id?.let { channel.trySend(MlsGroupsEvent.OpenGroup(it, action.groupId)) }
-            MlsGroupsAction.NewGroup -> channel.trySend(MlsGroupsEvent.NewGroup)
+            is MlsGroupsAction.OpenGroup -> id?.let { channel.send(MlsGroupsEvent.OpenGroup(it, action.groupId)) }
+            MlsGroupsAction.NewGroup -> channel.send(MlsGroupsEvent.NewGroup)
             MlsGroupsAction.OpenJoin -> {
                 sheet.value = Sheet(open = true)
                 id?.let(session::joinSheetChanged)
@@ -126,9 +134,9 @@ class MlsGroupsViewModel(
             is MlsGroupsAction.OpenJoined -> {
                 sheet.value = Sheet()
                 id?.let(session::joinSheetChanged)
-                if (id != null && action.groupId != null) channel.trySend(MlsGroupsEvent.OpenGroup(id, action.groupId))
+                if (id != null && action.groupId != null) channel.send(MlsGroupsEvent.OpenGroup(id, action.groupId))
             }
-            MlsGroupsAction.Back -> channel.trySend(MlsGroupsEvent.Back)
+            MlsGroupsAction.Back -> channel.send(MlsGroupsEvent.Back)
         }
     }
 
