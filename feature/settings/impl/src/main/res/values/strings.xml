@@ -115,7 +115,7 @@
     <!-- Keypad key that deletes the last digit. -->
     <string name="settings_code_delete">Delete</string>
     <!-- Button that changes the account code. -->
-    <string name="settings_code_submit">Change code</string>
+    <string name="settings_code_submit">Change account code</string>
     <!-- Refusal: the code must have six digits. -->
     <string name="settings_code_not_six">Enter all six digits.</string>
     <!-- Refusal: the new code is too easy. -->
@@ -294,4 +294,6 @@
     <string name="settings_app_lock_restore">Recover with recovery phrase</string>
     <string name="settings_app_lock_not_changed">App lock was not changed. The change needs your account code.</string>
     <string name="settings_app_lock_busy">Another app lock change is in progress.</string>
+    <string name="settings_code_repeat">Repeat new account code</string>
+    <string name="settings_code_mismatch">The codes do not match.</string>
 </resources>

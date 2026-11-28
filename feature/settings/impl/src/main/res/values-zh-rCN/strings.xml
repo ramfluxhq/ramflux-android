@@ -115,7 +115,7 @@
     <!-- Keypad key that deletes the last digit. -->
     <string name="settings_code_delete">删除</string>
     <!-- Button that changes the account code. -->
-    <string name="settings_code_submit">修改密码</string>
+    <string name="settings_code_submit">修改账户码</string>
     <!-- Refusal: the code must have six digits. -->
     <string name="settings_code_not_six">请输入完整的六位数字。</string>
     <!-- Refusal: the new code is too easy. -->
@@ -294,4 +294,6 @@
     <string name="settings_app_lock_restore">用恢复短语恢复</string>
     <string name="settings_app_lock_not_changed">应用锁未更改。此更改需要账户码。</string>
     <string name="settings_app_lock_busy">另一项应用锁更改正在进行中。</string>
+    <string name="settings_code_repeat">再次输入新账户码</string>
+    <string name="settings_code_mismatch">两次输入的账户码不一致。</string>
 </resources>

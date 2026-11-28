@@ -96,6 +96,9 @@ val APP_LOCK_TIMEOUTS: List<Long> = listOf(0L, 60_000L, 300_000L, 900_000L, 3_60
     val open: Boolean = false,
     val currentDigits: Int = 0,
     val nextDigits: Int = 0,
+    /** Digits typed into "Repeat new account code"; [mismatch] is set when all six differ from the new code. */
+    val repeatDigits: Int = 0,
+    val mismatch: Boolean = false,
     val working: Boolean = false,
     val done: Boolean = false,
     val problem: UiText? = null

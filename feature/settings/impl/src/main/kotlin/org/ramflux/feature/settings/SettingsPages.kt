@@ -230,16 +230,28 @@ internal fun LazyListScope.accountPage(state: SettingsState, onAction: (Settings
 @Composable
 private fun CodeChangeForm(form: SettingsCodeChange, onAction: (SettingsAction) -> Unit) {
     val theme = LocalRFTheme.current
-    val next = form.currentDigits == 6
+    // The keypad types into the first unfinished field: current, then new, then the repeat.
+    val target = when {
+        form.currentDigits < 6 -> 0
+        form.nextDigits < 6 -> 1
+        else -> 2
+    }
     Column(Modifier.testTag("code-form"), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
-        KitCodeField(stringResource(R.string.settings_code_current), form.currentDigits, focused = !next, tag = "code-current")
+        KitCodeField(stringResource(R.string.settings_code_current), form.currentDigits, focused = target == 0, tag = "code-current")
         KitCodeField(
             stringResource(R.string.settings_code_new),
             form.nextDigits,
-            focused = next,
+            focused = target == 1,
             error = form.problem?.render(),
             helper = stringResource(R.string.settings_code_new_help),
             tag = "code-new"
+        )
+        KitCodeField(
+            stringResource(R.string.settings_code_repeat),
+            form.repeatDigits,
+            focused = target == 2,
+            error = if (form.mismatch) stringResource(R.string.settings_code_mismatch) else null,
+            tag = "code-repeat"
         )
         // Digits go straight to the view model's erasable arrays: no text editor, IME or undo history holds them.
         for (row in KEYPAD) {
@@ -250,14 +262,14 @@ private fun CodeChangeForm(form: SettingsCodeChange, onAction: (SettingsAction) 
                             KEY_NONE -> Unit
                             KEY_DELETE -> KitButton(
                                 stringResource(R.string.settings_code_delete),
-                                { onAction(SettingsAction.CodeDigit(next, null)) },
+                                { onAction(codeKey(target, form, null)) },
                                 kind = KitButtonKind.Secondary,
                                 enabled = !form.working,
                                 tag = "code-delete"
                             )
                             else -> KitButton(
                                 key.toString(),
-                                { onAction(SettingsAction.CodeDigit(next, '0' + key)) },
+                                { onAction(codeKey(target, form, '0' + key)) },
                                 kind = KitButtonKind.Secondary,
                                 enabled = !form.working,
                                 tag = "code-key-$key"
@@ -270,13 +282,20 @@ private fun CodeChangeForm(form: SettingsCodeChange, onAction: (SettingsAction) 
         KitButton(
             stringResource(R.string.settings_code_submit),
             { onAction(SettingsAction.SubmitCodeChange) },
-            enabled = !form.working && form.currentDigits == 6 && form.nextDigits == 6,
+            enabled = !form.working && form.currentDigits == 6 && form.nextDigits == 6 && form.repeatDigits == 6 && !form.mismatch,
             tag = "code-submit"
         )
         KitButton(stringResource(R.string.settings_cancel), {
             onAction(SettingsAction.CloseCodeChange)
         }, kind = KitButtonKind.Secondary, enabled = !form.working, tag = "code-cancel")
     }
+}
+
+/** The action for a keypad key: a digit goes to the target field; delete steps back to the new code from an empty repeat. */
+private fun codeKey(target: Int, form: SettingsCodeChange, digit: Char?): SettingsAction = when {
+    target == 2 && (digit != null || form.repeatDigits > 0) -> SettingsAction.RepeatDigit(digit)
+    target == 2 -> SettingsAction.CodeDigit(true, null)
+    else -> SettingsAction.CodeDigit(target == 1, digit)
 }
 
 internal fun LazyListScope.privacyPage(state: SettingsState, onAction: (SettingsAction) -> Unit) {

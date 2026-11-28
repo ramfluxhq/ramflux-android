@@ -246,6 +246,7 @@ class SettingsViewModel @Inject constructor(
                 local.update { it.copy(codeChange = SettingsCodeChange(open = true)) }
             }
             is SettingsAction.CodeDigit -> codeDigit(action.next, action.digit)
+            is SettingsAction.RepeatDigit -> repeatDigit(action.digit)
             SettingsAction.SubmitCodeChange -> submitCodeChange()
             SettingsAction.CloseCodeChange -> closeCodeChange()
             is SettingsAction.ReauthDigit -> reauthDigit(action.digit)
@@ -629,8 +630,10 @@ class SettingsViewModel @Inject constructor(
     // The account-code change: digits live only in these arrays and are wiped on every exit.
     private val currentCode = CharArray(AccountCode.DIGITS)
     private val nextCode = CharArray(AccountCode.DIGITS)
+    private val repeatCode = CharArray(AccountCode.DIGITS)
     private var currentCount = 0
     private var nextCount = 0
+    private var repeatCount = 0
     private var codeJob: Job? = null
     private var usernameJob: Job? = null
 
@@ -638,7 +641,31 @@ class SettingsViewModel @Inject constructor(
         val form = local.value.codeChange
         if (!form.open || form.working) return
         if (next) nextCount = typed(nextCode, nextCount, digit) else currentCount = typed(currentCode, currentCount, digit)
-        local.update { it.copy(codeChange = form.copy(currentDigits = currentCount, nextDigits = nextCount, problem = null, done = false)) }
+        publishCodeForm(form)
+    }
+
+    private fun repeatDigit(digit: Char?) {
+        val form = local.value.codeChange
+        if (!form.open || form.working) return
+        repeatCount = typed(repeatCode, repeatCount, digit)
+        publishCodeForm(form)
+    }
+
+    /** Publishes the digit counts and whether the repeated code differs from the new one (only once all six are typed). */
+    private fun publishCodeForm(form: SettingsCodeChange) {
+        val mismatch = repeatCount == AccountCode.DIGITS && nextCount == AccountCode.DIGITS && !repeatCode.contentEquals(nextCode)
+        local.update {
+            it.copy(
+                codeChange = form.copy(
+                    currentDigits = currentCount,
+                    nextDigits = nextCount,
+                    repeatDigits = repeatCount,
+                    mismatch = mismatch,
+                    problem = null,
+                    done = false
+                )
+            )
+        }
     }
     private fun typed(buffer: CharArray, count: Int, digit: Char?): Int = when {
         digit == null -> if (count > 0) {
@@ -656,12 +683,24 @@ class SettingsViewModel @Inject constructor(
     private fun submitCodeChange() {
         val account = activeAccount ?: return
         val form = local.value.codeChange
-        if (!form.open || form.working || currentCount != AccountCode.DIGITS || nextCount != AccountCode.DIGITS) return
+        val complete = currentCount == AccountCode.DIGITS && nextCount == AccountCode.DIGITS && repeatCount == AccountCode.DIGITS
+        if (!form.open || form.working || !complete || !repeatCode.contentEquals(nextCode)) return
         // The repository wipes these copies; the form's own arrays are wiped right after.
         val current = currentCode.copyOf()
         val next = nextCode.copyOf()
         wipeCodes()
-        local.update { it.copy(codeChange = form.copy(currentDigits = 0, nextDigits = 0, working = true, problem = null)) }
+        local.update {
+            it.copy(
+                codeChange = form.copy(
+                    currentDigits = 0,
+                    nextDigits = 0,
+                    repeatDigits = 0,
+                    mismatch = false,
+                    working = true,
+                    problem = null
+                )
+            )
+        }
         codeJob = viewModelScope.launch {
             val result = security.changeAccountCode(account, current, next)
             local.update {
@@ -678,8 +717,10 @@ class SettingsViewModel @Inject constructor(
     private fun wipeCodes() {
         currentCode.fill('\u0000')
         nextCode.fill('\u0000')
+        repeatCode.fill('\u0000')
         currentCount = 0
         nextCount = 0
+        repeatCount = 0
     }
 
     /**

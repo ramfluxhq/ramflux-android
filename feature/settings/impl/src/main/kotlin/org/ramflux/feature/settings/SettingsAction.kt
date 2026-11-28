@@ -64,6 +64,9 @@ sealed interface SettingsAction {
 
     /** One typed digit (or deletion with null) of the current or the new account code. */
     data class CodeDigit(val next: Boolean, val digit: Char?) : SettingsAction
+
+    /** One typed digit (or deletion with null) of the repeated new account code. */
+    data class RepeatDigit(val digit: Char?) : SettingsAction
     data object SubmitCodeChange : SettingsAction
     data object CloseCodeChange : SettingsAction
 
