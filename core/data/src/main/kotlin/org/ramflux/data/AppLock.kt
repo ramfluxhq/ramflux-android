@@ -37,7 +37,7 @@ enum class AppLockState {
 }
 
 /**
- * One reading of `account.app_lock.state` for one account. [timeoutMs] is zero for "immediately". [codeRetryAfterMs] is
+ * One reading of `account.app_lock.state` for one account. [timeoutMs] is zero for "immediately". [codeRetryAfterSecs] is
  * the wait the account-code throttle holds now (null when none), and [codeAttemptsExhausted] is set once the code
  * attempts are used up. Both come from core, so a host shows the wait before it asks for a code.
  */
@@ -45,7 +45,7 @@ data class AppLockStatus(
     val enabled: Boolean,
     val timeoutMs: Long,
     val state: AppLockState,
-    val codeRetryAfterMs: Long? = null,
+    val codeRetryAfterSecs: Long? = null,
     val codeAttemptsExhausted: Boolean = false,
 ) {
     companion object {
@@ -54,7 +54,7 @@ data class AppLockStatus(
             val enabled = (body["enabled"] as? JsonPrimitive)?.booleanOrNull ?: return null
             val timeout = (body["timeout_ms"] as? JsonPrimitive)?.longOrNull ?: return null
             val state = AppLockState.parse((body["state"] as? JsonPrimitive)?.contentOrNull) ?: return null
-            val retry = (body["code_retry_after_ms"] as? JsonPrimitive)?.longOrNull?.takeIf { it > 0L }
+            val retry = (body["code_retry_after_secs"] as? JsonPrimitive)?.longOrNull?.takeIf { it > 0L }
             val exhausted = (body["code_attempts_exhausted"] as? JsonPrimitive)?.booleanOrNull ?: false
             return AppLockStatus(enabled, timeout, state, retry, exhausted)
         }

@@ -35,6 +35,7 @@ import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.kit.KitConfirmDialog
 import org.ramflux.designsystem.kit.KitTipBar
+import org.ramflux.designsystem.rememberAppLockCheckedResult
 import org.ramflux.designsystem.render
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
@@ -80,23 +81,38 @@ fun ChatNavigation(
     // The system photo picker needs no storage permission; documents come through the document picker.
     // Up to 16 photos and videos become one message (the SDK's attachment limit per message).
     val pickMany = ActivityResultContracts.PickMultipleVisualMedia(MediaAttachment.MAX_PER_MESSAGE)
-    val photos = rememberLauncherForActivityResult(pickMany) { uris ->
-        if (uris.isNotEmpty()) vm.onAction(ChatAction.Picked(uris.map { it.toString() }, PickSource.PHOTO))
-    }
-    val documents = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) vm.onAction(ChatAction.Picked(listOf(uri.toString()), PickSource.FILE))
-    }
+    // A pick that comes back into a locked account is refused (rememberAppLockCheckedResult); a capture is discarded.
+    val photos = rememberLauncherForActivityResult(
+        pickMany,
+        rememberAppLockCheckedResult { uris: List<android.net.Uri> ->
+            if (uris.isNotEmpty()) vm.onAction(ChatAction.Picked(uris.map { it.toString() }, PickSource.PHOTO))
+        }
+    )
+    val documents = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+        rememberAppLockCheckedResult { uri: android.net.Uri? ->
+            if (uri != null) vm.onAction(ChatAction.Picked(listOf(uri.toString()), PickSource.FILE))
+        }
+    )
     // The capture target survives the camera activity and process death; it is a cache path, not content.
     var capture by rememberSaveable { mutableStateOf<String?>(null) }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-        val target = capture
-        capture = null
-        if (saved && target != null) {
-            vm.onAction(ChatAction.Picked(listOf(target), PickSource.CAMERA))
-        } else {
-            scope.launch { ChatFileHandover.discardCapture(context) }
+    val camera = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture(),
+        rememberAppLockCheckedResult(
+            onRefused = {
+                capture = null
+                scope.launch { ChatFileHandover.discardCapture(context) }
+            }
+        ) { saved: Boolean ->
+            val target = capture
+            capture = null
+            if (saved && target != null) {
+                vm.onAction(ChatAction.Picked(listOf(target), PickSource.CAMERA))
+            } else {
+                scope.launch { ChatFileHandover.discardCapture(context) }
+            }
         }
-    }
+    )
     val cameraPermission by rememberUpdatedState(onCameraPermission)
     val hasCamera = remember(context) { context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) }
     fun cameraGranted() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -155,7 +171,13 @@ fun ChatNavigation(
                     // Only web links leave the app; any other scheme in a card link is dropped.
                     val uri = event.url.toUri()
                     if (uri.scheme.equals("https", ignoreCase = true) || uri.scheme.equals("http", ignoreCase = true)) {
-                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
+                        // In the browser's own task, so it never sits above the app-lock cover in this one.
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                uri
+                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
                     }
                 }
             }

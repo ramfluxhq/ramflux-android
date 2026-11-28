@@ -26,7 +26,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -34,6 +33,7 @@ import java.time.format.FormatStyle
 import kotlinx.serialization.json.JsonObject
 import org.ramflux.data.cards.CardNode
 import org.ramflux.data.cards.CardSlotOutcome
+import org.ramflux.designsystem.CoverAwareDialog
 import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
@@ -179,10 +179,10 @@ private fun riskLabel(risk: String): String = risk.lowercase().replaceFirstChar 
 /** The host security sheet: the verified facts again and a single-tap Confirm (README, no hold gesture). */
 @Composable
 private fun ApprovalConfirm(facts: JsonObject, onCancel: () -> Unit, onConfirm: () -> Unit) {
-    if (LocalAppLockCovered.current) return
     val theme = LocalRFTheme.current
     val shape = RoundedCornerShape(theme.radius_dialog.dp)
-    Dialog(onDismissRequest = onCancel) {
+    // The app-lock cover closes the sheet (onCancel), so it does not come back on unlock.
+    CoverAwareDialog(onDismissRequest = onCancel) {
         Column(
             Modifier
                 .background(theme.overlay, shape)

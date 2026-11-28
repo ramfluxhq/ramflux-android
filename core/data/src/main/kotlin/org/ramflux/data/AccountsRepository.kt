@@ -16,8 +16,6 @@ interface AccountsRepository {
     suspend fun accountApp_lockState(context: RepositoryContext, body: JsonObject): CoreResult<JsonObject>
     suspend fun accountBackupCancel(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountBackupCreate(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
-    suspend fun accountBackupExport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
-    suspend fun accountBackupImport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountBackupJobs(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
     suspend fun accountReachGet(context: RepositoryContext, body: JsonObject): CoreResult<SecretReply>
     suspend fun accountReachSet(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply>
@@ -68,12 +66,6 @@ class DefaultAccountsRepository(transport: RepositoryTransport) : SdkRepository(
 
     override suspend fun accountBackupCreate(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("account.backup.create", "account", context, body)
-
-    override suspend fun accountBackupExport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
-        executeSecret("account.backup.export", "account", context, body)
-
-    override suspend fun accountBackupImport(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
-        executeSecret("account.backup.import", "account", context, body)
 
     override suspend fun accountBackupJobs(context: RepositoryContext, body: SecretBody): CoreResult<SecretReply> =
         executeSecret("account.backup.jobs", "account", context, body)

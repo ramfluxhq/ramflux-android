@@ -42,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -56,6 +57,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.ramflux.data.cards.CardEvent
 import org.ramflux.data.cards.CardNode
+import org.ramflux.designsystem.AppLockGatedWindow
 import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitButton
@@ -394,57 +396,65 @@ internal fun CardDateTime(node: CardNode, ctx: CardContext) {
             pendingDay = null
         }
     }
-    if (pickingDate && !covered) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = (date ?: LocalDate.now()).toEpochDay() * DAY_MILLIS)
-        DatePickerDialog(
-            onDismissRequest = { pickingDate = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val picked = state.selectedDateMillis?.let { LocalDate.ofEpochDay(it / DAY_MILLIS) }
-                    pickingDate = false
-                    if (picked != null) {
-                        if (useTime) {
-                            pickingTime = true
-                        } else {
-                            ctx.event(key, CardEvent.Input(JsonPrimitive(picked.format(DateTimeFormatter.ISO_LOCAL_DATE))))
+    if (pickingDate) {
+        // The covered effect above resets the picker state when the cover rises.
+        AppLockGatedWindow(onCovered = {}) { policy ->
+            val state = rememberDatePickerState(initialSelectedDateMillis = (date ?: LocalDate.now()).toEpochDay() * DAY_MILLIS)
+            DatePickerDialog(
+                onDismissRequest = { pickingDate = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val picked = state.selectedDateMillis?.let { LocalDate.ofEpochDay(it / DAY_MILLIS) }
+                        pickingDate = false
+                        if (picked != null) {
+                            if (useTime) {
+                                pickingTime = true
+                            } else {
+                                ctx.event(key, CardEvent.Input(JsonPrimitive(picked.format(DateTimeFormatter.ISO_LOCAL_DATE))))
+                            }
+                            pendingDay = picked
                         }
-                        pendingDay = picked
-                    }
-                }) { Text(stringResource(R.string.card_ok)) }
-            },
-            dismissButton = { TextButton(onClick = { pickingDate = false }) { Text(stringResource(R.string.card_cancel)) } }
-        ) {
-            DatePicker(state = state)
+                    }) { Text(stringResource(R.string.card_ok)) }
+                },
+                dismissButton = { TextButton(onClick = { pickingDate = false }) { Text(stringResource(R.string.card_cancel)) } },
+                properties = DialogProperties(securePolicy = policy)
+            ) {
+                DatePicker(state = state)
+            }
         }
     }
-    if (pickingTime && !covered) {
-        val start = time ?: LocalTime.NOON
-        val state = rememberTimePickerState(initialHour = start.hour, initialMinute = start.minute, is24Hour = true)
-        AlertDialog(
-            onDismissRequest = { pickingTime = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickingTime = false
-                    val day = pendingDay ?: date ?: LocalDate.now()
-                    val value = if (useDate) {
-                        "${day.format(
-                            DateTimeFormatter.ISO_LOCAL_DATE
-                        )}T${String.format(Locale.ROOT, "%02d:%02d", state.hour, state.minute)}"
-                    } else {
-                        String.format(Locale.ROOT, "%02d:%02d", state.hour, state.minute)
-                    }
-                    ctx.event(key, CardEvent.Input(JsonPrimitive(value)))
-                    pendingDay = null
-                }) { Text(stringResource(R.string.card_ok)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    pickingTime = false
-                    pendingDay = null
-                }) { Text(stringResource(R.string.card_cancel)) }
-            },
-            text = { TimePicker(state = state) }
-        )
+    if (pickingTime) {
+        // The covered effect above resets the picker state when the cover rises.
+        AppLockGatedWindow(onCovered = {}) { policy ->
+            val start = time ?: LocalTime.NOON
+            val state = rememberTimePickerState(initialHour = start.hour, initialMinute = start.minute, is24Hour = true)
+            AlertDialog(
+                onDismissRequest = { pickingTime = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        pickingTime = false
+                        val day = pendingDay ?: date ?: LocalDate.now()
+                        val value = if (useDate) {
+                            "${day.format(
+                                DateTimeFormatter.ISO_LOCAL_DATE
+                            )}T${String.format(Locale.ROOT, "%02d:%02d", state.hour, state.minute)}"
+                        } else {
+                            String.format(Locale.ROOT, "%02d:%02d", state.hour, state.minute)
+                        }
+                        ctx.event(key, CardEvent.Input(JsonPrimitive(value)))
+                        pendingDay = null
+                    }) { Text(stringResource(R.string.card_ok)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        pickingTime = false
+                        pendingDay = null
+                    }) { Text(stringResource(R.string.card_cancel)) }
+                },
+                text = { TimePicker(state = state) },
+                properties = DialogProperties(securePolicy = policy)
+            )
+        }
     }
 }
 
