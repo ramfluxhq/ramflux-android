@@ -7,7 +7,7 @@
     <string name="ui_conversation">Conversation</string>
     <string name="ui_loading_messages">Loading messages</string>
     <string name="ui_message_content_is_unavailable">Message content is unavailable.</string>
-    <string name="ui_message_deleted">Message deleted</string>
+    <string name="ui_message_deleted">This message was deleted</string>
     <string name="ui_message_history_is_unavailable">Message history is unavailable.</string>
     <string name="ui_no_messages">No messages</string>
     <string name="ui_private_data_is_closed">Private data is closed.</string>
@@ -28,7 +28,6 @@
     <string name="ui_conversation_details_unavailable">Conversation details unavailable</string>
     <string name="ui_call_record_unavailable">Call record · details unavailable</string>
     <string name="ui_attach">Attach</string>
-    <string name="ui_delivery_submitted">Submitted</string>
     <string name="ui_delivery_failed">Delivery failed</string>
     <string name="ui_edited">Edited</string>
     <string name="ui_reply">Reply</string>
@@ -284,4 +283,5 @@
     <!-- Centred service line in a group chat: pin removed. -->
     <string name="chat_service_pin_removed">A message was unpinned</string>
     <string name="ui_try_again">Try again</string>
+    <string name="ui_message_deleted_own">You deleted this message</string>
 </resources>

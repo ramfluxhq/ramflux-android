@@ -540,7 +540,8 @@ class ChatViewModel @Inject constructor(
             when (sent) {
                 is ClientResult.Ready -> {
                     outbox.remove(id)
-                    local.update { it.copy(deliveryNotice = uiText(R.string.ui_delivery_submitted)) }
+                    // The sent state lives on the bubble; no progress line is raised, and a failure line from an earlier send ends.
+                    local.update { it.copy(deliveryNotice = null) }
                     publish()
                     channel.send(ChatEvent.Sent)
                     if (request?.isActive == true) needsRefresh = true else read()
@@ -901,7 +902,7 @@ class ChatViewModel @Inject constructor(
                         actionTarget = null,
                         expectedRevision = 0,
                         selectedId = null,
-                        deliveryNotice = uiText(R.string.ui_delivery_submitted)
+                        deliveryNotice = null
                     )
                 }
                 needsRefresh = true
@@ -1016,7 +1017,7 @@ class ChatViewModel @Inject constructor(
         // of the sender is never a name: a peer without a resolved name is shown as a neutral member.
         val centred = row.service || (row.placeholder && !row.deleted)
         val content = when {
-            row.deleted -> uiText(R.string.ui_message_deleted)
+            row.deleted -> uiText(if (row.own) R.string.ui_message_deleted_own else R.string.ui_message_deleted)
             row.service && row.text == null -> uiText(serviceLine(row.serviceAction))
             row.placeholder -> uiText(R.string.ui_message_placeholder)
             else -> row.text?.let { UiText.Data(it) } ?: uiText(R.string.ui_message_content_is_unavailable)

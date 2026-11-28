@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
@@ -57,14 +59,16 @@ fun KitBubble(
     maxWidth: Dp? = null,
     quote: String? = null,
     ticks: Boolean = true,
+    /** A deleted message: no fill, an outline in the quiet line colour, italic secondary text (D-9). */
+    tombstone: Boolean = false,
     receiptLabel: String? = null,
     tag: String? = null
 ) {
     val theme = LocalRFTheme.current
     val own = kind == KitBubbleKind.Own
-    val fill = if (own) theme.outgoing else theme.incoming
-    val text = if (own) theme.outgoing_text else theme.text
-    val meta = if (own) theme.outgoing_meta else theme.incoming_meta
+    val fill = if (tombstone) Color.Transparent else if (own) theme.outgoing else theme.incoming
+    val text = if (tombstone) theme.secondary else if (own) theme.outgoing_text else theme.text
+    val meta = if (tombstone) theme.secondary else if (own) theme.outgoing_meta else theme.incoming_meta
     val shape = if (kind == KitBubbleKind.File) {
         RoundedCornerShape(
             topStart = dp(theme.radius_bubble_joined),
@@ -83,6 +87,7 @@ fun KitBubble(
                 .clip(shape)
                 .background(fill)
                 .then(if (failed) Modifier.border(dp(RfMetrics.controlStroke), theme.danger, shape) else Modifier)
+                .then(if (tombstone) Modifier.border(dp(RfMetrics.stroke), theme.line, shape) else Modifier)
                 .kitTag(tag)
                 .padding(
                     horizontal = dp(if (kind == KitBubbleKind.File) RfMetrics.bubblePadV else RfMetrics.bubblePadH),
@@ -199,7 +204,11 @@ fun KitBubble(
                         untrustedDisplay(body, UntrustedKind.Excerpt),
                         modifier = Modifier.weight(1f, fill = false),
                         style = kitStyle(theme.size_mobile_body, FontWeight.Normal, text, RfMetrics.lineBubble)
-                            .copy(textDirection = TextDirection.Content, textAlign = TextAlign.Start),
+                            .copy(
+                                textDirection = TextDirection.Content,
+                                textAlign = TextAlign.Start,
+                                fontStyle = if (tombstone) FontStyle.Italic else null
+                            ),
                         designLine = true
                     )
                     Row(

@@ -7,7 +7,7 @@
     <string name="ui_conversation">会话</string>
     <string name="ui_loading_messages">正在加载消息</string>
     <string name="ui_message_content_is_unavailable">消息内容不可用。</string>
-    <string name="ui_message_deleted">消息已删除</string>
+    <string name="ui_message_deleted">此消息已删除</string>
     <string name="ui_message_history_is_unavailable">消息历史不可用。</string>
     <string name="ui_no_messages">暂无消息</string>
     <string name="ui_private_data_is_closed">私有数据已关闭。</string>
@@ -28,7 +28,6 @@
     <string name="ui_conversation_details_unavailable">会话详情不可用</string>
     <string name="ui_call_record_unavailable">通话记录 · 详情不可用</string>
     <string name="ui_attach">添加附件</string>
-    <string name="ui_delivery_submitted">已提交</string>
     <string name="ui_delivery_failed">投递失败</string>
     <string name="ui_edited">已编辑</string>
     <string name="ui_reply">回复</string>
@@ -283,4 +282,5 @@
     <!-- Centred service line in a group chat: pin removed. -->
     <string name="chat_service_pin_removed">已取消置顶一条消息</string>
     <string name="ui_try_again">重试</string>
+    <string name="ui_message_deleted_own">你删除了此消息</string>
 </resources>
