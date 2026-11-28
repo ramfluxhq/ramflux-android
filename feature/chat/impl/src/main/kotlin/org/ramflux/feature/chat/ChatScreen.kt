@@ -154,6 +154,15 @@ fun ChatScreen(
                         modifier = Modifier.weight(1f).fillMaxWidth()
                     ) { Box(Modifier.fillMaxSize()) { TimelineBody(state, stamps, anchors, onAction) } }
                 }
+                if (mls?.trimmed == true) {
+                    KitButton(
+                        stringResource(R.string.group_chat_jump_newest),
+                        { onAction(ChatAction.JumpToNewest) },
+                        Modifier.fillMaxWidth().padding(horizontal = gap.dp, vertical = (gap * .5f).dp),
+                        kind = KitButtonKind.Secondary,
+                        tag = "mls-jump-newest"
+                    )
+                }
                 Notices(state)
                 mls?.notice?.let {
                     KitTipBar(

@@ -331,6 +331,7 @@
     <string name="group_timeline_floor">更早的消息在此设备上不可用</string>
     <string name="group_chat_mention">提及成员</string>
     <string name="group_chat_refresh">刷新</string>
+    <string name="group_chat_jump_newest">跳到最新消息</string>
     <string name="group_chat_mention_close">关闭</string>
     <string name="group_chat_notice_host_ip">群组服务器（%1$s）可以看到你的网络地址。消息仍保持端到端加密。</string>
     <string name="group_chat_host_unknown">群组服务器</string>

@@ -34,6 +34,9 @@ sealed interface ChatAction {
 
     data class Load(val accountId: String, val conversationId: String, val groupId: String? = null, val title: String? = null) : ChatAction
     data object Refresh : ChatAction
+
+    /** An MLS group window that lost its newest rows loads the newest page again. */
+    data object JumpToNewest : ChatAction
     data class Draft(val text: String) : ChatAction
     data object Send : ChatAction
     data object Back : ChatAction
