@@ -118,4 +118,16 @@ sealed interface ChatAction {
 
     /** The screen left the foreground; the draft is sealed to storage now. */
     data object Pause : ChatAction
+
+    /** MLS group chat: the confirmed "Delete for everyone" of the selected row, and its dismissal. */
+    data object ConfirmDelete : ChatAction
+    data object CancelDelete : ChatAction
+
+    /** MLS group chat: the mention picker over the loaded members. */
+    data object MentionOpen : ChatAction
+    data object MentionMore : ChatAction
+    data object MentionClose : ChatAction
+    data class MentionPick(val anchor: String) : ChatAction {
+        override fun toString() = "MentionPick(<redacted>)"
+    }
 }

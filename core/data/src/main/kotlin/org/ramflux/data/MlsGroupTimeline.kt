@@ -199,7 +199,7 @@ data class MlsLineName(val display: String?, val isMe: Boolean, val aiFlag: Bool
     override fun toString() = "MlsLineName(<redacted>)"
 }
 
-internal object MlsLines {
+object MlsLines {
     const val NAMES = 500
 
     /**
