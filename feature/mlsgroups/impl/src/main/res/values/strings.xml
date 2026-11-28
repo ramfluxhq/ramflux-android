@@ -155,4 +155,88 @@
         <item quantity="one">%d device</item>
         <item quantity="other">%d devices</item>
     </plurals>
+    <!-- MLS M3: join requests -->
+    <string name="group_requests_title">Join requests</string>
+    <plurals name="group_requests_entry">
+        <item quantity="one">%d join request</item>
+        <item quantity="other">%d join requests</item>
+    </plurals>
+    <string name="group_requests_entry_more">More than %1$d join requests</string>
+    <string name="group_requests_empty">No pending requests</string>
+    <string name="group_requests_requested">Asked %1$s</string>
+    <string name="group_requests_expires">Expires %1$s</string>
+    <string name="group_requests_expired">Expired</string>
+    <string name="group_requests_approve">Approve</string>
+    <string name="group_requests_decline">Decline</string>
+    <string name="group_requests_approving">Approving…</string>
+    <string name="group_requests_adding">Adding to the group…</string>
+    <string name="group_requests_declining">Declining…</string>
+    <string name="group_requests_approve_confirm_title">Let %1$s join %2$s?</string>
+    <string name="group_requests_approve_confirm_body">They\'ll be able to read new messages and see the member list.</string>
+    <string name="group_requests_approve_confirm_confirm">Approve</string>
+    <string name="group_requests_decline_confirm_title">Decline %1$s\'s request?</string>
+    <string name="group_requests_decline_confirm_body">They won\'t be notified. The request is hidden for you and expires %1$s.</string>
+    <string name="group_requests_decline_confirm_confirm">Decline</string>
+    <string name="group_requests_load_error">Couldn\'t load requests.</string>
+    <string name="group_requests_page_error">Couldn\'t load more requests.</string>
+    <string name="group_requests_retry">Try again</string>
+    <string name="group_requests_approval_off">Approval is off. People with a link join without a request.</string>
+    <!-- MLS M3: member actions -->
+    <string name="group_member_action_make_admin">Make admin</string>
+    <string name="group_member_action_make_member">Make regular member</string>
+    <string name="group_member_action_remove">Remove from group</string>
+    <string name="group_member_action_ban">Ban from group</string>
+    <string name="group_member_action_updating">Updating…</string>
+    <string name="group_member_action_busy">Another change is in progress. Try again when it\'s done.</string>
+    <string name="group_member_this">this member</string>
+    <string name="group_member_agent_note">This member is an agent.</string>
+    <string name="group_member_admin_confirm_title">Make %1$s an admin of %2$s?</string>
+    <string name="group_member_admin_confirm_body">Admins can approve requests, remove and ban members, change group settings and undo the latest change.</string>
+    <string name="group_member_admin_confirm_confirm">Make admin</string>
+    <string name="group_member_demote_confirm_title">Make %1$s a regular member of %2$s?</string>
+    <string name="group_member_demote_confirm_body">They\'ll lose their admin rights in this group.</string>
+    <string name="group_member_demote_confirm_confirm">Make member</string>
+    <string name="group_member_remove_confirm_title">Remove %1$s from %2$s?</string>
+    <string name="group_member_remove_confirm_body">They can come back only with a new invite.</string>
+    <string name="group_member_remove_confirm_confirm">Remove</string>
+    <string name="group_member_ban_confirm_title">Ban %1$s from %2$s?</string>
+    <string name="group_member_ban_confirm_body">They\'re removed and can\'t join again, even with an invite.</string>
+    <string name="group_member_ban_confirm_confirm">Ban</string>
+    <string name="group_error_not_owner">Only the owner can do this.</string>
+    <string name="group_error_void_not_head">This isn\'t the latest change any more, so it can\'t be undone.</string>
+    <!-- MLS M3: settings and push -->
+    <string name="group_settings_title">Group settings</string>
+    <string name="group_settings_name">Group name</string>
+    <string name="group_settings_save">Save</string>
+    <string name="group_settings_saving">Saving…</string>
+    <string name="group_settings_approval">New members need approval</string>
+    <string name="group_settings_approval_off_confirm_title">Turn off approval?</string>
+    <string name="group_settings_approval_off_confirm_body">Anyone with an invite link will join without an admin\'s approval. A join completes only while a member\'s device or an agent is online.</string>
+    <string name="group_settings_approval_off_confirm_confirm">Turn off</string>
+    <string name="group_push_title">Notifications on this device</string>
+    <string name="group_push_help">This applies only to this device.</string>
+    <string name="group_push_saving">Saving…</string>
+    <string name="group_push_failed">Couldn\'t change notifications. Try again.</string>
+    <!-- MLS M3: warnings, hint, quota and privacy delay in group info -->
+    <string name="group_warning_fork_alarm">This group\'s history has split. Messages may not reach everyone. Tell an admin.</string>
+    <string name="group_warning_rejoin_needed_pruned">This device was away too long and is rejoining the group. Messages from that time can\'t be read here.</string>
+    <string name="group_warning_rejoin_needed_gate_rejected">A change from this device was refused. It is rejoining the group.</string>
+    <string name="group_warning_rejoin_needed_apply_failed">This device couldn\'t apply a group change. It is rejoining the group.</string>
+    <string name="group_warning_rejoin_needed_welcome_expired">This device\'s invitation to the group expired. It is rejoining the group.</string>
+    <string name="group_warning_rejoin_needed_state_lost">This device lost its keys for this group. Open the group on your other device, or ask a member to send a new invite.</string>
+    <string name="group_warning_rejoin_needed_generic">This device needs to rejoin the group to read new messages.</string>
+    <plurals name="group_warning_undecryptable">
+        <item quantity="one">%d message can\'t be read on this device.</item>
+        <item quantity="other">%d messages can\'t be read on this device.</item>
+    </plurals>
+    <string name="group_warning_admission_needs_online">New members can join only while a member\'s device or an agent is online.</string>
+    <string name="group_warning_host_unusual">The group\'s server is behaving unusually. Messages may be delayed.</string>
+    <string name="group_warning_head_commit_rejected">Members\' devices refused the latest group change. The group can\'t change again until it\'s undone.</string>
+    <string name="group_warning_generic">This group reported a problem.</string>
+    <string name="group_hint_agent_mobile">You can add an agent from your desktop to keep the group open for joins.</string>
+    <string name="group_hint_agent_invite">Get invite link</string>
+    <string name="group_join_pending_online_note">This group admits new members only while a member\'s device or an agent is online.</string>
+    <string name="group_quota_commit">%1$d of %2$d group changes left today on this device</string>
+    <string name="group_quota_resets">Resets %1$s</string>
+    <string name="group_privacy_delay_info">Messages are sent with a short random delay for privacy.</string>
 </resources>

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,6 +23,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import org.ramflux.designsystem.LocalAppLockCovered
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.kit.KitAiMarker
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
 import org.ramflux.designsystem.kit.KitMeta
@@ -39,7 +41,14 @@ internal fun BoxScope.ConfirmPanel(
     cancel: String,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
-    tag: String
+    tag: String,
+    /** False for a confirmation of something that is not a loss (Approve, Make admin): the button is the primary one. */
+    destructive: Boolean = true,
+    /** The person named in the title is an agent: the AI marker and [note] show under the body. */
+    ai: Boolean = false,
+    note: String? = null,
+    confirmTag: String = "$tag-confirm",
+    cancelTag: String = "$tag-cancel"
 ) {
     if (LocalAppLockCovered.current) return
     val theme = LocalRFTheme.current
@@ -56,7 +65,21 @@ internal fun BoxScope.ConfirmPanel(
     ) {
         KitMeta(title, tag = "$tag-title")
         KitMeta(body, tag = "$tag-body")
-        KitButton(confirm, onConfirm, Modifier.fillMaxWidth(), kind = KitButtonKind.Destructive, tag = "$tag-confirm")
-        KitButton(cancel, onCancel, Modifier.fillMaxWidth(), kind = KitButtonKind.Secondary, tag = "$tag-cancel")
+        if (ai) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((theme.gap * HALF).dp)) {
+                KitAiMarker()
+                if (note != null) KitMeta(note, tag = "$tag-agent-note")
+            }
+        }
+        KitButton(
+            confirm,
+            onConfirm,
+            Modifier.fillMaxWidth(),
+            kind = if (destructive) KitButtonKind.Destructive else KitButtonKind.Primary,
+            tag = confirmTag
+        )
+        KitButton(cancel, onCancel, Modifier.fillMaxWidth(), kind = KitButtonKind.Secondary, tag = cancelTag)
     }
 }
+
+private const val HALF = .5f

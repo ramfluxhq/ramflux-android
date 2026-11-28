@@ -8,6 +8,7 @@ import android.icu.util.Measure
 import android.icu.util.MeasureUnit
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import java.time.Instant
 import java.time.LocalDate
@@ -16,6 +17,8 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import org.ramflux.data.MlsFailure
 import org.ramflux.data.MlsGroupRefusal
+import org.ramflux.data.MlsGroupRejoinReason
+import org.ramflux.data.MlsGroupWarning
 import org.ramflux.feature.mlsgroups.impl.R
 
 private const val SECS_PER_MINUTE = 60L
@@ -27,6 +30,8 @@ internal fun failureText(failure: MlsFailure): String = when {
     failure.unavailable -> stringResource(R.string.group_error_unavailable)
     failure.code == "not_member" -> stringResource(R.string.group_error_not_member)
     failure.code == "not_admin" -> stringResource(R.string.group_error_not_admin)
+    failure.code == "not_owner" -> stringResource(R.string.group_error_not_owner)
+    failure.code == "void_not_head" -> stringResource(R.string.group_error_void_not_head)
     failure.code == "owner_protected" -> stringResource(R.string.group_error_owner_protected)
     failure.code == "tier_unavailable" -> stringResource(R.string.group_error_tier_unavailable)
     failure.code == "group_full" -> stringResource(R.string.group_error_group_full)
@@ -109,3 +114,28 @@ private const val LINK_KEEP = 16
 internal fun dotted(parts: List<String>): String = parts.joinToString(separator = DOT)
 
 private val DOT = charArrayOf(' ', '\u00B7', ' ').concatToString()
+
+/** The text of one warning row of group info; it repeats the banner text of the chat. An unknown code is the generic text. */
+@Composable
+internal fun warningText(warning: MlsGroupWarning): String = when (warning) {
+    is MlsGroupWarning.ForkAlarm -> stringResource(R.string.group_warning_fork_alarm)
+    is MlsGroupWarning.RejoinNeeded -> stringResource(
+        when (warning.reason) {
+            MlsGroupRejoinReason.PRUNED -> R.string.group_warning_rejoin_needed_pruned
+            MlsGroupRejoinReason.GATE_REJECTED -> R.string.group_warning_rejoin_needed_gate_rejected
+            MlsGroupRejoinReason.APPLY_FAILED -> R.string.group_warning_rejoin_needed_apply_failed
+            MlsGroupRejoinReason.WELCOME_EXPIRED -> R.string.group_warning_rejoin_needed_welcome_expired
+            MlsGroupRejoinReason.STATE_LOST -> R.string.group_warning_rejoin_needed_state_lost
+            MlsGroupRejoinReason.UNKNOWN -> R.string.group_warning_rejoin_needed_generic
+        }
+    )
+    is MlsGroupWarning.Undecryptable -> {
+        val count = warning.count.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+        pluralStringResource(R.plurals.group_warning_undecryptable, count, count)
+    }
+    MlsGroupWarning.AdmissionNeedsOnline -> stringResource(R.string.group_warning_admission_needs_online)
+    // One text for every kind of `host_unusual`.
+    is MlsGroupWarning.HostUnusual -> stringResource(R.string.group_warning_host_unusual)
+    is MlsGroupWarning.HeadCommitRejected -> stringResource(R.string.group_warning_head_commit_rejected)
+    is MlsGroupWarning.HostIpVisible, is MlsGroupWarning.Unknown -> stringResource(R.string.group_warning_generic)
+}

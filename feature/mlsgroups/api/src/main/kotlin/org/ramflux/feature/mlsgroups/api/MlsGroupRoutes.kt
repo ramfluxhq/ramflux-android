@@ -17,3 +17,9 @@ import org.ramflux.navigation.AccountScoped
 
 /** The member list of one MLS group. */
 @Serializable data class MlsGroupMembersRoute(val accountId: String, val groupId: String) : NavKey, AccountScoped
+
+/** The join requests of one approval group (owner or admin). */
+@Serializable data class MlsGroupRequestsRoute(val accountId: String, val groupId: String) : NavKey, AccountScoped
+
+/** The settings (name and approval) of one MLS group (owner or admin). */
+@Serializable data class MlsGroupSettingsRoute(val accountId: String, val groupId: String) : NavKey, AccountScoped

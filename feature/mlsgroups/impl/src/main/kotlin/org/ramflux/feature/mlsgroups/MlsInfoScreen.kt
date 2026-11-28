@@ -19,6 +19,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.ramflux.data.MlsGroupPush
+import org.ramflux.data.MlsGroupWarning
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
@@ -27,6 +28,7 @@ import org.ramflux.designsystem.kit.KitPageHeader
 import org.ramflux.designsystem.kit.KitRow
 import org.ramflux.designsystem.kit.KitRowTrailing
 import org.ramflux.designsystem.kit.KitSecurityWarning
+import org.ramflux.designsystem.kit.KitTipBar
 import org.ramflux.designsystem.kit.KitWarningTone
 import org.ramflux.designsystem.kit.UntrustedText
 import org.ramflux.feature.mlsgroups.impl.R
@@ -82,13 +84,49 @@ fun MlsInfoScreen(state: MlsInfoUi, onAction: (MlsInfoAction) -> Unit, modifier:
                         },
                         tag = "mls-info-approval"
                     )
+                    // A read-only group has no picker (A16): the confirmed mode stays a plain row.
+                    if (state.admin.push == null) {
+                        KitRow(
+                            stringResource(R.string.group_info_push),
+                            {},
+                            value = pushText(state.push),
+                            trailing = KitRowTrailing.None,
+                            divider = false,
+                            testTag = "mls-info-push"
+                        )
+                    }
+                    if (state.admin.privacyDelay) {
+                        KitMeta(stringResource(R.string.group_privacy_delay_info), tag = "mls-info-privacy-delay")
+                    }
+                    state.admin.commitQuota?.let { q ->
+                        val line = stringResource(R.string.group_quota_commit, q.remaining.toCount(), q.limit.toCount())
+                        val resets = q.resetsAt?.takeIf { q.remaining <= 0 }?.let {
+                            stringResource(
+                                R.string.group_quota_resets,
+                                timeText(it)
+                            )
+                        }
+                        KitMeta(dotted(listOfNotNull(line, resets)), tag = "mls-info-commit-quota")
+                    }
+                }
+                state.admin.push?.let { MlsPushPicker(it, { push -> onAction(MlsInfoAction.Push(push)) }) }
+                WarningRows(state, onAction)
+                state.admin.requestCount?.let { count ->
                     KitRow(
-                        stringResource(R.string.group_info_push),
-                        {},
-                        value = pushText(state.push),
-                        trailing = KitRowTrailing.None,
-                        divider = false,
-                        testTag = "mls-info-push"
+                        if (state.admin.requestsMore) {
+                            stringResource(R.string.group_requests_entry_more, count)
+                        } else {
+                            pluralStringResource(R.plurals.group_requests_entry, count, count)
+                        },
+                        { onAction(MlsInfoAction.Requests) },
+                        testTag = "mls-requests-entry"
+                    )
+                }
+                if (state.admin.settingsEntry) {
+                    KitRow(
+                        stringResource(R.string.group_settings_title),
+                        { onAction(MlsInfoAction.Settings) },
+                        testTag = "mls-settings-entry"
                     )
                 }
                 KitRow(
@@ -162,6 +200,34 @@ private fun pushText(push: MlsGroupPush): String = when (push) {
     MlsGroupPush.ALL -> stringResource(R.string.group_push_all)
     MlsGroupPush.NONE -> stringResource(R.string.group_push_none)
 }
+
+/**
+ * The warning rows (D-M3-3): each repeats the banner text; unknown codes appear here only, as the generic text. The admission
+ * row of a member of a group that is not read-only adds "Get invite link" and the agent hint of the phones (no agent is
+ * created on a phone). Nothing here calls anything: the entry opens the invite view.
+ */
+@Composable
+private fun WarningRows(state: MlsInfoUi, onAction: (MlsInfoAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    if (state.admin.warnings.isEmpty()) return
+    Column(Modifier.padding(horizontal = theme.gap.dp), verticalArrangement = Arrangement.spacedBy((theme.gap * HALF).dp)) {
+        state.admin.warnings.forEach { warning ->
+            KitTipBar(warningText(warning), "circle-alert", tag = "mls-warning-" + warning.key.take(WARNING_TAG))
+            if (warning === MlsGroupWarning.AdmissionNeedsOnline && state.admin.hintActions) {
+                KitMeta(stringResource(R.string.group_hint_agent_mobile), tag = "mls-hint-agent")
+                KitButton(
+                    stringResource(R.string.group_hint_agent_invite),
+                    { onAction(MlsInfoAction.Invites) },
+                    Modifier.fillMaxWidth(),
+                    kind = KitButtonKind.Secondary,
+                    tag = "mls-hint-invite"
+                )
+            }
+        }
+    }
+}
+
+private const val WARNING_TAG = 40
 
 private fun Long.toCount(): Int = coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
 

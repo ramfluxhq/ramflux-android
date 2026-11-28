@@ -131,6 +131,9 @@ private fun Outcome(result: MlsJoinResultUi, onAction: (MlsGroupsAction) -> Unit
                     else -> stringResource(R.string.group_join_pending_admin, time)
                 }
                 KitMeta(text, tag = "mls-join-text")
+                if (result.reason == org.ramflux.data.MlsGroupPendingReason.AWAITING_MEMBER_ONLINE) {
+                    KitMeta(stringResource(R.string.group_join_pending_online_note), tag = "mls-join-online-note")
+                }
             }
             is MlsJoinResultUi.Refused -> {
                 KitMeta(refusalText(result), tone = theme.danger, tag = "mls-join-text")

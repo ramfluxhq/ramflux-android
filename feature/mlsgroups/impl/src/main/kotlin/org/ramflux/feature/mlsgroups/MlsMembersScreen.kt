@@ -80,72 +80,91 @@ fun MlsMembersScreen(state: MlsMembersUi, onAction: (MlsMembersAction) -> Unit, 
             )
         }
     }
-    Column(modifier.fillMaxSize().background(theme.bg)) {
-        KitPageHeader(
-            stringResource(R.string.group_members_title),
-            onBack = { onAction(MlsMembersAction.Back) },
-            tag = "mls-members-header"
-        )
-        KitSearchField(
-            state.query,
-            { onAction(MlsMembersAction.Search(it)) },
-            stringResource(R.string.group_members_search),
-            Modifier.padding(horizontal = theme.gap.dp, vertical = (theme.gap * HALF).dp),
-            tag = "mls-members-search"
-        )
-        state.searchProgress?.let { (loaded, total) ->
-            KitMeta(
-                stringResource(R.string.group_members_loading_all, loaded, total.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()),
-                Modifier.padding(horizontal = theme.gap.dp),
-                tag = "mls-members-progress"
+    val indexOf = remember(state.rows) { state.rows.mapIndexed { index, row -> row.anchor to index }.toMap() }
+    androidx.compose.foundation.layout.Box(modifier.fillMaxSize().background(theme.bg)) {
+        Column(Modifier.fillMaxSize()) {
+            KitPageHeader(
+                stringResource(R.string.group_members_title),
+                onBack = { onAction(MlsMembersAction.Back) },
+                tag = "mls-members-header"
             )
-        }
-        when {
-            !state.loaded && state.loading -> KitMeta(
-                stringResource(R.string.group_members_loading),
-                Modifier.fillMaxWidth().padding(theme.gap.dp),
-                centered = true
+            KitSearchField(
+                state.query,
+                { onAction(MlsMembersAction.Search(it)) },
+                stringResource(R.string.group_members_search),
+                Modifier.padding(horizontal = theme.gap.dp, vertical = (theme.gap * HALF).dp),
+                tag = "mls-members-search"
             )
-            !state.loaded && state.failure != null -> ErrorRow(state, onAction)
-            state.loaded && state.rows.isEmpty() && state.query.isNotBlank() -> KitMeta(
-                stringResource(R.string.group_members_no_results),
-                Modifier.fillMaxWidth().padding(theme.gap.dp),
-                centered = true,
-                tag = "mls-members-empty"
-            )
-            else -> LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("mls-members-list"), state = listState) {
-                items(listed, key = { it.key }, contentType = { if (it is Entry.Header) "header" else "member" }) { entry ->
-                    when (entry) {
-                        is Entry.Header -> KitMeta(
-                            when (entry.role) {
-                                MlsGroupRole.OWNER -> stringResource(R.string.group_members_section_owner)
-                                MlsGroupRole.ADMIN -> stringResource(R.string.group_members_section_admins)
-                                else -> stringResource(R.string.group_members_section_members)
-                            },
-                            Modifier.padding(horizontal = theme.gap.dp, vertical = (theme.gap * HALF).dp)
-                        )
-                        is Entry.Member -> MemberRow(entry.row)
+            state.actionFailure?.let {
+                KitMeta(
+                    failureText(it),
+                    Modifier.padding(horizontal = theme.gap.dp),
+                    tone = theme.danger,
+                    tag = "mls-member-action-error"
+                )
+            }
+            state.searchProgress?.let { (loaded, total) ->
+                KitMeta(
+                    stringResource(R.string.group_members_loading_all, loaded, total.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()),
+                    Modifier.padding(horizontal = theme.gap.dp),
+                    tag = "mls-members-progress"
+                )
+            }
+            when {
+                !state.loaded && state.loading -> KitMeta(
+                    stringResource(R.string.group_members_loading),
+                    Modifier.fillMaxWidth().padding(theme.gap.dp),
+                    centered = true
+                )
+                !state.loaded && state.failure != null -> ErrorRow(state, onAction)
+                state.loaded && state.rows.isEmpty() && state.query.isNotBlank() -> KitMeta(
+                    stringResource(R.string.group_members_no_results),
+                    Modifier.fillMaxWidth().padding(theme.gap.dp),
+                    centered = true,
+                    tag = "mls-members-empty"
+                )
+                else -> LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("mls-members-list"), state = listState) {
+                    items(listed, key = { it.key }, contentType = { if (it is Entry.Header) "header" else "member" }) { entry ->
+                        when (entry) {
+                            is Entry.Header -> KitMeta(
+                                when (entry.role) {
+                                    MlsGroupRole.OWNER -> stringResource(R.string.group_members_section_owner)
+                                    MlsGroupRole.ADMIN -> stringResource(R.string.group_members_section_admins)
+                                    else -> stringResource(R.string.group_members_section_members)
+                                },
+                                Modifier.padding(horizontal = theme.gap.dp, vertical = (theme.gap * HALF).dp)
+                            )
+                            is Entry.Member -> MemberRow(entry.row, indexOf[entry.row.anchor] ?: 0, onAction)
+                        }
                     }
+                    if (state.failure != null) item(key = "error") { ErrorRow(state, onAction) }
                 }
-                if (state.failure != null) item(key = "error") { ErrorRow(state, onAction) }
             }
         }
+        state.menuAnchor?.let { anchor ->
+            state.rows.firstOrNull { it.anchor == anchor }?.let { MlsMemberMenu(it, state, onAction) }
+        }
+        state.confirm?.let { MlsMemberConfirm(it, state.groupName, onAction) }
     }
 }
 
 @Composable
-private fun MemberRow(row: MlsMemberUi) {
+private fun MemberRow(row: MlsMemberUi, index: Int, onAction: (MlsMembersAction) -> Unit) {
     val devices = row.devices.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
     val deviceText = if (devices > 0) pluralStringResource(R.plurals.group_members_devices, devices, devices) else null
-    val value = dotted(listOfNotNull(if (row.me) stringResource(R.string.group_members_you) else null, deviceText)).ifEmpty { null }
+    val updating = if (row.updating) stringResource(R.string.group_member_action_updating) else null
+    val value = dotted(
+        listOfNotNull(if (row.me) stringResource(R.string.group_members_you) else null, updating ?: deviceText)
+    ).ifEmpty { null }
+    val canAct = row.actions.isNotEmpty() && !row.updating
     KitRow(
         label = row.display ?: stringResource(R.string.group_member_unnamed),
-        onClick = {},
+        onClick = { if (canAct) onAction(MlsMembersAction.OpenMenu(row.anchor)) },
         value = value,
         trailing = KitRowTrailing.None,
         peer = row.display != null,
         ai = row.ai,
-        testTag = "mls-member-row"
+        testTag = if (canAct) "mls-member-menu-$index" else "mls-member-row"
     )
 }
 

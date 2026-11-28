@@ -141,12 +141,21 @@ private fun GroupList(state: MlsGroupsState, onAction: (MlsGroupsAction) -> Unit
     val theme = LocalRFTheme.current
     LazyColumn(Modifier.fillMaxSize().testTag("mls-group-list"), state = listState) {
         items(state.pending, key = { "pending:" + it.requestId }) {
-            KitTipBar(
-                stringResource(R.string.group_join_pending_row),
-                "clock-3",
-                Modifier.padding(horizontal = theme.gap.dp, vertical = (theme.gap * HALF).dp),
-                tag = "mls-join-pending-row"
-            )
+            androidx.compose.foundation.layout.Column {
+                KitTipBar(
+                    stringResource(R.string.group_join_pending_row),
+                    "clock-3",
+                    Modifier.padding(horizontal = theme.gap.dp, vertical = (theme.gap * HALF).dp),
+                    tag = "mls-join-pending-row"
+                )
+                if (it.reason == org.ramflux.data.MlsGroupPendingReason.AWAITING_MEMBER_ONLINE) {
+                    KitMeta(
+                        stringResource(R.string.group_join_pending_online_note),
+                        Modifier.padding(horizontal = theme.gap.dp),
+                        tag = "mls-join-pending-online-note"
+                    )
+                }
+            }
         }
         items(state.rows, key = { it.id }, contentType = { "group" }) { row ->
             val members = pluralStringResource(R.plurals.group_list_members, row.members.toCount(), row.members.toCount())

@@ -212,7 +212,8 @@ data class MlsInfoUi(
     val left: Boolean = false,
     /** Left, removed or banned: no invite can be made or revoked any more. */
     val readOnly: Boolean = false,
-    val owner: Boolean = false
+    val owner: Boolean = false,
+    val admin: MlsInfoAdminUi = MlsInfoAdminUi()
 ) {
     override fun toString() = "MlsInfoUi(<redacted>)"
 }
@@ -224,6 +225,9 @@ sealed interface MlsInfoAction {
     data object CancelLeave : MlsInfoAction
     data object ConfirmLeave : MlsInfoAction
     data object Invites : MlsInfoAction
+    data object Requests : MlsInfoAction
+    data object Settings : MlsInfoAction
+    data class Push(val push: org.ramflux.data.MlsGroupPush) : MlsInfoAction
     data object Members : MlsInfoAction
     data object Back : MlsInfoAction
 }
@@ -231,6 +235,8 @@ sealed interface MlsInfoAction {
 sealed interface MlsInfoEvent {
     data class Invites(val account: String, val groupId: String) : MlsInfoEvent
     data class Members(val account: String, val groupId: String) : MlsInfoEvent
+    data class Requests(val account: String, val groupId: String) : MlsInfoEvent
+    data class Settings(val account: String, val groupId: String) : MlsInfoEvent
     data object Back : MlsInfoEvent
 }
 
@@ -243,7 +249,11 @@ data class MlsMemberUi(
     val role: org.ramflux.data.MlsGroupRole,
     val ai: Boolean,
     val devices: Long,
-    val me: Boolean
+    val me: Boolean,
+    /** The actions the signed-in role may take on this row (3.3); empty for the owner row, the own row and read-only groups. */
+    val actions: List<MlsMemberActionKind> = emptyList(),
+    /** An admin action on this member is running or waits for its event: "Updating…". */
+    val updating: Boolean = false
 ) {
     override fun toString() = "MlsMemberUi(<redacted>)"
 }
@@ -257,7 +267,17 @@ data class MlsMembersUi(
     val failure: MlsFailure? = null,
     val query: String = "",
     /** While a search loads the remaining pages: loaded rows and the group's member count. */
-    val searchProgress: Pair<Int, Long>? = null
+    val searchProgress: Pair<Int, Long>? = null,
+    val groupName: String? = null,
+    /** Another admin commit is running or waits for its event: every entry is disabled with the busy text. */
+    val busy: Boolean = false,
+    val paced: Boolean = false,
+    val pacedUntil: Long? = null,
+    /** The anchor whose action menu is open. */
+    val menuAnchor: String? = null,
+    val confirm: MlsMemberConfirmUi? = null,
+    /** The typed refusal of the last member action, until the next one starts. */
+    val actionFailure: MlsFailure? = null
 ) {
     override fun toString() = "MlsMembersUi(<redacted>)"
 }
@@ -267,6 +287,11 @@ sealed interface MlsMembersAction {
     data object LoadMore : MlsMembersAction
     data object Retry : MlsMembersAction
     data class Search(val query: String) : MlsMembersAction
+    data class OpenMenu(val anchor: String) : MlsMembersAction
+    data object CloseMenu : MlsMembersAction
+    data class Choose(val kind: MlsMemberActionKind) : MlsMembersAction
+    data object Confirm : MlsMembersAction
+    data object CancelConfirm : MlsMembersAction
     data object Back : MlsMembersAction
 }
 

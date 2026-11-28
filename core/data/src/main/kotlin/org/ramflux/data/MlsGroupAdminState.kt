@@ -165,6 +165,36 @@ object MlsAdminRules {
         return current.copy(items = items, counter = counter, touched = current.touched + (warning.key to counter))
     }
 
+    /** A quota line shows on the first day, or when [MlsGroupQuota.remaining] is at most a fifth of the limit (at least 1) (2.8). */
+    fun quotaLineVisible(quota: MlsGroupQuota?): Boolean =
+        quota != null && quota.limit > 0 && (quota.firstDay || quota.remaining <= maxOf(1L, quota.limit / 5))
+
+    /** The banner order of 3.7: critical codes, then warnings, then the admission hint, unknown codes last. */
+    fun severity(warning: MlsGroupWarning): Int = when (warning) {
+        is MlsGroupWarning.ForkAlarm -> 0
+        is MlsGroupWarning.RejoinNeeded -> 1
+        is MlsGroupWarning.HeadCommitRejected -> 2
+        is MlsGroupWarning.Undecryptable -> 3
+        is MlsGroupWarning.HostUnusual -> 4
+        MlsGroupWarning.AdmissionNeedsOnline -> 5
+        is MlsGroupWarning.HostIpVisible -> 6
+        is MlsGroupWarning.Unknown -> 7
+    }
+
+    /** `fork_alarm`, `rejoin_needed` and `head_commit_rejected` cannot be hidden; the others can, for the session. */
+    fun hideable(warning: MlsGroupWarning) = warning is MlsGroupWarning.Undecryptable || warning is MlsGroupWarning.HostUnusual ||
+        warning === MlsGroupWarning.AdmissionNeedsOnline
+
+    /**
+     * The warnings a person sees, most severe first: `head_commit_rejected` only for an owner or admin, `host_ip_visible` never
+     * (the M2 info row), the rest as they are.
+     */
+    fun visibleWarnings(set: MlsWarningSet, role: MlsGroupRole?): List<MlsGroupWarning> =
+        set.items.values
+            .filterNot { it is MlsGroupWarning.HostIpVisible }
+            .filterNot { it is MlsGroupWarning.HeadCommitRejected && (role == null || !isAdmin(role)) }
+            .sortedWith(compareBy({ severity(it) }, { it.key }))
+
     fun withApplied(applied: List<Long>, logSeq: Long?): List<Long> =
         if (logSeq == null || logSeq in applied) applied else (applied + logSeq).takeLast(APPLIED_KEEP)
 
