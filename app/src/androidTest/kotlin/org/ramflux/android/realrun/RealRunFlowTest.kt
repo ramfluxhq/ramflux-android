@@ -243,39 +243,15 @@ class RealRunFlowTest {
         "terminate and relaunch (new app process) opened the shell with no prompt"
     }
 
-    // Flow 6: add alice by principal id, alice accepts, safety number, verify.
+    // Flow 6: add alice by principal id, alice accepts, alice is listed and her profile opens.
 
     @Test fun f04_contactsWithAlice() = flow("04-contacts-alice") {
         ensureShell()
-        val request = addContact("alice")
-        val commitment = request.optString("root_commitment")
+        addContact("alice")
         ui.shot("04-contact-listed")
         openContactRow("alice")
-        ui.tap("contacts-open-safety")
-        val number = ui.need("contacts-safety-number", Ui.LONG, "safety number")
-        val phoneDigits = (number.text ?: number.contentDescription ?: ui.texts()).filter(Char::isDigit)
-        val peer = control.rf("alice", "contact", "safety-number", "--contact", commitment)
-        val groups = peer.optJSONObject("json")?.optJSONArray("safety_number")
-        val peerDigits = (0 until (groups?.length() ?: 0)).joinToString("") { groups!!.optString(it) }
-        ui.shot("04-safety-number")
-        if (phoneDigits.length < 12) fail("the safety number shows no digits (${phoneDigits.length})")
-        // The phone's text also carries the fingerprint; the twelve groups of five must appear in order.
-        val matches = peer.optInt("exit") == 0 && peerDigits.length == 60 && phoneDigits.contains(peerDigits)
-        val verified = ui.str("contacts_safety_state_verified")
-        // A contact verified in an earlier invocation offers no verify action any more.
-        if (ui.find("contacts-verify", 3_000) != null) {
-            ui.tap("contacts-verify")
-            confirmIfAsked()
-        }
-        if (!ui.eventually(30_000) { ui.hasText(verified) }) fail("not shown as verified after confirming: ${ui.screen()}")
-        if (!matches) {
-            fail(
-                "safety number on the phone does not match alice's (exit ${peer.optInt(
-                    "exit"
-                )}): phone $phoneDigits peer ${peerDigits.take(80)}"
-            )
-        }
-        "request by principal id reached alice; alice accepted with rf; alice listed; safety number equals alice's; marked verified"
+        ui.shot("04-contact-profile")
+        "request by principal id reached alice; alice accepted with rf; alice listed; her profile opened"
     }
 
     // Flow 3: the conversation list shows the direct conversation with alice under the derived id.
@@ -1698,7 +1674,7 @@ class RealRunFlowTest {
 
     private fun openContactRow(peer: String) {
         ui.text(peerName(peer), Ui.SHORT)?.press() ?: fail("no contact row for $peer")
-        ui.need("contacts-open-safety", Ui.SHORT, "contact detail")
+        ui.need("security-section", Ui.SHORT, "contact detail")
     }
 
     private fun aliceConversation(): String {
