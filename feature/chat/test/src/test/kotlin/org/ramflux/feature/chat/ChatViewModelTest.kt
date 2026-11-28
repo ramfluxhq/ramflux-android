@@ -430,6 +430,148 @@ class ChatViewModelTest {
         assertTrue(outbox.stored["a/c"].isNullOrEmpty())
     }
 
+    /** An identity repository whose status answers come from [states] in order, the last one repeating. */
+    private class ScriptedIdentity(vararg states: IdentityState) : ContactIdentityRepository {
+        private val script = states.toList()
+        var reads = 0
+        val change = IdentityChange("peer", null, "old", "a1", null, 0L)
+        override suspend fun identity(account: String, contact: String): ClientResult<Pair<IdentityState, IdentityChange?>> {
+            val state = script[minOf(reads++, script.lastIndex)]
+            return ClientResult.Ready(state to change.takeIf { state == IdentityState.CHANGED })
+        }
+        override suspend fun security(account: String, conversation: String): ClientResult<ConversationSecurity> =
+            ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
+        override suspend fun accept(account: String, contact: String, newAnchor: String): AcceptOutcome = AcceptOutcome.Accepted
+        override fun changes(account: String): Flow<IdentitySignal> = emptyFlow()
+    }
+
+    private fun TestScope.identityModel(
+        history: FakeChatHistory,
+        media: FakeChatMedia,
+        stager: FakeChatStager,
+        outbox: FakeChatOutbox,
+        identity: ContactIdentityRepository
+    ): ChatViewModel {
+        val session = FakeChatSession()
+        return ChatViewModel(
+            history, FakeChatAccounts(), session, FakeChatDrafts(), media, stager,
+            MediaTransfers(media, session, backgroundScope), FakeChatCards(), outbox, identity
+        )
+    }
+
+    private fun mediaRefusedByAnIdentityChange(kind: ClientFailureKind) = runTest(timeout = 5.seconds) {
+        val dir = java.nio.file.Files.createTempDirectory("outbox-media").toFile()
+        try {
+            val blocked = ClientProblem(kind, 4, ClientOutcome.NONE, statusName = SendBlock.IDENTITY_CHANGE_PENDING)
+            val history = FakeChatHistory().apply {
+                capability = ClientResult.Ready(Unit)
+                heading = ClientResult.Ready(ConversationHeader(null, peer = "peer"))
+            }
+            val media = FakeChatMedia().apply { sendResult = ClientResult.Failed(blocked) }
+            val stager = FakeChatStager().apply { directory = dir }
+            val outbox = FakeChatOutbox()
+            val first = identityModel(history, media, stager, outbox, ScriptedIdentity(IdentityState.CHANGED))
+            observe(first)
+            runCurrent()
+            load(first)
+            first.onAction(ChatAction.Picked(listOf("content://photo"), PickSource.CAMERA))
+            runCurrent()
+            assertEquals(1, media.sent.size)
+            assertFalse("a blocked media send is not queued", first.state.value.queued)
+            assertEquals(LocalDelivery.FAILED, (first.state.value.rows.single() as MessageItem).delivery)
+            assertTrue("the block is persisted for media too", outbox.stored["a/c"].orEmpty().single().blocked)
+            // The change is accepted elsewhere; then a reopen or relaunch must not send it by itself.
+            media.sendResult = ClientResult.Ready(SendReceipt("media"))
+            val second = identityModel(history, media, stager, outbox, ScriptedIdentity(IdentityState.VERIFIED))
+            observe(second)
+            runCurrent()
+            load(second)
+            runCurrent()
+            assertEquals("nothing is sent again by itself", 1, media.sent.size)
+            val row = second.state.value.rows.single() as MessageItem
+            assertEquals(LocalDelivery.FAILED, row.delivery)
+            assertFalse(second.state.value.queued)
+            // Only the explicit Retry sends it.
+            second.onAction(ChatAction.Retry(row.id))
+            runCurrent()
+            assertEquals(2, media.sent.size)
+            assertTrue(outbox.stored["a/c"].isNullOrEmpty())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test fun aMediaSendRefusedByAnIdentityChangeAndClassifiedUnavailableIsBlockedNotResent() =
+        mediaRefusedByAnIdentityChange(ClientFailureKind.UNAVAILABLE)
+
+    @Test fun aMediaSendRefusedByAnIdentityChangeAndClassifiedFailedIsBlockedNotResent() =
+        mediaRefusedByAnIdentityChange(ClientFailureKind.FAILED)
+
+    @Test fun retryWhileTheIdentityIsChangedSendsNothing() = runTest(timeout = 5.seconds) {
+        val blocked = ClientProblem(ClientFailureKind.FAILED, 4, ClientOutcome.REFUSED, statusName = SendBlock.IDENTITY_CHANGE_PENDING)
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            heading = ClientResult.Ready(ConversationHeader(null, peer = "peer"))
+            sendResult = ClientResult.Failed(blocked)
+        }
+        val media = FakeChatMedia()
+        val outbox = FakeChatOutbox()
+        val identity = ScriptedIdentity(IdentityState.CHANGED)
+        val first = identityModel(history, media, FakeChatStager(), outbox, identity)
+        observe(first)
+        runCurrent()
+        load(first)
+        first.onAction(ChatAction.Draft("held"))
+        first.onAction(ChatAction.Send)
+        runCurrent()
+        assertEquals(1, history.sends)
+        val id = (first.state.value.rows.single() as MessageItem).id
+        history.sendResult = ClientResult.Ready(SendReceipt("sent"))
+        first.onAction(ChatAction.Retry(id))
+        runCurrent()
+        assertEquals("a retry while changed sends nothing", 1, history.sends)
+        assertTrue(first.state.value.sendBlocked)
+        assertEquals(LocalDelivery.FAILED, (first.state.value.rows.single() as MessageItem).delivery)
+        // After a relaunch the state is unknown until read; the tap reads first, finds it changed and still sends nothing.
+        val later = identityModel(history, media, FakeChatStager(), outbox, ScriptedIdentity(IdentityState.UNKNOWN, IdentityState.CHANGED))
+        observe(later)
+        runCurrent()
+        load(later)
+        runCurrent()
+        assertEquals(IdentityState.UNKNOWN, later.state.value.identityState)
+        later.onAction(ChatAction.Retry((later.state.value.rows.single() as MessageItem).id))
+        runCurrent()
+        assertEquals("no send while the identity is unknown or changed", 1, history.sends)
+        assertEquals(IdentityState.CHANGED, later.state.value.identityState)
+        assertTrue(later.state.value.sendBlocked)
+    }
+
+    @Test fun aRefusalArrivingAfterTheChatClosedStillBlocksThePersistedSend() = runTest(timeout = 5.seconds) {
+        val history = FakeChatHistory().apply {
+            capability = ClientResult.Ready(Unit)
+            sendGate = CompletableDeferred()
+            sendResult = ClientResult.Failed(
+                ClientProblem(ClientFailureKind.UNAVAILABLE, 4, ClientOutcome.NONE, statusName = SendBlock.IDENTITY_CHANGE_PENDING)
+            )
+        }
+        val outbox = FakeChatOutbox()
+        val vm = identityModel(history, FakeChatMedia(), FakeChatStager(), outbox, UnavailableContactIdentity)
+        observe(vm)
+        runCurrent()
+        load(vm)
+        vm.onAction(ChatAction.Draft("in flight"))
+        vm.onAction(ChatAction.Send)
+        runCurrent()
+        assertFalse("persisted while in flight, not yet blocked", outbox.stored["a/c"].orEmpty().single().blocked)
+        // The person leaves the chat; then the refusal arrives.
+        vm.onAction(ChatAction.Load("a", "other"))
+        runCurrent()
+        history.sendGate?.complete(Unit)
+        runCurrent()
+        assertTrue("the persisted row carries the block", outbox.stored["a/c"].orEmpty().single().blocked)
+        assertEquals(1, history.sends)
+    }
+
     @Test fun anAlreadyHandledAcceptNeverClearsANewerPendingChange() = runTest(timeout = 5.seconds) {
         class Identity : ContactIdentityRepository {
             val signals = MutableSharedFlow<IdentitySignal>(extraBufferCapacity = 4)

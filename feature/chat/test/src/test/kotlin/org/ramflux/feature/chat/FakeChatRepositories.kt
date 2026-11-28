@@ -60,6 +60,9 @@ class FakeChatHistory : MessageHistoryRepository {
     )
     override suspend fun sendAvailability(): ClientResult<Unit> = capability
     var sendResult: ClientResult<SendReceipt>? = null
+
+    /** When set, a send suspends until it completes. */
+    var sendGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
     var sentOperation: String? = null
     val sentOperations = mutableListOf<String>()
     var editedRevision: Long? = null
@@ -67,6 +70,7 @@ class FakeChatHistory : MessageHistoryRepository {
         sends++
         sentOperation = operationId
         sentOperations.add(operationId)
+        sendGate?.await()
         sendResult?.let { return it }
         return when (val availability = sendAvailability()) {
             is ClientResult.Ready -> ClientResult.Ready(SendReceipt("sent"))
@@ -225,8 +229,14 @@ class FakeChatStager : MediaStager {
         captures.add(uri)
         return image(account, uri)
     }
-    override suspend fun image(account: String, uri: String) =
-        StagedMedia(java.io.File("/tmp/staged-" + uri.hashCode()), "IMG_1.jpg", "image/jpeg")
+
+    /** When set, staged images are real files in this directory, so a restored outbox keeps them. */
+    var directory: java.io.File? = null
+    override suspend fun image(account: String, uri: String): StagedMedia {
+        val file = directory?.let { java.io.File(it, "staged-" + uri.hashCode()).also { f -> f.writeText("x") } }
+            ?: java.io.File("/tmp/staged-" + uri.hashCode())
+        return StagedMedia(file, "IMG_1.jpg", "image/jpeg")
+    }
     override suspend fun file(account: String, uri: String): StagedMedia? = null
     override fun dropMemory() {
         dropped++

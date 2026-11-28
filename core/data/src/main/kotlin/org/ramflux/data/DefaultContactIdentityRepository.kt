@@ -174,7 +174,7 @@ internal class DefaultContactIdentityRepository(
             remembered: Pair<String?, Boolean>?,
             now: Long,
         ): IdentityChange? = status.pendingAnchor?.takeIf { state == IdentityState.CHANGED }?.let {
-            IdentityChange(contact, remembered?.first, status.previousAnchor, it, status.aiFlag ?: remembered?.second ?: false, now)
+            IdentityChange(contact, remembered?.first, status.previousAnchor, it, status.aiFlag ?: remembered?.second, now)
         }
     }
 }
