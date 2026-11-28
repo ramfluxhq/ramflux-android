@@ -12,6 +12,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.ramflux.designsystem.*
+import org.ramflux.designsystem.kit.InvitationQr
 import org.ramflux.feature.settings.impl.R
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
