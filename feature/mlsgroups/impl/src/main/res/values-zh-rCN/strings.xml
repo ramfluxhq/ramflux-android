@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (c) 2026 Span Brain -->
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="group_join_title">加入群组</string>
     <string name="group_join_field">邀请链接</string>
     <string name="group_join_paste">粘贴</string>
@@ -64,7 +64,7 @@
     <string name="group_invite_qr">二维码</string>
     <string name="group_invite_expires">%1$s 过期</string>
     <string name="group_invite_expired">已过期</string>
-    <string name="group_invite_uses_left">剩余 %1$d 次，共 %2$d 次</string>
+    <string name="group_invite_uses_left" tools:ignore="PluralsCandidate">剩余 %1$d 次，共 %2$d 次</string>
     <string name="group_invite_duration">有效期</string>
     <string name="group_invite_uses">使用次数</string>
     <string name="group_invite_new">新建链接</string>

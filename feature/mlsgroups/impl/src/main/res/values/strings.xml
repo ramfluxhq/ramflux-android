@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (c) 2026 Span Brain -->
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="group_join_title">Join a group</string>
     <string name="group_join_field">Invite link</string>
     <string name="group_join_paste">Paste</string>
@@ -64,7 +64,7 @@
     <string name="group_invite_qr">QR code</string>
     <string name="group_invite_expires">Expires %1$s</string>
     <string name="group_invite_expired">Expired</string>
-    <string name="group_invite_uses_left">%1$d of %2$d uses left</string>
+    <string name="group_invite_uses_left" tools:ignore="PluralsCandidate">%1$d of %2$d uses left</string>
     <string name="group_invite_duration">Valid for</string>
     <string name="group_invite_uses">Uses</string>
     <string name="group_invite_new">New link</string>
