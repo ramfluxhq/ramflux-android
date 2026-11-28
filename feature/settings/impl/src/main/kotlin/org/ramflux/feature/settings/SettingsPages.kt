@@ -6,6 +6,8 @@ package org.ramflux.feature.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +25,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
@@ -33,6 +36,7 @@ import java.util.Locale
 import org.ramflux.data.AccountCode
 import org.ramflux.data.AppLanguage
 import org.ramflux.data.ContactRequestPolicy
+import org.ramflux.data.shortAccountId
 import org.ramflux.designsystem.*
 import org.ramflux.designsystem.kit.*
 import org.ramflux.feature.settings.impl.R
@@ -198,23 +202,22 @@ internal fun LazyListScope.accountPage(state: SettingsState, onAction: (Settings
         item("confirm-exit") {
             Column(verticalArrangement = Arrangement.spacedBy(LocalRFTheme.current.gap.dp)) {
                 // D-2: the confirmation names the account it acts on.
-                val name = state.accountLabel.orEmpty().ifEmpty { stringResource(R.string.settings_account_unknown) }
-                if (!signOut) Text(name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("confirm-exit-name"))
-                KitSecurityWarning(
-                    if (signOut) {
-                        stringResource(R.string.settings_sign_out_confirm_title, name)
-                    } else {
-                        stringResource(R.string.settings_remove_account_confirm_title)
-                    },
-                    stringResource(
-                        if (signOut) R.string.settings_sign_out_confirm_body else R.string.settings_remove_account_confirm_body
-                    ),
-                    if (signOut) KitWarningTone.Warning else KitWarningTone.Danger
-                )
+                // The name is the one fixed when the confirmation opened, never the label of a later read.
+                val name = state.exitAccountName.orEmpty().ifEmpty { stringResource(R.string.settings_account_unknown) }
+                if (signOut) {
+                    KitSecurityWarning(
+                        stringResource(R.string.settings_sign_out_confirm_title, name),
+                        stringResource(R.string.settings_sign_out_confirm_body),
+                        KitWarningTone.Warning
+                    )
+                } else {
+                    RemoveConfirmation(name, state.exitAccountId, state.exitUnderstood, onAction)
+                }
                 KitButton(
                     stringResource(if (signOut) R.string.settings_sign_out else R.string.settings_remove_account),
                     { onAction(SettingsAction.ConfirmAccountExit) },
                     kind = KitButtonKind.Destructive,
+                    enabled = signOut || state.exitUnderstood,
                     tag = "confirm-exit"
                 )
                 KitButton(
@@ -940,4 +943,44 @@ internal fun sasGlyph(index: Int): String {
     val point = SAS_CODE_POINTS.getOrNull(index) ?: return index.toString()
     val glyph = String(Character.toChars(point))
     return if (index in SAS_PRESENTATION) glyph + Char(0xFE0F) else glyph
+}
+
+/** The removal confirmation, laid out like the lock page's remove dialog: account row, short id, body, "I understand". */
+@Composable
+private fun RemoveConfirmation(name: String, accountId: String?, understood: Boolean, onAction: (SettingsAction) -> Unit) {
+    val theme = LocalRFTheme.current
+    Text(stringResource(R.string.settings_remove_account_confirm_title), style = MaterialTheme.typography.titleMedium)
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(theme.gap.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        KitAvatar(name.take(1), 48f, KitAvatarKind.Person)
+        Column(Modifier.weight(1f)) {
+            Text(name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag("remove-dialog-name"))
+            accountId?.let {
+                Text(
+                    shortAccountId(it),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.secondary,
+                    modifier = Modifier.testTag("remove-dialog-name-short-id")
+                )
+            }
+        }
+    }
+    Text(stringResource(R.string.settings_remove_dialog_body), style = MaterialTheme.typography.bodyMedium)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .toggleable(value = understood, role = Role.Checkbox, onValueChange = { onAction(SettingsAction.ExitUnderstood(it)) })
+            .testTag("remove-understand"),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(checked = understood, onCheckedChange = null)
+        Text(
+            stringResource(R.string.settings_remove_understand),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(start = theme.gap.dp)
+        )
+    }
 }

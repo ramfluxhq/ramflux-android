@@ -28,6 +28,7 @@ sealed interface SettingsAction {
     /** Asks for confirmation; nothing leaves the phone until [ConfirmAccountExit]. */
     data class AccountExit(val exit: SettingsAccountExit) : SettingsAction
     data object ConfirmAccountExit : SettingsAction
+    data class ExitUnderstood(val checked: Boolean) : SettingsAction
     data object CancelAccountExit : SettingsAction
 
     /** Linking a new device: this phone invites, compares, reviews and approves. */

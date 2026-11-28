@@ -12,7 +12,7 @@ from pathlib import Path
 # Run order of the brief; ids match RealRunFlowTest.
 FLOWS = [
     ("01-connect-create", "1 Connect to the node, create an account (phrase, word check, code), completion follows networking"),
-    ("02-lock-unlock", "1 Lock from settings; the locked state offers the account; unlock with the code"),
+    ("02-lock-unlock", "1 Lock now from the App lock page (account.app_lock.lock); the app-lock cover comes up; unlock with the code"),
     ("03-cold-start", "1 Cold start (new app process) offers the account; unlock"),
     ("04-contacts-alice", "6 Contacts: add alice, she accepts, safety number equals hers, verify"),
     ("05-conversations", "3 Conversation list shows the direct conversation with alice"),

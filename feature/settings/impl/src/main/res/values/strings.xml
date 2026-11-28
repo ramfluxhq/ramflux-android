@@ -294,4 +294,8 @@
     <string name="settings_lock_now">Lock now</string>
     <string name="settings_account_unknown">Unknown</string>
     <string name="settings_requests_auto_switch">Accept contact requests automatically</string>
+    <string name="settings_account_removed">%1$s was removed from this device.</string>
+    <string name="settings_account_removed_unnamed">Account removed from this device.</string>
+    <string name="settings_remove_understand">I understand</string>
+    <string name="settings_remove_dialog_body">Local history that is not in a backup is lost. This cannot be undone. You can restore the account later from a backup and its recovery phrase.</string>
 </resources>

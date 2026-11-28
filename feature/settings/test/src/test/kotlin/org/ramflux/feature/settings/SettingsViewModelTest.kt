@@ -214,26 +214,115 @@ class SettingsViewModelTest {
         assertNotNull(vm.state.value.unavailable)
     }
 
-    @Test fun lockClosesTheActiveAccountAndHandsOverToTheAccountScreen() = runTest(timeout = 5.seconds) {
+    private fun vm(
+        accounts: FakeSettingsAccounts = FakeSettingsAccounts(),
+        session: FakeSettingsSession = FakeSettingsSession(),
+        security: FakeAccountSecurity = FakeAccountSecurity()
+    ) = SettingsViewModel(
+        accounts,
+        FakeDeviceDirectory(),
+        FakeAccountStatus(),
+        FakeSettingsAppearance(),
+        session,
+        FakeSettingsLanguage(),
+        security
+    )
+
+    @Test fun lockNowCallsTheAppLockAndLeavesTheCoverToTheSessionState() = runTest(timeout = 5.seconds) {
         val accounts = FakeSettingsAccounts()
-        val vm =
-            SettingsViewModel(
-                accounts,
-                FakeDeviceDirectory(),
-                FakeAccountStatus(),
-                FakeSettingsAppearance(),
-                FakeSettingsSession(),
-                FakeSettingsLanguage(),
-                FakeAccountSecurity()
-            )
+        val session = FakeSettingsSession()
+        val security = FakeAccountSecurity()
+        val vm = vm(accounts, session, security)
         observe(vm)
         runCurrent()
         val events = mutableListOf<SettingsEvent>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(SettingsAction.Page(SettingsPage.APP_LOCK))
+        runCurrent()
         vm.onAction(SettingsAction.Lock)
         runCurrent()
-        assertEquals(listOf("a"), accounts.locked)
-        assertEquals(listOf(SettingsEvent.OpenAccount), events)
+        assertEquals(listOf("lock-app:a"), security.calls.filter { it.startsWith("lock-app") })
+        assertTrue("account.lock is not used", accounts.locked.isEmpty())
+        assertEquals(1, session.rechecks)
+        assertTrue("the cover comes up, Settings does not navigate", events.isEmpty())
+    }
+
+    @Test fun lockNowRefusedAsDisabledTurnsOffAndSaysNotAvailableYet() = runTest(timeout = 5.seconds) {
+        val security = FakeAccountSecurity().apply {
+            lockApp = ClientResult.Failed(
+                ClientProblem(ClientFailureKind.FAILED, 16, ClientOutcome.REFUSED, statusName = "app_lock_disabled")
+            )
+        }
+        val session = FakeSettingsSession()
+        val vm = vm(session = session, security = security)
+        observe(vm)
+        runCurrent()
+        vm.onAction(SettingsAction.Page(SettingsPage.APP_LOCK))
+        runCurrent()
+        vm.onAction(SettingsAction.Lock)
+        runCurrent()
+        assertFalse(vm.state.value.appLock.enabled)
+        assertEquals(uiText(R.string.settings_blocked_by_sdk), vm.state.value.appLock.problem)
+        assertNull(vm.state.value.problem)
+        assertEquals(0, session.rechecks)
+    }
+
+    @Test fun lockNowDoesNothingWhileTheAppLockIsOff() = runTest(timeout = 5.seconds) {
+        val security = FakeAccountSecurity().apply { appLock = ClientResult.Ready(AppLockStatus(false, 0L, AppLockState.UNLOCKED)) }
+        val vm = vm(security = security)
+        observe(vm)
+        runCurrent()
+        vm.onAction(SettingsAction.Page(SettingsPage.APP_LOCK))
+        runCurrent()
+        vm.onAction(SettingsAction.Lock)
+        runCurrent()
+        assertTrue(security.calls.none { it.startsWith("lock-app") })
+    }
+
+    @Test fun removeNeedsTheBoxActsOnTheFixedAccountAndNamesTheToast() = runTest(timeout = 5.seconds) {
+        val accounts = FakeSettingsAccounts()
+        val vm = vm(accounts)
+        observe(vm)
+        runCurrent()
+        val events = mutableListOf<SettingsEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.events.collect { events.add(it) } }
+        vm.onAction(SettingsAction.AccountExit(SettingsAccountExit.REMOVE))
+        runCurrent()
+        assertEquals("a", vm.state.value.exitAccountId)
+        assertEquals("Work", vm.state.value.exitAccountName)
+        vm.onAction(SettingsAction.ConfirmAccountExit)
+        runCurrent()
+        assertTrue("without the box nothing is removed", accounts.removed.isEmpty())
+        assertNull(vm.state.value.confirmExit)
+        vm.onAction(SettingsAction.AccountExit(SettingsAccountExit.REMOVE))
+        runCurrent()
+        assertFalse(vm.state.value.exitUnderstood)
+        vm.onAction(SettingsAction.ExitUnderstood(true))
+        accounts.result = ClientResult.Ready(AccountCatalog(listOf(AccountSummary("a", "Renamed", true, "unlocked")), "a"))
+        vm.onAction(SettingsAction.Refresh)
+        runCurrent()
+        assertEquals("the name stays the one fixed at open", "Work", vm.state.value.exitAccountName)
+        vm.onAction(SettingsAction.ConfirmAccountExit)
+        runCurrent()
+        assertEquals(listOf("a"), accounts.removed)
+        assertEquals(listOf(SettingsEvent.AccountRemoved("Work"), SettingsEvent.OpenAccount), events)
+        assertFalse(vm.state.value.exitUnderstood)
+    }
+
+    @Test fun removeIsRefusedWhenTheActiveAccountMovedAwayFromTheFixedTarget() = runTest(timeout = 5.seconds) {
+        val accounts = FakeSettingsAccounts()
+        val vm = vm(accounts)
+        observe(vm)
+        runCurrent()
+        vm.onAction(SettingsAction.AccountExit(SettingsAccountExit.REMOVE))
+        vm.onAction(SettingsAction.ExitUnderstood(true))
+        accounts.result = ClientResult.Ready(AccountCatalog(listOf(AccountSummary("b", "Other", true, "unlocked")), "b"))
+        vm.onAction(SettingsAction.Refresh)
+        runCurrent()
+        vm.onAction(SettingsAction.ConfirmAccountExit)
+        runCurrent()
+        assertTrue(accounts.removed.isEmpty())
+        assertNull(vm.state.value.confirmExit)
     }
 
     @Test fun navigationIsOneShotAndBackFromSubpageStaysInModule() = runTest(timeout = 5.seconds) {

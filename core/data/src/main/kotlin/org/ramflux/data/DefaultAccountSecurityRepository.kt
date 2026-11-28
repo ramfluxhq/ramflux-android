@@ -134,6 +134,14 @@ internal class DefaultAccountSecurityRepository(
         }
     }
 
+    override suspend fun lockApp(account: String): ClientResult<Unit> {
+        if (!valid(account)) return invalid()
+        return when (val reply = transport.unattended(account) { accounts.accountApp_lockLock(RepositoryContext(account, UUID.randomUUID().toString()), JsonObject(emptyMap())) }) {
+            is CoreResult.Failure -> ClientResult.Failed(reply.appProblem())
+            is CoreResult.Success -> ClientResult.Ready(Unit)
+        }
+    }
+
     override suspend fun appLockLifecycle(account: String, state: String): ClientResult<AppLockState> {
         if (!valid(account) || state !in APP_LOCK_STATES) return invalid()
         val body = buildJsonObject { put("state", state) }

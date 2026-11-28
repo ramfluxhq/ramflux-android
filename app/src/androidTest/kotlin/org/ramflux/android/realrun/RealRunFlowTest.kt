@@ -194,6 +194,7 @@ class RealRunFlowTest {
         ensureShell()
         lockNowFromSettings()
         val locked = ui.first(
+            "app-lock-code",
             "startup-unlock-header",
             "startup-details-header",
             "startup-info-header",
@@ -209,7 +210,7 @@ class RealRunFlowTest {
         val reopened = ui.find("account-security", 3_000) != null || ui.find("lock-account", 1_000) != null
         ui.shot("02-unlocked")
         ensureShell()
-        "lock from Account and security showed '$locked'" + (if (named) " naming the account" else "") +
+        "Lock now (account.app_lock.lock) from the App lock page showed '$locked'" + (if (named) " naming the account" else "") +
             "; unlocked with the six-digit code" + (if (reopened) "; the settings screen open before the lock came back" else "")
     }
 
@@ -923,14 +924,26 @@ class RealRunFlowTest {
         if (!reach("remove-account")) fail("Account and security has no Remove from this phone row: ${ui.screen()}")
         ui.tap("remove-account")
         if (!reach("confirm-exit")) fail("Remove from this phone asked for no confirmation: ${ui.screen()}")
+        if (ui.find("remove-dialog-name", 1_000)?.text != name || ui.find("remove-dialog-name-short-id", 500) == null) {
+            fail("the remove confirmation does not name the account with its short id: ${ui.screen()}")
+        }
+        if (ui.find("confirm-exit", Ui.SHORT)?.isEnabled != false) fail("confirm-exit is enabled before 'I understand' is ticked")
         ui.shot("15-remove-confirm")
+        ui.tap("remove-understand")
+        if (!ui.eventually(Ui.SHORT, 300) { ui.find("confirm-exit", 300)?.isEnabled == true }) {
+            fail("confirm-exit did not enable after 'I understand': ${ui.screen()}")
+        }
         ui.tap("confirm-exit")
+        val removedText = ui.str("settings_account_removed", name)
+        val toast = ui.text(removedText, Ui.SHORT) != null
         val after = ui.first("startup-gateway", "startup-welcome", "onboarding-header", "startup-unlock-header", timeout = Ui.LONG)
             ?: fail("no start state after the removal: ${ui.screen()}")
         val stillListed = ui.eventually(5_000) { ui.hasText(name) }
         ui.shot("15-removed")
         if (stillListed) fail("the removed account '$name' is still offered: ${ui.screen()}")
-        "account.remove_local accepted; the app returned to '$after' and no longer offers '$name'"
+        if (!toast) fail("the removed notice '$removedText' was not shown (the app went to '$after')")
+        "account.remove_local accepted after 'I understand'; the toast named the account; " +
+            "the app returned to '$after' and no longer offers '$name'"
     }
 
     // Flow 4 (receipts): the phone reads alice's message and alice's copy shows it read (CHAT-ACTIONS-01).
@@ -2067,8 +2080,10 @@ class RealRunFlowTest {
     }
 
     /**
-     * Settings > Account and security > Privacy > App lock > Lock now. The row is enabled only while the app lock is on, so
-     * the flow switches the app lock on first when it is off (turning it on needs no code).
+     * Settings > Account and security > Privacy > App lock > Lock now (`account.app_lock.lock`). The row is enabled only while
+     * the app lock is on, so the flow switches the app lock on first when it is off (turning it on needs no code); that is
+     * the one side effect, and it stays on for the rest of the run. The app-lock cover comes up over the open screen: the
+     * helper returns once its code form shows. Unlock it with [unlock].
      */
     private fun lockNowFromSettings() {
         openSettings()
@@ -2083,12 +2098,16 @@ class RealRunFlowTest {
             }
         }
         ui.tap("lock-account", Ui.SHORT)
-        confirmIfAsked()
+        lockForm()
     }
 
-    /** Lock now leaves the open account and shows the account chooser. */
+    /** Settings > Account and security > Sign out leaves the open account and shows the account chooser. */
     private fun openAccountChooser() {
-        lockNowFromSettings()
+        openSettings()
+        if (ui.find("sign-out", 1_500) == null) ui.tap("account-security") // Settings may reopen on this page
+        ui.tap("sign-out", Ui.SHORT)
+        ui.need("confirm-exit", Ui.LONG, "sign-out confirmation")
+        ui.tap("confirm-exit")
         ui.need("onboarding-header", Ui.LONG, "account chooser")
     }
 

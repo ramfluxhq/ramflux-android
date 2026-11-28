@@ -136,6 +136,11 @@ val APP_LOCK_TIMEOUTS: List<Long> = listOf(0L, 60_000L, 300_000L, 900_000L, 3_60
     val confirmRevoke: String? = null,
     /** Sign-out or removal of the active account, waiting for confirmation. */
     val confirmExit: SettingsAccountExit? = null,
+    /** The account the open confirmation acts on, fixed when it opened (id for the short id line, name as shown then). */
+    val exitAccountId: String? = null,
+    val exitAccountName: String? = null,
+    /** The "I understand" box of the removal confirmation; it resets whenever the confirmation closes. */
+    val exitUnderstood: Boolean = false,
     val status: SettingsStatus? = null,
     val pairing: SettingsPairing = SettingsPairing(),
     val privacy: SettingsPrivacy = SettingsPrivacy(),

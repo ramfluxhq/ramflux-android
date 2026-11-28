@@ -200,29 +200,41 @@ class SettingsViewModel @Inject constructor(
                     devices.revoke(account, device).also { if (it is ClientResult.Ready) read() }
                 }
             }
-            SettingsAction.Lock -> {
-                val account = activeAccount
-                clientDebugEvent("settings.lock.tap.account:" + (account != null) + ".loading:" + local.value.loading + ".ticket:" + ticket)
-                if (account == null) return
-                capability {
-                    clientDebugEvent("settings.lock.call")
-                    accounts.lock(account).also {
-                        clientDebugEvent("settings.lock.result:" + it.javaClass.simpleName + ".ticket:" + ticket)
-                        if (it is ClientResult.Ready) event(SettingsEvent.OpenAccount)
-                    }
+            SettingsAction.Lock -> lockNow()
+            is SettingsAction.AccountExit -> activeAccount?.let { account ->
+                // The confirmation acts on the account and name shown when it opened, whatever a later read rebinds.
+                local.update {
+                    it.copy(
+                        confirmExit = action.exit,
+                        exitAccountId = account,
+                        exitAccountName = it.accountLabel,
+                        exitUnderstood = false
+                    )
                 }
             }
-            is SettingsAction.AccountExit -> if (activeAccount != null) local.update { it.copy(confirmExit = action.exit) }
-            SettingsAction.CancelAccountExit -> local.update { it.copy(confirmExit = null) }
+            SettingsAction.CancelAccountExit -> closeExit()
+            is SettingsAction.ExitUnderstood -> if (local.value.confirmExit == SettingsAccountExit.REMOVE) {
+                local.update { it.copy(exitUnderstood = action.checked) }
+            }
             SettingsAction.ConfirmAccountExit -> {
                 val exit = local.value.confirmExit ?: return
-                local.update { it.copy(confirmExit = null) }
-                val account = activeAccount ?: return
+                val target = local.value.exitAccountId
+                val name = local.value.exitAccountName
+                val understood = local.value.exitUnderstood
+                closeExit()
+                // Removal needs the box; the target must still be the open account, otherwise nothing leaves the phone.
+                if (target == null || target != activeAccount) return
+                if (exit == SettingsAccountExit.REMOVE && !understood) return
                 capability {
                     when (exit) {
-                        SettingsAccountExit.SIGN_OUT -> accounts.signOut(account)
-                        SettingsAccountExit.REMOVE -> accounts.removeLocal(account)
-                    }.also { if (it is ClientResult.Ready) event(SettingsEvent.OpenAccount) }
+                        SettingsAccountExit.SIGN_OUT -> accounts.signOut(target)
+                        SettingsAccountExit.REMOVE -> accounts.removeLocal(target)
+                    }.also {
+                        if (it is ClientResult.Ready) {
+                            if (exit == SettingsAccountExit.REMOVE) event(SettingsEvent.AccountRemoved(name))
+                            event(SettingsEvent.OpenAccount)
+                        }
+                    }
                 }
             }
             SettingsAction.StartPairing -> startPairing()
@@ -813,6 +825,30 @@ class SettingsViewModel @Inject constructor(
         local.update { it.copy(loading = false) }
         viewModelScope.launch { channel.send(event) }
     }
+    private fun closeExit() = local.update {
+        it.copy(confirmExit = null, exitAccountId = null, exitAccountName = null, exitUnderstood = false)
+    }
+
+    /**
+     * Lock now: `account.app_lock.lock`. The app lock cover comes up from the app lock state, so nothing navigates here. A
+     * refusal named `app_lock_disabled` means the lock is off after all: the row turns off and says "Not available yet.".
+     */
+    private fun lockNow() {
+        val account = activeAccount ?: return
+        if (!local.value.appLock.enabled) return
+        capability {
+            val result = security.lockApp(account)
+            when {
+                result is ClientResult.Ready -> session.recheckAppLock()
+                result is ClientResult.Failed && result.problem.appLockDisabled() -> {
+                    local.update { it.copy(appLock = it.appLock.copy(enabled = false, problem = uiText(R.string.settings_blocked_by_sdk))) }
+                    return@capability ClientResult.Ready(Unit)
+                }
+            }
+            result
+        }
+    }
+
     private fun capability(call: suspend () -> ClientResult<Unit>) {
         capability?.cancel()
         val expected = ticket
@@ -995,3 +1031,5 @@ private fun AccountStatus.presentation() = SettingsStatus(
     ),
     lastRun?.let { UiText.DateTime(it) } ?: uiText(R.string.settings_not_recorded)
 )
+
+private fun ClientProblem.appLockDisabled() = statusName == "app_lock_disabled" || check == "app_lock_disabled"

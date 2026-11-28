@@ -2,16 +2,19 @@
 // Copyright (c) 2026 Span Brain
 
 package org.ramflux.feature.settings
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.ramflux.data.clientDebugEvent
+import org.ramflux.feature.settings.impl.R
 
 @Composable
 fun SettingsNavigation(
@@ -37,6 +40,7 @@ fun SettingsNavigation(
     val backup by rememberUpdatedState(onBackup)
     val storage by rememberUpdatedState(onStorage)
     val recover by rememberUpdatedState(onRecover)
+    val context = LocalContext.current
     BackHandler { vm.onAction(SettingsAction.Back) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onAction(SettingsAction.Refresh) }
     LaunchedEffect(vm) {
@@ -47,6 +51,15 @@ fun SettingsNavigation(
                     clientDebugEvent("settings.event.open-account")
                     account()
                 }
+                is SettingsEvent.AccountRemoved -> Toast.makeText(
+                    context,
+                    if (event.name.isNullOrBlank()) {
+                        context.getString(R.string.settings_account_removed_unnamed)
+                    } else {
+                        context.getString(R.string.settings_account_removed, event.name)
+                    },
+                    Toast.LENGTH_LONG
+                ).show()
                 SettingsEvent.Connections -> connections()
                 SettingsEvent.Permissions -> permissions()
                 SettingsEvent.Delivery -> delivery()

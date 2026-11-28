@@ -91,6 +91,13 @@ interface AccountSecurityRepository {
     suspend fun configureAppLock(account: String, enabled: Boolean, timeoutMs: Long, answer: suspend () -> CharArray?): ClientResult<Unit> =
         ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.UNSUPPORTED_BY_CORE)
 
+    /**
+     * `account.app_lock.lock` (Lock now): closes the fence and locks the session of [account], and the core announces it
+     * with `account.app_lock.changed`. A refusal named `app_lock_disabled` means the lock is off. The caller reads the state again.
+     */
+    suspend fun lockApp(account: String): ClientResult<Unit> =
+        ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.UNSUPPORTED_BY_CORE)
+
     /** `account.app_lock.lifecycle` with `background`, `foreground` or `device_locked`; the reply carries the state now in force. */
     suspend fun appLockLifecycle(account: String, state: String): ClientResult<AppLockState> =
         ClientResult.Unavailable(ClientFeature.SETTINGS, UnavailableReason.UNSUPPORTED_BY_CORE)

@@ -20,6 +20,11 @@ class FakeSettingsAccounts : AccountAccessRepository {
         locked += id
         return ClientResult.Ready(Unit)
     }
+    val removed = mutableListOf<String>()
+    override suspend fun removeLocal(id: String): ClientResult<Unit> {
+        removed += id
+        return ClientResult.Ready(Unit)
+    }
 }
 class FakeDeviceDirectory : DeviceDirectoryRepository {
     var reads = 0
@@ -66,6 +71,10 @@ class FakeSettingsSession : ClientSessionRepository {
         status.value = status.value.copy(phase = ClientPhase.CLOSED)
     }
     override suspend fun availability(feature: ClientFeature): ClientResult<Unit> = ClientResult.Ready(Unit)
+    var rechecks = 0
+    override suspend fun recheckAppLock() {
+        rechecks++
+    }
 }
 
 /**
@@ -91,6 +100,13 @@ class FakeAccountSecurity : AccountSecurityRepository {
     var policy: ClientResult<ContactRequestPolicy> = ClientResult.Ready(ContactRequestPolicy.MANUAL)
     var code: ClientResult<Unit> = ClientResult.Ready(Unit)
     val codes = mutableListOf<Pair<String, String>>()
+    var appLock: ClientResult<AppLockStatus> = ClientResult.Ready(AppLockStatus(true, 0L, AppLockState.UNLOCKED))
+    var lockApp: ClientResult<Unit> = ClientResult.Ready(Unit)
+    override suspend fun appLockState(account: String) = appLock
+    override suspend fun lockApp(account: String): ClientResult<Unit> {
+        calls += "lock-app:$account"
+        return lockApp
+    }
     override suspend fun beginPairing(account: String, displayName: String, leaseSeconds: Long): ClientResult<PairingInvitation> {
         calls += "begin"
         return begin ?: ClientResult.Unavailable(ClientFeature.SETTINGS)
