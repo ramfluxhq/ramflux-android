@@ -210,6 +210,8 @@ data class MlsInfoUi(
     val leaving: Boolean = false,
     val leaveFailure: MlsFailure? = null,
     val left: Boolean = false,
+    /** Left, removed or banned: no invite can be made or revoked any more. */
+    val readOnly: Boolean = false,
     val owner: Boolean = false
 ) {
     override fun toString() = "MlsInfoUi(<redacted>)"

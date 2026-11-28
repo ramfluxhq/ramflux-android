@@ -51,7 +51,9 @@ fun KitTextField(
      * A secret entry (a recovery phrase): masked, multi-line, with the password keyboard so the IME keeps no suggestions
      * and no autocorrect history. Off for every other field.
      */
-    secure: Boolean = false
+    secure: Boolean = false,
+    /** An opaque code entry (an invite link): no autocorrect, no capitalisation, no suggestions. Off for every other field. */
+    code: Boolean = false
 ) {
     val theme = LocalRFTheme.current
     val interaction = remember { MutableInteractionSource() }
@@ -77,6 +79,12 @@ fun KitTextField(
                 KeyboardOptions(
                     autoCorrectEnabled = false,
                     keyboardType = KeyboardType.Password
+                )
+            } else if (code) {
+                KeyboardOptions(
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Ascii
                 )
             } else {
                 KeyboardOptions.Default

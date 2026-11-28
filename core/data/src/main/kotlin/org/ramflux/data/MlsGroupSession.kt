@@ -48,6 +48,9 @@ class MlsGroupSession(
     private val data = MutableStateFlow(MlsSessionData())
     private val watchers = HashMap<String, Job>()
 
+    /** One wake per `(account, group)` at the reset time of a daily limit. A wake only lifts the lock; it never sends. */
+    private val limitTimers = HashMap<String, Job>()
+
     // ---- published state -------------------------------------------------------------------------------------------
 
     fun groups(account: String): Flow<MlsGroupListState> = view(account) { it.list }
@@ -75,6 +78,7 @@ class MlsGroupSession(
                 purged = now.purged + account,
                 epochs = now.epochs + (account to (now.epochs[account] ?: 0L) + 1L),
             )
+            limitTimers.keys.filter { it.startsWith(account + TIMER_SEPARATOR) }.forEach { key -> limitTimers.remove(key)?.cancel() }
             watchers.remove(account)
         }
         job?.cancel()
@@ -622,8 +626,11 @@ class MlsGroupSession(
     /** The explicit Retry tap of a NOT_SENT item: a new `group.send` under a new local id; the old bubble goes at once. */
     fun retry(account: String, group: String, localId: String) = launchFor(account) { epoch ->
         val local = txn(account) { a ->
-            val old = (a.groups[group] ?: MlsGroupData()).timeline.locals.firstOrNull { it.localId == localId && it.phase == MlsLocalPhase.NOT_SENT }
-            if (old == null) a to null
+            val timeline = (a.groups[group] ?: MlsGroupData()).timeline
+            val old = timeline.locals.firstOrNull { it.localId == localId && it.phase == MlsLocalPhase.NOT_SENT }
+            // A locked composer (daily limit) or a read-only group keeps the bubble and sends nothing.
+            val locked = timeline.readOnly != null || timeline.limitedUntil?.let { it > clock() } == true
+            if (old == null || locked) a to null
             else a.withGroup(group) { it.copy(timeline = it.timeline.copy(locals = it.timeline.locals.filterNot { l -> l.localId == localId })) } to
                 old.copy(localId = newId(), postId = null, phase = MlsLocalPhase.SUBMITTING, queuedReason = null, sendAfter = null, failure = null, createdAt = clock())
         } ?: return@launchFor
@@ -649,11 +656,35 @@ class MlsGroupSession(
         withContext(NonCancellable) {
             update(account, epoch) { a -> a.withGroup(group) { applySend(it, local.localId, result) } }
         }
+        armLimitTimer(account, epoch, group)
     }
+
+    /**
+     * The composer lock of a used-up daily limit lifts at its reset time while the chat stays open. The wake is a timer: it
+     * clears the lock and calls nothing. A lock of the account (clear) cancels it, and a later result for the same time is not
+     * armed twice.
+     */
+    private suspend fun armLimitTimer(account: String, epoch: Long, group: String) {
+        val until = (data.value.accounts[account]?.groups?.get(group)?.timeline?.limitedUntil) ?: return
+        val key = account + TIMER_SEPARATOR + group
+        guard.withLock {
+            if (account in data.value.purged || limitTimers.containsKey(key)) return
+            limitTimers[key] = scope.launch {
+                delay(maxOf(0L, until - clock()))
+                update(account, epoch) { a -> a.withGroup(group) { g -> lift(g, until) } }
+                guard.withLock { limitTimers.remove(key) }
+            }
+        }
+    }
+
+    private fun lift(g: MlsGroupData, until: Long) =
+        if (g.timeline.limitedUntil == until) g.copy(timeline = g.timeline.copy(limitedUntil = null)) else g
 
     private fun applySend(g: MlsGroupData, localId: String, result: ClientResult<MlsGroupSend>): MlsGroupData {
         val local = g.timeline.locals.firstOrNull { it.localId == localId } ?: return g
-        val rest = g.timeline.locals.filterNot { it.localId == localId }
+        // A pending row of the SDK that arrived while this call ran has the same post id: this item adopts it (r4 item 8).
+        val adopted = (result as? ClientResult.Ready)?.value?.postId
+        val rest = g.timeline.locals.filterNot { it.localId == localId || (adopted != null && it.postId == adopted) }
         fun keep(next: MlsLocalSend) = g.copy(timeline = g.timeline.timelineWith(locals = rest + next))
         return when (result) {
             is ClientResult.Ready -> {
@@ -841,6 +872,7 @@ class MlsGroupSession(
             data.value.accounts[account]?.groups?.forEach { (id, g) -> if (g.timeline.loaded) fillGap(account, id, force = true) }
         }
         if (gap && group != null) fillGap(account, group)
+        group?.let { armLimitTimer(account, epoch, it) }
         infoFor?.let { scheduleInfo(account, epoch, it) }
     }
 
@@ -988,6 +1020,7 @@ class MlsGroupSession(
 
     companion object {
         const val NAME_MAX = 64
+        private const val TIMER_SEPARATOR = '\u0000'
         const val PAGE = 50
         const val GAP_PAGE = 200
         const val KEPT_WINDOWS = 3

@@ -75,6 +75,7 @@ class MlsInfoViewModel(private val session: MlsGroupSession) : ViewModel() {
             leaving = info.leaving,
             leaveFailure = info.leaveFailure,
             left = timeline.readOnly == MlsReadOnly.LEFT,
+            readOnly = timeline.readOnly != null,
             owner = group?.myRole == MlsGroupRole.OWNER
         )
     }

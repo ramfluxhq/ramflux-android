@@ -553,7 +553,7 @@ private fun Message(
             }
             if (row.reactions.isNotEmpty()) Reactions(row.reactions)
             if (row.groupDelivery != null) {
-                GroupStateLine(row, onAction)
+                GroupStateLine(row, state.mls?.limitedUntil != null, onAction)
             } else if (row.delivery == LocalDelivery.FAILED) {
                 FailedLine(row.id, onAction)
             }
@@ -563,7 +563,7 @@ private fun Message(
 
 /** The state line under an MLS group row; a refused or failed send offers Retry, an explicit tap that sends under a new local id. */
 @Composable
-private fun GroupStateLine(row: MessageItem, onAction: (ChatAction) -> Unit) {
+private fun GroupStateLine(row: MessageItem, locked: Boolean, onAction: (ChatAction) -> Unit) {
     val theme = LocalRFTheme.current
     val delivery = row.groupDelivery ?: return
     val failed = delivery.kind == GroupDeliveryKind.NOT_SENT
@@ -576,8 +576,9 @@ private fun GroupStateLine(row: MessageItem, onAction: (ChatAction) -> Unit) {
         if (failed) {
             KitMeta(
                 stringResource(R.string.group_send_retry),
-                Modifier.clickable { onAction(ChatAction.Retry(row.id)) }.testTag("mls-retry"),
-                tone = theme.danger
+                // Retry is off while the composer is locked by the daily limit.
+                (if (locked) Modifier else Modifier.clickable { onAction(ChatAction.Retry(row.id)) }).testTag("mls-retry"),
+                tone = if (locked) null else theme.danger
             )
         }
     }
