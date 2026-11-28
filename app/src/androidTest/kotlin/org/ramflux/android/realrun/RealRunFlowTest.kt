@@ -2062,7 +2062,7 @@ class RealRunFlowTest {
     /** Settings > Account and security > Lock account leaves the open account and shows the account chooser. */
     private fun openAccountChooser() {
         openSettings()
-        ui.tap("account-security")
+        if (ui.find("lock-account", 1_500) == null) ui.tap("account-security") // Settings may reopen on this page
         ui.tap("lock-account", Ui.SHORT)
         confirmIfAsked()
         ui.need("onboarding-header", Ui.LONG, "account chooser")
@@ -2198,7 +2198,7 @@ class RealRunFlowTest {
             ui.device.pressBack()
         }
         openSettings()
-        ui.tap("account-security")
+        if (ui.find("privacy", 1_500) == null) ui.tap("account-security") // Settings may reopen on this page
         ui.tap("privacy")
         ui.tap("app-lock")
     }
