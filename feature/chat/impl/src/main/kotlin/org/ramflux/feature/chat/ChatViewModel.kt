@@ -592,7 +592,11 @@ class ChatViewModel @Inject constructor(
                 }
             }
             if (target != currentTarget || generation != session.status.value.generation) {
-                if (target == currentTarget && sent is ClientResult.Failed && SendBlock.of(sent.problem) != null) markBlocked(outgoing.operation)
+                if (target == currentTarget && sent is ClientResult.Failed && SendBlock.of(sent.problem) != null) {
+                    markBlocked(
+                        outgoing.operation
+                    )
+                }
                 return@launch
             }
             when (sent) {
