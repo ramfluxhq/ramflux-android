@@ -616,11 +616,13 @@ class ChatViewModel @Inject constructor(
                             "outcome:" + problem.outcome
                         ).joinToString("/")
                     )
-                    outgoing.delivery = if (offline) LocalDelivery.QUEUED else LocalDelivery.FAILED
-                    outgoing.definite = sent.problem.outcome != ClientOutcome.UNKNOWN
-                    // A send refused until the identity is reviewed stays as a failed bubble with its text; the composer shows the
-                    // prompt. Nothing is sent again by itself, before or after the review.
+                    // A send refused until the identity is reviewed stays as a failed bubble with its text, however the refusal
+                    // was classified, and the block is persisted with it: nothing is sent again by itself, before or after the
+                    // review, after a reopen, unlock or relaunch. Only an explicit user resend sends it.
                     val block = if (staged.isEmpty()) SendBlock.of(sent.problem, peerRoot) else null
+                    outgoing.blocked = block != null
+                    outgoing.delivery = if (offline && block == null) LocalDelivery.QUEUED else LocalDelivery.FAILED
+                    outgoing.definite = sent.problem.outcome != ClientOutcome.UNKNOWN
                     if (block != null) blockedByIdentity(currentTarget, block)
                     local.update {
                         it.copy(
@@ -643,9 +645,12 @@ class ChatViewModel @Inject constructor(
         val currentTarget = target ?: return
         val outgoing = outbox[id] ?: return
         if (outgoing.delivery == LocalDelivery.SENDING || session.status.value.phase != ClientPhase.OPEN) return
+        // A blocked send is resent only after the identity change was accepted; until then the tap does nothing.
+        if (outgoing.blocked && local.value.identityState == IdentityState.CHANGED) return
         // An uncertain outcome is retried under the same operation id so the SDK can reconcile it.
         val again = if (outgoing.definite) outgoing.copy(operation = UUID.randomUUID().toString()) else outgoing
         again.delivery = LocalDelivery.SENDING
+        again.blocked = false
         outbox[id] = again
         publish()
         deliver(currentTarget, id)
@@ -806,7 +811,9 @@ class ChatViewModel @Inject constructor(
                     File(it.path) to it
                 }.filter { it.first.isFile }.map { (file, item) -> StagedMedia(file, item.fileName, item.mime) }
                 if (staged.isEmpty() && send.media.isNotEmpty() && send.text.isBlank()) continue
-                outbox[send.id] = Outgoing(send.operation, send.text, send.sentAt, LocalDelivery.QUEUED, send.definite, staged)
+                // A send the SDK refused for a pending identity change comes back blocked and failed, never queued.
+                val delivery = if (send.blocked) LocalDelivery.FAILED else LocalDelivery.QUEUED
+                outbox[send.id] = Outgoing(send.operation, send.text, send.sentAt, delivery, send.definite, staged, send.blocked)
             }
             outboxRestored = next
             publish()
@@ -827,7 +834,8 @@ class ChatViewModel @Inject constructor(
                 outgoing.definite,
                 outgoing.staged.map {
                     QueuedMedia(it.file.path, it.fileName, it.mime)
-                }
+                },
+                outgoing.blocked
             )
         }
         if (snapshot == persistedOutbox) return
@@ -1094,6 +1102,11 @@ class ChatViewModel @Inject constructor(
                 readIdentity(current, contact, afterAccept = true)
             }
             AcceptOutcome.AlreadyHandled -> {
+                // Same rule as an accept: only the handled anchor clears; a newer pending change stays and is read again.
+                if (pendingChange != null && pendingChange?.newAnchor != anchor) {
+                    readIdentity(current, contact, afterAccept = false)
+                    return
+                }
                 pendingChange = null
                 local.update { it.copy(identityState = IdentityState.UNKNOWN, sendBlocked = false) }
                 readIdentity(current, contact, afterAccept = true)
@@ -1879,7 +1892,9 @@ private data class Outgoing(
     val sentAt: Long,
     var delivery: LocalDelivery,
     var definite: Boolean = false,
-    val staged: List<StagedMedia> = emptyList()
+    val staged: List<StagedMedia> = emptyList(),
+    /** Refused until a changed identity is reviewed; never resent by itself. */
+    var blocked: Boolean = false
 ) {
     override fun toString() = "Outgoing(<redacted>)"
 }

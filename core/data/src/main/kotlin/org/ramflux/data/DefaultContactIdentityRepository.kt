@@ -30,6 +30,9 @@ internal class DefaultContactIdentityRepository(
 ) : ContactIdentityRepository {
     private val source = DefaultContactsRepository(transport)
     private val known = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+
+    /** The AI marker and username the last event of a contact gave; a status read carries neither and must not drop them. */
+    private val seen = java.util.concurrent.ConcurrentHashMap<String, Pair<String?, Boolean>>()
     private val calls = object : SdkRepository(transport) {
         suspend fun conversationSecurity(context: RepositoryContext, body: SecretBody) = executeSecret("conversation.security", "conversation", context, body)
         suspend fun acceptChange(context: RepositoryContext, body: SecretBody) = executeSecret("contact.trust.accept_change", "contact", context, body)
@@ -46,8 +49,7 @@ internal class DefaultContactIdentityRepository(
                     val state = state(read.value.state)
                     if (state == IdentityState.CHANGED) mark(account, contact, true)
                     else if (state != IdentityState.UNKNOWN) mark(account, contact, false)
-                    val change = read.value.pendingAnchor?.takeIf { state == IdentityState.CHANGED }
-                        ?.let { IdentityChange(contact, null, read.value.previousAnchor, it, false, clock()) }
+                    val change = pendingChange(contact, state, read.value, seen[account + "\u0000" + contact], clock())
                     ClientResult.Ready(state to change)
                 }
             }
@@ -112,6 +114,7 @@ internal class DefaultContactIdentityRepository(
                 is CoreUpdate.Events -> when (val parsed = ContactIdentityMetadataReader.signal(update.body)) {
                     is ContactIdentitySignalMetadata.Changed -> {
                         mark(account, parsed.event.contact, true)
+                        seen[account + "\u0000" + parsed.event.contact] = parsed.event.username to parsed.event.aiFlag
                         emit(
                             IdentitySignal.Changed(
                                 parsed.event.let { IdentityChange(it.contact, it.username, it.previousAnchor, it.newAnchor, it.aiFlag, clock()) }
@@ -130,6 +133,7 @@ internal class DefaultContactIdentityRepository(
     override fun changed(account: String): Flow<Set<String>> = known.map { it[account].orEmpty() }
 
     private fun mark(account: String, contact: String, changed: Boolean) {
+        if (!changed) seen.remove(account + "\u0000" + contact)
         known.update { all ->
             val now = all[account].orEmpty()
             val next = if (changed) now + contact else now - contact
@@ -158,5 +162,19 @@ internal class DefaultContactIdentityRepository(
 
         /** The topics of the live subscription. */
         val TOPICS = listOf(CHANGED, DEVICES)
+
+        /**
+         * The change a status read describes. The read has no username; its own `ai_flag` wins, else the flag the last event of
+         * the contact gave ([remembered]) is kept, so a re-read never drops the AI marker.
+         */
+        internal fun pendingChange(
+            contact: String,
+            state: IdentityState,
+            status: ContactIdentityStatus,
+            remembered: Pair<String?, Boolean>?,
+            now: Long,
+        ): IdentityChange? = status.pendingAnchor?.takeIf { state == IdentityState.CHANGED }?.let {
+            IdentityChange(contact, remembered?.first, status.previousAnchor, it, status.aiFlag ?: remembered?.second ?: false, now)
+        }
     }
 }

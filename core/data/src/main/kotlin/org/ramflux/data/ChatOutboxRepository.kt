@@ -35,6 +35,11 @@ data class QueuedSend(
     val sentAt: Long,
     val definite: Boolean = false,
     val media: List<QueuedMedia> = emptyList(),
+    /**
+     * True for a send the SDK refused until a changed identity is reviewed. It comes back as a failed bubble and is never
+     * resent by itself; only an explicit user resend sends it again.
+     */
+    val blocked: Boolean = false,
 ) {
     override fun toString() = "QueuedSend(<redacted>)"
 }
@@ -130,6 +135,7 @@ class EncryptedChatOutboxRepository(private val root: File, private val cipher: 
                     put("text", JsonPrimitive(send.text))
                     put("sent_at", JsonPrimitive(send.sentAt))
                     put("definite", JsonPrimitive(send.definite))
+                    put("blocked", JsonPrimitive(send.blocked))
                     put(
                         "media",
                         buildJsonArray {
@@ -161,7 +167,8 @@ class EncryptedChatOutboxRepository(private val root: File, private val cipher: 
             ((row["media"] as? JsonArray) ?: JsonArray(emptyList())).map { media ->
                 val item = media as JsonObject
                 QueuedMedia(string(item, "path"), string(item, "file_name"), string(item, "mime"))
-            }
+            },
+            (row["blocked"] as? JsonPrimitive)?.booleanOrNull ?: false
         )
     }
 

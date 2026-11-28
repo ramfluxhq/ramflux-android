@@ -43,6 +43,19 @@ class ChatOutboxDataTest {
         }
     }
 
+    @Test fun aBlockedSendKeepsItsBlockedFlagAndOlderRowsDecodeAsNotBlocked() = runTest {
+        val root = Files.createTempDirectory("outbox").toFile()
+        try {
+            val outbox = EncryptedChatOutboxRepository(root, AesGcmDraftCipher { key })
+            val blocked = QueuedSend("local:3", "op-3", "held back", 1_700_000_002L, definite = true, blocked = true)
+            outbox.save("a", "c", listOf(blocked, sends[0]))
+            val restored = EncryptedChatOutboxRepository(root, AesGcmDraftCipher { key }).load("a", "c")
+            assertEquals(listOf(true, false), restored.map { it.blocked })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun anOutboxOfAnotherKeyIsDiscardedAndBadIdsAreRefused() = runTest {
         val root = Files.createTempDirectory("outbox").toFile()
         try {

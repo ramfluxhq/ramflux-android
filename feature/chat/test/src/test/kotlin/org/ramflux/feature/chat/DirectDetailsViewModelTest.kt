@@ -122,6 +122,34 @@ class DirectDetailsViewModelTest {
         assertTrue(vm.state.value.problem != null)
     }
 
+    @Test fun identityEventsUpdateTheOpenDetailsAndStopOnClose() = runTest(timeout = 5.seconds) {
+        class Live : ContactIdentityRepository {
+            val signals = kotlinx.coroutines.flow.MutableSharedFlow<org.ramflux.data.IdentitySignal>(extraBufferCapacity = 4)
+            var state = IdentityState.VERIFIED
+            override suspend fun identity(account: String, contact: String): ClientResult<Pair<IdentityState, IdentityChange?>> =
+                ClientResult.Ready(state to null)
+            override suspend fun security(account: String, conversation: String): ClientResult<ConversationSecurity> =
+                ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
+            override suspend fun accept(account: String, contact: String, newAnchor: String): AcceptOutcome = AcceptOutcome.Failed(null)
+            override fun changes(account: String) = signals
+        }
+        val live = Live()
+        val vm = DirectDetailsViewModel(History(), Contacts(), FakeChatSession(), Media(), live)
+        vm.open("a", "dm:a", "x")
+        runCurrent()
+        assertEquals(IdentityState.VERIFIED, vm.state.value.identity)
+        live.signals.emit(org.ramflux.data.IdentitySignal.Changed(IdentityChange("someone-else", null, null, "n0", false, 0L)))
+        runCurrent()
+        assertEquals("another contact's change is ignored", IdentityState.VERIFIED, vm.state.value.identity)
+        live.signals.emit(org.ramflux.data.IdentitySignal.Changed(IdentityChange(ROOT, null, "p", "n", false, 0L)))
+        runCurrent()
+        assertEquals(IdentityState.CHANGED, vm.state.value.identity)
+        vm.close()
+        live.signals.emit(org.ramflux.data.IdentitySignal.Changed(IdentityChange(ROOT, null, "p", "n2", false, 0L)))
+        runCurrent()
+        assertEquals(IdentityState.UNKNOWN, vm.state.value.identity)
+    }
+
     @Test fun aConversationWithoutARouteHasNoPeerIdentity() = runTest(timeout = 5.seconds) {
         val history = History().apply { heading = ClientResult.Ready(ConversationHeader(null)) }
         val contacts = Contacts()
