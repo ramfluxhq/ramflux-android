@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Identity review: a change with a different anchor arriving while the sheet is open (event or status read) switches the sheet to "changed again" and needs a new tap; accept refuses without calling the core when the displayed anchor is no longer the newest pending one, and an accept of an older anchor never clears the banner of a newer change.
 - MLS gallery (realrun build only): `org.ramflux.android.mlsgallery.MlsGalleryActivity` (not exported, declared in the realrun manifest) lists the identity fixtures F1-1 to F1-10 and opens the real chat, contact detail, direct details and conversation row over a scripted identity repository, so the screens can be driven before the core pin carries the MLS methods. It is a scoped exception like the card gallery and is removed after the W batch is verified.
 - Real run: flow `f04` no longer compares safety numbers; it adds alice, lists her and opens her profile (the identity checks arrive with the pin batch).
 - MLS identity (M1, chat and list): a direct chat shows a banner with "Review" while the peer's identity is changed (no dismiss), a prompt above the composer after `identity_change_pending` (the message stays as a failed bubble for a manual resend), and centred timeline lines for a change, an accepted change and a recovered fork (once per epoch); the conversation list marks the row with a warning glyph. `conversation.devices_changed` only re-reads the encryption state.

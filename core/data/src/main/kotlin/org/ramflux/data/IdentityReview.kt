@@ -42,25 +42,42 @@ class IdentityReview(
     private val identity: ContactIdentityRepository,
     private val scope: CoroutineScope,
     /** Called after [accept] has an outcome, so the owner can re-read the status and write its timeline line. */
-    private val onOutcome: (account: String, contact: String, outcome: AcceptOutcome) -> Unit = { _, _, _ -> },
+    private val onOutcome: (account: String, contact: String, outcome: AcceptOutcome, anchor: String) -> Unit = { _, _, _, _ -> },
 ) {
     private val local = MutableStateFlow<IdentityReviewState?>(null)
     val state: StateFlow<IdentityReviewState?> = local.asStateFlow()
     private var job: Job? = null
 
+    /** The newest anchor the contact is known to have pending: the one an accept must still match. */
+    private var latest: String? = null
+
     /** Shows the sheet for [change], or in the waiting state when [change] is null. */
     fun open(account: String, contact: String, change: IdentityChange?, username: String? = null, aiFlag: Boolean = false) {
         job?.cancel()
+        latest = change?.newAnchor
         local.value = IdentityReviewState(
             account, contact, change?.username ?: username, change?.aiFlag ?: aiFlag, change?.newAnchor,
         )
     }
 
-    /** A newer change of the contact on display replaces the displayed one; the person must tap again. */
+    /**
+     * A change of the contact on display. One with a different anchor never replaces the one under review silently: the sheet
+     * switches to "changed again" and shows the new anchor, and the person must tap again.
+     */
     fun update(change: IdentityChange) {
         local.update {
-            if (it == null || it.contact != change.contact || it.accepting) it
-            else it.copy(username = change.username ?: it.username, aiFlag = change.aiFlag, newAnchor = change.newAnchor)
+            if (it == null || it.contact != change.contact) {
+                it
+            } else {
+                latest = change.newAnchor
+                val differs = it.newAnchor != null && it.newAnchor != change.newAnchor
+                it.copy(
+                    username = change.username ?: it.username,
+                    aiFlag = change.aiFlag,
+                    newAnchor = change.newAnchor,
+                    error = if (differs) IdentityReviewError.CHANGED_AGAIN else it.error
+                )
+            }
         }
     }
 
@@ -80,14 +97,26 @@ class IdentityReview(
         val shown = local.value ?: return
         val anchor = shown.newAnchor ?: return
         if (shown.accepting || shown.error == IdentityReviewError.ALREADY_HANDLED) return
+        // The anchor on display must still be the pending one; otherwise nothing is sent and the sheet shows the newer one.
+        val newest = latest
+        if (newest != null && newest != anchor) {
+            local.value = shown.copy(newAnchor = newest, error = IdentityReviewError.CHANGED_AGAIN)
+            return
+        }
         local.value = shown.copy(accepting = true, error = null)
         job = scope.launch {
             val outcome = identity.accept(shown.account, shown.contact, anchor)
             when (outcome) {
-                AcceptOutcome.Accepted -> local.value = null
+                AcceptOutcome.Accepted ->
+                    // A newer change may have arrived during the call: keep the sheet open on it, needing a new tap.
+                    if (latest == null || latest == anchor) {
+                        local.value = null
+                    } else {
+                        local.update { it?.copy(accepting = false, error = IdentityReviewError.CHANGED_AGAIN) }
+                    }
                 AcceptOutcome.AlreadyHandled -> {
                     local.update { it?.copy(accepting = false, error = IdentityReviewError.ALREADY_HANDLED) }
-                    onOutcome(shown.account, shown.contact, outcome)
+                    onOutcome(shown.account, shown.contact, outcome, anchor)
                     delay(CLOSE_AFTER_MS)
                     local.update { if (it?.error == IdentityReviewError.ALREADY_HANDLED) null else it }
                     return@launch
@@ -101,7 +130,7 @@ class IdentityReview(
                 }
                 is AcceptOutcome.Failed -> local.update { it?.copy(accepting = false, error = IdentityReviewError.FAILED) }
             }
-            onOutcome(shown.account, shown.contact, outcome)
+            onOutcome(shown.account, shown.contact, outcome, anchor)
         }
     }
 

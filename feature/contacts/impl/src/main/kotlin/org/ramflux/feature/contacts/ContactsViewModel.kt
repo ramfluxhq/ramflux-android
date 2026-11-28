@@ -32,7 +32,7 @@ class ContactsViewModel @Inject constructor(
     val events = channel.receiveAsFlow()
 
     /** The identity change sheet; its accept runs only from [ContactsAction.AcceptIdentity]. */
-    private val review = IdentityReview(identity, viewModelScope) { account, contact, _ -> reread(account, contact) }
+    private val review = IdentityReview(identity, viewModelScope) { account, contact, _, _ -> reread(account, contact) }
 
     /** The latest `contact.identity_changed` payload per contact, kept in memory (the status read may carry no new anchor). */
     private val changes = object : LinkedHashMap<String, IdentityChange>(16, 0.75f, true) {
