@@ -87,6 +87,8 @@ class MlsInviteViewModel(
         local.value = Local(noticePending = action.fromCreate && !notices.hostIpSeen(action.account, action.groupId))
         session.watch(action.account)
         session.loadInvites(action.account, action.groupId)
+        // The approval setting decides the note of the panel; one read when it opens.
+        session.loadInfo(action.account, action.groupId)
         lockWatch?.cancel()
         lockWatch = dropOnLock(session, action.account) {
             // The link, its QR, the revoke confirmation and the notice go with the lock; the panel closes.

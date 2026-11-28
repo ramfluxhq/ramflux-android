@@ -1838,6 +1838,33 @@ class RealRunFlowTest {
             if (retapped) "; Run was tapped a second time (first tap had no effect)" else ""
     }
 
+    // Flows 24 to 27: the phone walk of the MLS M3 states on the realrun MLS gallery (fixtures F3-1 to F3-15, no node and no account
+    // needed). Each flow walks its half (admin: W3-1 to W3-6; edge: W3-7 to W3-15) in one theme and both languages (en, zh-CN; the gallery
+    // takes the language from its intent), keeps a screenshot per state as screenshots/mls-m3-<walk>-<state>-<language>-<theme>.png and
+    // writes the call counters of every fixture to the control log. A step whose target is missing fails the flow.
+    @Test fun f24_mlsGroupsAdminLight() = flow("24-mls-groups-admin-light", needsAccount = false) {
+        mlsWalk(MlsWalkPart.ADMIN, dark = false)
+    }
+
+    @Test fun f25_mlsGroupsAdminDark() = flow("25-mls-groups-admin-dark", needsAccount = false) {
+        mlsWalk(MlsWalkPart.ADMIN, dark = true)
+    }
+
+    @Test fun f26_mlsGroupsEdgeLight() = flow("26-mls-groups-edge-light", needsAccount = false) {
+        mlsWalk(MlsWalkPart.EDGE, dark = false)
+    }
+
+    @Test fun f27_mlsGroupsEdgeDark() = flow("27-mls-groups-edge-dark", needsAccount = false) {
+        mlsWalk(MlsWalkPart.EDGE, dark = true)
+    }
+
+    private fun mlsWalk(part: MlsWalkPart, dark: Boolean): String {
+        val counts = MLS_WALK_LOCALES.map { locale -> locale to MlsGroupWalk(ui, control, locale, dark).run(part) }
+        ui.device.pressBack()
+        return counts.joinToString("; ") { (locale, states) -> "$locale: $states states" } +
+            " (${if (dark) "dark" else "light"}); screenshots mls-m3-*"
+    }
+
     // Flow 22: an app-locked account whose code attempts are exhausted (G10b, RECOVER-LOCKED-01), on the lock cover. The
     // recovery phrase and the account code exist only in this process (secure fields, nothing in the accessibility tree),
     // so the flow creates its own throwaway account, keeps the phrase and the code in memory only (never logged, saved or
@@ -2409,6 +2436,9 @@ class RealRunFlowTest {
         private const val GALLERY_PAGES = 14
         private const val DARK_PAGES = 5
         private const val RUN_RETAP_WAIT = 4_000L
+
+        /** The languages the MLS walk runs in; the gallery gets the tag in its intent. */
+        private val MLS_WALK_LOCALES = listOf("en", "zh-CN")
 
         /** Flow 22: the code form's escalating waits after failures 5 to 9 (core's throttle), the attempts and the reading slack. */
         private val EXHAUST_WAITS_SECS = longArrayOf(30, 60, 120, 240, 480)

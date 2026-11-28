@@ -34,6 +34,7 @@
     <string name="mls_group_view_info">群组信息</string>
     <string name="mls_group_view_members">成员</string>
     <string name="mls_group_view_chat">群聊</string>
+    <string name="mls_group_calls_toggle">调用次数</string>
     <string name="mls_group_calls">%1$s：%2$d</string>
     <string name="mls_group_f2_1">群组列表，3 页共 120 个群组</string>
     <string name="mls_group_f2_2">成员，987 行，第 3 页失败一次</string>

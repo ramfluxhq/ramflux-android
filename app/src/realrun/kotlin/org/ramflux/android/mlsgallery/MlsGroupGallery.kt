@@ -204,7 +204,12 @@ private fun MlsGroupFixtureScreen(host: MlsGroupFixtureHost, onExit: () -> Unit)
         if (view != null) {
             Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(8.dp)) {
                 Column(horizontalAlignment = Alignment.End) {
-                    Calls(host)
+                    // The counters cover a third of the screen: they are folded by default so a screenshot shows the screen.
+                    var calls by rememberSaveable { mutableStateOf(false) }
+                    OutlinedButton({ calls = !calls }, Modifier.testTag("mls-calls-toggle")) {
+                        Text(stringResource(R.string.mls_group_calls_toggle))
+                    }
+                    if (calls) Calls(host)
                     Controls(host, group)
                 }
             }
