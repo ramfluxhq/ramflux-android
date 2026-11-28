@@ -20,8 +20,6 @@ object SdkMethodPolicy {
         "account.app_lock.state" to MethodPolicy(false, false, false, false, true, "account"),
         "account.backup.cancel" to MethodPolicy(true, false, false, false, true, "account"),
         "account.backup.create" to MethodPolicy(true, false, false, false, true, "account"),
-        "account.backup.export" to MethodPolicy(true, true, false, true, true, "account"),
-        "account.backup.import" to MethodPolicy(true, true, false, false, true, "account"),
         "account.backup.jobs" to MethodPolicy(true, false, false, false, true, "account"),
         "conversation.start" to MethodPolicy(true, true, false, false, true, "conversation"),
         "contact.requests.reply" to MethodPolicy(true, true, false, false, true, "contact"),

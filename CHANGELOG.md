@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Core pinned to `a48b182dd` (core next): manifest local accounts and `account.backup.export` / `account.backup.import` are gone from the core (restored accounts use `restore-...` ids), so the method policy loses those two entries and the dead `AccountsRepository` proxies are removed; recovery re-admits the recovered identity, and removing a locked or unopened account works and clears its old key references and push route (RECOVER-PUBPENDING-01). Card fixtures and descriptor re-synced; C ABI header unchanged.
+
 - Fix (G05e-A, round 3): an app-lock lease with no event pump running first sends `subscription.close`, so an attended mark core kept after a refused `bus.subscribe` or a lock no longer refuses app-lock reads for another account (`app_lock_unauthorized` on `account.app_lock.state` after creating a second account).
 - Fix (G05e-A): with several accounts, creating or switching to an account and returning from the background no longer stick on the app-lock cover; app-lock calls for another account run with the event subscription detached and it reopens afterwards. Real run: flow `f23` drives two accounts with the app lock.
 - CI green on next (android): the lock wait countdown formats through a string resource, the username sigil is a char, `Submitting…` uses the ellipsis character, the chat link intent uses `toUri()`, and five board deviations (debug app name `Ramflux Dev` on the splash, get started and welcome boards; the Message delivery row on the settings root) are recorded with reasons in `expected-deviations.json`.
