@@ -11,37 +11,11 @@ import org.junit.Test
 import org.ramflux.sdk.*
 @OptIn(ExperimentalCoroutinesApi::class)
 class ContactCommandDataTest {
-    @Test fun actualSafetyReadBindsRootAndAccountWithoutRecordingVerification() = runTest(timeout = 5.seconds) {
-        val abi = FakeAbi().apply { completionBody = Json.parseToJsonElement("""{"contact_identity_commitment":"root","safety_number":["1234","5678"],"fingerprint_hex":"abcdef"}""").jsonObject }
-        val client = (CoreClient.open(abi, "/test/contact-safety", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
-        try {
-            val repo = DefaultContactDirectoryRepository(SdkRepositoryTransport { client })
-            assertEquals(ContactSafety("1234 5678", "abcdef"), (repo.safety("account", "root") as ClientResult.Ready).value)
-            val request = abi.submitted.single()
-            assertEquals("contact.safety_number", request["method"]?.jsonPrimitive?.content)
-            assertEquals("account", request["account_id"]?.jsonPrimitive?.content)
-            assertEquals("root", request["body"]?.jsonObject?.get("contact_identity_commitment")?.jsonPrimitive?.content)
-            assertTrue(repo.safety("account", "different-root") is ClientResult.Failed)
-            assertTrue(repo.availability(ContactOperation.VERIFY) is ClientResult.Ready)
-        } finally { client.close() }
-    }
-
-    @Test fun linkActionsSendTheLinkAndVerifySpendsTheComparedStampVerbatim() = runTest(timeout = 5.seconds) {
-        val stamp = """{"algorithm_version":1,"self_identity_commitment":"self","contact_identity_commitment":"root","safety_number_hash":"h","contact_device_set_hash":"d","contact_lineage_head":"l","self_authority_head":"s"}"""
-        val abi = FakeAbi().apply {
-            completionBody = Json.parseToJsonElement("""{"contact_identity_commitment":"root","safety_number":["1234"],"fingerprint_hex":"ab","verification_state":"unverified","expected":$stamp}""").jsonObject
-        }
+    @Test fun linkActionsSendTheLink() = runTest(timeout = 5.seconds) {
+        val abi = FakeAbi()
         val client = (CoreClient.open(abi, "/test/contact-links", "a".repeat(64), StandardTestDispatcher(testScheduler)) as CoreResult.Success).value
         try {
             val repo = DefaultContactDirectoryRepository(SdkRepositoryTransport { client })
-            val unread = ContactCommand("account", "verify-early", ContactOperation.VERIFY, "root", "peer")
-            assertTrue(repo.submit(unread, true) is ClientResult.Failed)
-            assertEquals(ContactSafety("1234", "ab", SafetyState.UNVERIFIED, verifiable = true), (repo.safety("account", "root") as ClientResult.Ready).value)
-            abi.completionBody = Json.parseToJsonElement("""{"verificationState":"verified"}""").jsonObject
-            assertTrue(repo.submit(ContactCommand("account", "verify-1", ContactOperation.VERIFY, "root", "peer"), true) is ClientResult.Ready)
-            val verify = abi.submitted.last()
-            assertEquals("contact.verify", verify["method"]?.jsonPrimitive?.content)
-            assertEquals(Json.parseToJsonElement(stamp), verify["body"]?.jsonObject?.get("expected"))
             val cases = listOf(
                 Triple(ContactOperation.REMOVE, "contact.remove", """{"link_id":"link-0","blocked":false}"""),
                 Triple(ContactOperation.BLOCK_CONTACT, "contact.block", """{"link_id":"link-1","blocked":true}"""),

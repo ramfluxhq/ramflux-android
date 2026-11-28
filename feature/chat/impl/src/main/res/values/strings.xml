@@ -245,20 +245,6 @@
     <string name="direct_details_mute">Mute notifications</string>
     <!-- Shown when the SDK refused to change the mute state. -->
     <string name="direct_details_mute_failed">Mute did not change. Try again.</string>
-    <!-- Section title for the contact's safety number. -->
-    <string name="direct_details_safety">Safety number</string>
-    <!-- Safety number state: the person compared it with the contact. -->
-    <string name="direct_details_safety_verified">Verified</string>
-    <!-- Safety number state: never compared. -->
-    <string name="direct_details_safety_unverified">Not verified yet. Compare it with your contact in person or on a call.</string>
-    <!-- Safety number state: the contact's keys changed. -->
-    <string name="direct_details_safety_changed">Changed since you verified it. Compare it again before sending anything sensitive.</string>
-    <!-- Safety number state the app cannot name. -->
-    <string name="direct_details_safety_unknown">The verification state is not known.</string>
-    <!-- Shown when the peer has no safety number (not a contact). -->
-    <string name="direct_details_safety_unavailable">The safety number is not available for this person yet. It appears once they are a contact.</string>
-    <!-- Shown when the conversation row has no direct route. -->
-    <string name="direct_details_safety_no_peer">This conversation does not name a person whose safety number can be shown.</string>
     <!-- Row with the size of this conversation's decrypted media on this phone. -->
     <string name="direct_details_storage">Storage for this conversation</string>
     <!-- Status on an attachment this phone is sending: it waits for the connection and goes out on its own. -->
@@ -284,4 +270,22 @@
     <string name="chat_service_pin_added">A message was pinned</string>
     <!-- Centred service line in a group chat: pin removed. -->
     <string name="chat_service_pin_removed">A message was unpinned</string>
+    <!-- Identity and encryption in a direct chat. %1$s is the contact's name. -->
+    <string name="identity_changed_banner">%1$s\'s identity changed. Review it before you continue.</string>
+    <string name="identity_changed_review">Review</string>
+    <string name="identity_send_blocked">Message not sent. %1$s\'s identity changed. Review it before sending.</string>
+    <string name="identity_state_verified">Verified</string>
+    <string name="identity_state_tofu">Identity seen first on this device</string>
+    <string name="identity_state_changed">Identity changed</string>
+    <string name="identity_timeline_changed">%1$s\'s identity changed</string>
+    <string name="identity_timeline_accepted">You accepted %1$s\'s new identity</string>
+    <string name="security_section_title">Encryption</string>
+    <string name="security_state_ok">End-to-end encrypted</string>
+    <string name="security_state_pending">Setting up encryption…</string>
+    <string name="security_state_re_established">Encryption was re-established</string>
+    <plurals name="security_devices">
+        <item quantity="one">%1$d device</item>
+        <item quantity="other">%1$d devices</item>
+    </plurals>
+    <string name="security_warning_fork_recovered">Encryption was re-established. Some messages may not have arrived.</string>
 </resources>

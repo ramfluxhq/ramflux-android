@@ -84,6 +84,8 @@ object ClientModule {
 
     @Provides fun contacts(data: AndroidClientData): ContactDirectoryRepository = data.contacts
 
+    @Provides fun identity(data: AndroidClientData): ContactIdentityRepository = data.identity
+
     @Provides fun devices(data: AndroidClientData): DeviceDirectoryRepository = data.devices
 
     @Provides fun security(data: AndroidClientData): AccountSecurityRepository = data.security

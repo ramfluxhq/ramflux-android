@@ -107,6 +107,15 @@ sealed interface ChatAction {
     /** Shows the next ([delta] 1) or previous (-1) picture or video of the message in the viewer. */
     data class ViewerStep(val delta: Int) : ChatAction
 
+    /** "Review" on the identity banner or the composer prompt: opens the identity change sheet. */
+    data object ReviewIdentity : ChatAction
+
+    /** The explicit "Accept new identity" tap of the sheet; the only way a changed identity is accepted. */
+    data object AcceptIdentity : ChatAction
+
+    /** "Not now" in the sheet. */
+    data object LaterIdentity : ChatAction
+
     /** The screen left the foreground; the draft is sealed to storage now. */
     data object Pause : ChatAction
 }

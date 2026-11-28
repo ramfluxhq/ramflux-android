@@ -19,7 +19,6 @@ class ContactDirectoryDataTest {
             assertEquals(listOf(ContactSummary("yes", "peer", "Actual name", true)), (repo.contacts("account") as ClientResult.Ready).value)
             assertTrue(repo.availability(ContactOperation.ACCEPT) is ClientResult.Ready)
             assertTrue(repo.availability(ContactOperation.REPORT) is ClientResult.Unavailable)
-            assertTrue(repo.availability(ContactOperation.VERIFY) is ClientResult.Ready)
             assertTrue(repo.availability(ContactOperation.REMOVE) is ClientResult.Ready)
             assertEquals("contact.list", abi.submitted.single()["method"]?.jsonPrimitive?.content)
             assertEquals("account", abi.submitted.single()["account_id"]?.jsonPrimitive?.content)

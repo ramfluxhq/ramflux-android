@@ -17,4 +17,13 @@
     <string name="failure_detail_name">代码 %1$s，%2$s</string>
     <string name="failure_detail_name_reason">代码 %1$s，%2$s：%3$s</string>
     <string name="failure_directory_unavailable">此服务器暂不支持用户名。</string>
+    <!-- Identity change sheet. %1$s is the contact's name. -->
+    <string name="identity_sheet_title">%1$s 的新身份</string>
+    <string name="identity_sheet_body">%1$s 现在使用新的身份。重装、恢复或换用新设备时会出现这种情况，但也可能是有人试图接管该账户。只有在你预料到这一变化，或已通过其他方式与对方确认后才接受。</string>
+    <string name="identity_sheet_accept">接受新身份</string>
+    <string name="identity_sheet_later">暂不</string>
+    <string name="identity_sheet_waiting">正在等待新身份…</string>
+    <string name="identity_accept_already">此更改已处理。</string>
+    <string name="identity_accept_again">身份再次更改。请重新查看。</string>
+    <string name="identity_accept_failed">无法接受新身份。请重试。</string>
 </resources>

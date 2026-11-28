@@ -91,8 +91,6 @@ class FakeGroupAccounts : AccountAccessRepository {
 class FakeGroupContacts : ContactDirectoryRepository {
     override suspend fun contacts(account: String): ClientResult<List<ContactSummary>> = ClientResult.Ready(emptyList())
     override suspend fun requests(account: String): ClientResult<List<ContactRequestSummary>> = ClientResult.Ready(emptyList())
-    override suspend fun safety(account: String, root: String): ClientResult<ContactSafety> =
-        ClientResult.Unavailable(ClientFeature.CONTACTS)
     override suspend fun submit(command: ContactCommand, confirmed: Boolean): ClientResult<Unit> =
         ClientResult.Unavailable(ClientFeature.CONTACTS)
     override fun attempts(account: String): List<ContactAttempt> = emptyList()

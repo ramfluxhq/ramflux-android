@@ -7,8 +7,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.ramflux.data.*
 class FakeContactDirectory : ContactDirectoryRepository {
-    var safetyResult: ClientResult<ContactSafety> = ClientResult.Ready(ContactSafety("1234 5678", "abcdef"))
-    override suspend fun safety(account: String, root: String) = safetyResult
     val conversationRoots = mutableListOf<String>()
     var conversationResult: ClientResult<String?> = ClientResult.Ready("dm:peer")
     override suspend fun conversation(account: String, root: String): ClientResult<String?> {

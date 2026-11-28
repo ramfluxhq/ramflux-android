@@ -18,18 +18,23 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.ramflux.data.AcceptOutcome
+import org.ramflux.data.ClientFeature
 import org.ramflux.data.ClientResult
 import org.ramflux.data.ContactAttempt
 import org.ramflux.data.ContactCommand
 import org.ramflux.data.ContactDirectoryRepository
+import org.ramflux.data.ContactIdentityRepository
 import org.ramflux.data.ContactOperation
 import org.ramflux.data.ContactRequestSummary
-import org.ramflux.data.ContactSafety
 import org.ramflux.data.ContactSummary
 import org.ramflux.data.ConversationHeader
+import org.ramflux.data.ConversationSecurity
 import org.ramflux.data.ConversationUsage
+import org.ramflux.data.IdentityChange
+import org.ramflux.data.IdentityState
 import org.ramflux.data.MediaStorage
-import org.ramflux.data.SafetyState
+import org.ramflux.data.UnavailableReason
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DirectDetailsViewModelTest {
@@ -38,17 +43,20 @@ class DirectDetailsViewModelTest {
     @After fun reset() = Dispatchers.resetMain()
 
     private class Contacts : ContactDirectoryRepository {
-        var safetyReads = 0
         override suspend fun contacts(account: String) =
             ClientResult.Ready(listOf(ContactSummary("link", "principal-alice", "Alice", false, ROOT)))
         override suspend fun requests(account: String) = ClientResult.Ready(emptyList<ContactRequestSummary>())
-        override suspend fun safety(account: String, root: String): ClientResult<ContactSafety> {
-            safetyReads++
-            return ClientResult.Ready(ContactSafety("12345 67890", "fp", SafetyState.CHANGED, verifiable = true))
-        }
         override suspend fun submit(command: ContactCommand, confirmed: Boolean): ClientResult<Unit> = error("unused")
         override fun attempts(account: String): List<ContactAttempt> = emptyList()
         override suspend fun availability(operation: ContactOperation): ClientResult<Unit> = error("unused")
+    }
+
+    private class Identity : ContactIdentityRepository {
+        override suspend fun identity(account: String, contact: String): ClientResult<Pair<IdentityState, IdentityChange?>> =
+            ClientResult.Ready(IdentityState.CHANGED to null)
+        override suspend fun security(account: String, conversation: String): ClientResult<ConversationSecurity> =
+            ClientResult.Unavailable(ClientFeature.CONTACTS, UnavailableReason.UNSUPPORTED_BY_CORE)
+        override suspend fun accept(account: String, contact: String, newAnchor: String): AcceptOutcome = AcceptOutcome.Failed(null)
     }
 
     private class History : org.ramflux.data.MessageHistoryRepository by FakeChatHistory() {
@@ -72,18 +80,17 @@ class DirectDetailsViewModelTest {
         }
     }
 
-    @Test fun showsTheContactMuteSafetyAndStorageAndMutesThroughTheSdk() = runTest(timeout = 5.seconds) {
+    @Test fun showsTheContactMuteIdentityAndStorageAndMutesThroughTheSdk() = runTest(timeout = 5.seconds) {
         val history = History()
         val media = Media()
-        val vm = DirectDetailsViewModel(history, Contacts(), FakeChatSession(), media)
+        val vm = DirectDetailsViewModel(history, Contacts(), FakeChatSession(), media, Identity())
         vm.open("a", "dm:a", "b2b2b2b2b2…")
         runCurrent()
         val state = vm.state.value
         assertFalse(state.loading)
         assertEquals("the contact's name replaces the short identifier", "Alice", state.name)
         assertEquals(false, state.muted)
-        assertEquals("12345 67890", state.safetyNumber)
-        assertEquals(SafetyState.CHANGED, state.safety)
+        assertEquals(IdentityState.CHANGED, state.identity)
         assertEquals(2048L, state.storageBytes)
         vm.onAction(DirectDetailsAction.SetMuted(true))
         runCurrent()
@@ -115,15 +122,14 @@ class DirectDetailsViewModelTest {
         assertTrue(vm.state.value.problem != null)
     }
 
-    @Test fun aConversationWithoutARouteNamesNoSafetyNumber() = runTest(timeout = 5.seconds) {
+    @Test fun aConversationWithoutARouteHasNoPeerIdentity() = runTest(timeout = 5.seconds) {
         val history = History().apply { heading = ClientResult.Ready(ConversationHeader(null)) }
         val contacts = Contacts()
         val vm = DirectDetailsViewModel(history, contacts, FakeChatSession(), Media())
         vm.open("a", "dm:a", "Agent")
         runCurrent()
         assertFalse(vm.state.value.peerKnown)
-        assertNull(vm.state.value.safetyNumber)
-        assertEquals(0, contacts.safetyReads)
+        assertEquals(IdentityState.UNKNOWN, vm.state.value.identity)
         assertEquals("Agent", vm.state.value.name)
     }
 

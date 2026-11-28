@@ -53,11 +53,11 @@ import org.ramflux.feature.cards.api.CardsRoute
 import org.ramflux.feature.chat.ChatScreen
 import org.ramflux.feature.chat.ChatState
 import org.ramflux.feature.chat.api.ChatRoute
+import org.ramflux.feature.contacts.ContactIdentityItem
 import org.ramflux.feature.contacts.ContactsPage
 import org.ramflux.feature.contacts.ContactsScreen
 import org.ramflux.feature.contacts.ContactsState
 import org.ramflux.feature.contacts.PersonItem
-import org.ramflux.feature.contacts.SafetyItem
 import org.ramflux.feature.contacts.api.ContactsRoute
 import org.ramflux.feature.contacts.impl.R as ContactsR
 import org.ramflux.feature.conversations.ConversationsScreen
@@ -299,24 +299,18 @@ private val BOARDS: Map<String, @Composable () -> Unit> = mapOf(
 
 private val NO_INSETS = WindowInsets(0, 0, 0, 0)
 
-/** A contact on its safety page: a 60-digit safety number and a fingerprint. */
-private val SAFETY_CONTACT = run {
+/** A contact whose identity changed: the profile with its encryption section and the review action. */
+private val IDENTITY_CONTACT = run {
     val person = PersonItem(
-        "peer", "peer-id", "林悦", uiText(ContactsR.string.contacts_unverified), false, false, null, null, null
+        "peer", "peer-id", "林悦", uiText(ContactsR.string.contacts_accepted), false, false, null, null, null
     )
     ContactsState(
         accountLabel = ACCOUNT,
         loaded = true,
         rows = persistentListOf(person),
         selected = person,
-        page = ContactsPage.SAFETY,
-        safety = SafetyItem(
-            "052417733908182640516279388104529976631840271956",
-            "9f3a0c7d51e2b84f",
-            uiText(ContactsR.string.contacts_safety_state_unverified),
-            verified = false,
-            verifiable = true
-        )
+        page = ContactsPage.DETAIL,
+        identity = ContactIdentityItem(org.ramflux.data.IdentityState.CHANGED, loaded = true)
     )
 }
 
@@ -327,7 +321,7 @@ private val PHRASE = listOf("apple", "river", "stone", "cloud", "amber", "orbit"
 /**
  * Matrix states: the messages tab with a conversation open (two panes from 700 dp), the groups and agents
  * tabs, the other feature screens inside the shell (pushed on the More tab), the root-stack onboarding page
- * with the recovery phrase, the contact safety number and the unlock screens.
+ * with the recovery phrase, the contact identity review and the unlock screens.
  */
 private val MATRIX_STATES: Map<String, @Composable () -> Unit> = mapOf(
     "messages-chat" to { FixtureShell(ShellFixture(pushed = ChatRoute("a", "lin-yue")), NO_INSETS) },
@@ -337,7 +331,7 @@ private val MATRIX_STATES: Map<String, @Composable () -> Unit> = mapOf(
     },
     "agents" to { FixtureShell(ShellFixture(tab = 2, agents = AGENTS_LIST), NO_INSETS) },
     "settings" to { FixtureShell(ShellFixture(tab = 3, pushed = SettingsRoute), NO_INSETS) },
-    "contacts-safety" to { FixtureShell(ShellFixture(tab = 3, pushed = ContactsRoute, contacts = SAFETY_CONTACT), NO_INSETS) },
+    "contacts-identity" to { FixtureShell(ShellFixture(tab = 3, pushed = ContactsRoute, contacts = IDENTITY_CONTACT), NO_INSETS) },
     "tasks" to { FixtureShell(ShellFixture(tab = 3, pushed = TasksRoute), NO_INSETS) },
     "calls" to { FixtureShell(ShellFixture(tab = 3, pushed = CallsRoute), NO_INSETS) },
     "cards" to { FixtureShell(ShellFixture(tab = 3, pushed = CardsRoute), NO_INSETS) },
@@ -357,4 +351,4 @@ private val MATRIX_STATES: Map<String, @Composable () -> Unit> = mapOf(
     "unlock-info" to { StartupSurface(NO_INSETS, grouped = true) { UnlockInfo({}, {}) } }
 )
 
-private val SECURITY_STATES = setOf("unlock-entry", "unlock-details", "unlock-info", "contacts-safety", "onboarding-phrase")
+private val SECURITY_STATES = setOf("unlock-entry", "unlock-details", "unlock-info", "contacts-identity", "onboarding-phrase")

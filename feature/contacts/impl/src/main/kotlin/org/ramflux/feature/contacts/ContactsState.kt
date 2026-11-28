@@ -5,10 +5,12 @@ package org.ramflux.feature.contacts
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
 import org.ramflux.data.ContactOperation
+import org.ramflux.data.IdentityReviewState
+import org.ramflux.data.IdentityState
 import org.ramflux.designsystem.UiText
 
 enum class ContactsTab { CONTACTS, STRANGERS, SENT, BLOCKED }
-enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
+enum class ContactsPage { LIST, DETAIL, ADD, DECLINE, BATCH }
 
 /** One row: a contact link ([request] false; [id] is the link id) or a contact request ([id] is the request id). */
 @Immutable data class PersonItem(
@@ -23,21 +25,17 @@ enum class ContactsPage { LIST, DETAIL, ADD, SAFETY, DECLINE, BATCH }
     val expires: UiText? = null,
     val root: String? = null,
     val blocked: Boolean = false,
-    val verified: Boolean = false,
     /** SDK-verified AI agent: shown with the AI marker, otherwise exactly like a person. */
     val ai: Boolean = false
 ) {
     override fun toString() = "PersonItem(<redacted>)"
 }
 
-/** [verifiable]: the SDK offered a stamp for this number, so "Numbers match" can be recorded. */
-@Immutable data class SafetyItem(
-    val number: String,
-    val fingerprint: String,
-    val state: UiText,
-    val verified: Boolean,
-    val verifiable: Boolean
-)
+/**
+ * The identity of the contact on the profile page. [state] is the SDK's `identity_state`; [UNKNOWN][IdentityState.UNKNOWN] is
+ * shown like a first sighting, with no badge. [loaded] is false until the first read answers.
+ */
+@Immutable data class ContactIdentityItem(val state: IdentityState = IdentityState.UNKNOWN, val loaded: Boolean = false)
 
 @Immutable data class ContactApproval(
     val account: String,
@@ -89,7 +87,9 @@ internal const val USERNAME_PREFIX = '@'
     val problem: UiText? = null,
     val unavailable: UiText? = null,
     val approval: ContactApproval? = null,
-    val safety: SafetyItem? = null,
+    val identity: ContactIdentityItem? = null,
+    /** The identity change sheet, while it is open. */
+    val review: IdentityReviewState? = null,
     val operationNotice: UiText? = null,
     val uncertain: ImmutableList<UiText> = persistentListOf(),
     /** The last `@name` lookup on the add page; a request to a name is sent only after it was found. */

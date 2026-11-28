@@ -26,7 +26,6 @@ import org.ramflux.data.ContactCommand
 import org.ramflux.data.ContactDirectoryRepository
 import org.ramflux.data.ContactOperation
 import org.ramflux.data.ContactRequestSummary
-import org.ramflux.data.ContactSafety
 import org.ramflux.data.ContactSummary
 import org.ramflux.data.OwnContactCard
 
@@ -44,7 +43,6 @@ class MyContactCardViewModelTest {
         }
         override suspend fun contacts(account: String) = ClientResult.Ready(emptyList<ContactSummary>())
         override suspend fun requests(account: String) = ClientResult.Ready(emptyList<ContactRequestSummary>())
-        override suspend fun safety(account: String, root: String): ClientResult<ContactSafety> = error("unused")
         override suspend fun submit(command: ContactCommand, confirmed: Boolean): ClientResult<Unit> = error("unused")
         override fun attempts(account: String): List<ContactAttempt> = emptyList()
         override suspend fun availability(operation: ContactOperation): ClientResult<Unit> = error("unused")
