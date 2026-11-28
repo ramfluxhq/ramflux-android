@@ -344,4 +344,54 @@
     <plurals name="group_timeline_left_many">
         <item quantity="other">%1$s 和其他 %2$d 人退出了群组</item>
     </plurals>
+    <!-- MLS M3: catch-up, skip, void, banners, quota and privacy delay in the group chat -->
+    <string name="group_catchup_running">正在同步消息… %1$d / %2$d</string>
+    <string name="group_catchup_running_indeterminate">正在同步消息…</string>
+    <string name="group_catchup_skip">跳过</string>
+    <string name="group_catchup_rejoining">正在重新加入群组。需要某位成员的设备或智能体在线。</string>
+    <string name="group_skip_title">跳过同步？</string>
+    <!-- Translator note: fixed text agreed with the protocol team. Do not soften it; it must say the messages can never be read on this device. -->
+    <string name="group_skip_body">被跳过范围内的消息永远无法在此设备上阅读。</string>
+    <string name="group_skip_body_more">你已读过的消息会保留。你的其他设备上的内容不受影响。</string>
+    <string name="group_skip_confirm">跳过</string>
+    <string name="group_skip_cancel">继续同步</string>
+    <string name="group_skip_skipping">正在跳过…</string>
+    <string name="group_void_action">撤销此更改</string>
+    <string name="group_void_title">撤销此更改？</string>
+    <string name="group_void_body">群组将恢复到此更改之前的状态。已应用此更改的成员设备需要重新加入群组。这会自动进行，但可能需要一些时间。</string>
+    <string name="group_void_confirm">撤销</string>
+    <string name="group_void_undoing">正在撤销…</string>
+    <string name="group_void_undone">已撤销</string>
+    <string name="group_timeline_void_by">%1$s 撤销了一项更改</string>
+    <plurals name="group_timeline_undecryptable">
+        <item quantity="other">%d 条消息无法在此设备上阅读</item>
+    </plurals>
+    <string name="group_chat_warning_fork_alarm">此群组的历史记录出现了分叉。消息可能无法送达所有人。请告知管理员。</string>
+    <string name="group_chat_warning_rejoin_needed_pruned">此设备离开太久，正在重新加入群组。这段时间的消息无法在此设备上阅读。</string>
+    <string name="group_chat_warning_rejoin_needed_gate_rejected">此设备的一项更改被拒绝，正在重新加入群组。</string>
+    <string name="group_chat_warning_rejoin_needed_apply_failed">此设备无法应用一项群组更改，正在重新加入群组。</string>
+    <string name="group_chat_warning_rejoin_needed_welcome_expired">此设备的入群邀请已过期，正在重新加入群组。</string>
+    <string name="group_chat_warning_rejoin_needed_state_lost">此设备丢失了此群组的密钥。请在你的另一台设备上打开此群组，或请群成员重新发送邀请。</string>
+    <string name="group_chat_warning_rejoin_needed_generic">此设备需要重新加入群组才能阅读新消息。</string>
+    <plurals name="group_chat_warning_undecryptable">
+        <item quantity="other">%d 条消息无法在此设备上阅读。</item>
+    </plurals>
+    <string name="group_warning_undecryptable_show">查看</string>
+    <string name="group_chat_warning_admission_needs_online">只有在某位成员的设备或智能体在线时，新成员才能加入。</string>
+    <string name="group_chat_warning_host_unusual">群组服务器行为异常。消息可能会延迟。</string>
+    <string name="group_chat_warning_head_commit_rejected">成员设备拒绝了最近一次群组更改。撤销之前，群组无法再进行更改。</string>
+    <string name="group_warning_head_commit_rejected_action">撤销该更改</string>
+    <string name="group_chat_warning_generic">此群组报告了一个问题。</string>
+    <string name="group_warning_hide">隐藏</string>
+    <plurals name="group_warning_more">
+        <item quantity="other">另有 %d 条提醒</item>
+    </plurals>
+    <string name="group_chat_hint_agent_mobile">你可以在桌面端添加智能体，让群组随时可以加入。</string>
+    <string name="group_chat_hint_agent_invite">获取邀请链接</string>
+    <string name="group_quota_post">今天还可发送 %1$d 条消息，共 %2$d 条</string>
+    <string name="group_quota_post_first_day">第一天：还可发送 %1$d 条消息，共 %2$d 条</string>
+    <string name="group_chat_quota_resets">%1$s 重置</string>
+    <string name="group_privacy_delay_eta">你现在发送的消息将在 %1$s 左右发出。</string>
+    <string name="group_chat_error_not_admin">只有管理员可以执行此操作。</string>
+    <string name="group_chat_error_void_not_head">这已不是最近一次更改，无法撤销。</string>
 </resources>

@@ -6,6 +6,8 @@ import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.*
 import org.ramflux.data.IdentityReviewState
 import org.ramflux.data.IdentityState
+import org.ramflux.data.MlsGroupRejoinReason
+import org.ramflux.data.MlsGroupWarning
 import org.ramflux.data.cards.CardImageSource
 import org.ramflux.data.cards.CardState
 import org.ramflux.designsystem.UiText
@@ -75,6 +77,8 @@ enum class GroupReason {
     UNAVAILABLE,
     MESSAGE_NOT_FOUND,
     NOT_AUTHOR,
+    NOT_ADMIN,
+    VOID_NOT_HEAD,
     GENERIC
 }
 
@@ -95,6 +99,12 @@ enum class GroupReason {
     data class Renamed(val actor: GroupName?, val name: String) : GroupLine
     data class Approval(val actor: GroupName?, val on: Boolean) : GroupLine
     data object Void : GroupLine
+
+    /** A void row: [actor] undid a change. */
+    data class VoidBy(val actor: GroupName) : GroupLine
+
+    /** The placeholder row at `from_log_seq` of an `undecryptable` warning: [count] messages cannot be read on this device. */
+    data class Undecryptable(val count: Int) : GroupLine
     data object Updated : GroupLine
     data object Unsupported : GroupLine
     data object Floor : GroupLine
@@ -122,6 +132,8 @@ enum class GroupReason {
     val groupDelivery: GroupDelivery? = null,
     /** The MLS group service row to draw instead of [content]; null for every direct-chat row. */
     val line: GroupLine? = null,
+    /** An MLS group row whose change a later `void` row undid: it shows the "Undone" mark. */
+    val undone: Boolean = false,
     /** An own, posted MLS group row: "Delete for everyone" is offered. */
     val deletable: Boolean = false
 ) : TimelineItem {
@@ -197,6 +209,29 @@ enum class GroupReason {
 /** Why an MLS group is read-only: no composer is shown and nothing is sent (S13). */
 enum class GroupReadOnly { LEFT, REMOVED, BANNED }
 
+/** The catch-up banner of an MLS group (D-M3-2). */
+@Immutable sealed interface MlsCatchUpUi {
+    /** [total] is 0 when unknown: the text has no numbers. Skip is offered. */
+    data class Running(val done: Long, val total: Long) : MlsCatchUpUi
+
+    /** The skip call is out. */
+    data object Skipping : MlsCatchUpUi
+
+    /** The SDK rejoins by itself; [reason] picks the text, null is the plain rejoining text. No Skip. */
+    data class Rejoining(val reason: MlsGroupRejoinReason?) : MlsCatchUpUi
+}
+
+/** One warning banner (D-M3-3). [hideable] banners show "Hide"; the critical ones cannot be dismissed. */
+@Immutable data class MlsBannerUi(val warning: MlsGroupWarning, val hideable: Boolean) {
+    override fun toString() = "MlsBannerUi(<redacted>)"
+}
+
+/** The post quota line above the composer (2.8). */
+@Immutable data class MlsQuotaUi(val remaining: Long, val limit: Long, val firstDay: Boolean, val resetsAt: Long?)
+
+/** Where "Show" scrolls the timeline to; the nonce makes a second tap on the same row scroll again. */
+@Immutable data class MlsScrollTarget(val rowId: String, val nonce: Int)
+
 /** The extras of an MLS group chat; null for a direct chat and for the old group chat. */
 @Immutable data class MlsChatUi(
     val readOnly: GroupReadOnly? = null,
@@ -207,7 +242,22 @@ enum class GroupReadOnly { LEFT, REMOVED, BANNED }
     val trimmed: Boolean = false,
     val confirmDelete: Boolean = false,
     val mention: MentionSheet? = null,
-    val notice: GroupDelivery? = null
+    val notice: GroupDelivery? = null,
+    val catchUp: MlsCatchUpUi? = null,
+    /** At most two, most severe first; [bannersMore] counts the rest, which group info lists. */
+    val banners: ImmutableList<MlsBannerUi> = persistentListOf(),
+    val bannersMore: Int = 0,
+    /** The agent hint and "Get invite link" show with the admission banner (members of a group that is not read-only). */
+    val admissionActions: Boolean = false,
+    val quotaLine: MlsQuotaUi? = null,
+    /** Messages sent now go out around this time (a privacy delay in the future). */
+    val privacyEta: Long? = null,
+    /** The head commit's service row: the only row that can be selected, with the one action "Undo this change". */
+    val voidableRowId: String? = null,
+    val voiding: Boolean = false,
+    val confirmSkip: Boolean = false,
+    val confirmVoid: Boolean = false,
+    val scrollTo: MlsScrollTarget? = null
 ) {
     override fun toString() = "MlsChatUi(<redacted>)"
 }

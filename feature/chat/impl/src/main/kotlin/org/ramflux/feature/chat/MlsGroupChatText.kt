@@ -58,6 +58,8 @@ internal fun groupLineText(line: GroupLine): String = when (line) {
         stringResource(if (line.on) R.string.group_timeline_approval_on else R.string.group_timeline_approval_off, nameText(it))
     } ?: stringResource(R.string.group_timeline_updated)
     GroupLine.Void -> stringResource(R.string.group_timeline_void)
+    is GroupLine.VoidBy -> stringResource(R.string.group_timeline_void_by, nameText(line.actor))
+    is GroupLine.Undecryptable -> pluralStringResource(R.plurals.group_timeline_undecryptable, line.count, line.count)
     GroupLine.Updated -> stringResource(R.string.group_timeline_updated)
     GroupLine.Unsupported -> stringResource(R.string.group_timeline_unsupported)
     GroupLine.Floor -> stringResource(R.string.group_timeline_floor)
@@ -93,11 +95,13 @@ internal fun groupDeliveryText(delivery: GroupDelivery): String = when (delivery
     GroupReason.UNAVAILABLE -> stringResource(R.string.group_chat_error_unavailable)
     GroupReason.MESSAGE_NOT_FOUND -> stringResource(R.string.group_chat_error_message_not_found)
     GroupReason.NOT_AUTHOR -> stringResource(R.string.group_chat_error_not_author)
+    GroupReason.NOT_ADMIN -> stringResource(R.string.group_chat_error_not_admin)
+    GroupReason.VOID_NOT_HEAD -> stringResource(R.string.group_chat_error_void_not_head)
     GroupReason.GENERIC -> stringResource(R.string.group_chat_error_generic)
 }
 
 @Composable
-private fun clock(epochMillis: Long): String {
+internal fun clock(epochMillis: Long): String {
     val locale = LocalConfiguration.current.locales[0]
     return try {
         DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withLocale(locale).withZone(ZoneId.systemDefault())

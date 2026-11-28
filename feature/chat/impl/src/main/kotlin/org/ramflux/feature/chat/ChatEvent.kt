@@ -21,6 +21,12 @@ sealed interface ChatEvent {
         override fun toString() = "OpenUrl(<redacted>)"
     }
 
+    /** MLS group chat: open the invite panel of the group ("Get invite link"). Nothing is created or copied by this. */
+    data object MlsInvite : ChatEvent
+
+    /** MLS group chat: open group info, where every warning row is listed. */
+    data object MlsAlerts : ChatEvent
+
     /** Copy [text] to the clipboard; it is message plaintext and is never logged. */
     data class Copy(val text: String) : ChatEvent {
         override fun toString() = "Copy(<redacted>)"

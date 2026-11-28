@@ -126,6 +126,22 @@ sealed interface ChatAction {
     data object ConfirmDelete : ChatAction
     data object CancelDelete : ChatAction
 
+    /**
+     * MLS group chat (M3). Skip opens the dialog; only [MlsConfirmSkip] calls `group.catch_up{skip: true}`. [MlsHideBanner] hides
+     * a hideable banner for the session. [MlsShowUndecryptable] scrolls to the placeholder row (older pages load by the M2
+     * paging path). [MlsUndo] opens the void confirmation for the row (or the log position `head_commit_rejected` names).
+     */
+    data object MlsSkip : ChatAction
+    data object MlsConfirmSkip : ChatAction
+    data object MlsCancelSkip : ChatAction
+    data class MlsHideBanner(val code: String) : ChatAction
+    data object MlsShowUndecryptable : ChatAction
+    data class MlsUndo(val rowId: String) : ChatAction
+    data object MlsConfirmUndo : ChatAction
+    data object MlsCancelUndo : ChatAction
+    data object MlsOpenInvite : ChatAction
+    data object MlsOpenAlerts : ChatAction
+
     /** MLS group chat: the mention picker over the loaded members. */
     data object MentionOpen : ChatAction
     data object MentionMore : ChatAction

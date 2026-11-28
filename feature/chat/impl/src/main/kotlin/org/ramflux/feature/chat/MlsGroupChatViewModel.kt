@@ -17,12 +17,22 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.ramflux.data.MlsAdminKind
+import org.ramflux.data.MlsAdminRules
+import org.ramflux.data.MlsAdminState
+import org.ramflux.data.MlsFailure
+import org.ramflux.data.MlsGroupCatchUp
 import org.ramflux.data.MlsGroupNotices
 import org.ramflux.data.MlsGroupSession
+import org.ramflux.data.MlsGroupWarning
 import org.ramflux.data.MlsInfoState
 import org.ramflux.data.MlsMembersState
 import org.ramflux.data.MlsReadOnly
 import org.ramflux.data.MlsTimelineState
+import org.ramflux.data.admin
+import org.ramflux.data.hideWarning
+import org.ramflux.data.skipCatchUp
+import org.ramflux.data.voidCommit
 import org.ramflux.designsystem.UiText
 import org.ramflux.designsystem.uiText
 import org.ramflux.feature.chat.impl.R
@@ -50,7 +60,15 @@ class MlsGroupChatViewModel(
         val mentionOpen: Boolean = false,
         /** anchor to the name put into the draft; only names still in the draft are sent as mentions. */
         val picked: Map<String, String> = emptyMap(),
-        val noticePending: Boolean = false
+        val noticePending: Boolean = false,
+        /** The skip dialog is open. */
+        val skipOpen: Boolean = false,
+        /** The log position the void confirmation is for. */
+        val voidTarget: Long? = null,
+        /** "Show" was tapped and the placeholder row is not loaded yet: older pages load (M2 path) until it is, at most [SHOW_PAGES]. */
+        val showPending: Boolean = false,
+        val showPages: Int = 0,
+        val scrollTo: MlsScrollTarget? = null
     ) {
         override fun toString() = "Local(<redacted>)"
     }
@@ -60,7 +78,12 @@ class MlsGroupChatViewModel(
     private val channel = Channel<ChatEvent>(Channel.BUFFERED)
     val events = channel.receiveAsFlow()
 
-    private data class Remote(val timeline: MlsTimelineState, val members: MlsMembersState, val info: MlsInfoState)
+    private data class Remote(
+        val timeline: MlsTimelineState,
+        val members: MlsMembersState,
+        val info: MlsInfoState,
+        val admin: MlsAdminState = MlsAdminState()
+    )
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val remote = ids.flatMapLatest { id ->
@@ -70,9 +93,10 @@ class MlsGroupChatViewModel(
             combine(
                 session.timeline(id.account, id.group),
                 session.members(id.account, id.group),
-                session.info(id.account, id.group)
-            ) { t, m, i ->
-                Remote(t, m, i)
+                session.info(id.account, id.group),
+                session.admin(id.account, id.group)
+            ) { t, m, i, a ->
+                Remote(t, m, i, a)
             }
         }
     }
@@ -83,7 +107,8 @@ class MlsGroupChatViewModel(
     private fun build(ids: Ids?, remote: Remote, local: Local): ChatState {
         if (ids == null) return ChatState()
         val t = remote.timeline
-        val rows = MlsGroupChatMapping.rows(t).toImmutableList()
+        val surfaces = surfaces(remote)
+        val rows = surfaces.rows.toImmutableList()
         val now = clock()
         val limited = t.limitedUntil?.takeIf { it > now }
         val readOnly = when (t.readOnly) {
@@ -136,16 +161,76 @@ class MlsGroupChatViewModel(
                 } else {
                     null
                 },
-                notice = t.deleteFailure?.let {
-                    GroupDelivery(
-                        GroupDeliveryKind.NOT_SENT,
-                        MlsGroupChatMapping.reasonOf(it.code),
-                        it.detail
-                    )
-                }
+                notice = listOfNotNull(
+                    t.deleteFailure,
+                    remote.admin.lastFailure?.takeIf { it.kind == MlsAdminKind.VOID }?.failure,
+                    remote.admin.catchUp.skipFailure
+                ).firstOrNull()?.let { noticeOf(it) },
+                catchUp = surfaces.catchUp,
+                banners = surfaces.banners.toImmutableList(),
+                bannersMore = surfaces.more,
+                admissionActions = surfaces.readOnly == null && remote.info.group != null,
+                quotaLine = remote.info.group?.quotaPost?.takeIf { surfaces.readOnly == null && MlsAdminRules.quotaLineVisible(it) }
+                    ?.let { MlsQuotaUi(it.remaining, it.limit, it.firstDay, it.resetsAt) },
+                privacyEta = remote.info.group?.privacySendAfter?.takeIf { surfaces.readOnly == null && it > now },
+                voidableRowId = surfaces.voidableRowId,
+                voiding = (remote.admin.slot ?: remote.admin.pending?.action)?.kind == MlsAdminKind.VOID,
+                confirmSkip = local.skipOpen && surfaces.catchUp is MlsCatchUpUi.Running,
+                confirmVoid = local.voidTarget != null,
+                scrollTo = local.scrollTo
             )
         )
     }
+
+    /** What the session state gives the chat besides the plain timeline: rows, the catch-up banner, the warning banners, the head commit. */
+    private class Surfaces(
+        val rows: List<TimelineItem>,
+        val catchUp: MlsCatchUpUi?,
+        val banners: List<MlsBannerUi>,
+        val more: Int,
+        val voidableRowId: String?,
+        val readOnly: MlsReadOnly?,
+        val placeholderId: String?
+    )
+
+    private fun surfaces(remote: Remote): Surfaces {
+        val t = remote.timeline
+        val admin = remote.admin
+        val group = remote.info.group
+        val readOnly = t.readOnly
+        // A group that is read-only shows no banner, no catch-up, no hint action and no void entry (A16).
+        val warnings = if (readOnly != null) emptyList() else MlsAdminRules.visibleWarnings(admin.warnings, group?.myRole)
+        val undecryptable = warnings.filterIsInstance<MlsGroupWarning.Undecryptable>().firstOrNull()
+        val rows = MlsGroupChatMapping.rows(t, admin.voided, undecryptable)
+        val rejoin = warnings.filterIsInstance<MlsGroupWarning.RejoinNeeded>().firstOrNull()
+        val record = admin.catchUp
+        val catchUp = when {
+            readOnly != null -> null
+            record.state == MlsGroupCatchUp.REJOINING || rejoin != null -> MlsCatchUpUi.Rejoining(rejoin?.reason)
+            record.skipping -> MlsCatchUpUi.Skipping
+            record.state == MlsGroupCatchUp.RUNNING -> MlsCatchUpUi.Running(record.done, record.total)
+            else -> null
+        }
+        // `rejoin_needed` is shown by the catch-up banner; the others are banners, most severe first, hidden ones left out.
+        val shown = warnings.filterNot { it is MlsGroupWarning.RejoinNeeded || (MlsAdminRules.hideable(it) && it.key in admin.hidden) }
+        val canVoid = group != null && readOnly == null && MlsAdminRules.isAdmin(group.myRole) && !admin.busy
+        val head = if (canVoid) MlsAdminRules.headCommit(t.window, admin.voided) else null
+        return Surfaces(
+            rows,
+            catchUp,
+            shown.take(MAX_BANNERS).map { MlsBannerUi(it, MlsAdminRules.hideable(it)) },
+            (shown.size - MAX_BANNERS).coerceAtLeast(0),
+            head?.let { MlsGroupChatMapping.rowIdAt(rows, it) },
+            readOnly,
+            undecryptable?.fromLogSeq?.let { MlsGroupChatMapping.PLACEHOLDER + it }
+        )
+    }
+
+    private fun noticeOf(failure: MlsFailure) = GroupDelivery(
+        GroupDeliveryKind.NOT_SENT,
+        if (failure.unavailable) GroupReason.UNAVAILABLE else MlsGroupChatMapping.reasonOf(failure.code),
+        failure.detail
+    )
 
     /** The app returned to the foreground with this chat open: fill the gap and pull from the host. */
     fun onForeground() {
@@ -158,7 +243,10 @@ class MlsGroupChatViewModel(
             is ChatAction.Load -> load(action)
             is ChatAction.Draft -> local.value = local.value.copy(draft = action.text.take(MAX_DRAFT))
             ChatAction.Send -> send(target)
-            is ChatAction.Select -> if (rowOf(action.id)?.line == null) local.value = local.value.copy(selectedId = action.id)
+            // A service row cannot be selected, except the head commit's row (its one action is "Undo this change").
+            is ChatAction.Select -> if (rowOf(action.id)?.line == null || action.id == state.value.mls?.voidableRowId) {
+                local.value = local.value.copy(selectedId = action.id)
+            }
             ChatAction.Dismiss -> local.value = local.value.copy(selectedId = null)
             ChatAction.Reply -> local.value = local.value.let {
                 it.copy(composer = ComposerMode.REPLY, actionTarget = it.selectedId, selectedId = null)
@@ -194,6 +282,25 @@ class MlsGroupChatViewModel(
                     MlsGroupChatMapping.POSTED
                 ).toLongOrNull()?.let { session.markRead(target.account, target.group, it) }
             }
+            ChatAction.MlsSkip -> if (state.value.mls?.catchUp is MlsCatchUpUi.Running) local.value = local.value.copy(skipOpen = true)
+            ChatAction.MlsCancelSkip -> local.value = local.value.copy(skipOpen = false)
+            // The skip dialog's confirm is the only caller of `group.catch_up{skip: true}` (A3).
+            ChatAction.MlsConfirmSkip -> {
+                local.value = local.value.copy(skipOpen = false)
+                if (target != null) session.skipCatchUp(target.account, target.group)
+            }
+            is ChatAction.MlsHideBanner -> if (target != null) session.hideWarning(target.account, target.group, action.code)
+            ChatAction.MlsShowUndecryptable -> showUndecryptable(target)
+            is ChatAction.MlsUndo -> askVoid(action.rowId)
+            ChatAction.MlsCancelUndo -> local.value = local.value.copy(voidTarget = null)
+            // The void confirmation's confirm is the only caller of `group.void` (A1). The session checks the head commit again.
+            ChatAction.MlsConfirmUndo -> {
+                val slot = local.value.voidTarget
+                local.value = local.value.copy(voidTarget = null)
+                if (target != null && slot != null) session.voidCommit(target.account, target.group, slot)
+            }
+            ChatAction.MlsOpenInvite -> channel.trySend(ChatEvent.MlsInvite)
+            ChatAction.MlsOpenAlerts -> channel.trySend(ChatEvent.MlsAlerts)
             ChatAction.MentionOpen -> if (target != null) {
                 if (!state.value.loaded || state.value.mls?.mention == null) session.loadMembers(target.account, target.group)
                 local.value = local.value.copy(mentionOpen = true)
@@ -205,6 +312,41 @@ class MlsGroupChatViewModel(
             ChatAction.Details -> channel.trySend(ChatEvent.Details)
             // Attachments, cards, forwarding, editing, reactions and the gallery are not part of M2 groups (L2).
             else -> Unit
+        }
+    }
+
+    /** "Undo this change": the head commit's row, or the log position `head_commit_rejected` names (`h<log_seq>`). */
+    private fun askVoid(rowId: String) {
+        val slot = MlsGroupChatMapping.slotOf(rowId) ?: return
+        val now = state.value
+        val rejected = latestAdmin.warnings.items.values.any { it is MlsGroupWarning.HeadCommitRejected && it.logSeq == slot }
+        val head = now.mls?.voidableRowId?.let { MlsGroupChatMapping.slotOf(it) }
+        val allowed = latestInfoAdmin && now.mls?.readOnly == null && (slot == head || rejected)
+        local.value = local.value.copy(selectedId = null, voidTarget = if (allowed) slot else null)
+    }
+
+    /** "Show": scrolls to the placeholder row; while older rows are missing they load by the M2 paging path, one page at a time. */
+    private fun showUndecryptable(target: Ids?) {
+        if (target == null) return
+        local.value = local.value.copy(showPending = true, showPages = 0)
+        followShow(target)
+    }
+
+    private fun followShow(target: Ids) {
+        val current = local.value
+        if (!current.showPending) return
+        val placeholder = surfaces(Remote(latest, MlsMembersState(), latestInfo, latestAdmin)).placeholderId
+        val loaded = placeholder != null && state.value.rows.any { it.id == placeholder }
+        when {
+            loaded -> local.value = current.copy(
+                showPending = false,
+                scrollTo = MlsScrollTarget(placeholder.orEmpty(), (current.scrollTo?.nonce ?: 0) + 1)
+            )
+            latest.window.hasOlder && !latest.loadingOlder && current.showPages < SHOW_PAGES -> {
+                local.value = current.copy(showPages = current.showPages + 1)
+                session.loadOlder(target.account, target.group)
+            }
+            !latest.window.hasOlder || current.showPages >= SHOW_PAGES -> local.value = current.copy(showPending = false)
         }
     }
 
@@ -241,6 +383,9 @@ class MlsGroupChatViewModel(
     }
 
     private var latest: MlsTimelineState = MlsTimelineState()
+    private var latestInfo: MlsInfoState = MlsInfoState()
+    private var latestAdmin: MlsAdminState = MlsAdminState()
+    private val latestInfoAdmin get() = latestInfo.group?.let { MlsAdminRules.isAdmin(it.myRole) } == true
 
     private fun remoteWindowPostId(slot: Long): String? = latest.window.posts.firstOrNull {
         it.logSeq == slot
@@ -280,7 +425,10 @@ class MlsGroupChatViewModel(
         viewModelScope.launch {
             remote.collect {
                 latest = it.timeline
+                latestInfo = it.info
+                latestAdmin = it.admin
                 loadedMembers = it.members.rows
+                ids.value?.let { target -> followShow(target) }
             }
         }
     }
@@ -288,6 +436,8 @@ class MlsGroupChatViewModel(
     private companion object {
         const val STOP_MS = 5_000L
         const val MAX_DRAFT = 65_536
+        const val MAX_BANNERS = 2
+        const val SHOW_PAGES = 12
         const val SPACE = ' '
         const val AT = '@'
     }

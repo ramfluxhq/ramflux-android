@@ -3,12 +3,14 @@
 
 package org.ramflux.feature.chat
 
+import org.ramflux.data.MlsAdminRules
 import org.ramflux.data.MlsGroupAuthor
 import org.ramflux.data.MlsGroupChangeKind
 import org.ramflux.data.MlsGroupPost
 import org.ramflux.data.MlsGroupPostKind
 import org.ramflux.data.MlsGroupPostState
 import org.ramflux.data.MlsGroupQueuedReason
+import org.ramflux.data.MlsGroupWarning
 import org.ramflux.data.MlsLine
 import org.ramflux.data.MlsLineName
 import org.ramflux.data.MlsLines
@@ -25,34 +27,66 @@ internal object MlsGroupChatMapping {
     const val POSTED = "l"
     const val LOCAL = "u"
 
-    fun rows(timeline: MlsTimelineState): List<TimelineItem> {
+    /** The placeholder row of an `undecryptable` warning, followed by its `from_log_seq`. */
+    const val PLACEHOLDER = "x"
+
+    /**
+     * The rows of the timeline. [voided] are the commits a void row undid (the session's record plus the void rows of the window):
+     * their service rows carry the "Undone" mark. [undecryptable] adds one placeholder row at its `from_log_seq`, only once the
+     * window covers that position (the older pages load by the M2 paging path).
+     */
+    fun rows(
+        timeline: MlsTimelineState,
+        voided: Set<Long> = emptySet(),
+        undecryptable: MlsGroupWarning.Undecryptable? = null
+    ): List<TimelineItem> {
         val window = timeline.window
-        val out = ArrayList<TimelineItem>(window.posts.size + timeline.locals.size + 1)
-        if (window.reachedFloor && !window.hasOlder && window.posts.isNotEmpty()) out += service("floor", GroupLine.Floor, null)
+        val undone = voided + MlsAdminRules.voidedBy(window)
+        val out = ArrayList<TimelineItem>(window.posts.size + timeline.locals.size + 2)
+        var placeholder = undecryptable?.takeIf { it.count > 0 && it.fromLogSeq != null && coversPosition(window, it.fromLogSeq ?: 0L) }
+
+        // Rows go in log order; the placeholder goes before the first row at or after its position.
+        fun push(item: TimelineItem, logSeq: Long?) {
+            val ph = placeholder
+            if (ph != null && logSeq != null && logSeq >= (ph.fromLogSeq ?: Long.MAX_VALUE)) {
+                out += placeholderRow(ph)
+                placeholder = null
+            }
+            out += item
+        }
+        if (window.reachedFloor && !window.hasOlder && window.posts.isNotEmpty()) out += service("floor", GroupLine.Floor, null, undone)
         val byPost = window.posts.associateBy { it.postId }
         MlsLines.collapse(window.posts).forEach { line ->
             when (line) {
-                is MlsLine.Row -> out += row(line.post, timeline, byPost)
-                is MlsLine.Group -> out += service(
-                    "g" + line.logSeq + ":" + line.kind,
-                    if (line.kind == MlsGroupChangeKind.JOINED) {
-                        GroupLine.Joined(name(line.names.first()), line.count - 1)
-                    } else {
-                        GroupLine.Left(name(line.names.first()), line.count - 1)
-                    },
+                is MlsLine.Row -> push(row(line.post, timeline, byPost, undone), line.post.logSeq)
+                is MlsLine.Group -> push(
+                    service(
+                        "g" + line.logSeq + ":" + line.kind,
+                        if (line.kind == MlsGroupChangeKind.JOINED) {
+                            GroupLine.Joined(name(line.names.first()), line.count - 1)
+                        } else {
+                            GroupLine.Left(name(line.names.first()), line.count - 1)
+                        },
+                        line.logSeq,
+                        undone
+                    ),
                     line.logSeq
                 )
                 is MlsLine.Change -> {
                     val target = GroupName(line.change.display, line.change.isMe)
                     val actor = line.actor?.let { GroupName(it.display, it.isMe) }
                     val id = "c" + line.logSeq + ":" + line.change.anchor
-                    out += service(
-                        id,
-                        when (line.change.change) {
-                            MlsGroupChangeKind.REMOVED -> GroupLine.Removed(actor, target)
-                            MlsGroupChangeKind.BANNED -> GroupLine.Banned(actor, target)
-                            else -> GroupLine.Role(actor, target, line.change.role == org.ramflux.data.MlsGroupRole.ADMIN)
-                        },
+                    push(
+                        service(
+                            id,
+                            when (line.change.change) {
+                                MlsGroupChangeKind.REMOVED -> GroupLine.Removed(actor, target)
+                                MlsGroupChangeKind.BANNED -> GroupLine.Banned(actor, target)
+                                else -> GroupLine.Role(actor, target, line.change.role == org.ramflux.data.MlsGroupRole.ADMIN)
+                            },
+                            line.logSeq,
+                            undone
+                        ),
                         line.logSeq
                     )
                 }
@@ -61,34 +95,65 @@ internal object MlsGroupChatMapping {
                     var any = false
                     line.name?.let {
                         any = true
-                        out += service("s" + line.logSeq + ":name", GroupLine.Renamed(actor, it), line.logSeq)
+                        push(service("s" + line.logSeq + ":name", GroupLine.Renamed(actor, it), line.logSeq, undone), line.logSeq)
                     }
                     line.approval?.let {
                         any = true
-                        out += service("s" + line.logSeq + ":approval", GroupLine.Approval(actor, it), line.logSeq)
+                        push(service("s" + line.logSeq + ":approval", GroupLine.Approval(actor, it), line.logSeq, undone), line.logSeq)
                     }
-                    if (!any) out += service("s" + line.logSeq, GroupLine.Updated, line.logSeq)
+                    if (!any) push(service("s" + line.logSeq, GroupLine.Updated, line.logSeq, undone), line.logSeq)
                 }
             }
         }
+        placeholder?.let { out += placeholderRow(it) }
         timeline.locals.sortedBy { it.createdAt }.forEach { out += local(it) }
         return out
     }
 
+    /** True when the loaded window reaches [logSeq]: it starts at or before it, or nothing older exists. */
+    private fun coversPosition(window: org.ramflux.data.MlsTimelineWindow, logSeq: Long): Boolean {
+        val oldest = window.oldest ?: return false
+        if (window.trimmedNewest || window.gapAfter != null) return oldest <= logSeq && logSeq <= window.newest
+        return oldest <= logSeq || !window.hasOlder
+    }
+
+    private fun placeholderRow(warning: MlsGroupWarning.Undecryptable): MessageItem {
+        val from = warning.fromLogSeq ?: 0L
+        val count = warning.count.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+        return service(PLACEHOLDER + from, GroupLine.Undecryptable(count), from, emptySet())
+    }
+
+    /** The id of the first service row at [logSeq] (the head commit's row), or null when it is not drawn. */
+    fun rowIdAt(rows: List<TimelineItem>, logSeq: Long): String? = rows.firstOrNull {
+        it is MessageItem && it.service && it.line !is GroupLine.VoidBy && it.line !is GroupLine.Void &&
+            it.line !is GroupLine.Undecryptable && slotOf(it.id) == logSeq
+    }?.id
+
+    /** The group log position a service row id names (`c250:anchor`, `s250:name`, `g250:JOINED`, `l251`), or null. */
+    fun slotOf(rowId: String): Long? = rowId.drop(1).takeWhile { it.isDigit() }.toLongOrNull()
+
     private fun name(value: MlsLineName) = GroupName(value.display, value.isMe)
 
-    private fun service(id: String, line: GroupLine, logSeq: Long?) =
-        MessageItem(id = id, sender = "", own = false, deleted = false, content = UiText.Empty, sentAt = null, service = true, line = line)
+    private fun service(id: String, line: GroupLine, logSeq: Long?, voided: Set<Long>) = MessageItem(
+        id = id, sender = "", own = false, deleted = false, content = UiText.Empty, sentAt = null, service = true, line = line,
+        undone = logSeq != null && logSeq in voided
+    )
 
-    private fun row(post: MlsGroupPost, timeline: MlsTimelineState, byPost: Map<String, MlsGroupPost>): MessageItem {
+    private fun row(post: MlsGroupPost, timeline: MlsTimelineState, byPost: Map<String, MlsGroupPost>, voided: Set<Long>): MessageItem {
         val id = POSTED + post.logSeq
         when (post.kind) {
-            MlsGroupPostKind.VOID -> return service(id, GroupLine.Void, post.logSeq)
-            MlsGroupPostKind.ATTACHMENT, MlsGroupPostKind.CARD -> return service(id, GroupLine.Unsupported, post.logSeq)
+            MlsGroupPostKind.VOID -> return service(
+                id,
+                post.by?.let { GroupLine.VoidBy(GroupName(it.display, it.isMe)) } ?: GroupLine.Void,
+                post.logSeq,
+                voided
+            )
+            MlsGroupPostKind.ATTACHMENT, MlsGroupPostKind.CARD -> return service(id, GroupLine.Unsupported, post.logSeq, voided)
             MlsGroupPostKind.UNKNOWN, MlsGroupPostKind.MEMBERSHIP, MlsGroupPostKind.SETTINGS -> return service(
                 id,
                 GroupLine.Updated,
-                post.logSeq
+                post.logSeq,
+                voided
             )
             MlsGroupPostKind.TEXT -> Unit
         }
@@ -182,6 +247,8 @@ internal object MlsGroupChatMapping {
         "rate_limited" -> GroupReason.RATE_LIMITED_NO_RESET
         "message_not_found" -> GroupReason.MESSAGE_NOT_FOUND
         "not_author" -> GroupReason.NOT_AUTHOR
+        "not_admin", "not_owner" -> GroupReason.NOT_ADMIN
+        "void_not_head" -> GroupReason.VOID_NOT_HEAD
         else -> GroupReason.GENERIC
     }
 }

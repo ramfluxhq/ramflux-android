@@ -148,6 +148,8 @@ fun ChatNavigation(
                 ChatEvent.Details -> details?.invoke() ?: run { if (groupId == null) directDetails = true }
                 ChatEvent.Call -> call?.invoke()
                 ChatEvent.Storage -> openStorage?.invoke()
+                // W: the MLS group chat opens the invite panel and group info through the groups routes; the direct chat never sends these.
+                ChatEvent.MlsInvite, ChatEvent.MlsAlerts -> Unit
                 is ChatEvent.Copy -> clipboard.setText(AnnotatedString(event.text))
                 is ChatEvent.OpenUrl -> runCatching {
                     // Only web links leave the app; any other scheme in a card link is dropped.

@@ -349,4 +349,57 @@
         <item quantity="one">%1$s and %2$d other left</item>
         <item quantity="other">%1$s and %2$d others left</item>
     </plurals>
+    <!-- MLS M3: catch-up, skip, void, banners, quota and privacy delay in the group chat -->
+    <string name="group_catchup_running">Catching up on messages… %1$d of %2$d</string>
+    <string name="group_catchup_running_indeterminate">Catching up on messages…</string>
+    <string name="group_catchup_skip">Skip</string>
+    <string name="group_catchup_rejoining">Rejoining the group. A member\'s device or an agent needs to be online.</string>
+    <string name="group_skip_title">Skip catching up?</string>
+    <!-- Translator note: fixed text agreed with the protocol team. Do not soften it; it must say the messages can never be read on this device. -->
+    <string name="group_skip_body">Messages in the skipped range can never be read on this device.</string>
+    <string name="group_skip_body_more">Messages you already read stay. Your other devices keep what they have.</string>
+    <string name="group_skip_confirm">Skip</string>
+    <string name="group_skip_cancel">Keep catching up</string>
+    <string name="group_skip_skipping">Skipping…</string>
+    <string name="group_void_action">Undo this change</string>
+    <string name="group_void_title">Undo this change?</string>
+    <string name="group_void_body">The group goes back to how it was before this change. Members whose devices already applied it must rejoin the group. This happens by itself but can take a while.</string>
+    <string name="group_void_confirm">Undo</string>
+    <string name="group_void_undoing">Undoing…</string>
+    <string name="group_void_undone">Undone</string>
+    <string name="group_timeline_void_by">%1$s undid a change</string>
+    <plurals name="group_timeline_undecryptable">
+        <item quantity="one">%d message can\'t be read on this device</item>
+        <item quantity="other">%d messages can\'t be read on this device</item>
+    </plurals>
+    <string name="group_chat_warning_fork_alarm">This group\'s history has split. Messages may not reach everyone. Tell an admin.</string>
+    <string name="group_chat_warning_rejoin_needed_pruned">This device was away too long and is rejoining the group. Messages from that time can\'t be read here.</string>
+    <string name="group_chat_warning_rejoin_needed_gate_rejected">A change from this device was refused. It is rejoining the group.</string>
+    <string name="group_chat_warning_rejoin_needed_apply_failed">This device couldn\'t apply a group change. It is rejoining the group.</string>
+    <string name="group_chat_warning_rejoin_needed_welcome_expired">This device\'s invitation to the group expired. It is rejoining the group.</string>
+    <string name="group_chat_warning_rejoin_needed_state_lost">This device lost its keys for this group. Open the group on your other device, or ask a member to send a new invite.</string>
+    <string name="group_chat_warning_rejoin_needed_generic">This device needs to rejoin the group to read new messages.</string>
+    <plurals name="group_chat_warning_undecryptable">
+        <item quantity="one">%d message can\'t be read on this device.</item>
+        <item quantity="other">%d messages can\'t be read on this device.</item>
+    </plurals>
+    <string name="group_warning_undecryptable_show">Show</string>
+    <string name="group_chat_warning_admission_needs_online">New members can join only while a member\'s device or an agent is online.</string>
+    <string name="group_chat_warning_host_unusual">The group\'s server is behaving unusually. Messages may be delayed.</string>
+    <string name="group_chat_warning_head_commit_rejected">Members\' devices refused the latest group change. The group can\'t change again until it\'s undone.</string>
+    <string name="group_warning_head_commit_rejected_action">Undo the change</string>
+    <string name="group_chat_warning_generic">This group reported a problem.</string>
+    <string name="group_warning_hide">Hide</string>
+    <plurals name="group_warning_more">
+        <item quantity="one">%d more alert</item>
+        <item quantity="other">%d more alerts</item>
+    </plurals>
+    <string name="group_chat_hint_agent_mobile">You can add an agent from your desktop to keep the group open for joins.</string>
+    <string name="group_chat_hint_agent_invite">Get invite link</string>
+    <string name="group_quota_post">%1$d of %2$d messages left today</string>
+    <string name="group_quota_post_first_day">First day: %1$d of %2$d messages left</string>
+    <string name="group_chat_quota_resets">Resets %1$s</string>
+    <string name="group_privacy_delay_eta">Messages you send now go out around %1$s.</string>
+    <string name="group_chat_error_not_admin">Only admins can do this.</string>
+    <string name="group_chat_error_void_not_head">This isn\'t the latest change any more, so it can\'t be undone.</string>
 </resources>

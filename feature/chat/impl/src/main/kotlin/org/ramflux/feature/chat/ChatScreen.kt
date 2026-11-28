@@ -144,6 +144,10 @@ fun ChatScreen(
                     )
                 }
                 val mls = state.mls
+                if (mls != null) {
+                    mls.catchUp?.let { MlsCatchUpBanner(it, onAction) }
+                    MlsWarningBanners(mls, onAction)
+                }
                 if (mls == null) {
                     Box(Modifier.weight(1f).fillMaxWidth()) { TimelineBody(state, stamps, anchors, onAction) }
                 } else {
@@ -172,6 +176,7 @@ fun ChatScreen(
                         tag = "mls-notice"
                     )
                 }
+                if (mls != null && mls.readOnly == null) MlsComposerLines(mls)
                 if (state.sendBlocked && state.identityState == IdentityState.CHANGED) IdentityComposerPrompt(state, onAction)
                 when {
                     mls?.readOnly != null -> KitTipBar(
@@ -199,7 +204,9 @@ fun ChatScreen(
                     }
                 }
             }
-            if (selected != null && actionsFor(selected, state.mls != null).isNotEmpty()) {
+            val undoRow = state.mls?.voidableRowId?.takeIf { it == state.selectedId }
+            if (undoRow != null) MlsVoidActionSheet(undoRow, onAction)
+            if (selected != null && undoRow == null && actionsFor(selected, state.mls != null).isNotEmpty()) {
                 MessageActions(selected, state, stamps, anchors.pressed, onAction)
             }
             if (attachMenu) {
@@ -208,6 +215,8 @@ fun ChatScreen(
             state.viewer?.let { Viewer(it, state.viewerPosition, onAction) }
             if (chatMenu) ChatMenu(showDetails, showStorage, state.mls != null, onAction) { chatMenu = false }
             if (state.mls?.confirmDelete == true) GroupDeleteConfirm(onAction)
+            if (state.mls?.confirmSkip == true) MlsSkipDialog(onAction)
+            if (state.mls?.confirmVoid == true) MlsVoidDialog(onAction)
             state.mls?.mention?.let { MentionPicker(it, onAction) }
             state.gallery?.let { Gallery(it, onAction) }
             state.preview?.let { SendPreviewSheet(it, onAction) }
@@ -437,6 +446,12 @@ private fun Timeline(state: ChatState, stamps: Stamps, anchors: BubbleAnchors, o
         }
     }
     val newestKey = list.firstOrNull()?.entry?.key
+    // "Show" on an `undecryptable` banner scrolls to the placeholder row (an MLS group chat only).
+    LaunchedEffect(state.mls?.scrollTo) {
+        val target = state.mls?.scrollTo ?: return@LaunchedEffect
+        val index = list.indexOfFirst { (it.entry as? Entry.Row)?.item?.id == target.rowId }
+        if (index >= 0) listState.animateScrollToItem(index)
+    }
     LaunchedEffect(nearOldest, state.hasOlder, state.rows.size) {
         if (nearOldest && state.hasOlder && !state.loadingOlder) onAction(ChatAction.LoadOlder)
     }
@@ -495,8 +510,12 @@ private fun TimelineList(
                     }
                     // Group service rows (member added, name changed, ...) are centred lines, never a bubble.
                     is MessageItem -> if (row.service && !row.deleted) {
-                        Column(padded.testTag("service-" + row.id), horizontalAlignment = Alignment.CenterHorizontally) {
-                            KitMeta(row.line?.let { groupLineText(it) } ?: row.content.render(), centered = true)
+                        if (state.mls != null) {
+                            MlsServiceRow(row, state.mls.voidableRowId == row.id, padded, onAction)
+                        } else {
+                            Column(padded.testTag("service-" + row.id), horizontalAlignment = Alignment.CenterHorizontally) {
+                                KitMeta(row.line?.let { groupLineText(it) } ?: row.content.render(), centered = true)
+                            }
                         }
                     } else {
                         Message(row, state, stamps, cap, padded, actionsLabel, anchors, onAction)

@@ -375,7 +375,10 @@ class ChatViewModel @Inject constructor(
             ChatAction.Storage -> if (target != null) viewModelScope.launch { channel.send(ChatEvent.Storage) }
             // The MLS group chat's actions: a direct chat has no confirmation or mention picker of this kind.
             ChatAction.JumpToNewest, ChatAction.ConfirmDelete, ChatAction.CancelDelete, ChatAction.MentionOpen, ChatAction.MentionMore,
-            ChatAction.MentionClose,
+            ChatAction.MentionClose, ChatAction.MlsSkip, ChatAction.MlsConfirmSkip, ChatAction.MlsCancelSkip,
+            ChatAction.MlsShowUndecryptable, ChatAction.MlsConfirmUndo, ChatAction.MlsCancelUndo, ChatAction.MlsOpenInvite,
+            ChatAction.MlsOpenAlerts,
+            is ChatAction.MlsHideBanner, is ChatAction.MlsUndo,
             is ChatAction.MentionPick -> Unit
         }
     }
