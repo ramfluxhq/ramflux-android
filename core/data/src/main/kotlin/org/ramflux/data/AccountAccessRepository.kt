@@ -22,6 +22,13 @@ interface AccountAccessRepository {
         get() = emptyFlow()
 
     suspend fun list(): ClientResult<AccountCatalog>
+
+    /**
+     * The display name [list] last reported for [id] in this process, or null. Core leaves the name out of an app-locked
+     * account's row, so the lock cover and its remove dialog name the account they are bound to from this. Memory only:
+     * never persisted or logged, keyed by the account id, dropped when the account leaves the list or is removed.
+     */
+    fun knownLabel(id: String): String? = null
     suspend fun select(id: String): ClientResult<Unit>
     suspend fun setup(action: AccountSetupAction): ClientResult<Unit>
 

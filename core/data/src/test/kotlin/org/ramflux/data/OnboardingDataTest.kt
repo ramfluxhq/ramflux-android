@@ -123,6 +123,37 @@ class OnboardingDataTest {
         } finally { client.close() }
     }
 
+    @Test fun appLockedRowWithoutNameKeepsTheNameThisProcessListedForThatIdOnly() = runTest(timeout = 5.seconds) {
+        fun rows(vararg row: Pair<String, String?>) = buildJsonObject {
+            put("account_details", buildJsonArray {
+                for ((id, name) in row) add(buildJsonObject {
+                    put("id", id); put("state", if (name == null) "locked" else "unlocked"); name?.let { put("display_name", it) }
+                })
+            })
+            put("active_account_id", JsonNull)
+        }
+        val abi = FakeAbi().apply { completionBody = rows("a" to "Work", "b" to "Home") }
+        val client = (CoreClient.open(abi, "/test/onboarding", "a".repeat(64)) as CoreResult.Success).value
+        try {
+            val repo = DefaultAccountAccessRepository(SdkRepositoryTransport { client })
+            assertNull("nothing is known before the first list", repo.knownLabel("a"))
+            assertTrue(repo.list() is ClientResult.Ready)
+            assertEquals("Work", repo.knownLabel("a"))
+            // Core redacts an app-locked account's row to its id: the list stays honest, the name read before stands in.
+            abi.completionBody = rows("a" to null, "b" to "Home")
+            val locked = (repo.list() as ClientResult.Ready).value
+            assertNull(locked.accounts.first { it.id == "a" }.label)
+            assertEquals("Work", repo.knownLabel("a"))
+            assertEquals("Home", repo.knownLabel("b"))
+            assertNull("never another account's name", repo.knownLabel("c"))
+            // An account that left the list is forgotten.
+            abi.completionBody = rows("b" to "Home")
+            assertTrue(repo.list() is ClientResult.Ready)
+            assertNull(repo.knownLabel("a"))
+            assertEquals("Home", repo.knownLabel("b"))
+        } finally { client.close() }
+    }
+
     @Test fun missingDiscoveryNodeOrFingerprintIsTypedFailure() = runTest(timeout = 5.seconds) {
         for (body in listOf(buildJsonObject { put("key_fingerprint", "a".repeat(64)) },
             buildJsonObject { put("node", node()) }, buildJsonObject { put("node", JsonNull); put("key_fingerprint", 3) })) {

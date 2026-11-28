@@ -4,6 +4,7 @@
 package org.ramflux.data
 
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
@@ -30,15 +31,30 @@ internal class DefaultAccountAccessRepository(
     private val gates = HashMap<String, Mutex>()
 
     private suspend fun <T> serial(id: String, body: suspend () -> T): T = synchronized(gates) { gates.getOrPut(id) { Mutex() } }.withLock { body() }
+    /** Display names [list] has read in this process, by account id (see [knownLabel]). Memory only, never logged. */
+    private val labels = ConcurrentHashMap<String, String>()
+
     /** Every account on this device, locked ones included, with its display name (`account.list`). */
     override suspend fun list(): ClientResult<AccountCatalog> = when (val result = accounts.accountList(RepositoryContext(null), JsonObject(emptyMap()))) {
         is CoreResult.Failure -> ClientResult.Failed(result.error.appProblem())
         is CoreResult.Success -> when (val decoded = AccountListMetadataReader.read(result.value)) {
             is CoreResult.Failure -> ClientResult.Failed(decoded.error.appProblem())
-            is CoreResult.Success -> ClientResult.Ready(AccountCatalog(decoded.value.accounts.map {
-                AccountSummary(it.id, it.label, it.state == "unlocked", it.state)
-            }, decoded.value.activeAccountId))
+            is CoreResult.Success -> {
+                val rows = decoded.value.accounts
+                remember(rows)
+                ClientResult.Ready(AccountCatalog(rows.map {
+                    AccountSummary(it.id, it.label, it.state == "unlocked", it.state)
+                }, decoded.value.activeAccountId))
+            }
         }
+    }
+
+    override fun knownLabel(id: String): String? = labels[id]
+
+    /** A row with a name renews it; a row without one (an app-locked account) keeps it; an account no longer listed drops it. */
+    private fun remember(rows: List<AccountListEntry>) {
+        rows.forEach { row -> row.label?.let { labels[row.id] = it } }
+        labels.keys.retainAll(rows.mapTo(HashSet()) { it.id })
     }
     override suspend fun select(id: String): ClientResult<Unit> = serial(id) {
         // Authoritative state is checked for every selection, not trusted from a previous screen, and under the account's
@@ -81,7 +97,7 @@ internal class DefaultAccountAccessRepository(
             // The SDK requires the account id itself as the typed confirmation.
             val body = SecretBody.fields { publicText("confirmation", id) }
             accounts.accountRemove_local(RepositoryContext(id, UUID.randomUUID().toString()), body)
-        }
+        }.also { if (it is ClientResult.Ready) labels.remove(id) }
     }
 
     /**

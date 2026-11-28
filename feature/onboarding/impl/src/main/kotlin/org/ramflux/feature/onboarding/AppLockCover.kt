@@ -224,10 +224,13 @@ class AppLockViewModel @Inject constructor(
 
     /**
      * Reads the display name of the locked account from the account list. Only the row whose id is [account] is used, and
-     * the result is stored with that id, so a lock that moved to another account meanwhile never shows this name.
+     * the result is stored with that id, so a lock that moved to another account meanwhile never shows this name. Core
+     * leaves the name out of an app-locked account's row (and the list can fail while the lock changes), so the name
+     * this process last listed for that same id stands in; after a fresh start with no such read the name stays unknown.
      */
     private suspend fun readName(account: String) {
-        val label = (accounts.list() as? ClientResult.Ready)?.value?.accounts?.firstOrNull { it.id == account }?.label
+        val listed = (accounts.list() as? ClientResult.Ready)?.value?.accounts?.firstOrNull { it.id == account }?.label
+        val label = listed ?: accounts.knownLabel(account)
         local.update { it.copy(nameFor = account, name = label) }
     }
 
