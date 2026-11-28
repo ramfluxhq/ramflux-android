@@ -9,7 +9,6 @@
     <!-- Title and button for editing an agent's name and responsibility -->
     <string name="agents_edit">Edit profile</string>
     <!-- Header action that reads the agents again -->
-    <string name="agents_retry">Refresh</string>
     <!-- Button that repeats a failed read -->
     <string name="agents_try_again">Try again</string>
     <!-- Shown while an agent action runs -->

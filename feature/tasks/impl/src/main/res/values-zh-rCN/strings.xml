@@ -5,7 +5,6 @@
     <string name="tasks_context">选择一个实际会话以读取其中的任务。</string>
     <string name="tasks_permissions">授权与回执</string>
     <string name="tasks_back">返回</string>
-    <string name="tasks_refresh">刷新</string>
     <string name="tasks_more">加载更多</string>
     <string name="tasks_loading">正在读取任务…</string>
     <string name="tasks_error">无法读取任务</string>

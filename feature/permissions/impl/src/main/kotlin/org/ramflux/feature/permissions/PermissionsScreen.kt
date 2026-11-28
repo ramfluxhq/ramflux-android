@@ -29,9 +29,7 @@ fun PermissionsScreen(state: PermissionsState, onAction: (PermissionsAction) -> 
                 Column(Modifier.fillMaxSize()) {
                     KitPageHeader(
                         stringResource(R.string.permissions_title),
-                        onBack = { onAction(PermissionsAction.Back) },
-                        actionLabel = stringResource(R.string.permissions_refresh),
-                        onAction = { if (!state.loading) onAction(PermissionsAction.Refresh) }
+                        onBack = { onAction(PermissionsAction.Back) }
                     )
                     if (state.problem == PermissionsProblem.BATTERY_SETTINGS_UNAVAILABLE) {
                         Text(stringResource(R.string.permissions_battery_settings_unavailable))

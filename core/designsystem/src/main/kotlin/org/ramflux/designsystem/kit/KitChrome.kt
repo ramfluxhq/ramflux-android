@@ -21,12 +21,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +40,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import kotlin.math.max
+import org.ramflux.core.designsystem.R
 import org.ramflux.designsystem.LocalRFTheme
 import org.ramflux.designsystem.UntrustedKind
 
@@ -106,7 +112,16 @@ fun KitPageHeader(
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
     ) {
         if (!large && onBack != null) {
-            IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack, tag = tag?.let { "$it-back" })
+            // Material back: the arrow mirrors in right-to-left layouts and announces "Navigate up".
+            IconHit(
+                "arrow-back",
+                RfMetrics.iconBack,
+                theme.text,
+                onBack,
+                label = stringResource(R.string.kit_navigate_up),
+                tag = tag?.let { "$it-back" },
+                vector = Icons.AutoMirrored.Filled.ArrowBack
+            )
         }
         // The title takes the free width; a text action is capped and wraps, so a long or enlarged label
         // cannot squeeze the title to a few letters.
@@ -157,7 +172,7 @@ fun KitChatHeader(
     modifier: Modifier = Modifier,
     onCall: (() -> Unit)? = null,
     onMore: (() -> Unit)? = null,
-    backLabel: String = "chevron-left",
+    backLabel: String = stringResource(R.string.kit_navigate_up),
     callLabel: String = "phone",
     moreLabel: String = "ellipsis",
     tag: String? = null,
@@ -176,7 +191,15 @@ fun KitChatHeader(
         horizontalArrangement = Arrangement.spacedBy(dp(RfMetrics.headerGap))
     ) {
         if (onBack != null) {
-            IconHit("chevron-left", RfMetrics.iconBack, theme.text, onBack, label = backLabel, tag = tag?.let { "$it-back" })
+            IconHit(
+                "arrow-back",
+                RfMetrics.iconBack,
+                theme.text,
+                onBack,
+                label = backLabel,
+                tag = tag?.let { "$it-back" },
+                vector = Icons.AutoMirrored.Filled.ArrowBack
+            )
         }
         avatar()
         Column(Modifier.weight(1f)) {
@@ -373,7 +396,8 @@ internal fun IconHit(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     label: String = icon,
-    tag: String? = null
+    tag: String? = null,
+    vector: ImageVector? = null
 ) {
     val hit = dp(RfMetrics.hit)
     val slot = dp(RfMetrics.iconButton)
@@ -386,7 +410,7 @@ internal fun IconHit(
                 .kitTag(tag),
             contentAlignment = Alignment.Center
         ) {
-            KitIcon(icon, size, tint)
+            if (vector != null) Icon(vector, null, Modifier.size(dp(size)), tint) else KitIcon(icon, size, tint)
         }
     }) { measurables, constraints ->
         val hitPx = hit.roundToPx()

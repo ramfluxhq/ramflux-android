@@ -52,141 +52,150 @@ fun SettingsScreen(
                 KitPageHeader(
                     title,
                     subtitle = subtitle,
-                    onBack = { onAction(SettingsAction.Back) },
-                    actionLabel = if (state.page == SettingsPage.GENERAL) null else stringResource(R.string.settings_refresh),
-                    onAction = if (state.page == SettingsPage.GENERAL) null else ({ if (!state.loading) onAction(SettingsAction.Refresh) })
+                    onBack = { onAction(SettingsAction.Back) }
                 )
-                LazyColumn(
-                    Modifier.weight(1f).fillMaxWidth().padding(horizontal = theme.gap.dp),
-                    verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
+                KitPullRefresh(
+                    enabled = state.page == SettingsPage.DEVICES,
+                    refreshing = state.loading,
+                    onRefresh = { onAction(SettingsAction.Refresh) },
+                    modifier = Modifier.weight(1f).fillMaxWidth()
                 ) {
-                    if (state.loading) {
-                        item("loading") {
-                            KitEmpty("loader", stringResource(R.string.settings_loading), "")
+                    LazyColumn(
+                        Modifier.fillMaxSize().padding(horizontal = theme.gap.dp),
+                        verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
+                    ) {
+                        if (state.loading) {
+                            item("loading") {
+                                KitEmpty("loader", stringResource(R.string.settings_loading), "")
+                            }
                         }
-                    }
-                    state.problem?.let { message ->
-                        item("error") {
-                            KitEmpty("circle-alert", stringResource(R.string.settings_error), message.render())
+                        state.problem?.let { message ->
+                            item("error") {
+                                KitEmpty("circle-alert", stringResource(R.string.settings_error), message.render())
+                            }
                         }
-                    }
-                    state.unavailable?.let { message ->
-                        item("unavailable") {
-                            KitEmpty("inbox", stringResource(R.string.settings_unavailable), message.render())
+                        state.unavailable?.let { message ->
+                            item("unavailable") {
+                                KitEmpty("inbox", stringResource(R.string.settings_unavailable), message.render())
+                            }
                         }
-                    }
-                    if (state.accountRequired && state.page in setOf(SettingsPage.GENERAL, SettingsPage.ACCOUNT, SettingsPage.DEVICES)) {
-                        item("account-required") {
-                            KitEmpty(
-                                "inbox",
-                                stringResource(R.string.settings_account),
-                                stringResource(R.string.settings_account_needed),
-                                action = stringResource(R.string.settings_open_account),
-                                onAction = { onAction(SettingsAction.OpenAccount) }
-                            )
-                        }
-                    }
-                    when (state.page) {
-                        SettingsPage.GENERAL -> generalPage(state, onAction)
-                        SettingsPage.ACCOUNT -> accountPage(state, onAction)
-                        SettingsPage.PRIVACY -> privacyPage(state, onAction)
-                        SettingsPage.APP_LOCK -> appLockPage(state, onAction)
-                        SettingsPage.USERNAME -> usernamePage(state, onAction)
-                        SettingsPage.PAIRING -> pairingPage(state, onAction, drawInvitation, drawInvitationQr)
-                        SettingsPage.DIAGNOSTICS -> diagnosticsPage(state, { AboutVersion() }) { label, value -> StatusRow(label, value) }
-                        SettingsPage.LANGUAGE -> languagePage(state, onAction) { id, label, selected, enabled, select ->
-                            ThemeChoiceRow(id, label, selected, enabled, select)
-                        }
-                        SettingsPage.APPEARANCE -> {
-                            item("language") {
-                                KitRow(
-                                    stringResource(R.string.settings_language),
-                                    { onAction(SettingsAction.Page(SettingsPage.LANGUAGE)) },
-                                    icon = "languages",
-                                    value = if (state.savedLanguage == AppLanguage.SYSTEM) {
-                                        stringResource(
-                                            R.string.settings_system
-                                        )
-                                    } else {
-                                        languageName(state.savedLanguage.tag)
-                                    },
-                                    testTag = "language"
+                        val accountPages = setOf(SettingsPage.GENERAL, SettingsPage.ACCOUNT, SettingsPage.DEVICES)
+                        if (state.accountRequired && state.page in accountPages) {
+                            item("account-required") {
+                                KitEmpty(
+                                    "inbox",
+                                    stringResource(R.string.settings_account),
+                                    stringResource(R.string.settings_account_needed),
+                                    action = stringResource(R.string.settings_open_account),
+                                    onAction = { onAction(SettingsAction.OpenAccount) }
                                 )
                             }
-                            item("appearance-help") { Text(stringResource(R.string.settings_appearance_help)) }
-                            item("system") {
-                                ThemeChoiceRow(
-                                    "theme:system",
-                                    stringResource(R.string.settings_system),
-                                    state.selectedTheme == null,
-                                    !state.savingTheme
-                                ) { onAction(SettingsAction.Theme(null)) }
-                            }
-                            items(state.themes, key = { "theme:" + it.id }, contentType = { "theme" }) { choice ->
-                                ThemeChoiceRow(
-                                    "theme:" + choice.id,
-                                    choice.label.render(),
-                                    state.selectedTheme == choice.id,
-                                    !state.savingTheme
-                                ) { onAction(SettingsAction.Theme(choice.id)) }
-                            }
                         }
-                        SettingsPage.DEVICES -> {
-                            item("link-device") {
-                                KitRow(
-                                    stringResource(R.string.settings_pairing_title),
-                                    { onAction(SettingsAction.Page(SettingsPage.PAIRING)) },
-                                    icon = "link",
-                                    value = stringResource(R.string.settings_pairing_row_help),
-                                    enabled = state.accountLabel != null,
-                                    testTag = "link-device"
-                                )
+                        when (state.page) {
+                            SettingsPage.GENERAL -> generalPage(state, onAction)
+                            SettingsPage.ACCOUNT -> accountPage(state, onAction)
+                            SettingsPage.PRIVACY -> privacyPage(state, onAction)
+                            SettingsPage.APP_LOCK -> appLockPage(state, onAction)
+                            SettingsPage.USERNAME -> usernamePage(state, onAction)
+                            SettingsPage.PAIRING -> pairingPage(state, onAction, drawInvitation, drawInvitationQr)
+                            SettingsPage.DIAGNOSTICS -> diagnosticsPage(
+                                state,
+                                { AboutVersion() }
+                            ) { label, value -> StatusRow(label, value) }
+                            SettingsPage.LANGUAGE -> languagePage(state, onAction) { id, label, selected, enabled, select ->
+                                ThemeChoiceRow(id, label, selected, enabled, select)
                             }
-                            state.deviceProblem?.let { problem -> item("device-error") { Text(problem.render()) } }
-                            if (state.devicesLoaded && state.devices.isEmpty()) {
-                                item("no-devices") { Text(stringResource(R.string.settings_empty_devices)) }
-                            }
-                            state.confirmRevoke?.let { device ->
-                                item("confirm-revoke") {
-                                    Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
-                                        KitSecurityWarning(
-                                            stringResource(R.string.settings_revoke_confirm_title),
-                                            stringResource(R.string.settings_revoke_confirm_body),
-                                            KitWarningTone.Danger
-                                        )
-                                        LtrCode(device, tag = "revoke-device-id")
-                                        KitButton(
-                                            stringResource(R.string.settings_revoke_confirm),
-                                            { onAction(SettingsAction.ConfirmRevoke) },
-                                            kind = KitButtonKind.Destructive,
-                                            tag = "confirm-revoke"
-                                        )
-                                        KitButton(
-                                            stringResource(R.string.settings_cancel),
-                                            { onAction(SettingsAction.CancelRevoke) },
-                                            kind = KitButtonKind.Secondary,
-                                            tag = "cancel-revoke"
-                                        )
-                                    }
+                            SettingsPage.APPEARANCE -> {
+                                item("language") {
+                                    KitRow(
+                                        stringResource(R.string.settings_language),
+                                        { onAction(SettingsAction.Page(SettingsPage.LANGUAGE)) },
+                                        icon = "languages",
+                                        value = if (state.savedLanguage == AppLanguage.SYSTEM) {
+                                            stringResource(
+                                                R.string.settings_system
+                                            )
+                                        } else {
+                                            languageName(state.savedLanguage.tag)
+                                        },
+                                        testTag = "language"
+                                    )
+                                }
+                                item("appearance-help") { Text(stringResource(R.string.settings_appearance_help)) }
+                                item("system") {
+                                    ThemeChoiceRow(
+                                        "theme:system",
+                                        stringResource(R.string.settings_system),
+                                        state.selectedTheme == null,
+                                        !state.savingTheme
+                                    ) { onAction(SettingsAction.Theme(null)) }
+                                }
+                                items(state.themes, key = { "theme:" + it.id }, contentType = { "theme" }) { choice ->
+                                    ThemeChoiceRow(
+                                        "theme:" + choice.id,
+                                        choice.label.render(),
+                                        state.selectedTheme == choice.id,
+                                        !state.savingTheme
+                                    ) { onAction(SettingsAction.Theme(choice.id)) }
                                 }
                             }
-                            items(state.devices, key = { "device:" + it.id }, contentType = { "device" }) { device ->
-                                KitRow(
-                                    device.id,
-                                    {},
-                                    value = stringResource(
-                                        if (device.local) R.string.settings_current_device else R.string.settings_other_device
-                                    ),
-                                    leading = { KitAvatar(device.id.take(1), 36f, KitAvatarKind.Person) },
-                                    trailingContent = {
-                                        if (!device.local) {
-                                            TextButton(onClick = { onAction(SettingsAction.Revoke(device.id)) }) {
-                                                Text(stringResource(R.string.settings_revoke))
-                                            }
+                            SettingsPage.DEVICES -> {
+                                item("link-device") {
+                                    KitRow(
+                                        stringResource(R.string.settings_pairing_title),
+                                        { onAction(SettingsAction.Page(SettingsPage.PAIRING)) },
+                                        icon = "link",
+                                        value = stringResource(R.string.settings_pairing_row_help),
+                                        enabled = state.accountLabel != null,
+                                        testTag = "link-device"
+                                    )
+                                }
+                                state.deviceProblem?.let { problem -> item("device-error") { Text(problem.render()) } }
+                                if (state.devicesLoaded && state.devices.isEmpty()) {
+                                    item("no-devices") { Text(stringResource(R.string.settings_empty_devices)) }
+                                }
+                                state.confirmRevoke?.let { device ->
+                                    item("confirm-revoke") {
+                                        Column(verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
+                                            KitSecurityWarning(
+                                                stringResource(R.string.settings_revoke_confirm_title),
+                                                stringResource(R.string.settings_revoke_confirm_body),
+                                                KitWarningTone.Danger
+                                            )
+                                            LtrCode(device, tag = "revoke-device-id")
+                                            KitButton(
+                                                stringResource(R.string.settings_revoke_confirm),
+                                                { onAction(SettingsAction.ConfirmRevoke) },
+                                                kind = KitButtonKind.Destructive,
+                                                tag = "confirm-revoke"
+                                            )
+                                            KitButton(
+                                                stringResource(R.string.settings_cancel),
+                                                { onAction(SettingsAction.CancelRevoke) },
+                                                kind = KitButtonKind.Secondary,
+                                                tag = "cancel-revoke"
+                                            )
                                         }
-                                    },
-                                    testTag = device.id
-                                )
+                                    }
+                                }
+                                items(state.devices, key = { "device:" + it.id }, contentType = { "device" }) { device ->
+                                    KitRow(
+                                        device.id,
+                                        {},
+                                        value = stringResource(
+                                            if (device.local) R.string.settings_current_device else R.string.settings_other_device
+                                        ),
+                                        leading = { KitAvatar(device.id.take(1), 36f, KitAvatarKind.Person) },
+                                        trailingContent = {
+                                            if (!device.local) {
+                                                TextButton(onClick = { onAction(SettingsAction.Revoke(device.id)) }) {
+                                                    Text(stringResource(R.string.settings_revoke))
+                                                }
+                                            }
+                                        },
+                                        testTag = device.id
+                                    )
+                                }
                             }
                         }
                     }

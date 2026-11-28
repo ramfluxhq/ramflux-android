@@ -3,7 +3,6 @@
     <string name="permissions_title">Permissions</string>
     <string name="permissions_intro">Permission status stays on this device. It is never synced or sent to the node. It refreshes when you return to the app.</string>
     <string name="permissions_back">Back</string>
-    <string name="permissions_refresh">Refresh</string>
     <string name="permissions_settings">Open Settings</string>
     <string name="permissions_cancel">Cancel</string>
     <string name="permissions_continue">Continue</string>

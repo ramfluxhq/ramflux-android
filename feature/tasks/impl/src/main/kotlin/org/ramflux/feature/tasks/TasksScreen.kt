@@ -27,9 +27,7 @@ fun TasksScreen(state: TasksState, onAction: (TasksAction) -> Unit, modifier: Mo
                 KitPageHeader(
                     stringResource(R.string.tasks_title),
                     subtitle = subtitle,
-                    onBack = { onAction(TasksAction.Back) },
-                    actionLabel = stringResource(R.string.tasks_refresh),
-                    onAction = { if (!state.loading && !state.busy) onAction(TasksAction.Refresh) }
+                    onBack = { onAction(TasksAction.Back) }
                 )
                 if (subtitle != null) Text(subtitle, color = theme.secondary)
                 LazyColumn(

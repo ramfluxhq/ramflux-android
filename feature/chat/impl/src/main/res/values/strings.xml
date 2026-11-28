@@ -13,7 +13,6 @@
     <string name="ui_private_data_is_closed">Private data is closed.</string>
     <string name="ui_read_failed_code_value">Read failed (%1$s).</string>
     <string name="ui_reading_private_data">Reading private data…</string>
-    <string name="ui_refresh">Refresh</string>
     <string name="ui_secure_account_access_is_required_on_this_device">secure account access is required on this device.</string>
     <string name="ui_send">Send</string>
     <string name="ui_send_availability_failed_code_value">Send availability failed (%1$s).</string>
@@ -284,4 +283,5 @@
     <string name="chat_service_pin_added">A message was pinned</string>
     <!-- Centred service line in a group chat: pin removed. -->
     <string name="chat_service_pin_removed">A message was unpinned</string>
+    <string name="ui_try_again">Try again</string>
 </resources>

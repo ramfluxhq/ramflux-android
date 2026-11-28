@@ -17,4 +17,6 @@
     <string name="failure_detail_name">代码 %1$s，%2$s</string>
     <string name="failure_detail_name_reason">代码 %1$s，%2$s：%3$s</string>
     <string name="failure_directory_unavailable">此服务器暂不支持用户名。</string>
+    <string name="kit_navigate_up">向上导航</string>
+    <string name="time_yesterday">昨天</string>
 </resources>

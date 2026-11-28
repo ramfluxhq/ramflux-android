@@ -11,7 +11,6 @@
     <string name="contacts_decline">Decline</string>
     <string name="contacts_batch">Manage requests</string>
     <string name="contacts_back">Back</string>
-    <string name="contacts_refresh">Refresh</string>
     <string name="contacts_tab_contacts">Contacts</string>
     <string name="contacts_tab_strangers">Strangers</string>
     <string name="contacts_tab_sent">Sent</string>

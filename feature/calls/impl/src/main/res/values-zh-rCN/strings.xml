@@ -3,7 +3,6 @@
     <string name="calls_history">通话记录</string>
     <string name="calls_call">语音通话信令</string>
     <string name="calls_back">返回</string>
-    <string name="calls_refresh">刷新</string>
     <string name="calls_loading">正在读取通话信令…</string>
     <string name="calls_error">无法读取通话</string>
     <string name="calls_unavailable_title">此设备暂不可用</string>

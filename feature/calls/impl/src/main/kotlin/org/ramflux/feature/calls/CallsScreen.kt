@@ -38,9 +38,7 @@ fun CallsScreen(state: CallsState, onAction: (CallsAction) -> Unit, modifier: Mo
                 KitPageHeader(
                     stringResource(if (state.selected == null) R.string.calls_history else R.string.calls_call),
                     subtitle = subtitle.takeIf { it.isNotEmpty() },
-                    onBack = { onAction(CallsAction.Back) },
-                    actionLabel = stringResource(R.string.calls_refresh),
-                    onAction = { if (!state.loading && !state.busy) onAction(CallsAction.Refresh) }
+                    onBack = { onAction(CallsAction.Back) }
                 )
                 if (subtitle.isNotEmpty()) Text(subtitle, color = theme.secondary)
                 LazyColumn(

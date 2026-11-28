@@ -41,86 +41,112 @@ fun ContactsScreen(state: ContactsState, onAction: (ContactsAction) -> Unit, mod
                         }
                     ),
                     subtitle = subtitle,
-                    onBack = { onAction(ContactsAction.Back) },
-                    actionLabel = if (state.page == ContactsPage.LIST) stringResource(R.string.contacts_refresh) else null,
-                    onAction = if (state.page == ContactsPage.LIST) ({ if (!state.loading) onAction(ContactsAction.Refresh) }) else null
+                    onBack = { onAction(ContactsAction.Back) }
                 )
                 if (state.page == ContactsPage.LIST) Tabs(state, onAction)
-                LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(vertical = theme.gap.dp)) {
-                    notices(state, onAction)
-                    when (state.page) {
-                        ContactsPage.LIST -> list(state, onAction)
-                        ContactsPage.DETAIL -> state.selected?.let { profile(it, onAction) }
-                        ContactsPage.SAFETY -> state.selected?.let { safety(it, state, onAction) }
-                        ContactsPage.DECLINE -> state.selected?.let { row ->
-                            identity(row)
-                            item("decline", contentType = "body") {
+                KitPullRefresh(
+                    enabled = state.page == ContactsPage.LIST,
+                    refreshing = state.loading,
+                    onRefresh = { onAction(ContactsAction.Refresh) },
+                    modifier = Modifier.weight(1f).fillMaxWidth()
+                ) {
+                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = theme.gap.dp)) {
+                        notices(state, onAction)
+                        when (state.page) {
+                            ContactsPage.LIST -> list(state, onAction)
+                            ContactsPage.DETAIL -> state.selected?.let { profile(it, onAction) }
+                            ContactsPage.SAFETY -> state.selected?.let { safety(it, state, onAction) }
+                            ContactsPage.DECLINE -> state.selected?.let { row ->
+                                identity(row)
+                                item("decline", contentType = "body") {
+                                    Column(
+                                        Modifier.padding(horizontal = theme.gap.dp),
+                                        verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
+                                    ) {
+                                        Text(stringResource(R.string.contacts_decline_explanation), color = theme.secondary)
+                                        KitButton(
+                                            stringResource(R.string.contacts_decline),
+                                            {
+                                                onAction(ContactsAction.Operate(ContactOperation.DECLINE))
+                                            },
+                                            Modifier.fillMaxWidth(),
+                                            KitButtonKind.Secondary,
+                                            enabled = !state.loading,
+                                            tag = "contacts-decline"
+                                        )
+                                        KitButton(
+                                            stringResource(R.string.contacts_block),
+                                            {
+                                                onAction(ContactsAction.Operate(ContactOperation.BLOCK))
+                                            },
+                                            Modifier.fillMaxWidth(),
+                                            KitButtonKind.Destructive,
+                                            enabled = !state.loading,
+                                            tag = "contacts-block"
+                                        )
+                                    }
+                                }
+                            }
+                            ContactsPage.ADD -> item("add", contentType = "body") {
                                 Column(
                                     Modifier.padding(horizontal = theme.gap.dp),
                                     verticalArrangement = Arrangement.spacedBy(theme.gap.dp)
                                 ) {
-                                    Text(stringResource(R.string.contacts_decline_explanation), color = theme.secondary)
-                                    KitButton(stringResource(R.string.contacts_decline), {
-                                        onAction(ContactsAction.Operate(ContactOperation.DECLINE))
-                                    }, Modifier.fillMaxWidth(), KitButtonKind.Secondary, enabled = !state.loading, tag = "contacts-decline")
-                                    KitButton(stringResource(R.string.contacts_block), {
-                                        onAction(ContactsAction.Operate(ContactOperation.BLOCK))
-                                    }, Modifier.fillMaxWidth(), KitButtonKind.Destructive, enabled = !state.loading, tag = "contacts-block")
-                                }
-                            }
-                        }
-                        ContactsPage.ADD -> item("add", contentType = "body") {
-                            Column(Modifier.padding(horizontal = theme.gap.dp), verticalArrangement = Arrangement.spacedBy(theme.gap.dp)) {
-                                OutlinedTextField(
-                                    state.address,
-                                    onValueChange = { onAction(ContactsAction.Address(it)) },
-                                    label = { Text(stringResource(R.string.contacts_address)) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = !state.submitting,
-                                    maxLines = 3
-                                )
-                                Text(stringResource(R.string.contacts_add_explanation), color = theme.secondary)
-                                // An @name is looked up first; its card then sends the request (the approval sheet still confirms it).
-                                state.visibleUsername()?.let { UsernameLookupCard(it, enabled = !state.loading, onAction = onAction) }
-                                KitButton(
-                                    stringResource(
-                                        if (state.usernameNeedsLookup()) R.string.contacts_find_username else R.string.contacts_send_request
-                                    ),
-                                    {
-                                        onAction(ContactsAction.Operate(ContactOperation.ADD))
-                                    },
-                                    Modifier.fillMaxWidth(),
-                                    enabled = !state.loading && state.address.isNotBlank(),
-                                    tag = "contacts-send"
-                                )
-                            }
-                        }
-                        ContactsPage.BATCH -> {
-                            item("batch-instructions", contentType = "body") {
-                                Text(stringResource(R.string.contacts_batch_explanation), Modifier.padding(horizontal = theme.gap.dp))
-                            }
-                            items(state.rows, key = { "select:" + it.id }, contentType = { "select" }) { row ->
-                                Row(
-                                    Modifier.fillMaxWidth().padding(horizontal = theme.gap.dp).semantics(mergeDescendants = true) {}
-                                        .toggleable(
-                                            row.id in state.selectedIds,
-                                            role = Role.Checkbox,
-                                            onValueChange = { onAction(ContactsAction.Toggle(row.id)) }
+                                    OutlinedTextField(
+                                        state.address,
+                                        onValueChange = { onAction(ContactsAction.Address(it)) },
+                                        label = { Text(stringResource(R.string.contacts_address)) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        enabled = !state.submitting,
+                                        maxLines = 3
+                                    )
+                                    Text(stringResource(R.string.contacts_add_explanation), color = theme.secondary)
+                                    // An @name is looked up first; its card then sends the request (the approval sheet still confirms it).
+                                    state.visibleUsername()?.let { UsernameLookupCard(it, enabled = !state.loading, onAction = onAction) }
+                                    KitButton(
+                                        stringResource(
+                                            if (state.usernameNeedsLookup()) {
+                                                R.string.contacts_find_username
+                                            } else {
+                                                R.string.contacts_send_request
+                                            }
                                         ),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Checkbox(row.id in state.selectedIds, onCheckedChange = null)
-                                    UntrustedText(row.label, kind = UntrustedKind.Name)
+                                        {
+                                            onAction(ContactsAction.Operate(ContactOperation.ADD))
+                                        },
+                                        Modifier.fillMaxWidth(),
+                                        enabled = !state.loading && state.address.isNotBlank(),
+                                        tag = "contacts-send"
+                                    )
                                 }
                             }
-                            item("batch-action", contentType = "body") {
-                                KitButton(
-                                    stringResource(R.string.contacts_decline_selected),
-                                    { onAction(ContactsAction.Operate(ContactOperation.BATCH_DECLINE)) },
-                                    Modifier.fillMaxWidth().padding(theme.gap.dp),
-                                    KitButtonKind.Secondary,
-                                    enabled = !state.loading && state.selectedIds.isNotEmpty()
-                                )
+                            ContactsPage.BATCH -> {
+                                item("batch-instructions", contentType = "body") {
+                                    Text(stringResource(R.string.contacts_batch_explanation), Modifier.padding(horizontal = theme.gap.dp))
+                                }
+                                items(state.rows, key = { "select:" + it.id }, contentType = { "select" }) { row ->
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(horizontal = theme.gap.dp).semantics(mergeDescendants = true) {}
+                                            .toggleable(
+                                                row.id in state.selectedIds,
+                                                role = Role.Checkbox,
+                                                onValueChange = { onAction(ContactsAction.Toggle(row.id)) }
+                                            ),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Checkbox(row.id in state.selectedIds, onCheckedChange = null)
+                                        UntrustedText(row.label, kind = UntrustedKind.Name)
+                                    }
+                                }
+                                item("batch-action", contentType = "body") {
+                                    KitButton(
+                                        stringResource(R.string.contacts_decline_selected),
+                                        { onAction(ContactsAction.Operate(ContactOperation.BATCH_DECLINE)) },
+                                        Modifier.fillMaxWidth().padding(theme.gap.dp),
+                                        KitButtonKind.Secondary,
+                                        enabled = !state.loading && state.selectedIds.isNotEmpty()
+                                    )
+                                }
                             }
                         }
                     }

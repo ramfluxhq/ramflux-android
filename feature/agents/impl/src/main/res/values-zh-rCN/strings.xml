@@ -9,7 +9,6 @@
     <!-- Title and button for editing an agent's name and responsibility -->
     <string name="agents_edit">编辑资料</string>
     <!-- Header action that reads the agents again -->
-    <string name="agents_retry">刷新</string>
     <!-- Button that repeats a failed read -->
     <string name="agents_try_again">重试</string>
     <!-- Shown while an agent action runs -->

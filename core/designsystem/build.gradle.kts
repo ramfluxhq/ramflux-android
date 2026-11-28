@@ -6,4 +6,7 @@ plugins {
     id("ramflux.android.testing")
 }
 
-dependencies { api(libs.collections.immutable) }
+dependencies {
+    api(libs.collections.immutable)
+    implementation(libs.compose.icons)
+}

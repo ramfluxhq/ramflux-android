@@ -39,9 +39,7 @@ fun AgentsScreen(state: AgentsState, onAction: (AgentsAction) -> Unit, modifier:
                     KitPageHeader(
                         title,
                         subtitle = state.account,
-                        onBack = { onAction(AgentsAction.Back) },
-                        actionLabel = stringResource(R.string.agents_retry),
-                        onAction = { if (!state.loading && !state.busy) onAction(AgentsAction.Refresh) }
+                        onBack = { onAction(AgentsAction.Back) }
                     )
                 }
                 LazyColumn(

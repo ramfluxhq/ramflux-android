@@ -3,7 +3,6 @@
     <string name="calls_history">Call history</string>
     <string name="calls_call">Voice call signaling</string>
     <string name="calls_back">Back</string>
-    <string name="calls_refresh">Refresh</string>
     <string name="calls_loading">Reading call signaling…</string>
     <string name="calls_error">Unable to read calls</string>
     <string name="calls_unavailable_title">Unavailable on this device</string>

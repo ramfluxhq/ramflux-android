@@ -197,7 +197,6 @@ private fun ChatHeader(state: ChatState, rooted: Boolean, onAction: (ChatAction)
         },
         onCall = if (showCall && !group) ({ onAction(ChatAction.Call) }) else null,
         onMore = if (state.loaded) onMenu else null,
-        backLabel = stringResource(R.string.ui_back),
         callLabel = stringResource(R.string.chat_call),
         moreLabel = stringResource(R.string.chat_conversation_menu),
         tag = "chat-header",
@@ -215,7 +214,7 @@ private fun EmptyTimeline(state: ChatState, onAction: (ChatAction) -> Unit, modi
             stringResource(R.string.ui_unable_to_continue),
             problem.render(),
             modifier,
-            action = stringResource(R.string.ui_refresh),
+            action = stringResource(R.string.ui_try_again),
             onAction = { onAction(ChatAction.Refresh) }
         )
         state.loading -> KitEmpty(

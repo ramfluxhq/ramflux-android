@@ -13,7 +13,6 @@
     <string name="ui_private_data_is_closed">私有数据已关闭。</string>
     <string name="ui_read_failed_code_value">读取失败（%1$s）。</string>
     <string name="ui_reading_private_data">正在读取私有数据…</string>
-    <string name="ui_refresh">刷新</string>
     <string name="ui_secure_account_access_is_required_on_this_device">需要此设备上的安全账户访问支持。</string>
     <string name="ui_send">发送</string>
     <string name="ui_send_availability_failed_code_value">无法获取发送可用状态（%1$s）。</string>
@@ -283,4 +282,5 @@
     <string name="chat_service_pin_added">已置顶一条消息</string>
     <!-- Centred service line in a group chat: pin removed. -->
     <string name="chat_service_pin_removed">已取消置顶一条消息</string>
+    <string name="ui_try_again">重试</string>
 </resources>

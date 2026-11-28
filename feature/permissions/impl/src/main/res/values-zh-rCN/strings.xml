@@ -3,7 +3,6 @@
     <string name="permissions_title">系统权限</string>
     <string name="permissions_intro">权限状态仅保留在此设备，不会同步或发送至节点。返回应用时会刷新。</string>
     <string name="permissions_back">返回</string>
-    <string name="permissions_refresh">刷新</string>
     <string name="permissions_settings">打开系统设置</string>
     <string name="permissions_cancel">取消</string>
     <string name="permissions_continue">继续</string>
