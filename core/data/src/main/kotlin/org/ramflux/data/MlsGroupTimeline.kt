@@ -89,7 +89,15 @@ data class MlsTimelineWindow(
     val trimmedNewest: Boolean = false,
     /** The log position after which rows are missing (a gap fill starts there). */
     val gapAfter: Long? = null,
+    /**
+     * The generation of this window: bumped by every reset, reload, restart and eviction. A page that was requested for an
+     * older generation is dropped, so it can never leave a hole between itself and the rows that replaced the window.
+     */
+    val gen: Long = 0,
 ) {
+    /** An empty window of the next generation. */
+    fun reset() = MlsTimelineWindow(gen = gen + 1)
+
     val oldest: Long? get() = posts.firstOrNull()?.logSeq
 
     /**
@@ -151,7 +159,7 @@ data class MlsTimelineWindow(
      */
     fun restartAt(row: MlsGroupPost): MlsTimelineWindow {
         val slot = row.logSeq ?: return this
-        return copy(posts = listOf(row), newest = slot, trimmedNewest = false, hasOlder = true, reachedFloor = false, gapAfter = slot)
+        return copy(posts = listOf(row), newest = slot, trimmedNewest = false, hasOlder = true, reachedFloor = false, gapAfter = slot, gen = gen + 1)
     }
 
     /** Applies one event row; held out while newest rows were trimmed. A jump past the newest slot opens a gap. */

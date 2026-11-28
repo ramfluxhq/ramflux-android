@@ -125,6 +125,7 @@ class MlsGroupChatViewModel(
                 readOnly = readOnly,
                 limitedUntil = limited,
                 refreshing = false,
+                trimmed = t.window.trimmedNewest,
                 confirmDelete = local.deleteTarget != null,
                 mention = if (local.mentionOpen) {
                     MentionSheet(
@@ -181,6 +182,7 @@ class MlsGroupChatViewModel(
                 local.value = local.value.copy(selectedId = null)
                 session.discard(target.account, target.group, action.id.removePrefix(MlsGroupChatMapping.LOCAL))
             }
+            ChatAction.JumpToNewest -> target?.let { session.refreshGroup(it.account, it.group) }
             ChatAction.LoadOlder -> target?.let { session.loadOlder(it.account, it.group) }
             ChatAction.Refresh -> target?.let {
                 // A refresh reloads a window that failed to load; the session reloads the newest page of a trimmed one, then pulls from the host (once per 5 s).

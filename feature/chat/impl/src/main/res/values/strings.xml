@@ -333,6 +333,7 @@
     <string name="group_timeline_floor">Earlier messages are not available on this device</string>
     <string name="group_chat_mention">Mention a member</string>
     <string name="group_chat_refresh">Refresh</string>
+    <string name="group_chat_jump_newest">Jump to newest messages</string>
     <string name="group_chat_mention_close">Close</string>
     <string name="group_chat_notice_host_ip">The group\'s server (%1$s) can see your network address. Messages stay end-to-end encrypted.</string>
     <string name="group_chat_host_unknown">the group host</string>

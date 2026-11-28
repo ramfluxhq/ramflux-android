@@ -89,6 +89,14 @@ class MlsGroupSession(
         guard.withLock { data.value = data.value.let { it.copy(purged = it.purged - account) } }
     }
 
+    /**
+     * The non-suspending form for the `onAdmit` listener. It starts undispatched, so it queues on the fair guard in call order:
+     * an admit can never run after a later [clearAccount] of the same account (R2-F1). // W: register as onAdmit(session::admitInOrder)
+     */
+    fun admitInOrder(account: String) {
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { admit(account) }
+    }
+
     /** Follows the `group.event` topic of [account] while a surface needs it. One subscription per account. */
     fun watch(account: String) {
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -477,7 +485,7 @@ class MlsGroupSession(
             val evicted = opened.drop(KEPT_WINDOWS)
             var next = a.copy(opened = opened.take(KEPT_WINDOWS))
             evicted.forEach { id ->
-                next = next.withGroup(id) { it.copy(timeline = it.timeline.copy(window = MlsTimelineWindow(), loaded = false, loading = false)) }
+                next = next.withGroup(id) { it.copy(timeline = it.timeline.copy(window = it.timeline.window.reset(), loaded = false, loading = false)) }
             }
             val t = (a.groups[group] ?: MlsGroupData()).timeline
             if (t.loaded && !t.window.trimmedNewest) {
@@ -485,7 +493,7 @@ class MlsGroupSession(
             } else {
                 // A window that lost its newest rows is reloaded from the newest page when the chat opens again.
                 next.withGroup(group) {
-                    it.copy(timeline = it.timeline.copy(window = if (t.window.trimmedNewest) MlsTimelineWindow() else t.window, loaded = false, loading = true, failure = null))
+                    it.copy(timeline = it.timeline.copy(window = t.window.reset(), loaded = false, loading = true, failure = null))
                 } to true
             }
         } ?: return@launchFor
@@ -497,17 +505,19 @@ class MlsGroupSession(
     /** A reload of the newest page (the "Refresh" action when the window was trimmed or loading failed). */
     fun reloadGroup(account: String, group: String) = launchFor(account) { epoch ->
         update(account, epoch) { a ->
-            a.withGroup(group) { it.copy(timeline = it.timeline.copy(window = MlsTimelineWindow(), loaded = false, loading = true, failure = null)) }
+            a.withGroup(group) { it.copy(timeline = it.timeline.copy(window = it.timeline.window.reset(), loaded = false, loading = true, failure = null)) }
         }
         loadNewest(account, epoch, group)
         refreshNow(account, epoch, group)
     }
 
     private suspend fun loadNewest(account: String, epoch: Long, group: String) {
+        val started = data.value.accounts[account]?.groups?.get(group)?.timeline?.window?.gen
         val result = repository.history(account, group, null, null, PAGE)
         update(account, epoch) { a ->
-            // A group that was evicted while the page was read keeps no window (S14).
+            // A group that was evicted, or a window that was reset again, while the page was read takes no rows (S14).
             if (group !in a.opened) return@update a.withGroup(group) { it.copy(timeline = it.timeline.copy(loading = false)) }
+            if (a.groups[group]?.timeline?.window?.gen != started) return@update a
             a.withGroup(group) { g ->
                 when (result) {
                     is ClientResult.Ready -> ingest(g, result.value.posts).let { rows ->
@@ -526,12 +536,14 @@ class MlsGroupSession(
             val t = (a.groups[group] ?: MlsGroupData()).timeline
             val oldest = t.window.oldest
             if (!t.loaded || t.loadingOlder || !t.window.hasOlder || oldest == null) a to null
-            else a.withGroup(group) { it.copy(timeline = it.timeline.copy(loadingOlder = true)) } to oldest
+            else a.withGroup(group) { it.copy(timeline = it.timeline.copy(loadingOlder = true)) } to (oldest to t.window.gen)
         } ?: return@launchFor
         if (before == null) return@launchFor
-        val result = repository.history(account, group, null, before, PAGE)
+        val result = repository.history(account, group, null, before.first, PAGE)
         update(account, epoch) { a ->
             a.withGroup(group) { g ->
+                // The window was reset, restarted or evicted while the page was read: its rows would leave a hole (R2-M1).
+                if (group !in a.opened || g.timeline.window.gen != before.second) return@withGroup g.copy(timeline = g.timeline.copy(loadingOlder = false))
                 when (result) {
                     is ClientResult.Ready -> ingest(g, result.value.posts).let { rows ->
                         rows.copy(
@@ -549,23 +561,34 @@ class MlsGroupSession(
 
     /** The app returned to the foreground with [group] open: fill the gap and pull from the host. */
     fun onForeground(account: String, group: String) = launchFor(account) { epoch ->
-        fillGap(account, group, force = true)
+        // A trimmed window holds out new posts of others: it shows the newest page again instead of a gap fill (R2-M2).
+        if (!reloadIfTrimmed(account, epoch, group)) fillGap(account, group, force = true)
         refreshNow(account, epoch, group)
     }
 
     /** "Refresh" or pull to refresh: `group.refresh` through the 5 s coalescing. */
     fun refreshGroup(account: String, group: String) = launchFor(account) { epoch ->
+        // A window trimmed at the newest end shows the newest page again, so own and new posts reappear.
+        reloadIfTrimmed(account, epoch, group)
+        refreshNow(account, epoch, group)
+    }
+
+    /**
+     * Reloads the newest page of a window that lost its newest rows (they hold out the posts of others), when [minNewest] is
+     * not above the window's newest row: the newest row of the window is on screen, or the caller does not know (null).
+     * True when the reload ran.
+     */
+    private suspend fun reloadIfTrimmed(account: String, epoch: Long, group: String, minNewest: Long? = null): Boolean {
         val trimmed = txn(account, epoch) { a ->
             val t = (a.groups[group] ?: MlsGroupData()).timeline
-            if (t.window.trimmedNewest) {
-                a.withGroup(group) { it.copy(timeline = it.timeline.copy(window = MlsTimelineWindow(), loaded = false, loading = true, failure = null)) } to true
+            if (group in a.opened && t.window.trimmedNewest && (minNewest == null || minNewest >= t.window.newest)) {
+                a.withGroup(group) { it.copy(timeline = it.timeline.copy(window = it.timeline.window.reset(), loaded = false, loading = true, failure = null)) } to true
             } else {
                 a to false
             }
-        } ?: return@launchFor
-        // A window trimmed at the newest end shows the newest page again, so own and new posts reappear.
+        } ?: return false
         if (trimmed) loadNewest(account, epoch, group)
-        refreshNow(account, epoch, group)
+        return trimmed
     }
 
     private suspend fun refreshNow(account: String, epoch: Long, group: String) {
@@ -580,6 +603,8 @@ class MlsGroupSession(
 
     /** Reading position: [logSeq] is the newest posted row on screen. Moves forward only, one call at a time. */
     fun markRead(account: String, group: String, logSeq: Long) = launchFor(account) { epoch ->
+        // The newest row of a trimmed window is on screen: posts of others were held out below it, so the window reloads (R2-M2).
+        reloadIfTrimmed(account, epoch, group, minNewest = logSeq)
         val go = txn(account, epoch) { a ->
             val g = a.groups[group] ?: MlsGroupData()
             if (logSeq <= g.lastMarkedRead || g.markingRead || g.timeline.readOnly != null) a to false
@@ -606,24 +631,32 @@ class MlsGroupSession(
             when {
                 !t.loaded || t.window.trimmedNewest || (t.window.gapAfter == null && !force) -> a to null
                 g.gapRunning -> a.withGroup(group) { it.copy(gapQueued = true) } to null
-                else -> a.withGroup(group) { it.copy(gapRunning = true, gapQueued = false) } to (t.window.gapAfter ?: t.window.newest)
+                else -> a.withGroup(group) { it.copy(gapRunning = true, gapQueued = false) } to ((t.window.gapAfter ?: t.window.newest) to t.window.gen)
             }
         } ?: return@launchFor
         if (start == null) return@launchFor
-        var after = start
+        val gen = start.second
+        var after = start.first
         var again = false
         try {
             while (true) {
                 val result = repository.history(account, group, after, null, GAP_PAGE)
                 if (result !is ClientResult.Ready) break
                 val rows = result.value
+                var stale = false
                 update(account, epoch) { a ->
                     a.withGroup(group) { g ->
+                        // A reset, restart, eviction or trim since the fill began: the page would leave a hole (R2-M1, R2-F3).
+                        if (group !in a.opened || g.timeline.window.gen != gen || g.timeline.window.trimmedNewest) {
+                            stale = true
+                            return@withGroup g
+                        }
                         val ingested = ingest(g, rows.posts)
                         val window = ingested.timeline.window.copy(gapAfter = if (rows.more) ingested.timeline.window.gapAfter else null)
                         ingested.copy(timeline = ingested.timeline.copy(window = window))
                     }
                 }
+                if (stale) break
                 val last = rows.posts.mapNotNull { it.logSeq }.maxOrNull()
                 if (!rows.more || last == null || last <= after) break
                 after = last
@@ -898,7 +931,11 @@ class MlsGroupSession(
         joined?.let { loadInfo(account, it) }
         if (resync) {
             loadGroups(account)
-            data.value.accounts[account]?.groups?.forEach { (id, g) -> if (g.timeline.loaded) fillGap(account, id, force = true) }
+            data.value.accounts[account]?.groups?.forEach { (id, g) ->
+                if (g.timeline.loaded && id in (data.value.accounts[account]?.opened ?: emptyList())) {
+                    if (g.timeline.window.trimmedNewest) launchFor(account) { e -> reloadIfTrimmed(account, e, id) } else fillGap(account, id, force = true)
+                }
+            }
         }
         if (group != null && data.value.accounts[account]?.groups?.get(group)?.timeline?.window?.gapAfter != null) fillGap(account, group)
         group?.let { armLimitTimer(account, epoch, it) }

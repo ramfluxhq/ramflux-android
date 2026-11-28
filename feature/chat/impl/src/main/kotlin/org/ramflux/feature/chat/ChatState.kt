@@ -203,6 +203,8 @@ enum class GroupReadOnly { LEFT, REMOVED, BANNED }
     /** The composer is off until this unix-ms time (a daily limit). */
     val limitedUntil: Long? = null,
     val refreshing: Boolean = false,
+    /** The window lost its newest rows: posts of others are held out until it reloads, so the chat offers a jump to the newest. */
+    val trimmed: Boolean = false,
     val confirmDelete: Boolean = false,
     val mention: MentionSheet? = null,
     val notice: GroupDelivery? = null
