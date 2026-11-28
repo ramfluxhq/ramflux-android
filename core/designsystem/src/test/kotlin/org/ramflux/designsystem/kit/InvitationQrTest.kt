@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (c) 2026 Span Brain
 
-package org.ramflux.feature.settings
+package org.ramflux.designsystem.kit
 
 import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.decoder.Decoder

@@ -34,6 +34,7 @@ import org.ramflux.data.ClientResult
 import org.ramflux.data.ClientSessionRepository
 import org.ramflux.data.ContactDirectoryRepository
 import org.ramflux.designsystem.LocalRFTheme
+import org.ramflux.designsystem.kit.InvitationQr
 import org.ramflux.designsystem.kit.KitButton
 import org.ramflux.designsystem.kit.KitButtonKind
 import org.ramflux.designsystem.kit.KitMeta

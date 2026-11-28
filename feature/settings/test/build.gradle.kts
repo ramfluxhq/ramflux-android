@@ -7,5 +7,4 @@ dependencies {
     testImplementation(project(":core:data"))
     testImplementation(project(":core:designsystem"))
     testImplementation(libs.collections.immutable)
-    testImplementation(libs.zxing.core)
 }

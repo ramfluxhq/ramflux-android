@@ -6,4 +6,8 @@ plugins {
     id("ramflux.android.testing")
 }
 
-dependencies { api(libs.collections.immutable) }
+dependencies {
+    api(libs.collections.immutable)
+    // The erasable QR encoder (InvitationQr) builds the symbol from a char array that is wiped after use.
+    implementation(libs.zxing.core)
+}
