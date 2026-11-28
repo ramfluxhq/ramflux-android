@@ -6,6 +6,7 @@ package org.ramflux.designsystem
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.runtime.Composable
@@ -27,11 +28,15 @@ import java.util.WeakHashMap
 
 /**
  * True while the app-lock cover is up (the lock is on or its state is unread). Windows and menus are not shown then,
- * and an open window is dismissed through its own dismiss callback, so none reopens when the cover goes.
+ * and an open window is closed through its own callback, so none reopens when the cover goes: every window is composed
+ * through [AppLockGatedWindow] (see AppLockWindows.kt), which `scripts/check-app-lock-windows.py` enforces.
  */
 val LocalAppLockCovered = staticCompositionLocalOf { false }
 
-/** True inside the cover's own surface: native views composed there may hold focus while the shell is covered. */
+/**
+ * True inside the cover's own surface: native views composed there may hold focus while the shell is covered, and windows
+ * composed there stay shown. Only the cover provides it (`scripts/check-app-lock-windows.py`).
+ */
 val LocalInAppLockCover = compositionLocalOf { false }
 
 /**
@@ -127,8 +132,10 @@ private fun View.isBelow(root: View): Boolean {
  * While [covered], native views (`AndroidView`) of the shell cannot keep focus, and the keyboard cannot reach them.
  * Compose focus is blocked by [focusBlockedWhileCovered]; this closes the View-system routes:
  * - Any focus that lands on a view of this window that is not part of the cover (marked with [markAsAppLockCoverView])
- *   is moved at once, in the focus-change callback, to the Compose host and then to the cover's [AppLockCoverFocus],
- *   and the keyboard is hidden, so no input connection stays open to a shell view. The focus-change listener sees every
+ *   is moved at once, in the focus-change callback, to the cover's [AppLockCoverFocus] anchor (to the Compose host first
+ *   when the cover is not composed yet), and the keyboard is hidden through the window token, a keyboard a native view
+ *   raised included, so no input connection stays open to a shell view. The keyboard is also hidden when the cover rises.
+ *   This guard covers the activity window only; other windows follow [AppLockGatedWindow]. The focus-change listener sees every
  *   View-system route (`View.requestFocus()`, a view's own auto-focus), which is why it is used instead of making the
  *   host view non-focusable: the cover's own code field is a native view in the same window, so blocking the whole host
  *   would block the cover too.
@@ -146,15 +153,27 @@ fun AppLockFocusGuard(covered: Boolean) {
         if (!covered) return@DisposableEffect onDispose { }
         val root = host.rootView
         val blocker = NativeShellBlocker(host)
+        val imm = host.context.getSystemService(InputMethodManager::class.java)
+        fun hideKeyboard() {
+            // Compose's controller reaches only Compose's own input session; a keyboard a native view raised is hidden
+            // through the window token.
+            keyboard?.hide()
+            imm?.hideSoftInputFromWindow(host.windowToken, 0)
+        }
         var evicting = false
         fun evict(view: View) {
             if (evicting || view === host || !view.isBelow(host) || view.inCover()) return
             evicting = true
             try {
-                if (!host.requestFocus()) view.clearFocus()
-                focus.clearFocus(force = true)
-                keyboard?.hide()
-                cover?.take()
+                // The anchor first, so focus does not end on the cover's code field (a text editor can raise the
+                // keyboard when the window regains focus). Only when the anchor cannot take it (the cover is not composed
+                // yet) does the host take focus, to be moved to the anchor once the cover composes.
+                if (cover?.take() != true || view.hasFocus()) {
+                    if (!host.requestFocus()) view.clearFocus()
+                    focus.clearFocus(force = true)
+                    cover?.take()
+                }
+                hideKeyboard()
             } finally {
                 evicting = false
             }
@@ -165,6 +184,7 @@ fun AppLockFocusGuard(covered: Boolean) {
         root.viewTreeObserver.addOnGlobalLayoutListener(layoutListener)
         blocker.sweep()
         root.findFocus()?.let(::evict)
+        hideKeyboard()
         onDispose {
             root.viewTreeObserver.removeOnGlobalFocusChangeListener(focusListener)
             root.viewTreeObserver.removeOnGlobalLayoutListener(layoutListener)
