@@ -2010,6 +2010,12 @@ class RealRunFlowTest {
             // Phase 2: A is open; turn A's app lock on (Immediately).
             appLockOnForThrowaway()
             notes += "P4: A's app lock on, Immediately"
+            // Leave Settings so a return restores A's shell rather than the app-lock page.
+            for (step in 0 until 6) {
+                if (ui.find("shell-tabs", 1_500) != null) break
+                ui.device.pressBack()
+            }
+            ui.need("shell-tabs", Ui.SHORT, "A's shell before P5")
             // P5: background and return on A raises the cover; A's code opens A.
             relaunch()
             lockForm()
