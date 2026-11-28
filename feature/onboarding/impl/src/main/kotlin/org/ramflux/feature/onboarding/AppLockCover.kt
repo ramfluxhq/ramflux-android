@@ -273,10 +273,12 @@ class AppLockViewModel @Inject constructor(
     fun unlock(code: ErasableBuffer) {
         val digits = code.snapshot()
         code.clear()
-        clientDebugEvent(
-            "app_lock.unlock:busy=${local.value.busy},wait=${local.value.waitSecs},exhausted=${local.value.exhausted}," +
-                "complete=${AccountCode.complete(digits)}"
-        )
+        // Debug trace only (a no-op in release): flags and the digit check, never the code.
+        val busy = local.value.busy
+        val wait = local.value.waitSecs
+        val exhausted = local.value.exhausted
+        val complete = AccountCode.complete(digits)
+        clientDebugEvent("app_lock.unlock:busy.$busy.wait.$wait.exhausted.$exhausted.complete.$complete")
         if (local.value.busy || local.value.waitSecs > 0L || local.value.exhausted) {
             digits.fill('\u0000')
             return
@@ -325,8 +327,9 @@ class AppLockViewModel @Inject constructor(
      * is read from core's state, so the wait is what core holds, and any other failure says so without a guess.
      */
     private suspend fun failed(account: String, problem: ClientProblem) {
-        clientDebugEvent("app_lock.unlock.failed:${problem.accountCodeRefusal()}")
-        when (problem.accountCodeRefusal()) {
+        val refusal = problem.accountCodeRefusal()
+        clientDebugEvent("app_lock.unlock.failed:$refusal")
+        when (refusal) {
             AccountCodeRefusal.WRONG_CODE -> {
                 local.update { it.copy(notice = codeText(AccountCodeRefusal.WRONG_CODE, null)) }
                 readThrottle(account)
@@ -335,7 +338,7 @@ class AppLockViewModel @Inject constructor(
             AccountCodeRefusal.ATTEMPTS_EXHAUSTED -> local.update { it.copy(exhausted = true, notice = null) }
             else -> local.update {
                 it.copy(
-                    notice = problem.accountCodeRefusal()?.let { refusal -> codeText(refusal, problem.retryAfterSecs) }
+                    notice = refusal?.let { kind -> codeText(kind, problem.retryAfterSecs) }
                         ?: uiText(R.string.app_lock_unlock_failed)
                 )
             }
@@ -345,7 +348,9 @@ class AppLockViewModel @Inject constructor(
     /** Reads the state core holds now (exhausted or a throttle) and counts a wait down; the field stays disabled until it ends. */
     private suspend fun readThrottle(account: String) {
         val status = (security.appLockState(account) as? ClientResult.Ready)?.value
-        clientDebugEvent("app_lock.throttle:exhausted=${status?.codeAttemptsExhausted},wait=${status?.codeRetryAfterSecs}")
+        val exhausted = status?.codeAttemptsExhausted
+        val wait = status?.codeRetryAfterSecs
+        clientDebugEvent("app_lock.throttle:exhausted.$exhausted.wait.$wait")
         status ?: return
         if (status.codeAttemptsExhausted) {
             waitJob?.cancel()
